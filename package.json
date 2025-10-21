@@ -21,9 +21,35 @@
   },
   "license": "MIT",
   "author": "Samuel Marks <807580+SamuelMarks@users.noreply.github.com>",
-  "type": "commonjs",
-  "main": "index.js",
+  "type": "module",
+  "bin": {
+    "oag": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src/service/templates"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "rolldown -c rolldown.config.js",
+    "prepublishOnly": "npm run build",
+    "start": "node dist/cli.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "js-yaml": "^4.1.0",
+    "ts-morph": "^22.0.0"
+  },
+  "devDependencies": {
+    "@rolldown/cli": "^0.6.3",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^20.12.12",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

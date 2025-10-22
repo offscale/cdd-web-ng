@@ -46,13 +46,16 @@ export interface SwaggerDefinition {
     description?: string;
     default?: unknown;
     maximum?: number;
+    exclusiveMaximum?: boolean; // Added for advanced validation
     minimum?: number;
+    exclusiveMinimum?: boolean; // Added for advanced validation
     maxLength?: number;
     minLength?: number;
     pattern?: string;
     maxItems?: number;
     minItems?: number;
     uniqueItems?: boolean;
+    multipleOf?: number; // Added for advanced validation
     enum?: (string | number)[];
     items?: SwaggerDefinition | SwaggerDefinition[];
     $ref?: string;
@@ -67,6 +70,14 @@ export interface SwaggerDefinition {
     required?: string[];
 }
 
+export interface SecurityScheme {
+    type: 'apiKey' | 'http' | 'oauth2' | 'openIdConnect';
+    in?: 'header' | 'query' | 'cookie';
+    name?: string;
+    scheme?: 'bearer' | string;
+    flows?: Record<string, unknown>;
+}
+
 export interface SwaggerSpec {
     openapi?: string;
     swagger?: string;
@@ -75,9 +86,9 @@ export interface SwaggerSpec {
     definitions?: { [definitionsName: string]: SwaggerDefinition };
     components?: {
         schemas?: Record<string, SwaggerDefinition>;
-        securitySchemes?: Record<string, unknown>;
+        securitySchemes?: Record<string, SecurityScheme>;
     };
-    securityDefinitions?: { [securityDefinitionName: string]: Security };
+    securityDefinitions?: { [securityDefinitionName: string]: SecurityScheme };
 }
 
 // --- From config.types.ts ---
@@ -86,6 +97,7 @@ export interface GeneratorConfigOptions {
     dateType: "string" | "Date";
     enumStyle: "enum" | "union";
     generateServices?: boolean;
+    admin?: boolean; // Added admin option type
     customHeaders?: Record<string, string>;
     customizeMethodName?: (operationId: string) => string;
 }
@@ -102,4 +114,28 @@ export interface GeneratorConfig {
         module?: ModuleKind;
         strict?: boolean;
     };
+}
+
+// --- For Admin UI Generation ---
+
+export interface ResourceOperation {
+    action: 'list' | 'create' | 'getById' | 'update' | 'delete' | string; // action can be a standard CRUD or a custom one (from operationId)
+    path: string;
+    method: string;
+    operationId?: string;
+}
+
+export interface Resource {
+    name: string; // e.g., 'users'
+    modelName: string; // e.g., 'User'
+    operations: ResourceOperation[];
+    isEditable: boolean; // Has any of POST, PUT, DELETE, PATCH
+    formProperties: FormProperty[]; // Properties processed for form generation
+}
+
+export interface FormProperty {
+    name: string;
+    schema: SwaggerDefinition;
+    // Add more processed info here if needed for templates
+    // e.g., controlType, validators, etc.
 }

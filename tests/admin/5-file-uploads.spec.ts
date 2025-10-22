@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { Project, IndentationText, SourceFile, ClassDeclaration } from 'ts-morph';
+import { Project, IndentationText, SourceFile, ClassDeclaration, ScriptTarget, ModuleKind } from 'ts-morph';
 import { generateFromConfig } from '../../src/index.js';
 import { GeneratorConfig } from '../../src/core/types.js';
 import { fileUploadsSpec } from './specs/test.specs.js';

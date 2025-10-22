@@ -60,7 +60,7 @@ describe('Unit: discoverAdminResources', () => {
     it('should identify a resource as editable if it has a POST/PUT operation', () => {
         const parser = createParser(fullE2ESpec);
         const resources = discoverAdminResources(parser);
-        const userResource = resources.find(r => r.name === 'user');
+        const userResource = resources.find(r => r.name === 'users');
 
         expect(userResource).toBeDefined();
         expect(userResource!.isEditable).toBe(true);
@@ -72,7 +72,8 @@ describe('Unit: discoverAdminResources', () => {
      */
     it('should correctly categorize collection-level and item-level actions', () => {
         const parser = createParser(fullE2ESpec);
-        const userResource = resources.find(r => r.name === 'user');
+        const resources = discoverAdminResources(parser);
+        const userResource = resources.find(r => r.name === 'users');
 
         expect(userResource).toBeDefined();
 
@@ -92,7 +93,7 @@ describe('Unit: discoverAdminResources', () => {
     it('should create a resource shell for create-only resources', () => {
         const parser = createParser(bookStoreSpec);
         const resources = discoverAdminResources(parser);
-        const publisherResource = resources.find(r => r.name === 'publisher');
+        const publisherResource = resources.find(r => r.name === 'publishers');
 
         expect(publisherResource).toBeDefined();
         expect(publisherResource!.isEditable).toBe(true);

@@ -11,7 +11,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { Project } from 'ts-morph';
-import { GeneratorConfig, SwaggerDefinition, SwaggerSpec } from './types.js';
+import { GeneratorConfig, SwaggerDefinition, SwaggerSpec, SecurityScheme } from './types.js';
 import { isUrl } from './utils.js';
 
 /**
@@ -105,8 +105,8 @@ export class SwaggerParser {
      * It checks for `securityDefinitions` (Swagger 2.0) and `components.securitySchemes` (OpenAPI 3.x).
      * @returns A record of all available security schemes.
      */
-    getSecuritySchemes(): Record<string, unknown> {
-        return this.spec.components?.securitySchemes || this.spec.securityDefinitions || {};
+    getSecuritySchemes(): Record<string, SecurityScheme> {
+        return (this.spec.components?.securitySchemes || this.spec.securityDefinitions || {}) as Record<string, SecurityScheme>;
     }
 
     /**

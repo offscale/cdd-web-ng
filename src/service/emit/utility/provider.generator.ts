@@ -1,54 +1,46 @@
 import { Project, SourceFile } from 'ts-morph';
 import * as path from 'path';
-import { GeneratorConfig, SecurityScheme, SwaggerParser } from '../../../core/types.js';
+import { GeneratorConfig, SwaggerParser } from '../../../core/types.js';
 import { getBasePathTokenName, getInterceptorsTokenName, pascalCase } from '../../../core/utils.js';
 import { PROVIDER_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
-import { AuthHelperGenerator } from './auth-helper.generator.js';
-
-// A stricter type for the OAuth flow object to ensure properties exist before access.
-interface OAuthFlow {
-    authorizationUrl?: string;
-    tokenUrl?: string;
-    scopes?: Record<string, string>;
-}
 
 /**
- * Generates the `providers.ts` file, which contains functions to bootstrap the API client
- * within an Angular application's environment providers.
+ * Generates the `providers.ts` file.
  */
 export class ProviderGenerator {
-    private clientName: string;
-    private capitalizedClientName: string;
+    private readonly clientName: string;
+    private readonly capitalizedClientName: string;
+    private readonly config: GeneratorConfig;
+    private readonly hasApiKey: boolean;
+    private readonly hasBearer: boolean;
 
-    constructor(private project: Project, private config: GeneratorConfig, private parser: SwaggerParser) {
-        this.clientName = config.clientName || 'default';
+    constructor(private parser: SwaggerParser, private project: Project, private tokenNames: string[] = []) {
+        this.config = parser.config;
+        this.clientName = this.config.clientName || 'default';
         this.capitalizedClientName = pascalCase(this.clientName);
+        // Correctly determine which auth types are present based on the input
+        this.hasApiKey = this.tokenNames.includes('apiKey');
+        this.hasBearer = this.tokenNames.includes('bearerToken');
     }
 
     public generate(outputDir: string): void {
+        if (!this.config.options.generateServices) {
+            return;
+        }
+
         const filePath = path.join(outputDir, "providers.ts");
         const sourceFile = this.project.createSourceFile(filePath, "", { overwrite: true });
 
         sourceFile.insertText(0, PROVIDER_GENERATOR_HEADER_COMMENT);
 
-        const securitySchemes = Object.values(this.parser.getSecuritySchemes());
-        const
-            hasSecurity = securitySchemes.length > 0;
-        const hasApiKey = hasSecurity && securitySchemes.some(s => s.type === 'apiKey');
-        const hasBearer = hasSecurity && securitySchemes.some(s => (s.type === 'http' && s.scheme === 'bearer') || s.type === 'oauth2');
-        const oauthScheme = hasSecurity ? securitySchemes.find((s): s is SecurityScheme & { type: 'oauth2'; flows: Record<string, OAuthFlow> } => s.type === 'oauth2') : undefined;
+        const hasSecurity = this.hasApiKey || this.hasBearer;
 
-        this.addImports(sourceFile, hasSecurity, hasApiKey, hasBearer, !!oauthScheme);
-        this.addConfigInterface(sourceFile, hasApiKey, hasBearer, !!oauthScheme);
-        this.addMainProviderFunction(sourceFile, hasSecurity, hasApiKey, hasBearer, !!oauthScheme);
-
-        if (oauthScheme) {
-            new AuthHelperGenerator(this.project).generate(outputDir);
-            this.addOAuthProviderFunction(sourceFile, oauthScheme);
-        }
+        this.addImports(sourceFile, hasSecurity);
+        this.addConfigInterface(sourceFile);
+        this.addMainProviderFunction(sourceFile, hasSecurity);
     }
 
-    private addImports(sourceFile: SourceFile, hasSecurity: boolean, hasApiKey: boolean, hasBearer: boolean, hasOAuth: boolean): void {
+    private addImports(sourceFile: SourceFile, hasSecurity: boolean): void {
         sourceFile.addImportDeclarations([
             { namedImports: ["EnvironmentProviders", "Provider", "makeEnvironmentProviders"], moduleSpecifier: "@angular/core" },
             { namedImports: ["HTTP_INTERCEPTORS", "HttpInterceptor"], moduleSpecifier: "@angular/common/http" },
@@ -60,25 +52,18 @@ export class ProviderGenerator {
             sourceFile.addImportDeclaration({ namedImports: ["DateInterceptor"], moduleSpecifier: "./utils/date-transformer" });
         }
 
-        if (hasSecurity && !hasOAuth) {
+        if (hasSecurity) {
             sourceFile.addImportDeclaration({ namedImports: ["AuthInterceptor"], moduleSpecifier: "./auth/auth.interceptor" });
-            if (hasApiKey) sourceFile.addImportDeclaration({ namedImports: ["API_KEY_TOKEN"], moduleSpecifier: "./auth/auth.tokens" });
-            if (hasBearer) sourceFile.addImportDeclaration({ namedImports: ["BEARER_TOKEN_TOKEN"], moduleSpecifier: "./auth/auth.tokens" });
-        }
-
-        if (hasOAuth) {
-            sourceFile.addImportDeclarations([
-                { namedImports: ["provideHttpClient", "withInterceptorsFromDi"], moduleSpecifier: "@angular/common/http" },
-                { namedImports: ["AuthConfig", "OAuthService"], moduleSpecifier: "angular-oauth2-oidc" },
-                { namedImports: ["AuthHelperService"], moduleSpecifier: "./auth/auth-helper.service" },
-                { namedImports: ["APP_INITIALIZER", "forwardRef"], moduleSpecifier: "@angular/core" },
-                { namedImports: ["AuthInterceptor"], moduleSpecifier: "./auth/auth.interceptor" },
-                { namedImports: ["BEARER_TOKEN_TOKEN"], moduleSpecifier: "./auth/auth.tokens" },
-            ]);
+            const tokenImports: string[] = [];
+            if (this.hasApiKey) tokenImports.push("API_KEY_TOKEN");
+            if (this.hasBearer) tokenImports.push("BEARER_TOKEN_TOKEN");
+            if (tokenImports.length > 0) {
+                sourceFile.addImportDeclaration({ namedImports: tokenImports, moduleSpecifier: "./auth/auth.tokens" });
+            }
         }
     }
 
-    private addConfigInterface(sourceFile: SourceFile, hasApiKey: boolean, hasBearer: boolean, hasOAuth: boolean): void {
+    private addConfigInterface(sourceFile: SourceFile): void {
         const configInterface = sourceFile.addInterface({
             name: `${this.capitalizedClientName}Config`,
             isExported: true,
@@ -89,15 +74,15 @@ export class ProviderGenerator {
             ],
             docs: [`Configuration for the ${this.capitalizedClientName} API client.`]
         });
-        if (hasApiKey) {
+        if (this.hasApiKey) {
             configInterface.addProperty({ name: "apiKey", type: "string", hasQuestionToken: true, docs: ["The API key to be used for authentication."] });
         }
-        if (hasBearer && !hasOAuth) {
+        if (this.hasBearer) {
             configInterface.addProperty({ name: "bearerToken", type: "string | (() => string)", hasQuestionToken: true, docs: ["The Bearer token or a function returning the token for authentication."] });
         }
     }
 
-    private addMainProviderFunction(sourceFile: SourceFile, hasSecurity: boolean, hasApiKey: boolean, hasBearer: boolean, hasOAuth: boolean): void {
+    private addMainProviderFunction(sourceFile: SourceFile, hasSecurity: boolean): void {
         let securityProviders = '';
         if (hasSecurity) {
             securityProviders += `
@@ -108,7 +93,7 @@ export class ProviderGenerator {
         multi: true
     });
 `;
-            if (hasApiKey) {
+            if (this.hasApiKey) {
                 securityProviders += `
     // Provide the API key via the API_KEY_TOKEN if it's configured.
     if (config.apiKey) {
@@ -116,17 +101,7 @@ export class ProviderGenerator {
     }
 `;
             }
-
-            if (hasBearer && hasOAuth) {
-                securityProviders += `
-    // When using OAuth, the bearer token is provided by the AuthHelperService.
-    providers.push({
-        provide: BEARER_TOKEN_TOKEN,
-        useFactory: (authHelper: AuthHelperService) => authHelper.getAccessToken.bind(authHelper),
-        deps: [forwardRef(() => AuthHelperService)]
-    });
-`;
-            } else if (hasBearer) {
+            if (this.hasBearer) {
                 securityProviders += `
     // Provide the bearer token via the BEARER_TOKEN_TOKEN if it's configured.
     if (config.bearerToken) {
@@ -166,67 +141,6 @@ providers.push({
 });
 
 return makeEnvironmentProviders(providers);`
-        });
-    }
-
-    private addOAuthProviderFunction(sourceFile: SourceFile, oauthScheme: SecurityScheme & { type: 'oauth2'; flows?: Record<string, OAuthFlow> }): void {
-        const configTypeName = `${this.capitalizedClientName}ClientOAuthConfig`;
-        const flow = oauthScheme.flows?.authorizationCode || oauthScheme.flows?.implicit || Object.values(oauthScheme.flows ?? {})[0];
-
-        if (!flow) {
-            console.warn(`[Generator] Skipping OAuth provider generation for ${this.clientName}: No recognizable flow (authorizationCode or implicit) was found.`);
-            return;
-        }
-
-        const scopes = flow.scopes ? Object.keys(flow.scopes).join(' ') : '';
-        const issuer = flow.authorizationUrl ? `'${new URL(flow.authorizationUrl).origin}'` : `'' // TODO: Add the OAuth issuer URL`;
-
-        sourceFile.addInterface({
-            name: configTypeName,
-            isExported: true,
-            properties: [
-                { name: "clientId", type: "string" },
-                { name: "redirectUri", type: "string" },
-                { name: "authConfig", type: "Partial<AuthConfig>", hasQuestionToken: true, docs: ["Optional additional or override configuration for the `angular-oauth2-oidc` library."] }
-            ],
-            docs: [`Configuration for the ${this.capitalizedClientName} client when using OAuth2/OIDC authentication.`]
-        });
-
-        sourceFile.addFunction({
-            name: `provide${this.capitalizedClientName}ClientWithOAuth`,
-            isExported: true,
-            parameters: [{ name: "config", type: configTypeName }],
-            returnType: "EnvironmentProviders",
-            docs: [
-                `Provides the necessary services for OAuth2/OIDC authentication using the 'angular-oauth2-oidc' library,`,
-                `pre-configured with settings from the OpenAPI specification.`
-            ],
-            statements: `
-const defaultConfig: AuthConfig = {
-    issuer: ${issuer},
-    tokenEndpoint: ${flow.tokenUrl ? `'${flow.tokenUrl}'` : 'undefined /* TODO: Add token endpoint URL if not in spec */'},
-    redirectUri: config.redirectUri,
-    clientId: config.clientId,
-    responseType: 'code', // Standard for modern OAuth2 flows
-    scope: '${scopes}',
-    showDebugInformation: false, // Set to true for debugging OAuth flow
-};
-
-const authConfig: AuthConfig = { ...defaultConfig, ...config.authConfig };
-
-return makeEnvironmentProviders([
-    // Required for the oidc library's internal http calls
-    provideHttpClient(withInterceptorsFromDi()),
-    { provide: AuthConfig, useValue: authConfig },
-    OAuthService,
-    AuthHelperService,
-    {
-        provide: APP_INITIALIZER,
-        useFactory: (authHelper: AuthHelperService) => () => authHelper.configure(),
-        deps: [AuthHelperService],
-        multi: true
-    }
-]);`
         });
     }
 }

@@ -1,21 +1,18 @@
 import * as path from 'path';
 import { Project } from 'ts-morph';
 import { SwaggerParser } from '../../../core/parser.js';
-import { SecurityScheme } from '../../../core/types.js';
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
 
 /**
- * Generates the `auth.interceptor.ts` file. This interceptor automatically attaches
- * API keys or bearer tokens to requests based on the security schemes defined
- * in the OpenAPI specification.
+ * Generates the auth.interceptor.ts file.
  */
 export class AuthInterceptorGenerator {
     constructor(private parser: SwaggerParser, private project: Project) { }
 
-    public generate(outputDir: string): void {
+    public generate(outputDir: string): { tokenNames: string[] } | void {
         const securitySchemes = Object.values(this.parser.getSecuritySchemes());
         if (securitySchemes.length === 0) {
-            return; // No security schemes, no interceptor needed.
+            return;
         }
 
         const authDir = path.join(outputDir, 'auth');
@@ -24,12 +21,21 @@ export class AuthInterceptorGenerator {
 
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
+        // Correctly determine which token types are needed
         const hasApiKey = securitySchemes.some(s => s.type === 'apiKey');
         const hasBearer = securitySchemes.some(s => (s.type === 'http' && s.scheme === 'bearer') || s.type === 'oauth2');
 
-        const tokenImports = [];
-        if (hasApiKey) tokenImports.push('API_KEY_TOKEN');
-        if (hasBearer) tokenImports.push('BEARER_TOKEN_TOKEN');
+        const tokenImports : string[] = [];
+        const tokenNames: string[] = []; // This will be the return value
+
+        if (hasApiKey) {
+            tokenImports.push('API_KEY_TOKEN');
+            tokenNames.push('apiKey');
+        }
+        if (hasBearer) {
+            tokenImports.push('BEARER_TOKEN_TOKEN');
+            tokenNames.push('bearerToken');
+        }
 
         sourceFile.addImportDeclarations([
             { moduleSpecifier: '@angular/common/http', namedImports: ['HttpEvent', 'HttpHandler', 'HttpInterceptor', 'HttpRequest'] },
@@ -46,45 +52,37 @@ export class AuthInterceptorGenerator {
             docs: ["Intercepts HTTP requests to apply authentication credentials based on OpenAPI security schemes."]
         });
 
-        // Inject tokens only if they are needed
         if (hasApiKey) {
-            interceptorClass.addProperty({
-                name: 'apiKey', isReadonly: true, scope: 'private',
-                initializer: `inject(API_KEY_TOKEN, { optional: true })`
-            });
+            interceptorClass.addProperty({ name: 'apiKey', isReadonly: true, scope: 'private', type: 'string | null', initializer: `inject(API_KEY_TOKEN, { optional: true })` });
         }
         if (hasBearer) {
-            interceptorClass.addProperty({
-                name: 'bearerToken', isReadonly: true, scope: 'private',
-                initializer: `inject(BEARER_TOKEN_TOKEN, { optional: true })`
-            });
+            interceptorClass.addProperty({ name: 'bearerToken', isReadonly: true, scope: 'private', type: '(string | (() => string)) | null', initializer: `inject(BEARER_TOKEN_TOKEN, { optional: true })` });
         }
 
         const securityLogicBlocks: string[] = [];
+        const generatedLogicSignatures = new Set<string>();
 
         for (const scheme of securitySchemes) {
-            if (scheme.type === 'apiKey' && scheme.in === 'header' && scheme.name) {
-                securityLogicBlocks.push(`if (this.apiKey) {
-    authReq = req.clone({ setHeaders: { '${scheme.name}': this.apiKey } });
-}`);
-            } else if (scheme.type === 'apiKey' && scheme.in === 'query' && scheme.name) {
-                securityLogicBlocks.push(`if (this.apiKey) {
-    authReq = req.clone({ setParams: { '${scheme.name}': this.apiKey } });
-}`);
+            if (scheme.type === 'apiKey') {
+                const signature = `apiKey:${scheme.in}:${scheme.name}`;
+                if (!generatedLogicSignatures.has(signature)) {
+                    if(scheme.in === 'header') {
+                        securityLogicBlocks.push(`if (this.apiKey) { authReq = req.clone({ setHeaders: { '${scheme.name}': this.apiKey } }); }`);
+                    } else if(scheme.in === 'query') {
+                        securityLogicBlocks.push(`if (this.apiKey) { authReq = req.clone({ setParams: { '${scheme.name}': this.apiKey } }); }`);
+                    }
+                    generatedLogicSignatures.add(signature);
+                }
             } else if ((scheme.type === 'http' && scheme.scheme === 'bearer') || scheme.type === 'oauth2') {
-                // This block handles both standard Bearer tokens and OAuth2 access tokens,
-                // as both use the 'Authorization: Bearer <token>' header.
-                securityLogicBlocks.push(`if (this.bearerToken) {
-    const token = typeof this.bearerToken === 'function' ? this.bearerToken() : this.bearerToken;
-    if (token) {
-        authReq = req.clone({ setHeaders: { 'Authorization': \`Bearer \${token}\` } });
-    }
-}`);
+                const signature = 'bearer';
+                if (!generatedLogicSignatures.has(signature)) {
+                    securityLogicBlocks.push(`if (this.bearerToken) { const token = typeof this.bearerToken === 'function' ? this.bearerToken() : this.bearerToken; if (token) { authReq = req.clone({ setHeaders: { 'Authorization': \`Bearer \${token}\` } }); } }`);
+                    generatedLogicSignatures.add(signature);
+                }
             }
         }
 
-        // Join the logic blocks with `else if` to handle schemas where you only apply one auth method at a time.
-        const chainedSecurityLogic = securityLogicBlocks.filter((v, i, a) => a.indexOf(v) === i).join(' else ');
+        const chainedSecurityLogic = securityLogicBlocks.join(' else ');
 
         interceptorClass.addMethod({
             name: 'intercept',
@@ -93,14 +91,11 @@ export class AuthInterceptorGenerator {
                 { name: 'next', type: 'HttpHandler' },
             ],
             returnType: 'Observable<HttpEvent<unknown>>',
-            statements: `
-let authReq = req;
-
-${chainedSecurityLogic}
-
-return next.handle(authReq);`,
+            statements: `let authReq = req;\n${chainedSecurityLogic}\nreturn next.handle(authReq);`,
         });
 
         sourceFile.formatText();
+        // This is the value a consumer (ProviderGenerator) will use.
+        return { tokenNames };
     }
 }

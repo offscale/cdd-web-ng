@@ -1,5 +1,5 @@
 import { Project } from 'ts-morph';
-import * as path from 'path';
+import { posix as path } from 'path';
 import { groupPathsByController } from '../parse.js';
 import { SwaggerParser } from '../../core/parser.js';
 import { GeneratorConfig } from '../../core/types.js';
@@ -10,8 +10,9 @@ import { TokenGenerator } from './utility/token.generator.js';
 import { HttpParamsBuilderGenerator } from './utility/http-params-builder.generator.js';
 import { FileDownloadGenerator } from './utility/file-download.generator.js';
 import { DateTransformerGenerator } from './utility/date-transformer.generator.js';
-import { AuthTokensGenerator } from './utility/auth-tokens.generator.js'; // This import was missing
+import { AuthTokensGenerator } from './utility/auth-tokens.generator.js';
 import { AuthInterceptorGenerator } from './utility/auth-interceptor.generator.js';
+import { OAuthHelperGenerator } from './utility/oauth-helper.generator.js';
 import { BaseInterceptorGenerator } from './utility/base-interceptor.generator.js';
 import { ProviderGenerator } from './utility/provider.generator.js';
 import { MainIndexGenerator, ServiceIndexGenerator } from './utility/index.generator.js';
@@ -45,21 +46,23 @@ export async function emitClientLibrary(outputRoot: string, parser: SwaggerParse
         }
 
         const securitySchemes = parser.getSecuritySchemes();
-        let interceptorResult; // <-- a variable to hold the result
+        let tokenNames: string[] = [];
         if (Object.keys(securitySchemes).length > 0) {
             new AuthTokensGenerator(project).generate(outputRoot);
 
-            // --- FIX: Capture the result ---
             const interceptorGenerator = new AuthInterceptorGenerator(parser, project);
-            interceptorResult = interceptorGenerator.generate(outputRoot);
-            // --- END FIX ---
+            const interceptorResult = interceptorGenerator.generate(outputRoot);
+            if (interceptorResult) {
+                tokenNames = interceptorResult.tokenNames;
+            }
+
+            if (Object.values(securitySchemes).some(s => s.type === 'oauth2')) {
+                new OAuthHelperGenerator(parser, project).generate(outputRoot);
+            }
         }
 
         new BaseInterceptorGenerator(project, config.clientName).generate(outputRoot);
-
-        if (interceptorResult) {
-            new ProviderGenerator(parser, project, interceptorResult.tokenNames).generate(outputRoot);
-        }
+        new ProviderGenerator(parser, project, tokenNames).generate(outputRoot);
 
         console.log('✅ Utilities and providers generated.');
 
@@ -71,6 +74,6 @@ export async function emitClientLibrary(outputRoot: string, parser: SwaggerParse
     }
 
     // 4. Generate Main Index File
-    new MainIndexGenerator(project, config).generateMainIndex(outputRoot);
+    new MainIndexGenerator(project, config, parser).generateMainIndex(outputRoot);
     console.log(`🎉 Generation complete! Output written to: ${path.resolve(outputRoot)}`);
 }

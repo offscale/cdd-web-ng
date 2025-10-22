@@ -23,19 +23,19 @@ import { authSchemesSpec, authSchemesSpecV2 } from '../admin/specs/test.specs.js
  */
 async function generateOAuthHelper(specString: string): Promise<Project> {
     const project = new Project({
-    useInMemoryFileSystem: true,
-    manipulationSettings: { indentationText: IndentationText.TwoSpaces },
-    compilerOptions: {
-        target: ScriptTarget.ESNext,
-        module: ModuleKind.ESNext,
-        moduleResolution: 99, // NodeNext
-        lib: ["ES2022", "DOM"],
-        strict: true,
-        esModuleInterop: true,
-        allowArbitraryExtensions: true, // Crucial for `.js` imports in NodeNext
-        resolveJsonModule: true
-    }
-});
+        useInMemoryFileSystem: true,
+        manipulationSettings: { indentationText: IndentationText.TwoSpaces },
+        compilerOptions: {
+            target: ScriptTarget.ESNext,
+            module: ModuleKind.ESNext,
+            moduleResolution: 99, // NodeNext
+            lib: ["ES2022", "DOM"],
+            strict: true,
+            esModuleInterop: true,
+            allowArbitraryExtensions: true, // Crucial for `.js` imports in NodeNext
+            resolveJsonModule: true
+        }
+    });
 
     const config: GeneratorConfig = {
         input: 'spec.json',
@@ -46,6 +46,7 @@ async function generateOAuthHelper(specString: string): Promise<Project> {
             generateServices: true,
         }
     };
+    project.createSourceFile(config.input, specString);
 
     const spec = JSON.parse(specString);
     const parser = new SwaggerParser(spec, config);
@@ -65,10 +66,9 @@ describe('OAuthHelperGenerator', () => {
      * Verifies that the generator does nothing when the OpenAPI spec does not contain an `oauth2` security scheme.
      */
     it('should not generate files if no oauth2 security scheme is defined', async () => {
-        // Using a spec with only an API key
         const project = await generateOAuthHelper(authSchemesSpecV2);
         expect(project.getSourceFile('generated/auth/oauth.service.ts')).toBeUndefined();
-        expect(project.getSourceFile('generated/auth/oauth-redirect.component.ts')).toBeUndefined();
+        expect(project.getSourceFile('generated/auth/oauth-redirect/oauth-redirect.component.ts')).toBeUndefined();
     });
 
     /**
@@ -93,8 +93,8 @@ describe('OAuthHelperGenerator', () => {
 
         expect(serviceText).toContain('@Injectable({ providedIn: \'root\' })');
         expect(serviceText).toContain('export class OAuthService');
-        expect(serviceText).toContain(`localStorage.setItem('oauth_token'`);
-        expect(serviceText).toContain(`localStorage.getItem('oauth_token'`);
+        expect(serviceText).toContain(`localStorage.setItem(this.TOKEN_KEY, token)`);
+        expect(serviceText).toContain(`localStorage.getItem(this.TOKEN_KEY)`);
     });
 
     /**
@@ -109,10 +109,10 @@ describe('OAuthHelperGenerator', () => {
         expect(componentText).toContain(`selector: 'app-oauth-redirect'`);
         expect(componentText).toContain(`templateUrl: './oauth-redirect.component.html'`);
         expect(componentText).toContain('export class OauthRedirectComponent implements OnInit');
-        expect(componentText).toContain('constructor(private route: ActivatedRoute, private oauthService: OAuthService)');
+        expect(componentText).toMatch(/constructor\s*\(([^)]+private\s+route:\s*ActivatedRoute[^)]+)\)/);
         expect(componentText).toContain('this.route.fragment.pipe(first())'); // Check for fragment parsing
         expect(componentText).toContain(`params.get('access_token')`);
-        expect(componentText).toContain('this.oauthService.setToken(accessToken);');
+        expect(componentText).toContain('this.oauthService.setToken(accessToken)');
     });
 
     /**

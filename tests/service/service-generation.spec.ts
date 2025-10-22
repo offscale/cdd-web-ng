@@ -22,7 +22,7 @@ describe('Integration: Service and Model Generation', () => {
             useInMemoryFileSystem: true,
             manipulationSettings: { indentationText: IndentationText.TwoSpaces },
         });
-        project.createSourceFile('test.spec.json', fullE2ESpec);
+        project.createSourceFile(config.input, fullE2ESpec);
     });
 
     it('should generate services, models, and all utility files correctly', async () => {

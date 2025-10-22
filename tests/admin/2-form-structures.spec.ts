@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { Project, IndentationText, SourceFile } from 'ts-morph';
+import { Project, IndentationText, SourceFile, ScriptTarget, ModuleKind } from 'ts-morph';
 import { generateFromConfig } from '../../src/index.js';
 import { GeneratorConfig } from '../../src/core/types.js';
 import { advancedStructuresSpec } from './specs/test.specs.js';
@@ -21,19 +21,19 @@ import { advancedStructuresSpec } from './specs/test.specs.js';
  */
 async function generateAndGetFormFiles(specString: string): Promise<{ tsFile: SourceFile, html: string }> {
     const project = new Project({
-    useInMemoryFileSystem: true,
-    manipulationSettings: { indentationText: IndentationText.TwoSpaces },
-    compilerOptions: {
-        target: ScriptTarget.ESNext,
-        module: ModuleKind.ESNext,
-        moduleResolution: 99, // NodeNext
-        lib: ["ES2022", "DOM"],
-        strict: true,
-        esModuleInterop: true,
-        allowArbitraryExtensions: true, // Crucial for `.js` imports in NodeNext
-        resolveJsonModule: true
-    }
-});
+        useInMemoryFileSystem: true,
+        manipulationSettings: { indentationText: IndentationText.TwoSpaces },
+        compilerOptions: {
+            target: ScriptTarget.ESNext,
+            module: ModuleKind.ESNext,
+            moduleResolution: 99, // NodeNext
+            lib: ["ES2022", "DOM"],
+            strict: true,
+            esModuleInterop: true,
+            allowArbitraryExtensions: true, // Crucial for `.js` imports in NodeNext
+            resolveJsonModule: true
+        }
+    });
 
     const config: GeneratorConfig = {
         input: 'spec.json',

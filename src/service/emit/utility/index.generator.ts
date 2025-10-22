@@ -9,7 +9,7 @@ import { SwaggerParser } from "../../../core/parser.js";
  * This file serves as the primary entry point for the generated client library.
  */
 export class MainIndexGenerator {
-    constructor(private project: Project, private config: GeneratorConfig) {}
+    constructor(private project: Project, private config: GeneratorConfig, private parser: SwaggerParser) {}
 
     public generateMainIndex(outputRoot: string): void {
         const indexPath = path.join(outputRoot, "index.ts");
@@ -53,8 +53,7 @@ export class MainIndexGenerator {
             }
 
             // Conditionally export auth utilities if security schemes are present.
-            const parser = new SwaggerParser(this.config as any, this.config); // Temporary parser to check schemes
-            if (Object.keys(parser.getSecuritySchemes()).length > 0) {
+            if (Object.keys(this.parser.getSecuritySchemes()).length > 0) {
                 sourceFile.addExportDeclaration({
                     moduleSpecifier: "./auth/auth.tokens",
                     docs: ["Export authentication-related injection tokens."]

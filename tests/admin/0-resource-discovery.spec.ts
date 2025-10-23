@@ -25,7 +25,7 @@ describe('Unit: discoverAdminResources', () => {
      */
     const createParser = (specString: string) => {
         const config: GeneratorConfig = {
-            input: 'spec.json',
+            input: '/spec.json',
             output: './out',
             options: {
                 dateType: 'string',

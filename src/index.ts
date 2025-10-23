@@ -7,13 +7,18 @@ import { SwaggerParser } from './core/parser.js';
 import { emitClientLibrary } from './service/emit/index.js';
 import * as fs from 'fs';
 
-export async function generateFromConfig(config: GeneratorConfig, project?: Project): Promise<void> {
-    const inputPath = config.input;
-    const outputPath = config.output;
-    const inputType = isUrl(inputPath) ? "URL" : "file";
+// A new type for test environments to pass pre-parsed data
+export type TestGeneratorConfig = {
+    spec: object;
+}
 
-    // If no project is passed, create one. This is the CLI flow.
-    const isTestEnv = !!project;
+export async function generateFromConfig(
+    config: GeneratorConfig,
+    project?: Project,
+    testConfig?: TestGeneratorConfig
+): Promise<void> {
+    const isTestEnv = !!project && !!testConfig;
+
     const activeProject = project || new Project({
         compilerOptions: {
             declaration: true,
@@ -24,26 +29,24 @@ export async function generateFromConfig(config: GeneratorConfig, project?: Proj
         },
     });
 
-    if (!isTestEnv && !fs.existsSync(outputPath)) {
-        fs.mkdirSync(outputPath, { recursive: true });
+    if (!isTestEnv && !fs.existsSync(config.output)) {
+        fs.mkdirSync(config.output, { recursive: true });
     }
 
-    console.log(`📡 Processing OpenAPI specification from ${inputType}: ${inputPath}`);
+    console.log(`📡 Processing OpenAPI specification from ${isUrl(config.input) ? "URL" : "file"}: ${config.input}`);
 
     try {
         let swaggerParser: SwaggerParser;
-        // Distinguish between test environment (in-memory) and real execution.
         if (isTestEnv) {
-            const specString = activeProject.getFileSystem().readFileSync(config.input);
-            const specObject = JSON.parse(specString);
-            swaggerParser = new SwaggerParser(specObject, config);
+            // FIX: Use the pre-parsed spec object directly from the test setup
+            // This completely avoids any file system reads here.
+            swaggerParser = new SwaggerParser(testConfig.spec as any, config);
         } else {
             swaggerParser = await SwaggerParser.create(config.input, config);
         }
 
-        await emitClientLibrary(outputPath, swaggerParser, config, activeProject);
+        await emitClientLibrary(config.output, swaggerParser, config, activeProject);
 
-        // Only save if we created the project (i.e., not in a test).
         if (!isTestEnv) {
             await activeProject.save();
         }

@@ -86,7 +86,7 @@ describe('ProviderGenerator', () => {
 
         expect(fileText).toContain('export interface DefaultConfig');
         expect(fileText).toMatch(/apiKey\?:\s*string/);
-        expect(fileText).toMatch(/bearerToken\?:\s*string\s*\|\s*\(\)\s*=>\s*string/);
+        expect(fileText).toMatch(/bearerToken\?:\s*string\s*\|\s*\(\(\)\s*=>\s*string\)/);
         expect(fileText).toContain('export function provideDefaultClient(config: DefaultConfig)');
         expect(fileText).toContain(`if (config.apiKey)`); // Looser check
         expect(fileText).toContain(`if (config.bearerToken)`); // Looser check

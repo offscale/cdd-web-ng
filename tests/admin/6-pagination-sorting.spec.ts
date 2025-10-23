@@ -1,59 +1,9 @@
-/**
- * @fileoverview
- * This test suite validates the generation of admin UI list components with support for
- * server-side pagination and sorting. It checks for the correct integration of Angular Material's
- * `MatPaginator` and `MatSort` components. The tests verify that the generated component's
- * TypeScript and HTML include all necessary elements: module imports, `@ViewChild` decorators,
- * event handling logic in `ngAfterViewInit`, and the modification of service calls to include
- * pagination and sorting query parameters.
- */
+// ./tests/admin/6-pagination-sorting.spec.ts
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { Project, IndentationText, SourceFile, ClassDeclaration, ScriptTarget, ModuleKind } from 'ts-morph';
-import { generateFromConfig } from '../../src/index.js';
-import { GeneratorConfig } from '../../src/core/types.js';
+import { Project, SourceFile, ClassDeclaration } from 'ts-morph';
 import { paginationSpec } from './specs/test.specs.js';
-
-/**
- * A helper function to run the generator on a pagination-specific spec and retrieve the generated list component files.
- * @param specString The OpenAPI specification as a JSON string.
- * @returns An object containing the TypeScript SourceFile and the HTML content of the list component.
- */
-async function generateAndGetListFiles(specString: string): Promise<{ tsFile: SourceFile, html: string }> {
-    const project = new Project({
-    useInMemoryFileSystem: true,
-    manipulationSettings: { indentationText: IndentationText.TwoSpaces },
-    compilerOptions: {
-        target: ScriptTarget.ESNext,
-        module: ModuleKind.ESNext,
-        moduleResolution: 99, // NodeNext
-        lib: ["ES2022", "DOM"],
-        strict: true,
-        esModuleInterop: true,
-        allowArbitraryExtensions: true, // Crucial for `.js` imports in NodeNext
-        resolveJsonModule: true
-    }
-});
-
-    const config: GeneratorConfig = {
-        input: 'spec.json',
-        output: './generated',
-        options: {
-            dateType: 'string',
-            enumStyle: 'enum',
-            generateServices: true,
-            admin: true
-        }
-    };
-
-    project.createSourceFile('./spec.json', specString);
-    await generateFromConfig(config, project);
-
-    const tsFile = project.getSourceFileOrThrow('generated/admin/products/products-list/products-list.component.ts');
-    const html = project.getFileSystem().readFileSync('generated/admin/products/products-list/products-list.component.html');
-
-    return { tsFile, html };
-}
+import { generateAdminUI } from './test.helpers.js';
 
 /**
  * Main test suite for verifying the generation of pagination and sorting features.
@@ -67,9 +17,9 @@ describe('Integration: Pagination and Sorting Generation', () => {
      * Runs the code generator once before all tests in this suite.
      */
     beforeAll(async () => {
-        const result = await generateAndGetListFiles(paginationSpec);
-        tsFile = result.tsFile;
-        html = result.html;
+        const project = await generateAdminUI(paginationSpec);
+        tsFile = project.getSourceFileOrThrow('/generated/admin/products/products-list/products-list.component.ts');
+        html = project.getFileSystem().readFileSync('/generated/admin/products/products-list/products-list.component.html');
         listClass = tsFile.getClassOrThrow('ProductsListComponent');
     });
 

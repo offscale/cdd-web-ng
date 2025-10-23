@@ -1,59 +1,9 @@
-/**
- * @fileoverview
- * This test suite validates the generation of dynamic admin forms for polymorphic data models
- * defined in an OpenAPI specification using `oneOf` and a `discriminator`. This is an advanced
- * feature that requires the generated UI to change its structure at runtime based on user input.
- * The tests verify the creation of a type-selector control, the dynamic adding/removing of
- * nested form controls, the conditional rendering of UI sections, and the correct assembly of
- * the final data payload for submission.
- */
+// ./tests/admin/8-polymymorphism.spec.ts
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { Project, IndentationText, SourceFile, ClassDeclaration, ScriptTarget, ModuleKind } from 'ts-morph';
-import { generateFromConfig } from '../../src/index.js';
-import { GeneratorConfig } from '../../src/core/types.js';
+import { Project, SourceFile, ClassDeclaration } from 'ts-morph';
 import { polymorphismSpec } from './specs/test.specs.js';
-
-/**
- * A helper function to run the generator and retrieve the relevant generated files for polymorphism tests.
- * @param specString The OpenAPI specification as a JSON string.
- * @returns An object containing the component's TypeScript SourceFile and its HTML content.
- */
-async function generateAndGetFormFiles(specString: string): Promise<{ tsFile: SourceFile, html: string }> {
-    const project = new Project({
-    useInMemoryFileSystem: true,
-    manipulationSettings: { indentationText: IndentationText.TwoSpaces },
-    compilerOptions: {
-        target: ScriptTarget.ESNext,
-        module: ModuleKind.ESNext,
-        moduleResolution: 99, // NodeNext
-        lib: ["ES2022", "DOM"],
-        strict: true,
-        esModuleInterop: true,
-        allowArbitraryExtensions: true, // Crucial for `.js` imports in NodeNext
-        resolveJsonModule: true
-    }
-});
-
-    const config: GeneratorConfig = {
-        input: 'spec.json',
-        output: './generated',
-        options: {
-            dateType: 'string',
-            enumStyle: 'enum',
-            generateServices: true,
-            admin: true
-        }
-    };
-
-    project.createSourceFile('./spec.json', specString);
-    await generateFromConfig(config, project);
-
-    const tsFile = project.getSourceFileOrThrow('generated/admin/pets/pets-form/pets-form.component.ts');
-    const html = project.getFileSystem().readFileSync('generated/admin/pets/pets-form/pets-form.component.html');
-
-    return { tsFile, html };
-}
+import { generateAdminUI } from './test.helpers.js';
 
 /**
  * Main test suite for verifying the generation of dynamic forms for polymorphic types.
@@ -67,9 +17,9 @@ describe('Integration: Polymorphism (oneOf/discriminator) Generation', () => {
      * Runs the code generator once before all tests.
      */
     beforeAll(async () => {
-        const result = await generateAndGetFormFiles(polymorphismSpec);
-        tsFile = result.tsFile;
-        html = result.html;
+        const project = await generateAdminUI(polymorphismSpec);
+        tsFile = project.getSourceFileOrThrow('/generated/admin/pets/pets-form/pets-form.component.ts');
+        html = project.getFileSystem().readFileSync('/generated/admin/pets/pets-form/pets-form.component.html');
         formClass = tsFile.getClassOrThrow('PetsFormComponent');
     });
 

@@ -34,14 +34,14 @@ async function generateInterceptor(specString: string): Promise<SourceFile | und
             lib: ["ES2022", "DOM"],
             strict: true,
             esModuleInterop: true,
-            allowArbitraryExtensions: true, // Crucial for `.js` imports in NodeNext
+            allowArbitraryExtensions: true,
             resolveJsonModule: true
         }
     });
 
     const config: GeneratorConfig = {
-        input: 'spec.json',
-        output: './generated',
+        input: '/spec.json',
+        output: '/generated', // Use absolute path
         options: {
             dateType: 'string',
             enumStyle: 'enum',
@@ -51,12 +51,13 @@ async function generateInterceptor(specString: string): Promise<SourceFile | und
 
     const spec = JSON.parse(specString);
     const parser = new SwaggerParser(spec, config);
-    new AuthTokensGenerator(project).generate('./generated');
+    // Pass absolute paths to generators
+    new AuthTokensGenerator(project).generate(config.output);
     const generator = new AuthInterceptorGenerator(parser, project);
+    generator.generate(config.output);
 
-    generator.generate('./generated');
-
-    return project.getSourceFile('generated/auth/auth.interceptor.ts');
+    // Read from absolute path
+    return project.getSourceFile(`${config.output}/auth/auth.interceptor.ts`);
 }
 
 /**

@@ -1,11 +1,4 @@
-/**
- * @fileoverview
- * This test suite validates the `OAuthHelperGenerator`. This generator is only activated when
- * an `oauth2` security scheme is present in the OpenAPI specification. It is responsible for
- * scaffolding a basic `OAuthService` and an `OauthRedirectComponent` to handle the client-side
- * logic of an OAuth2 redirect flow, such as capturing the token from the URL fragment and
- * storing it.
- */
+// ./tests/service/1-oauth-helper.generator.spec.ts
 
 import { describe, it, expect } from 'vitest';
 import { Project, IndentationText, ModuleKind, ScriptTarget } from 'ts-morph';
@@ -14,13 +7,6 @@ import { GeneratorConfig } from '../../src/core/types.js';
 import { OAuthHelperGenerator } from '../../src/service/emit/utility/oauth-helper.generator.js';
 import { authSchemesSpec, authSchemesSpecV2 } from '../admin/specs/test.specs.js';
 
-/**
- * A helper function to run the OAuthHelperGenerator and return the entire ts-morph project
- * instance, allowing tests to inspect multiple generated files.
- *
- * @param specString The OpenAPI specification as a JSON string.
- * @returns A promise that resolves to the `Project` instance containing any generated files.
- */
 async function generateOAuthHelper(specString: string): Promise<Project> {
     const project = new Project({
         useInMemoryFileSystem: true,
@@ -32,14 +18,14 @@ async function generateOAuthHelper(specString: string): Promise<Project> {
             lib: ["ES2022", "DOM"],
             strict: true,
             esModuleInterop: true,
-            allowArbitraryExtensions: true, // Crucial for `.js` imports in NodeNext
+            allowArbitraryExtensions: true,
             resolveJsonModule: true
         }
     });
 
     const config: GeneratorConfig = {
-        input: 'spec.json',
-        output: './generated',
+        input: '/spec.json',
+        output: '/generated',
         options: {
             dateType: 'string',
             enumStyle: 'enum',
@@ -52,43 +38,28 @@ async function generateOAuthHelper(specString: string): Promise<Project> {
     const parser = new SwaggerParser(spec, config);
 
     const generator = new OAuthHelperGenerator(parser, project);
-    generator.generate('./generated');
+    generator.generate(config.output);
 
     return project;
 }
 
-/**
- * Main test suite for the OAuthHelperGenerator.
- */
 describe('OAuthHelperGenerator', () => {
-
-    /**
-     * Verifies that the generator does nothing when the OpenAPI spec does not contain an `oauth2` security scheme.
-     */
     it('should not generate files if no oauth2 security scheme is defined', async () => {
         const project = await generateOAuthHelper(authSchemesSpecV2);
-        expect(project.getSourceFile('generated/auth/oauth.service.ts')).toBeUndefined();
-        expect(project.getSourceFile('generated/auth/oauth-redirect/oauth-redirect.component.ts')).toBeUndefined();
+        expect(project.getSourceFile('/generated/auth/oauth.service.ts')).toBeUndefined();
+        expect(project.getSourceFile('/generated/auth/oauth-redirect/oauth-redirect.component.ts')).toBeUndefined();
     });
 
-    /**
-     * Tests that all three required files (`service`, `component.ts`, `component.html`) are created
-     * when an `oauth2` scheme is present.
-     */
     it('should generate all required files when an oauth2 scheme is present', async () => {
         const project = await generateOAuthHelper(authSchemesSpec);
-        expect(project.getSourceFile('generated/auth/oauth.service.ts')).toBeDefined();
-        expect(project.getSourceFile('generated/auth/oauth-redirect/oauth-redirect.component.ts')).toBeDefined();
-        expect(project.getFileSystem().fileExistsSync('generated/auth/oauth-redirect/oauth-redirect.component.html')).toBe(true);
+        expect(project.getSourceFile('/generated/auth/oauth.service.ts')).toBeDefined();
+        expect(project.getSourceFile('/generated/auth/oauth-redirect/oauth-redirect.component.ts')).toBeDefined();
+        expect(project.getFileSystem().fileExistsSync('/generated/auth/oauth-redirect/oauth-redirect.component.html')).toBe(true);
     });
 
-    /**
-     * Verifies the contents of the generated `OAuthService`, ensuring it has logic for storing
-     * and retrieving a token, typically using `localStorage`.
-     */
     it('should generate a correct OAuthService', async () => {
         const project = await generateOAuthHelper(authSchemesSpec);
-        const serviceFile = project.getSourceFile('generated/auth/oauth.service.ts');
+        const serviceFile = project.getSourceFile('/generated/auth/oauth.service.ts');
         const serviceText = serviceFile!.getFullText();
 
         expect(serviceText).toContain('@Injectable({ providedIn: \'root\' })');
@@ -97,30 +68,24 @@ describe('OAuthHelperGenerator', () => {
         expect(serviceText).toContain(`localStorage.getItem(this.TOKEN_KEY)`);
     });
 
-    /**
-     * Verifies the contents of the generated `OauthRedirectComponent`, ensuring it correctly
-     * injects dependencies and contains the logic to parse the token from the URL fragment.
-     */
     it('should generate a correct OauthRedirectComponent', async () => {
         const project = await generateOAuthHelper(authSchemesSpec);
-        const componentFile = project.getSourceFile('generated/auth/oauth-redirect/oauth-redirect.component.ts');
+        const componentFile = project.getSourceFile('/generated/auth/oauth-redirect/oauth-redirect.component.ts');
         const componentText = componentFile!.getFullText();
 
         expect(componentText).toContain(`selector: 'app-oauth-redirect'`);
         expect(componentText).toContain(`templateUrl: './oauth-redirect.component.html'`);
         expect(componentText).toContain('export class OauthRedirectComponent implements OnInit');
-        expect(componentText).toMatch(/constructor\s*\(([^)]+private\s+route:\s*ActivatedRoute[^)]+)\)/);
-        expect(componentText).toContain('this.route.fragment.pipe(first())'); // Check for fragment parsing
+        // FIX: Use a more robust regex that is less sensitive to formatting
+        expect(componentText).toMatch(/constructor\s*\([^)]*private\s+route:\s*ActivatedRoute/);
+        expect(componentText).toContain('this.route.fragment.pipe(first())');
         expect(componentText).toContain(`params.get('access_token')`);
         expect(componentText).toContain('this.oauthService.setToken(accessToken)');
     });
 
-    /**
-     * Verifies that a simple HTML template is generated for the redirect component.
-     */
     it('should generate a simple HTML template for the redirect component', async () => {
         const project = await generateOAuthHelper(authSchemesSpec);
-        const html = project.getFileSystem().readFileSync('generated/auth/oauth-redirect/oauth-redirect.component.html');
+        const html = project.getFileSystem().readFileSync('/generated/auth/oauth-redirect/oauth-redirect.component.html');
         expect(html).toContain('Redirecting...');
     });
 });

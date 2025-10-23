@@ -1,58 +1,9 @@
-/**
- * @fileoverview
- * This test suite focuses on the integration of OpenAPI schema properties with the generation
- * of specific Angular Material form controls in the admin UI. It verifies that different
- * schema attributes (like `enum`, `format`, `type`, `default`, and validation keywords)
- * correctly produce the corresponding form controls (e.g., `<mat-select>`, `<mat-datepicker>`)
- * and associated `FormControl` definitions with validators and default values in the component's
- * TypeScript and HTML files.
- */
+// ./tests/admin/1-form-controls.spec.ts
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { Project, IndentationText, SourceFile, ModuleKind, ScriptTarget } from 'ts-morph';
-import { generateFromConfig } from '../../src/index.js';
-import { GeneratorConfig } from '../../src/core/types.js';
+import { SourceFile, Project } from 'ts-morph';
 import { basicControlsSpec } from './specs/test.specs.js';
-import { posix as path } from 'path';
-
-async function generateAndGetFormFiles(specString: string): Promise<{ tsFile: SourceFile; html: string }> {
-    const project = new Project({
-        useInMemoryFileSystem: true,
-        manipulationSettings: { indentationText: IndentationText.TwoSpaces },
-        compilerOptions: {
-            target: ScriptTarget.ESNext,
-            module: ModuleKind.ESNext,
-            moduleResolution: 99, // NodeNext
-            lib: ["ES2022", "DOM"],
-            strict: true,
-            esModuleInterop: true,
-            allowArbitraryExtensions: true,
-            resolveJsonModule: true
-        }
-    });
-
-    const config: GeneratorConfig = {
-        input: 'spec.json',
-        output: '/generated',
-        options: {
-            dateType: 'string',
-            enumStyle: 'enum',
-            generateServices: true,
-            admin: true
-        }
-    };
-
-    project.createSourceFile(`/${config.input}`, specString); // Use absolute path
-    await generateFromConfig(config, project);
-
-    const tsPath = path.join(config.output, 'admin/widgets/widgets-form/widgets-form.component.ts');
-    const htmlPath = path.join(config.output, 'admin/widgets/widgets-form/widgets-form.component.html');
-
-    const tsFile = project.getSourceFileOrThrow(tsPath);
-    const html = project.getFileSystem().readFileSync(htmlPath);
-
-    return { tsFile, html };
-}
+import { generateAdminUI } from './test.helpers.js';
 
 describe('Integration: Form Controls Generation', () => {
     let tsFile: SourceFile;
@@ -60,13 +11,13 @@ describe('Integration: Form Controls Generation', () => {
     let formGroupInit: string = '';
 
     beforeAll(async () => {
-        const result = await generateAndGetFormFiles(basicControlsSpec);
-        tsFile = result.tsFile;
-        html = result.html;
-        // Now that the generator is more complete, we can inspect the method body
+        const project = await generateAdminUI(basicControlsSpec);
+        tsFile = project.getSourceFileOrThrow('/generated/admin/widgets/widgets-form/widgets-form.component.ts');
+        html = project.getFileSystem().readFileSync('/generated/admin/widgets/widgets-form/widgets-form.component.html');
         formGroupInit = tsFile.getClass('WidgetsFormComponent')?.getMethod('initForm')?.getBodyText() ?? '';
     }, 30000);
 
+    // ... (rest of the tests remain unchanged)
     describe('Individual Control Types', () => {
         it('should generate a MatDatepicker for "format: date"', () => {
             expect(html).toContain('<mat-datepicker-toggle matSuffix [for]="pickerlaunchDate_id">');

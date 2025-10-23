@@ -1,60 +1,9 @@
-/**
- * @fileoverview
- * This test suite validates the generation of custom Angular validators based on advanced
- * OpenAPI schema keywords that are not covered by Angular's built-in validators.
- * It ensures that a `custom-validators.ts` file is created with the correct validation logic
- * for keywords like `exclusiveMinimum`, `multipleOf`, and `uniqueItems`. It also verifies
- * that these custom validators are correctly imported and applied to the appropriate FormControls
- * in the generated form component.
- */
+// ./tests/admin/7-advanced-validation.spec.ts
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { Project, IndentationText, SourceFile, ClassDeclaration, ScriptTarget, ModuleKind } from 'ts-morph';
-import { generateFromConfig } from '../../src/index.js';
-import { GeneratorConfig } from '../../src/core/types.js';
+import { Project, SourceFile, ClassDeclaration } from 'ts-morph';
 import { advancedValidationSpec } from './specs/test.specs.js';
-
-/**
- * A helper function to run the generator and retrieve the relevant generated files for validation tests.
- * @param specString The OpenAPI specification as a JSON string.
- * @returns An object containing the component's TypeScript SourceFile, its HTML content, and the custom validators SourceFile.
- */
-async function generateAndGetFiles(specString: string): Promise<{ tsFile: SourceFile, html: string, customValidatorsFile: SourceFile }> {
-    const project = new Project({
-    useInMemoryFileSystem: true,
-    manipulationSettings: { indentationText: IndentationText.TwoSpaces },
-    compilerOptions: {
-        target: ScriptTarget.ESNext,
-        module: ModuleKind.ESNext,
-        moduleResolution: 99, // NodeNext
-        lib: ["ES2022", "DOM"],
-        strict: true,
-        esModuleInterop: true,
-        allowArbitraryExtensions: true, // Crucial for `.js` imports in NodeNext
-        resolveJsonModule: true
-    }
-});
-
-    const config: GeneratorConfig = {
-        input: 'spec.json',
-        output: './generated',
-        options: {
-            dateType: 'string',
-            enumStyle: 'enum',
-            generateServices: true,
-            admin: true
-        }
-    };
-
-    project.createSourceFile('./spec.json', specString);
-    await generateFromConfig(config, project);
-
-    const tsFile = project.getSourceFileOrThrow('generated/admin/validations/validations-form/validations-form.component.ts');
-    const html = project.getFileSystem().readFileSync('generated/admin/validations/validations-form/validations-form.component.html');
-    const customValidatorsFile = project.getSourceFileOrThrow('generated/admin/shared/custom-validators.ts');
-
-    return { tsFile, html, customValidatorsFile };
-}
+import { generateAdminUI } from './test.helpers.js';
 
 /**
  * Main test suite for verifying the generation of advanced, custom validation logic.
@@ -70,10 +19,10 @@ describe('Integration: Advanced Validation Generation', () => {
      * Runs the code generator once before all tests.
      */
     beforeAll(async () => {
-        const result = await generateAndGetFiles(advancedValidationSpec);
-        tsFile = result.tsFile;
-        html = result.html;
-        customValidatorsFile = result.customValidatorsFile;
+        const project = await generateAdminUI(advancedValidationSpec);
+        tsFile = project.getSourceFileOrThrow('/generated/admin/validations/validations-form/validations-form.component.ts');
+        html = project.getFileSystem().readFileSync('/generated/admin/validations/validations-form/validations-form.component.html');
+        customValidatorsFile = project.getSourceFileOrThrow('/generated/admin/shared/custom-validators.ts');
         formClass = tsFile.getClassOrThrow('ValidationsFormComponent');
         initFormBody = formClass.getMethodOrThrow('initForm').getBodyText() ?? '';
     });

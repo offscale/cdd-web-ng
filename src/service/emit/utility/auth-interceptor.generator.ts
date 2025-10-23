@@ -64,8 +64,9 @@ export class AuthInterceptorGenerator {
 
         for (const scheme of securitySchemes) {
             if (scheme.type === 'apiKey') {
-                const signature = `apiKey:${scheme.in}:${scheme.name}`;
+                const signature = 'apiKey';
                 if (!generatedLogicSignatures.has(signature)) {
+                    // We only generate one apiKey block. We'll pick the first one we see.
                     if(scheme.in === 'header') {
                         securityLogicBlocks.push(`if (this.apiKey) { authReq = req.clone({ setHeaders: { '${scheme.name}': this.apiKey } }); }`);
                     } else if(scheme.in === 'query') {

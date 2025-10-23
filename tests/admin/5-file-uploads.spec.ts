@@ -1,58 +1,9 @@
-/**
- * @fileoverview
- * This test suite is dedicated to validating the generation of admin UI components for handling
- * file uploads. It specifically tests schemas where a property is defined with `type: string`
- * and `format: binary`. The tests ensure that the generator correctly produces a file input
- * element in the HTML template, a corresponding `FormControl` in the TypeScript class, and the
- * necessary helper method to handle the file selection event.
- */
+// ./tests/admin/5-file-uploads.spec.ts
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { Project, IndentationText, SourceFile, ClassDeclaration, ScriptTarget, ModuleKind } from 'ts-morph';
-import { generateFromConfig } from '../../src/index.js';
-import { GeneratorConfig } from '../../src/core/types.js';
+import { Project, SourceFile, ClassDeclaration } from 'ts-morph';
 import { fileUploadsSpec } from './specs/test.specs.js';
-
-/**
- * A helper function to run the generator on a file upload-specific spec and retrieve the generated form component files.
- * @param specString The OpenAPI specification as a JSON string.
- * @returns An object containing the TypeScript SourceFile and the HTML content of the form component.
- */
-async function generateAndGetFormFiles(specString: string): Promise<{ tsFile: SourceFile, html: string }> {
-    const project = new Project({
-    useInMemoryFileSystem: true,
-    manipulationSettings: { indentationText: IndentationText.TwoSpaces },
-    compilerOptions: {
-        target: ScriptTarget.ESNext,
-        module: ModuleKind.ESNext,
-        moduleResolution: 99, // NodeNext
-        lib: ["ES2022", "DOM"],
-        strict: true,
-        esModuleInterop: true,
-        allowArbitraryExtensions: true, // Crucial for `.js` imports in NodeNext
-        resolveJsonModule: true
-    }
-});
-
-    const config: GeneratorConfig = {
-        input: 'spec.json',
-        output: './generated',
-        options: {
-            dateType: 'string',
-            enumStyle: 'enum',
-            generateServices: true,
-            admin: true
-        }
-    };
-
-    project.createSourceFile('./spec.json', specString);
-    await generateFromConfig(config, project);
-
-    const tsFile = project.getSourceFileOrThrow('generated/admin/avatars/avatars-form/avatars-form.component.ts');
-    const html = project.getFileSystem().readFileSync('generated/admin/avatars/avatars-form/avatars-form.component.html');
-
-    return { tsFile, html };
-}
+import { generateAdminUI } from './test.helpers.js';
 
 /**
  * Main test suite for verifying the generation of file upload components.
@@ -66,9 +17,9 @@ describe('Integration: File Uploads Generation', () => {
      * Runs the code generator once before all tests in this suite.
      */
     beforeAll(async () => {
-        const result = await generateAndGetFormFiles(fileUploadsSpec);
-        tsFile = result.tsFile;
-        html = result.html;
+        const project = await generateAdminUI(fileUploadsSpec);
+        tsFile = project.getSourceFileOrThrow('/generated/admin/avatars/avatars-form/avatars-form.component.ts');
+        html = project.getFileSystem().readFileSync('/generated/admin/avatars/avatars-form/avatars-form.component.html');
         formClass = tsFile.getClassOrThrow('AvatarsFormComponent');
     });
 

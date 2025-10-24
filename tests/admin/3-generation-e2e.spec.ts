@@ -47,11 +47,9 @@ describe('Integration: End-to-End Generation', () => {
         });
 
         it('form component should call getById with correct casting in its effect', () => {
-            const constructorBody = formComponent.getConstructors()[0].getBodyText();
-            // Check that the service call to get the entity by its ID is present
-            expect(constructorBody).toContain('this.booksService.getBookById(id)');
-            // Check that received data is cast to the correct type for `patchForm`
-            expect(constructorBody).toContain('this.patchForm(entity as Book)');
+            const ngOnInitBody = formComponent.getMethodOrThrow('ngOnInit').getBodyText()!;
+            expect(ngOnInitBody).toContain('this.booksService.getBookById(id)');
+            expect(ngOnInitBody).toContain('this.patchForm(entity as Book)');
         });
 
         it('form component should handle onSubmit with create and update calls correctly', () => {
@@ -94,24 +92,22 @@ describe('Integration: End-to-End Generation', () => {
     describe('Actions and Read-Only Views', () => {
         it('should generate correct service calls for collection and item actions (Servers)', () => {
             const listComponent = bookStoreProject.getSourceFileOrThrow('/generated/admin/servers/servers-list/servers-list.component.ts').getClassOrThrow('ServersListComponent');
-            const listBody = listComponent.getMethodOrThrow('rebootAllServers').getBodyText();
-            const itemBody = listComponent.getMethodOrThrow('rebootServer').getBodyText();
+            const listBody = listComponent.getMethodOrThrow('rebootAllServers').getBodyText()!;
+            const itemBody = listComponent.getMethodOrThrow('rebootServer').getBodyText()!;
 
-            expect(listBody).toContain('this.serversService.rebootAllServers()');
-            expect(itemBody).toContain('this.serversService.rebootServer(id)');
+            expect(listBody).toContain('rebootAllServers().subscribe()');
+            expect(itemBody).toContain('rebootServer(id).subscribe()');
         });
 
         it('should generate a read-only view for Logs', () => {
             const logRoutesFile = fullE2EProject.getSourceFileOrThrow('/generated/admin/log/log.routes.ts');
-            const logListComponent = fullE2EProject.getSourceFileOrThrow('/generated/admin/log/log-list/log-list.component.ts');
+            const logListComponent = fullE2EProject.getSourceFileOrThrow('/generated/admin/log/log-list/log-list.component.ts').getClassOrThrow('LogListComponent');
             const routesText = logRoutesFile.getVariableDeclarationOrThrow('routes').getInitializerOrThrow().getText();
 
-            // Should only have a list view
             expect(routesText).toContain(`path: ''`);
-            expect(routesText).not.toContain(`path: 'create'`);
-            expect(routesText).not.toContain(`path: 'edit/:id'`);
+            expect(routesText).not.toContain(`'create'`);
+            expect(routesText).not.toContain(`'edit/:id'`);
 
-            // List component should not have create/edit/delete functionality
             expect(logListComponent.getMethod('deleteItem')).toBeUndefined();
             expect(logListComponent.getMethod('createItem')).toBeUndefined();
         });

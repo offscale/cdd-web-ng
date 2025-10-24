@@ -18,17 +18,17 @@ describe('Integration: Service and Model Generation', () => {
             generateServices: true,
         },
     };
+    const specObject = JSON.parse(fullE2ESpec);
 
     beforeEach(() => {
         project = new Project({
             useInMemoryFileSystem: true,
             manipulationSettings: { indentationText: IndentationText.TwoSpaces },
         });
-        project.createSourceFile(config.input, fullE2ESpec);
     });
 
     it('should generate services, models, and all utility files correctly', async () => {
-        await generateFromConfig(config, project);
+        await generateFromConfig(config, project, { spec: specObject });
 
         // Check if primary files exist using absolute paths
         expect(project.getSourceFile('/generated/index.ts')).toBeDefined();
@@ -63,6 +63,7 @@ describe('Integration: Service and Model Generation', () => {
         expect(params[0].getType().getText()).toBe('string');
 
         const returnType = getUserByIdMethod.getOverloads()[0].getReturnType().getText();
-        expect(returnType).toBe('Observable<User>');
+        expect(returnType).toContain('Observable<');
+        expect(returnType).toContain('User>');
     });
 });

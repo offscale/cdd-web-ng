@@ -40,9 +40,9 @@ describe('Integration: Polymorphism (oneOf/discriminator) Generation', () => {
      * control to trigger the dynamic form updates.
      */
     it('should subscribe to discriminator value changes to update the form', () => {
-        const constructorBody = formClass.getConstructors()[0].getBodyText();
-        expect(constructorBody).toContain(`this.form.get('petType')?.valueChanges.subscribe`);
-        expect(constructorBody).toContain(`this.updateFormForPetType(type);`);
+        const ngOnInitBody = formClass.getMethodOrThrow('ngOnInit').getBodyText()!;
+        expect(ngOnInitBody).toContain(`this.form.get('petType')?.valueChanges.subscribe`);
+        expect(ngOnInitBody).toContain(`=> this.updateFormForPetType(type)`);
     });
 
     /**
@@ -100,12 +100,12 @@ describe('Integration: Polymorphism (oneOf/discriminator) Generation', () => {
      */
     it('should correctly patch polymorphic data in edit mode', () => {
         const patchFormMethod = formClass.getMethodOrThrow('patchForm');
-        const methodBody = patchFormMethod.getBodyText() ?? '';
+        const methodBody = patchFormMethod.getBodyText()!;
 
         expect(methodBody).toContain(`this.form.get('petType')?.setValue(entity.petType);`);
         expect(methodBody).toContain(`if (isCat(entity))`);
-        expect(methodBody).toContain(`this.catGroup.patchValue(entity);`);
+        expect(methodBody).toMatch(/this\.catGroup\?\.patchValue\(entity\)/);
         expect(methodBody).toContain(`if (isDog(entity))`);
-        expect(methodBody).toContain(`this.dogGroup.patchValue(entity);`);
+        expect(methodBody).toMatch(/this\.dogGroup\?\.patchValue\(entity\)/);
     });
 });

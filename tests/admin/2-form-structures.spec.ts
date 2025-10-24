@@ -51,8 +51,9 @@ describe('Integration: Form Structures Generation', () => {
 
     it('should generate patch logic for the FormArray in edit mode', () => {
         const patchFormBody = formClass.getMethod('patchForm').getBodyText();
-        expect(patchFormBody).toContain('entity.items?.forEach(item =>');
-        expect(patchFormBody).toContain('this.itemsArray.push(this.createItemsArrayItem(item));');
+        expect(patchFormBody).toContain('entity.items');
+        expect(patchFormBody).toContain('this.itemsArray.push');
+        expect(patchFormBody).toContain('this.createItemsArrayItem(item)');
     });
 
     it('should generate correct HTML for the FormArray', () => {

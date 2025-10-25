@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 import { Command } from 'commander';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -80,10 +78,10 @@ async function run(options: CLIOptions): Promise<void> {
 
 const program = new Command();
 program
-    .name('oag')
+    .name('cdd_web_ng')
     .description('Generate Angular services and types from OpenAPI/Swagger specifications')
     .version(packageJson.version)
-    .option('-c, --config <path>', 'Path to a configuration file (e.g., oag.config.js)')
+    .option('-c, --config <path>', 'Path to a configuration file (e.g., cdd_web_ng.config.js)')
     .option('-i, --input <path>', 'Path or URL to the OpenAPI/Swagger specification')
     .option('-o, --output <path>', 'Output directory for generated files', './generated')
     .option('--date-type <type>', 'Date type to use ("string" or "Date")', 'Date')

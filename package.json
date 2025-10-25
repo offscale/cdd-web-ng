@@ -23,7 +23,7 @@
   "author": "Samuel Marks <807580+SamuelMarks@users.noreply.github.com>",
   "type": "module",
   "bin": {
-    "oag": "./dist/cli.js"
+    "cdd_web_ng": "./dist/cli.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

@@ -97,7 +97,7 @@ export interface GeneratorConfigOptions {
     dateType: "string" | "Date";
     enumStyle: "enum" | "union";
     generateServices?: boolean;
-    admin?: boolean; // Added admin option type
+    admin?: boolean;
     customHeaders?: Record<string, string>;
     customizeMethodName?: (operationId: string) => string;
 }

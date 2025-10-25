@@ -71,6 +71,20 @@ export function pascalCase(str: string): string {
     return normalized.replace(/(^|\s)(.)/g, (_, __, char) => char.toUpperCase());
 }
 
+/**
+ * Converts a string to KebabCase
+ * e.g., 'hello world' -> 'hello-world'
+ * @param str The input string.
+ * @returns The KebabCased string.
+ */
+export function kebabCase(str: string): string {
+    return str
+        .replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2')
+        .toLowerCase()
+        .replace(/[\s_]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+}
+
 // --- TypeScript Type Resolution ---
 
 /**

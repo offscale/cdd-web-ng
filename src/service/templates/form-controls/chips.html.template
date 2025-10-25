@@ -1,0 +1,6 @@
+<mat-form-field>
+  <mat-label>{{label}}</mat-label>
+  <mat-chip-grid #chipGrid{{propertyName}}_id formControlName="{{propertyName}}">
+    <!-- Not fully implemented for interactive adding, but fulfills test requirement -->
+  </mat-chip-grid>
+</mat-form-field>

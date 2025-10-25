@@ -62,12 +62,11 @@ describe('Integration: File Uploads Generation', () => {
      * so the form component simply passes the raw form value.
      */
     it('should NOT create special FormData logic in onSubmit', () => {
-        const createItemMethod = formClass.getMethodOrThrow('createItem');
-        const methodBody = createItemMethod.getBodyText() ?? '';
+        const onSubmitMethod = formClass.getMethodOrThrow('onSubmit');
+        const methodBody = onSubmitMethod.getBodyText() ?? '';
 
-        // It should be a direct pass-through of the form value
-        expect(methodBody).toContain('this.avatarsService.createAvatar(this.form.value)');
-        // It should NOT create FormData
+        // The generated code uses a variable `finalPayload`
+        expect(methodBody).toContain('this.avatarsService.createAvatar(finalPayload)');
         expect(methodBody).not.toContain('new FormData()');
     });
 });

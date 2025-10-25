@@ -2,7 +2,7 @@ import { Project, Scope } from "ts-morph";
 import { posix as path } from "path";
 import * as fs from "fs";
 import { Resource } from "../../../core/types";
-import { camelCase, pascalCase } from "../../../core/utils";
+import { camelCase, kebabCase, pascalCase } from "../../../core/utils";
 
 // This is the correct, complete list of imports for the component array.
 const standaloneListImportsArray = `[ CommonModule, RouterModule, MatPaginatorModule, MatSortModule, MatTableModule, MatButtonModule, MatProgressBarModule, MatIconModule ]`;
@@ -22,102 +22,113 @@ export class ListComponentGenerator {
     }
 
     private generateTypeScript(resource: Resource, filePath: string) {
-        const sourceFile = this.project.createSourceFile(filePath, "", { overwrite: true });
-
-        const modelName = resource.modelName;
-        const resourceNamePascal = pascalCase(resource.name);
+        const componentClassName = `${pascalCase(resource.name)}ListComponent`;
         const serviceName = `${camelCase(resource.name)}Service`;
-        const serviceClassName = `${resourceNamePascal}Service`;
-        const listMethodName = `get${resourceNamePascal}`;
+        const servicePath = `../../services/${kebabCase(resource.name)}.service`;
+        const modelPath = `../../../data/models`;
+        const modelName = resource.modelName;
         const deleteMethodName = `delete${modelName}`;
+        const listMethodName = `get${pascalCase(resource.name)}`;
+
+        const sourceFile = this.project.createSourceFile(filePath, undefined, { overwrite: true });
 
         sourceFile.addImportDeclarations([
-            { moduleSpecifier: '@angular/core', namedImports: ['Component', 'viewChild', 'effect', 'inject', 'signal'] },
+            { moduleSpecifier: '@angular/core', namedImports: ['Component', 'inject', 'signal', 'effect', 'viewChild'] },
+            { moduleSpecifier: '@angular/common', namedImports: ['DatePipe'] },
             { moduleSpecifier: '@angular/router', namedImports: ['Router', 'ActivatedRoute'] },
-            { moduleSpecifier: 'rxjs', namedImports: ['merge', 'startWith', 'switchMap', 'catchError', 'of', 'map', 'Subject'] },
-            { moduleSpecifier: `../../models`, namedImports: [modelName], isTypeOnly: true },
-            { moduleSpecifier: `../../services/${camelCase(resource.name)}.service`, namedImports: [serviceClassName] }
+            { moduleSpecifier: servicePath, namedImports: [`${pascalCase(serviceName)}`] },
+            { moduleSpecifier: modelPath, isTypeOnly: true, namespaceImport: 'models' },
+            { moduleSpecifier: 'rxjs', namedImports: ['Subject', 'merge', 'of', 'startWith', 'switchMap', 'map', 'catchError'] },
+            { moduleSpecifier: '@angular/material/table', namedImports: ['MatTableModule'] },
+            { moduleSpecifier: '@angular/material/paginator', namedImports: ['MatPaginator', 'MatPaginatorModule'] },
+            { moduleSpecifier: '@angular/material/sort', namedImports: ['MatSort', 'MatSortModule'] },
+            { moduleSpecifier: '@angular/material/icon', namedImports: ['MatIconModule'] },
+            { moduleSpecifier: '@angular/material/button', namedImports: ['MatButtonModule'] },
+            { moduleSpecifier: '@angular/material/input', namedImports: ['MatInputModule'] },
+            { moduleSpecifier: '@angular/material/form-field', namedImports: ['MatFormFieldModule'] },
+            { moduleSpecifier: '@angular/material/progress-bar', namedImports: ['MatProgressBarModule']}
         ]);
 
         const component = sourceFile.addClass({
-            name: `${resourceNamePascal}ListComponent`,
+            name: componentClassName,
             isExported: true,
             decorators: [{
                 name: 'Component',
                 arguments: [`{
-                    selector: 'app-${resource.name}-list',
-                    standalone: true,
-                    imports: ${standaloneListImportsArray},
-                    templateUrl: './${resource.name}-list.component.html',
-                    styleUrls: ['./${resource.name}-list.component.scss']
-                }`]
+                selector: 'app-${kebabCase(resource.name)}-list',
+                standalone: true,
+                imports: [ MatFormFieldModule, MatInputModule, MatTableModule, MatSortModule, MatPaginatorModule, MatIconModule, MatButtonModule, MatProgressBarModule, DatePipe ],
+                templateUrl: './${kebabCase(resource.name)}-list.component.html',
+                styleUrl: './${kebabCase(resource.name)}-list.component.scss'
+            }`]
             }]
         });
 
-        const methodsToAdd = [
-            { name: 'onCreate', statements: `this.router.navigate(['create'], { relativeTo: this.route });` },
-            { name: 'onEdit', parameters: [{name: 'id', type: 'string | number'}], statements: `this.router.navigate(['edit', id], { relativeTo: this.route });` },
-            { name: 'deleteItem', parameters: [{ name: 'id', type: 'string | number' }], statements: `this.${serviceName}.${deleteMethodName}(id).subscribe(() => this.refreshTrigger.next());` }
-        ];
-
-        if (!resource.isEditable) {
-            component.addMethods(methodsToAdd.filter(m => !['onCreate', 'onEdit', 'deleteItem'].includes(m.name)));
-        } else {
-            component.addMethods(methodsToAdd);
-        }
-
-        const properties = resource.formProperties.map(p => p.name);
-        const displayedColumns = [...properties, 'actions'].filter((v, i, a) => a.indexOf(v) === i);
-
         component.addProperties([
-            { name: 'displayedColumns', type: 'string[]', initializer: JSON.stringify(displayedColumns) },
-            { name: 'dataSource', initializer: `signal<${modelName}[]>([])` },
-            { name: 'totalItems', initializer: 'signal(0)' },
-            { name: 'isLoading', initializer: 'signal(true)' },
-            { name: 'router', scope: Scope.Private, isReadonly: true, initializer: 'inject(Router)' },
-            { name: 'route', scope: Scope.Private, isReadonly: true, initializer: 'inject(ActivatedRoute)' },
-            { name: serviceName, scope: Scope.Private, isReadonly: true, initializer: `inject(${serviceClassName})` },
-            { name: 'paginator', initializer: `viewChild.required(MatPaginator)` },
-            { name: 'sorter', initializer: `viewChild.required(MatSort)` },
-            { name: 'refreshTrigger', scope: Scope.Private, initializer: `new Subject<void>()` },
+            { name: 'router', scope: Scope.Private, type: 'Router', initializer: 'inject(Router)' },
+            { name: 'route', scope: Scope.Private, type: 'ActivatedRoute', initializer: 'inject(ActivatedRoute)' },
+            { name: 'displayedColumns', type: 'string[]', initializer: `[${resource.formProperties.map(p => `'${p.name}'`).join(', ')}, 'actions']` },
+            { name: 'paginator', initializer: 'viewChild.required(MatPaginator)' },
+            { name: 'sorter', initializer: 'viewChild.required(MatSort)' },
+            { name: 'isLoadingResults', initializer: 'signal(true)' },
+            { name: 'resultsLength', initializer: 'signal(0)' },
+            { name: 'refreshTrigger', scope: Scope.Private, type: 'Subject<void>', initializer: 'new Subject<void>()' },
+            { name: serviceName, scope: Scope.Private, type: pascalCase(serviceName), initializer: `inject(${pascalCase(serviceName)})` },
+            { name: 'dataSource', initializer: `signal<models.${modelName}[]>([])` } // FIX: Renamed 'data' to 'dataSource'
         ]);
 
         component.addConstructor({
             statements: `
-                effect((onCleanup) => {
-                    const sorter = this.sorter();
-                    const paginator = this.paginator();
-                    
-                    const sub = merge(sorter.sortChange, paginator.page, this.refreshTrigger).pipe(
-                        startWith({}),
-                        switchMap(() => {
-                            this.isLoading.set(true);
-                            return this.${serviceName}.${listMethodName}({
-                                _page: paginator.pageIndex + 1, _limit: paginator.pageSize,
-                                _sort: sorter.active, _order: sorter.direction,
-                                observe: 'response'
-                            }).pipe(catchError(() => of(null)));
-                        }),
-                        map(response => {
-                            this.isLoading.set(false);
-                            if (response === null) {
-                                this.totalItems.set(0); return [];
-                            }
-                            const totalCount = response.headers.get('X-Total-Count');
-                            this.totalItems.set(totalCount ? +totalCount : 0);
-                            return response.body ?? [];
-                        })
-                    ).subscribe(data => this.dataSource.set(data));
-                    onCleanup(() => sub.unsubscribe());
-                });
-            `
+        effect((onCleanup) => {
+            const sorter = this.sorter();
+            const paginator = this.paginator();
+            const sub = merge(sorter.sortChange, paginator.page, this.refreshTrigger)
+                .pipe(
+                    startWith({}),
+                    switchMap(() => {
+                        this.isLoadingResults.set(true);
+                        const listCall$ = this.${serviceName}.${listMethodName}(
+                            sorter.active,
+                            sorter.direction,
+                            paginator.pageIndex,
+                            paginator.pageSize
+                        ).pipe(catchError(() => of(null)));
+                        return listCall$;
+                    }),
+                    map(data => {
+                        this.isLoadingResults.set(false);
+                        if (data === null) { return []; }
+                        this.resultsLength.set((data as any).total_count ?? 0);
+                        return (data as any).items ?? data;
+                    })
+                ).subscribe(data => this.dataSource.set(data)); // FIX: Subscribes to dataSource.set()
+            
+            onCleanup(() => sub.unsubscribe());
+        });`
         });
 
-        component.addMethods([
-            { name: 'onCreate', statements: `this.router.navigate(['create'], { relativeTo: this.route });` },
-            { name: 'onEdit', parameters: [{name: 'id', type: 'string | number'}], statements: `this.router.navigate(['edit', id], { relativeTo: this.route });` },
-            { name: 'deleteItem', parameters: [{ name: 'id', type: 'string | number' }], statements: `this.${serviceName}.${deleteMethodName}(id).subscribe(() => this.refreshTrigger.next());` }
-        ]);
+        // FIX: Add custom action methods
+        const customActions = resource.operations.filter(op => !['list', 'create', 'getById', 'update', 'delete'].includes(op.action));
+        customActions.forEach(action => {
+            const params = (action.parameters || []).filter(p => p.in === 'path').map(p => ({
+                name: camelCase(p.name), type: 'string | number'
+            }));
+            component.addMethod({
+                name: action.action,
+                parameters: params,
+                statements: `this.${serviceName}.${action.action}(${params.map(p => p.name).join(', ')}).subscribe(() => this.refreshTrigger.next());`
+            });
+        });
+
+        component.addMethod({ name: 'applyFilter', parameters: [{ name: 'event', type: 'Event' }], statements: `this.refreshTrigger.next();` });
+
+        if (resource.isEditable) {
+            component.addMethods([
+                { name: 'onCreate', statements: `this.router.navigate(['create'], { relativeTo: this.route });` },
+                { name: 'onEdit', parameters: [{name: 'id', type: 'string | number'}], statements: `this.router.navigate(['edit', id], { relativeTo: this.route });` },
+                { name: 'deleteItem', parameters: [{ name: 'id', 'type': 'string | number' }], statements: `this.${serviceName}.${deleteMethodName}(id).subscribe(() => this.refreshTrigger.next());` }
+            ]);
+        }
     }
 
     private generateHtml(resource: Resource, filePath: string) {

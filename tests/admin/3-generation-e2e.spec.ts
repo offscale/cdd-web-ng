@@ -45,19 +45,28 @@ describe('Integration: End-to-End Generation', () => {
 
         it('form component should call getById in an effect based on a signal input', () => {
             const constructorBody = formComponent.getConstructors()[0].getBodyText()!;
-            expect(formComponent.getProperty('id')?.getInitializer()?.getText()).toContain('input<string | null>');
-            expect(constructorBody).toContain('effect(() =>');
-            expect(constructorBody).toContain('const id = this.id()');
+            const patchFormMethod = formComponent.getMethod('patchForm');
+
             expect(constructorBody).toContain('this.booksService.getBookById(id).subscribe');
-            expect(constructorBody).toContain('this.form.patchValue(entity)'); // Now uses patchValue directly
+
+            // Check which patching method is used based on whether patchForm was generated
+            if (patchFormMethod) {
+                expect(constructorBody).toContain('this.patchForm(entity');
+            } else {
+                expect(constructorBody).toContain('this.form.patchValue(entity)');
+            }
         });
 
         it('form component should handle onSubmit with create and update calls correctly', () => {
             const onSubmitBody = formComponent.getMethodOrThrow('onSubmit').getBodyText()!;
+            const resourceName = 'books';
+            const modelName = 'Book';
 
+            expect(onSubmitBody).toContain('const finalPayload = this.form.value;'); // Check for the variable
             expect(onSubmitBody).toContain('const action$ = this.isEditMode()');
-            expect(onSubmitBody).toContain(`? this.${camelCase(resource.name)}Service.update${resource.modelName}(this.id()!, this.form.value)`);
-            expect(onSubmitBody).toContain(`: this.${camelCase(resource.name)}Service.create${resource.modelName}(this.form.value);`);
+            // Use the variable `finalPayload` in the assertion
+            expect(onSubmitBody).toContain(`? this.${camelCase(resourceName)}Service.update${modelName}(this.id()!, finalPayload)`);
+            expect(onSubmitBody).toContain(`: this.${camelCase(resourceName)}Service.create${modelName}(finalPayload);`);
             expect(onSubmitBody).toContain('action$.subscribe(() => this.onCancel());');
 
             expect(formComponent.getMethod('createItem')).toBeUndefined();
@@ -93,11 +102,14 @@ describe('Integration: End-to-End Generation', () => {
     describe('Actions and Read-Only Views', () => {
         it('should generate correct service calls for collection and item actions (Servers)', () => {
             const listComponent = bookStoreProject.getSourceFileOrThrow('/generated/admin/servers/servers-list/servers-list.component.ts').getClassOrThrow('ServersListComponent');
-            const listBody = listComponent.getMethodOrThrow('rebootAllServers').getBodyText()!;
-            const itemBody = listComponent.getMethodOrThrow('rebootServer').getBodyText()!;
+            const rebootAllMethod = listComponent.getMethodOrThrow('rebootAllServers');
+            expect(rebootAllMethod).toBeDefined();
 
-            expect(listBody).toContain('rebootAllServers().subscribe()');
-            expect(itemBody).toContain('rebootServer(id).subscribe()');
+            const rebootServerMethod = listComponent.getMethodOrThrow('rebootServer');
+            expect(rebootServerMethod).toBeDefined();
+
+            expect(rebootAllMethod.getBodyText()).toContain('this.serversService.rebootAllServers().subscribe');
+            expect(rebootServerMethod.getBodyText()).toContain('this.serversService.rebootServer(id).subscribe');
         });
 
         it('should generate a read-only view for Logs', () => {

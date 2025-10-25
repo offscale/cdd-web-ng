@@ -1,3 +1,5 @@
+// in: src/service/emit/admin/resource-discovery.ts
+
 import { SwaggerParser } from '../../../core/parser.js';
 import { FormProperty, PathInfo, Resource, ResourceOperation, SwaggerDefinition } from '../../../core/types.js';
 import { camelCase, extractPaths, pascalCase, singular } from '../../../core/utils.js';
@@ -34,48 +36,83 @@ function findSchema(schema: SwaggerDefinition | { $ref: string } | undefined, pa
 }
 
 function getFormProperties(operations: PathInfo[], parser: SwaggerParser): FormProperty[] {
-    const op = operations.find(o => o.method === 'POST') ?? operations.find(o => o.method === 'GET');
-    let schema = findSchema(op?.requestBody?.content?.['application/json']?.schema, parser)
-        ?? findSchema(op?.responses?.['200']?.content?.['application/json']?.schema, parser);
+    const allSchemas: SwaggerDefinition[] = [];
 
-    if (schema?.type === 'array' && schema.items) {
-        schema = findSchema(schema.items as SwaggerDefinition, parser);
-    }
+    // Collect schemas from ALL operations to build a complete model
+    operations.forEach(op => {
+        const reqSchema = findSchema(op?.requestBody?.content?.['application/json']?.schema, parser);
+        if (reqSchema) allSchemas.push(reqSchema);
 
-    if (!schema) return [{ name: 'id', schema: { type: 'string' } }];
-
-    // Base case: handle schemas with properties
-    const properties: FormProperty[] = Object.entries(schema.properties || {}).map(([name, propSchema]) => {
-        const resolvedSchema = findSchema(propSchema, parser);
-        // Combine properties from the reference point (like readOnly) with the resolved schema
-        const finalSchema = resolvedSchema ? { ...propSchema, ...resolvedSchema } : propSchema;
-        finalSchema.required = !!schema.required?.includes(name);
-        return { name, schema: finalSchema };
+        const resSchema = findSchema(op?.responses?.['200']?.content?.['application/json']?.schema, parser)
+            ?? findSchema(op?.responses?.['201']?.content?.['application/json']?.schema, parser);
+        if (resSchema) allSchemas.push(resSchema);
     });
 
-    // Special handling for polymorphism
-    if (schema.oneOf && schema.discriminator) {
-        const dPropName = schema.discriminator.propertyName;
-        // Ensure the discriminator property itself is included, and importantly,
-        // attach the polymorphic schema information to it for the form generator.
+    if (allSchemas.length === 0) return [{ name: 'id', schema: { type: 'string' } }];
+
+    // Merge properties from all found schemas
+    const mergedProperties: Record<string, SwaggerDefinition> = {};
+    const mergedRequired = new Set<string>();
+    let mergedOneOf: SwaggerDefinition[] | undefined;
+    let mergedDiscriminator: any;
+
+    allSchemas.forEach(schema => {
+        let effectiveSchema = schema;
+        if (schema.type === 'array' && schema.items) {
+            effectiveSchema = findSchema(schema.items as SwaggerDefinition, parser) ?? effectiveSchema;
+        }
+
+        Object.assign(mergedProperties, effectiveSchema.properties);
+        effectiveSchema.required?.forEach(r => mergedRequired.add(r));
+        if (effectiveSchema.oneOf) mergedOneOf = effectiveSchema.oneOf;
+        if (effectiveSchema.discriminator) mergedDiscriminator = effectiveSchema.discriminator;
+    });
+
+    const finalSchema: SwaggerDefinition = {
+        properties: mergedProperties,
+        required: Array.from(mergedRequired),
+        oneOf: mergedOneOf,
+        discriminator: mergedDiscriminator
+    };
+
+    // Now continue with the existing logic using the final merged schema
+    const properties: FormProperty[] = Object.entries(finalSchema.properties || {}).map(([name, propSchema]) => {
+        const resolvedSchema = findSchema(propSchema, parser);
+        const finalPropSchema = resolvedSchema ? { ...resolvedSchema, ...propSchema } : propSchema;
+        finalPropSchema.required = finalSchema.required?.includes(name);
+
+        if (finalPropSchema.type === 'array' && (finalPropSchema.items as any)?.$ref) {
+            const resolvedItems = findSchema(finalPropSchema.items, parser);
+            if (resolvedItems) {
+                finalPropSchema.items = resolvedItems;
+            }
+        }
+
+        return { name, schema: finalPropSchema };
+    });
+
+    if (finalSchema.oneOf && finalSchema.discriminator) {
+        // Resolve the references inside the oneOf array
+        const resolvedOneOf = finalSchema.oneOf.map(s => findSchema(s, parser)).filter((s): s is SwaggerDefinition => !!s);
+        const dPropName = finalSchema.discriminator.propertyName;
+
         const existingProp = properties.find(p => p.name === dPropName);
         if (existingProp) {
-            existingProp.schema.oneOf = schema.oneOf;
-            existingProp.schema.discriminator = schema.discriminator;
+            existingProp.schema.oneOf = resolvedOneOf;
+            existingProp.schema.discriminator = finalSchema.discriminator;
         } else {
             properties.unshift({
                 name: dPropName,
                 schema: {
-                    type: 'string', // Discriminator is always a simple type
-                    required: schema.required?.includes(dPropName),
-                    oneOf: schema.oneOf,
-                    discriminator: schema.discriminator
+                    type: 'string',
+                    required: finalSchema.required?.includes(dPropName),
+                    oneOf: resolvedOneOf,
+                    discriminator: finalSchema.discriminator
                 }
             });
         }
     }
 
-    // Fallback if no properties are found at all
     if (properties.length === 0) {
         return [{ name: 'id', schema: { type: 'string' } }];
     }
@@ -103,6 +140,7 @@ export function discoverAdminResources(parser: SwaggerParser): Resource[] {
     const allPaths = extractPaths(parser.getSpec().paths);
     const resourceMap = new Map<string, PathInfo[]>();
 
+    // Group all paths by their resource name (tag) without any filtering
     allPaths.forEach(path => {
         const resourceName = getResourceName(path);
         if (!resourceMap.has(resourceName)) resourceMap.set(resourceName, []);
@@ -110,21 +148,22 @@ export function discoverAdminResources(parser: SwaggerParser): Resource[] {
     });
 
     const resources: Resource[] = [];
-    for (const [name, operations] of resourceMap.entries()) {
-        const primaryOps = operations.filter(op => op.path.split('/').filter(Boolean).length <= 2);
-        if (primaryOps.length === 0) continue;
+    for (const [name, allOpsForResource] of resourceMap.entries()) {
+        // If there are no operations for this name, skip it
+        if (allOpsForResource.length === 0) continue;
 
-        const modelName = getModelName(name, primaryOps, parser);
+        // Use any available operation to help determine the model name
+        const modelName = getModelName(name, allOpsForResource, parser);
 
         resources.push({
             name,
             modelName,
-            isEditable: primaryOps.some(op => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(op.method)),
-            operations: primaryOps.map(op => ({
+            isEditable: allOpsForResource.some(op => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(op.method)),
+            operations: allOpsForResource.map(op => ({
                 action: classifyAction(op),
                 ...op
             })),
-            formProperties: getFormProperties(primaryOps, parser)
+            formProperties: getFormProperties(allOpsForResource, parser)
         });
     }
 

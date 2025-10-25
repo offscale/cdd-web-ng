@@ -56,8 +56,9 @@ class RoutingGenerator {
 
     generateMaster(resources: Resource[], adminDir: string) {
         const filePath = path.join(adminDir, `admin.routes.ts`);
-        const defaultRedirect = resources.find(r => r.operations.some(op => op.action === 'list'))?.name || (resources.length > 0 ? resources[0].name : '');
-        const routeLoads = resources.map(r => `{ path: '${r.name}', loadChildren: () => import('./${r.name}/${r.name}.routes').then(m => m.routes) }`).join(',\n    ');
+        const sortedResources = [...resources].sort((a,b) => a.name.localeCompare(b.name));
+        const defaultRedirect = sortedResources.find(r => r.operations.some(op => op.action === 'list'))?.name || (sortedResources.length > 0 ? sortedResources[0].name : '');
+        const routeLoads = sortedResources.map(r => `{ path: '${r.name}', loadChildren: () => import('./${r.name}/${r.name}.routes').then(m => m.routes) }`).join(',\n    ');
         this.project.createSourceFile(filePath, `import { Routes } from '@angular/router';\n\nexport const routes: Routes = [\n    { path: '', pathMatch: 'full', redirectTo: '${defaultRedirect}'},\n    ${routeLoads}\n];`, { overwrite: true }).formatText();
     }
 }

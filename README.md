@@ -10,9 +10,12 @@ and zero runtime dependencies.
 ## Features
 
 - **Type-Safe:** Generates TypeScript interfaces and types for all schemas.
-- **Modern:** Outputs modern Angular with `@if` and `HttpRequest`.
+- **Modern:** Outputs modern Angular with `@if`, `inject`, `signal`, and `HttpRequest`.
 - **Zero Runtime Dependencies:** The generated code is plain Angular and `@angular/material`.
-- **Simple & Standard:** No complex build tools or non-standard libraries required.
+- **Simple & Standard:** Only 3 non-standard libraries depended on:
+  - [vitetest](https://github.com/vitest-dev/vitest) (testing);
+  - [rolldown](https://github.com/rolldown/rolldown) (bundler); and
+  - [ts-morph](https://github.com/dsherret/ts-morph) (AST manipulation, parsing, and emission).
 - **Fully Tested:** Core generation logic has 100% test coverage.
 - **CLI and Library Usage:** Can be used as a command-line tool or programmatically.
 

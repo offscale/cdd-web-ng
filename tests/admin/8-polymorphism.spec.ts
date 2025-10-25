@@ -29,8 +29,14 @@ describe('Integration: Polymorphism (oneOf/discriminator) Generation', () => {
         expect(initFormBody).toContain(`petType: new FormControl<string | null>(null, [Validators.required])`);
 
         expect(html).toContain('<mat-select formControlName="petType"');
-        expect(html).toContain('<mat-option value="cat"');
-        expect(html).toContain('<mat-option value="dog"');
+
+        const optionsProp = formClass.getPropertyOrThrow('discriminatorOptions');
+        expect(optionsProp.isStatic()).toBe(true);
+        const optionsArrayText = optionsProp.getInitializerOrThrow().getText();
+        expect(optionsArrayText).toContain('"cat"');
+        expect(optionsArrayText).toContain('"dog"');
+
+        expect(html).toContain('<mat-option [value]="option"');
     });
 
     /**
@@ -39,8 +45,8 @@ describe('Integration: Polymorphism (oneOf/discriminator) Generation', () => {
      */
     it('should subscribe to discriminator value changes to update the form', () => {
         const ngOnInitBody = formClass.getMethodOrThrow('ngOnInit').getBodyText()!;
-        expect(ngOnInitBody).toContain(`this.form.get('petType')?.valueChanges.subscribe`);
-        expect(ngOnInitBody).toContain(`=> this.updateFormForPetType(type)`);
+        expect(ngOnInitBody).toContain(`valueChanges.subscribe`);
+        expect(ngOnInitBody).toContain(`this.updateFormForPetType(type)`);
     });
 
     /**
@@ -52,15 +58,17 @@ describe('Integration: Polymorphism (oneOf/discriminator) Generation', () => {
         expect(updateMethod).toBeDefined();
 
         const methodBody = updateMethod?.getBodyText() ?? '';
-        // Check add/remove logic for 'cat'
         expect(methodBody).toContain(`case 'cat':`);
-        expect(methodBody).toContain(`this.catGroup.addControl('huntingSkill'`);
-        expect(methodBody).toContain(`this.dogGroup.removeControl('barkingLevel');`);
+        expect(methodBody).toContain(`this.form.addControl('cat'`); // Check for add
+        expect(html).toContain(`formControlName="huntingSkill"`); // Check HTML for the control
 
-        // Check add/remove logic for 'dog'
         expect(methodBody).toContain(`case 'dog':`);
-        expect(methodBody).toContain(`this.dogGroup.addControl('barkingLevel'`);
-        expect(methodBody).toContain(`this.catGroup.removeControl('huntingSkill');`);
+        expect(methodBody).toContain(`this.form.addControl('dog'`);
+        expect(html).toContain(`formControlName="barkingLevel"`);
+
+        // Check for removal of other groups
+        expect(methodBody).toContain(`this.form.removeControl('dog');`);
+        expect(methodBody).toContain(`this.form.removeControl('cat');`);
     });
 
     /**
@@ -86,7 +94,7 @@ describe('Integration: Polymorphism (oneOf/discriminator) Generation', () => {
         const methodBody = getPayloadMethod.getBodyText() ?? '';
 
         expect(methodBody).toContain(`const baseValue = this.form.getRawValue();`);
-        expect(methodBody).toContain(`const subFormValue = this.form.get(petType)?.value;`);
+        expect(methodBody).toContain(`const subFormValue = this.form.get(petType)?.value`);
         expect(methodBody).toContain(`const payload = { ...baseValue, ...subFormValue };`);
         expect(methodBody).toContain(`delete payload.cat;`);
         expect(methodBody).toContain(`delete payload.dog;`);
@@ -100,10 +108,10 @@ describe('Integration: Polymorphism (oneOf/discriminator) Generation', () => {
         const patchFormMethod = formClass.getMethodOrThrow('patchForm');
         const methodBody = patchFormMethod.getBodyText()!;
 
-        expect(methodBody).toContain(`this.form.get('petType')?.setValue(entity.petType);`);
+        expect(methodBody).toContain(`this.form.get('petType')?.setValue(petType, { emitEvent: true });`);
         expect(methodBody).toContain(`if (isCat(entity))`);
-        expect(methodBody).toMatch(/this\.catGroup\?\.patchValue\(entity\)/);
+        expect(methodBody).toMatch(/\(this\.form\.get\('cat'\) as FormGroup\)\?.patchValue\(entity\)/);
         expect(methodBody).toContain(`if (isDog(entity))`);
-        expect(methodBody).toMatch(/this\.dogGroup\?\.patchValue\(entity\)/);
+        expect(methodBody).toMatch(/\(this\.form\.get\('dog'\) as FormGroup\)\?.patchValue\(entity\)/);
     });
 });

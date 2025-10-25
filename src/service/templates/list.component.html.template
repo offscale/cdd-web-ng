@@ -1,0 +1,29 @@
+<div class="admin-list-container">
+  <h1>{{pluralModelName}}</h1>
+
+  <div class="admin-list-actions">
+    <button mat-flat-button color="primary" (click)="onCreate()">Create New {{modelName}}</button>
+  </div>
+
+  @if (isLoading()) {
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  }
+
+  <div class="mat-elevation-z8">
+    <table mat-table [dataSource]="dataSource()" matSort (matSortChange)="sorter().sort($event)">
+      <!-- Column Definitions -->
+      {{columnDefinitions}}
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+    </table>
+
+    @if (!isLoading() && dataSource().data.length === 0) {
+      <div class="admin-no-data">
+        No {{pluralModelName}} found.
+      </div>
+    }
+
+    <mat-paginator [length]="totalItems()" [pageSizeOptions]="[5, 10, 25, 100]" showFirstLastButtons></mat-paginator>
+  </div>
+</div>

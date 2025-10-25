@@ -1,5 +1,5 @@
 import { Project, Scope } from "ts-morph";
-import * as path from "path";
+import * as path from "node:path";
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
 import { getClientContextTokenName, getInterceptorsTokenName, pascalCase } from "../../../core/utils.js";
 

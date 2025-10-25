@@ -1,5 +1,5 @@
 import { Project, SourceFile } from "ts-morph";
-import * as path from "path";
+import * as path from "node:path";
 import { GeneratorConfig } from '../../../core/types.js';
 import { MAIN_INDEX_GENERATOR_HEADER_COMMENT, SERVICE_INDEX_GENERATOR_HEADER_COMMENT } from "../../../core/constants.js";
 import { SwaggerParser } from "../../../core/parser.js";

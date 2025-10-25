@@ -1,6 +1,6 @@
 import { Project, Scope } from "ts-morph";
-import { posix as path } from "path";
-import * as fs from "fs";
+import { posix as path } from "node:path";
+import * as fs from "node:fs";
 import { Resource } from "../../../core/types";
 import { camelCase, kebabCase, pascalCase } from "../../../core/utils";
 
@@ -24,8 +24,9 @@ export class ListComponentGenerator {
     private generateTypeScript(resource: Resource, filePath: string) {
         const componentClassName = `${pascalCase(resource.name)}ListComponent`;
         const serviceName = `${camelCase(resource.name)}Service`;
-        const servicePath = `../../services/${kebabCase(resource.name)}.service`;
-        const modelPath = `../../../data/models`;
+        // FIX: The generated service file uses camelCase, not kebab-case.
+        const servicePath = `../../../services/${camelCase(resource.name)}.service`;
+        const modelPath = `../../../models`; // FIX: Path to models
         const modelName = resource.modelName;
         const deleteMethodName = `delete${modelName}`;
         const listMethodName = `get${pascalCase(resource.name)}`;
@@ -34,18 +35,17 @@ export class ListComponentGenerator {
 
         sourceFile.addImportDeclarations([
             { moduleSpecifier: '@angular/core', namedImports: ['Component', 'inject', 'signal', 'effect', 'viewChild'] },
-            { moduleSpecifier: '@angular/common', namedImports: ['DatePipe'] },
-            { moduleSpecifier: '@angular/router', namedImports: ['Router', 'ActivatedRoute'] },
-            { moduleSpecifier: servicePath, namedImports: [`${pascalCase(serviceName)}`] },
-            { moduleSpecifier: modelPath, isTypeOnly: true, namespaceImport: 'models' },
+            { moduleSpecifier: '@angular/common', namedImports: ['CommonModule'] },
+            { moduleSpecifier: '@angular/router', namedImports: ['Router', 'RouterModule', 'ActivatedRoute' ] },
+            // Dynamic service import path fix
+            { moduleSpecifier: servicePath.replace(/\\/g, '/'), namedImports: [ `${pascalCase(serviceName)}` ] },
+            { moduleSpecifier: modelPath, isTypeOnly: true, namedImports: [modelName] },
             { moduleSpecifier: 'rxjs', namedImports: ['Subject', 'merge', 'of', 'startWith', 'switchMap', 'map', 'catchError'] },
-            { moduleSpecifier: '@angular/material/table', namedImports: ['MatTableModule'] },
+            { moduleSpecifier: '@angular/material/table', namedImports: ['MatTableDataSource', 'MatTableModule'] },
             { moduleSpecifier: '@angular/material/paginator', namedImports: ['MatPaginator', 'MatPaginatorModule'] },
             { moduleSpecifier: '@angular/material/sort', namedImports: ['MatSort', 'MatSortModule'] },
             { moduleSpecifier: '@angular/material/icon', namedImports: ['MatIconModule'] },
             { moduleSpecifier: '@angular/material/button', namedImports: ['MatButtonModule'] },
-            { moduleSpecifier: '@angular/material/input', namedImports: ['MatInputModule'] },
-            { moduleSpecifier: '@angular/material/form-field', namedImports: ['MatFormFieldModule'] },
             { moduleSpecifier: '@angular/material/progress-bar', namedImports: ['MatProgressBarModule']}
         ]);
 
@@ -57,26 +57,28 @@ export class ListComponentGenerator {
                 arguments: [`{
                 selector: 'app-${kebabCase(resource.name)}-list',
                 standalone: true,
-                imports: [ MatFormFieldModule, MatInputModule, MatTableModule, MatSortModule, MatPaginatorModule, MatIconModule, MatButtonModule, MatProgressBarModule, DatePipe ],
+                imports: ${standaloneListImportsArray},
                 templateUrl: './${kebabCase(resource.name)}-list.component.html',
                 styleUrl: './${kebabCase(resource.name)}-list.component.scss'
             }`]
             }]
         });
 
+        // FIX: Use property names consistent with the test file ('isLoading', 'totalItems')
         component.addProperties([
-            { name: 'router', scope: Scope.Private, type: 'Router', initializer: 'inject(Router)' },
-            { name: 'route', scope: Scope.Private, type: 'ActivatedRoute', initializer: 'inject(ActivatedRoute)' },
+            { name: 'router', scope: Scope.Private, isReadonly: true, initializer: 'inject(Router)' },
+            { name: 'route', scope: Scope.Private, isReadonly: true, initializer: 'inject(ActivatedRoute)' },
             { name: 'displayedColumns', type: 'string[]', initializer: `[${resource.formProperties.map(p => `'${p.name}'`).join(', ')}, 'actions']` },
             { name: 'paginator', initializer: 'viewChild.required(MatPaginator)' },
             { name: 'sorter', initializer: 'viewChild.required(MatSort)' },
-            { name: 'isLoadingResults', initializer: 'signal(true)' },
-            { name: 'resultsLength', initializer: 'signal(0)' },
+            { name: 'isLoading', initializer: 'signal(true)' },
+            { name: 'totalItems', initializer: 'signal(0)' },
             { name: 'refreshTrigger', scope: Scope.Private, type: 'Subject<void>', initializer: 'new Subject<void>()' },
             { name: serviceName, scope: Scope.Private, type: pascalCase(serviceName), initializer: `inject(${pascalCase(serviceName)})` },
-            { name: 'dataSource', initializer: `signal<models.${modelName}[]>([])` } // FIX: Renamed 'data' to 'dataSource'
+            { name: 'dataSource', initializer: `signal<${modelName}[]>([])` }
         ]);
 
+        // FIX: Replaced constructor with advanced pagination logic that reads headers
         component.addConstructor({
             statements: `
         effect((onCleanup) => {
@@ -86,28 +88,32 @@ export class ListComponentGenerator {
                 .pipe(
                     startWith({}),
                     switchMap(() => {
-                        this.isLoadingResults.set(true);
+                        this.isLoading.set(true);
+                        // Parameters in spec order: _page, _limit, _sort, _order. We also add 'observe'.
                         const listCall$ = this.${serviceName}.${listMethodName}(
+                            paginator.pageIndex + 1, // Assume 1-based API pagination
+                            paginator.pageSize,
                             sorter.active,
                             sorter.direction,
-                            paginator.pageIndex,
-                            paginator.pageSize
+                            'response' // Observe the full HttpResponse
                         ).pipe(catchError(() => of(null)));
                         return listCall$;
                     }),
-                    map(data => {
-                        this.isLoadingResults.set(false);
-                        if (data === null) { return []; }
-                        this.resultsLength.set((data as any).total_count ?? 0);
-                        return (data as any).items ?? data;
+                    map(response => {
+                        this.isLoading.set(false);
+                        if (response === null) { return []; }
+                        
+                        // Extract total count from response headers
+                        const totalCount = response.headers.get('X-Total-Count');
+                        this.totalItems.set(totalCount ? +totalCount : 0);
+                        return response.body ?? [];
                     })
-                ).subscribe(data => this.dataSource.set(data)); // FIX: Subscribes to dataSource.set()
-            
+                ).subscribe(data => this.dataSource.set(data));
+              
             onCleanup(() => sub.unsubscribe());
         });`
         });
 
-        // FIX: Add custom action methods
         const customActions = resource.operations.filter(op => !['list', 'create', 'getById', 'update', 'delete'].includes(op.action));
         customActions.forEach(action => {
             const params = (action.parameters || []).filter(p => p.in === 'path').map(p => ({
@@ -120,8 +126,6 @@ export class ListComponentGenerator {
             });
         });
 
-        component.addMethod({ name: 'applyFilter', parameters: [{ name: 'event', type: 'Event' }], statements: `this.refreshTrigger.next();` });
-
         if (resource.isEditable) {
             component.addMethods([
                 { name: 'onCreate', statements: `this.router.navigate(['create'], { relativeTo: this.route });` },
@@ -132,7 +136,18 @@ export class ListComponentGenerator {
     }
 
     private generateHtml(resource: Resource, filePath: string) {
-        const templatePath = path.resolve(__dirname, '../../templates/list.component.html.template');
+        let templatePath: string;
+        // Check if pagination/sorting is likely needed to select the correct template
+        const listOp = resource.operations.find(op => op.action === 'list');
+        const hasPaginationParams = listOp?.parameters?.some(p => p.name === '_page' || p.name === '_limit' || p.name === '_sort');
+
+        if (hasPaginationParams) {
+            templatePath = path.resolve(__dirname, '../../templates/list.component.html.template');
+        } else {
+            // Fallback to a simpler template if one existed (using same for now)
+            templatePath = path.resolve(__dirname, '../../templates/list.component.html.template');
+        }
+
         let template = fs.readFileSync(templatePath, 'utf8');
         const modelName = resource.modelName;
         const properties = resource.formProperties.map(p => p.name);
@@ -165,7 +180,6 @@ export class ListComponentGenerator {
     }
 
     private generateScss(filePath: string) {
-        // ... (This function remains unchanged)
         const scssContent = `
 .admin-list-container { padding: 24px; }
 .admin-list-actions { margin-bottom: 16px; }

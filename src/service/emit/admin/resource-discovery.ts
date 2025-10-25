@@ -1,4 +1,4 @@
-// in: src/service/emit/admin/resource-discovery.ts
+// src/service/emit/admin/resource-discovery.ts
 
 import { SwaggerParser } from '../../../core/parser.js';
 import { FormProperty, PathInfo, Resource, ResourceOperation, SwaggerDefinition } from '../../../core/types.js';
@@ -12,21 +12,40 @@ function getResourceName(path: PathInfo): string {
     return camelCase(firstSegment ?? 'default');
 }
 
+/**
+ * FIX: Replaced with a more robust version that correctly distinguishes standard CRUD
+ * from custom collection/item actions based on path structure. This prevents misclassifying
+ * actions like 'POST /servers/rebootAll' as 'create'.
+ */
 function classifyAction(path: PathInfo): ResourceOperation['action'] {
     const method = path.method.toUpperCase();
-    const hasId = /\{\w+\}$/.test(path.path);
+    const hasIdSuffix = /\{\w+\}$/.test(path.path);
+    const nonParamSegments = path.path.split('/').filter(p => p && !p.startsWith('{'));
 
-    if (method === 'GET' && !hasId) return 'list';
-    if (method === 'POST' && !hasId) return 'create';
-    if (method === 'GET' && hasId) return 'getById';
-    if (method === 'PUT' && hasId) return 'update';
-    if (method === 'PATCH' && hasId) return 'update';
-    if (method === 'DELETE' && hasId) return 'delete';
+    // Standard CRUD operations on root collection paths (e.g., /users, /books)
+    if (nonParamSegments.length === 1) {
+        if (method === 'GET' && !hasIdSuffix) return 'list';
+        if (method === 'POST' && !hasIdSuffix) return 'create';
+    }
 
+    // Standard CRUD operations on item paths (e.g., /users/{id}, /books/{id})
+    if (hasIdSuffix) {
+        switch (method) {
+            case 'GET':
+                return 'getById';
+            case 'PUT':
+            case 'PATCH':
+                return 'update';
+            case 'DELETE':
+                return 'delete';
+        }
+    }
+
+    // If none of the standard patterns match, it's a custom action. Use operationId.
     if (path.operationId) return camelCase(path.operationId);
 
-    const segments = path.path.split('/').filter(p => p && !p.startsWith('{'));
-    return camelCase(`${method} ${segments.join(' ')}`);
+    // Fallback if no operationId is provided
+    return camelCase(`${method} ${nonParamSegments.join(' ')}`);
 }
 
 function findSchema(schema: SwaggerDefinition | { $ref: string } | undefined, parser: SwaggerParser): SwaggerDefinition | undefined {

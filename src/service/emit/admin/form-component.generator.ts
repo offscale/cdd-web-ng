@@ -1,6 +1,6 @@
 import { Project, Scope, ClassDeclaration, SourceFile } from "ts-morph";
-import { posix as path } from "path";
-import * as fs from "fs";
+import { posix as path } from "node:path";
+import * as fs from "node:fs";
 import { Resource, SwaggerDefinition } from "../../../core/types";
 import { camelCase, pascalCase, singular } from "../../../core/utils";
 import { FormControlInfo, mapSchemaToFormControl } from "./form-control.mapper";

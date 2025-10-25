@@ -1,5 +1,3 @@
-// ./tests/admin/8-polymymorphism.spec.ts
-
 import { describe, it, expect, beforeAll } from 'vitest';
 import { Project, SourceFile, ClassDeclaration } from 'ts-morph';
 import { polymorphismSpec } from './specs/test.specs.js';
@@ -66,15 +64,15 @@ describe('Integration: Polymorphism (oneOf/discriminator) Generation', () => {
     });
 
     /**
-     * Verifies that the generated HTML contains conditional containers (`*ngIf`) that are only
+     * Verifies that the generated HTML contains conditional containers (`@if`) that are only
      * displayed when the corresponding discriminator value is selected.
      */
     it('should generate conditional HTML containers for each polymorphic type', () => {
-        expect(html).toContain(`*ngIf="isPetType('cat')"`);
+        expect(html).toContain(`@if (isPetType('cat'))`);
         expect(html).toContain(`formGroupName="cat"`);
         expect(html).toContain(`formControlName="huntingSkill"`);
 
-        expect(html).toContain(`*ngIf="isPetType('dog')"`);
+        expect(html).toContain(`@if (isPetType('dog'))`);
         expect(html).toContain(`formGroupName="dog"`);
         expect(html).toContain(`formControlName="barkingLevel"`);
     });

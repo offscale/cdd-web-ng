@@ -4,7 +4,7 @@ import { SwaggerParser } from '../../../core/parser.js';
 import { GeneratorConfig, PathInfo } from '../../../core/types.js';
 import { camelCase, pascalCase, getBasePathTokenName, getClientContextTokenName, hasDuplicateFunctionNames } from '../../../core/utils.js';
 import { SERVICE_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
-import { ServiceMethodGenerator } from './service-method.generator.js'; // <-- CORRECT IMPORT
+import { ServiceMethodGenerator } from './service-method.generator.js';
 
 /**
  * Generates Angular service files, one for each controller (tag) found in the OpenAPI spec.
@@ -13,7 +13,6 @@ export class ServiceGenerator {
     private methodGenerator: ServiceMethodGenerator;
 
     constructor(private parser: SwaggerParser, private project: Project, private config: GeneratorConfig) {
-        // Correctly instantiate the imported class
         this.methodGenerator = new ServiceMethodGenerator(config, parser);
     }
 
@@ -28,8 +27,7 @@ export class ServiceGenerator {
         this.addImports(sourceFile);
         const serviceClass = this.addClass(sourceFile, className);
 
-        this.addProperties(serviceClass);
-        this.addHelperMethods(serviceClass);
+        this.addPropertiesAndHelpers(serviceClass);
 
         operations.forEach(op => this.methodGenerator.addServiceMethod(serviceClass, op));
 
@@ -59,13 +57,12 @@ export class ServiceGenerator {
         });
     }
 
-    private addProperties(serviceClass: ClassDeclaration) {
-        serviceClass.addProperty({ name: 'http', scope: Scope.Private, isReadonly: true, type: 'HttpClient', initializer: 'inject(HttpClient)' });
+    private addPropertiesAndHelpers(serviceClass: ClassDeclaration) {
+        serviceClass.addProperty({ name: 'http', scope: Scope.Private, isReadonly: true, initializer: 'inject(HttpClient)' });
         serviceClass.addProperty({ name: 'basePath', scope: Scope.Private, isReadonly: true, type: 'string', initializer: `inject(${getBasePathTokenName(this.config.clientName)})` });
-        serviceClass.addProperty({ name: "clientContextToken", type: "HttpContextToken<string>", scope: Scope.Private, isReadonly: true, initializer: getClientContextTokenName(this.config.clientName) });
-    }
+        const clientContextTokenName = getClientContextTokenName(this.config.clientName);
+        serviceClass.addProperty({ name: "clientContextToken", type: "HttpContextToken<string>", scope: Scope.Private, isReadonly: true, initializer: clientContextTokenName });
 
-    private addHelperMethods(serviceClass: ClassDeclaration) {
         serviceClass.addMethod({
             name: "createContextWithClientId",
             scope: Scope.Private,

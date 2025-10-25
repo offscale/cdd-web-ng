@@ -1,0 +1,19 @@
+<mat-form-field>
+  <mat-label>{{label}}</mat-label>
+  <input matInput formControlName="{{propertyName}}" type="{{inputType}}">
+  @if (form.get('{{propertyName}}')?.hasError('required')) {
+    <mat-error>This field is required.</mat-error>
+  }
+  @if (form.get('{{propertyName}}')?.hasError('minlength')) {
+    <mat-error>Must be at least {{minLength}} characters long.</mat-error>
+  }
+  @if (form.get('{{propertyName}}')?.hasError('maxlength')) {
+    <mat-error>Cannot exceed {{maxLength}} characters.</mat-error>
+  }
+  @if (form.get('{{propertyName}}')?.hasError('pattern')) {
+    <mat-error>Invalid format.</mat-error>
+  }
+  @if (form.get('{{propertyName}}')?.hasError('email')) {
+    <mat-error>Please enter a valid email address.</mat-error>
+  }
+</mat-form-field>

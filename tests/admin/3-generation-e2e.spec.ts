@@ -1,21 +1,18 @@
-// ./tests/admin/3-generation-e2e.spec.ts
-
 import { describe, it, expect, beforeAll } from 'vitest';
 import { Project, SourceFile, ClassDeclaration } from 'ts-morph';
 import { bookStoreSpec, fullE2ESpec } from './specs/test.specs.js';
 import { generateAdminUI } from './test.helpers.js';
+import { camelCase } from "../../src/core/utils";
 
 describe('Integration: End-to-End Generation', () => {
     let bookStoreProject: Project;
     let fullE2EProject: Project;
 
     beforeAll(async () => {
-        // Run generation for both specs
         bookStoreProject = await generateAdminUI(bookStoreSpec);
         fullE2EProject = await generateAdminUI(fullE2ESpec);
     });
 
-    // ... (rest of the tests remain unchanged)
     describe('Full Resource Generation (Books)', () => {
         let listComponent: ClassDeclaration;
         let formComponent: ClassDeclaration;
@@ -27,11 +24,11 @@ describe('Integration: End-to-End Generation', () => {
             routingFile = bookStoreProject.getSourceFileOrThrow('/generated/admin/books/books.routes.ts');
         });
 
-        it('list component should have correct imports and class structure', () => {
+        it('list component should use inject() and have correct properties', () => {
             expect(listComponent).toBeDefined();
-            expect(listComponent.getImplements().some(i => i.getText().includes('OnInit'))).toBe(true);
-            expect(listComponent.getProperty('booksService')).toBeDefined();
-            expect(listComponent.getProperty('router')).toBeDefined();
+            const routerProp = listComponent.getProperty('router');
+            expect(routerProp).toBeDefined();
+            expect(routerProp?.getInitializer()?.getText()).toContain('inject(Router)');
         });
 
         it('list component should have correctly generated delete method', () => {
@@ -39,28 +36,32 @@ describe('Integration: End-to-End Generation', () => {
             expect(deleteMethod.getBodyText()).toContain('this.booksService.deleteBook(id).subscribe');
         });
 
-        it('form component should have correct imports and class structure', () => {
+        it('form component should use inject() and have correct properties', () => {
             expect(formComponent).toBeDefined();
             expect(formComponent.getProperty('form')).toBeDefined();
-            expect(formComponent.getProperty('route')).toBeDefined();
-            expect(formComponent.getProperty('booksService')).toBeDefined();
+            expect(formComponent.getProperty('router')?.getInitializer()?.getText()).toContain('inject(Router)');
+            expect(formComponent.getProperty('fb')?.getInitializer()?.getText()).toContain('inject(FormBuilder)');
         });
 
-        it('form component should call getById with correct casting in its effect', () => {
-            const ngOnInitBody = formComponent.getMethodOrThrow('ngOnInit').getBodyText()!;
-            expect(ngOnInitBody).toContain('this.booksService.getBookById(id)');
-            expect(ngOnInitBody).toContain('this.patchForm(entity as Book)');
+        it('form component should call getById in an effect based on a signal input', () => {
+            const constructorBody = formComponent.getConstructors()[0].getBodyText()!;
+            expect(formComponent.getProperty('id')?.getInitializer()?.getText()).toContain('input<string | null>');
+            expect(constructorBody).toContain('effect(() =>');
+            expect(constructorBody).toContain('const id = this.id()');
+            expect(constructorBody).toContain('this.booksService.getBookById(id).subscribe');
+            expect(constructorBody).toContain('this.form.patchValue(entity)'); // Now uses patchValue directly
         });
 
         it('form component should handle onSubmit with create and update calls correctly', () => {
-            const onSubmitBody = formComponent.getMethodOrThrow('onSubmit').getBodyText();
-            expect(onSubmitBody).toContain('this.isEditMode() ? this.updateItem() : this.createItem()');
+            const onSubmitBody = formComponent.getMethodOrThrow('onSubmit').getBodyText()!;
 
-            const createMethodBody = formComponent.getMethodOrThrow('createItem').getBodyText();
-            expect(createMethodBody).toContain('this.booksService.createBook(this.form.value)');
+            expect(onSubmitBody).toContain('const action$ = this.isEditMode()');
+            expect(onSubmitBody).toContain(`? this.${camelCase(resource.name)}Service.update${resource.modelName}(this.id()!, this.form.value)`);
+            expect(onSubmitBody).toContain(`: this.${camelCase(resource.name)}Service.create${resource.modelName}(this.form.value);`);
+            expect(onSubmitBody).toContain('action$.subscribe(() => this.onCancel());');
 
-            const updateMethodBody = formComponent.getMethodOrThrow('updateItem').getBodyText();
-            expect(updateMethodBody).toContain('this.booksService.updateBook(this.id(), this.form.value)');
+            expect(formComponent.getMethod('createItem')).toBeUndefined();
+            expect(formComponent.getMethod('updateItem')).toBeUndefined();
         });
 
         it('routing module should have correct paths', () => {
@@ -109,7 +110,7 @@ describe('Integration: End-to-End Generation', () => {
             expect(routesText).not.toContain(`'edit/:id'`);
 
             expect(logListComponent.getMethod('deleteItem')).toBeUndefined();
-            expect(logListComponent.getMethod('createItem')).toBeUndefined();
+            expect(logListComponent.getMethod('onCreate')).toBeUndefined();
         });
     });
 });

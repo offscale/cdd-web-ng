@@ -7,9 +7,17 @@ export default defineConfig({
         include: ['tests/**/*.{spec,test}.ts'],
         testTimeout: 30000,
         reporters: ['verbose'],
-        // This helps Vitest resolve module paths correctly
         alias: {
             '../src': new URL('./src', import.meta.url).pathname,
+        },
+        // Use the new server.deps.inline instead of the deprecated deps.inline
+        server: {
+            deps: {
+                inline: [
+                    /src\//
+                ],
+                noExternal: true,
+            },
         },
     },
 });

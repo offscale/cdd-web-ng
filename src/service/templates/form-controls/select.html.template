@@ -1,0 +1,11 @@
+<mat-form-field>
+  <mat-label>{{label}}</mat-label>
+  <mat-select formControlName="{{propertyName}}"{{multiple}}>
+    @for (option of {{enumName}}; track option) {
+      <mat-option [value]="option">{{option}}</mat-option>
+    }
+  </mat-select>
+  @if (form.get('{{propertyName}}')?.hasError('required')) {
+    <mat-error>This field is required.</mat-error>
+  }
+</mat-form-field>

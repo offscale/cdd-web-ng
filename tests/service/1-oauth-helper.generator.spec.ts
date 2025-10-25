@@ -1,5 +1,3 @@
-// ./tests/service/1-oauth-helper.generator.spec.ts
-
 import { describe, it, expect } from 'vitest';
 import { Project, IndentationText, ModuleKind, ScriptTarget } from 'ts-morph';
 import { SwaggerParser } from '../../src/core/parser.js';
@@ -68,7 +66,7 @@ describe('OAuthHelperGenerator', () => {
         expect(serviceText).toContain(`localStorage.getItem(this.TOKEN_KEY)`);
     });
 
-    it('should generate a correct OauthRedirectComponent', async () => {
+    it('should generate a correct OauthRedirectComponent using inject()', async () => {
         const project = await generateOAuthHelper(authSchemesSpec);
         const componentFile = project.getSourceFile('/generated/auth/oauth-redirect/oauth-redirect.component.ts');
         const componentText = componentFile!.getFullText();
@@ -76,8 +74,8 @@ describe('OAuthHelperGenerator', () => {
         expect(componentText).toContain(`selector: 'app-oauth-redirect'`);
         expect(componentText).toContain(`templateUrl: './oauth-redirect.component.html'`);
         expect(componentText).toContain('export class OauthRedirectComponent implements OnInit');
-        // FIX: Use a more robust regex that is less sensitive to formatting
-        expect(componentText).toMatch(/constructor\s*\([^)]*private\s+route:\s*ActivatedRoute/);
+        expect(componentText).not.toContain('constructor');
+        expect(componentText).toContain('route = inject(ActivatedRoute)');
         expect(componentText).toContain('this.route.fragment.pipe(first())');
         expect(componentText).toContain(`params.get('access_token')`);
         expect(componentText).toContain('this.oauthService.setToken(accessToken)');

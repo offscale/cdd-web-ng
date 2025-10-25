@@ -1,0 +1,20 @@
+<div class="admin-form-container">
+  <h1>{{formTitle}}</h1>
+
+  <form [formGroup]="form" (ngSubmit)="onSubmit()">
+    <div class="admin-form-fields">
+      {{formControlsHtml}}
+    </div>
+
+    <div class="admin-form-actions">
+      <button mat-stroked-button type="button" (click)="onCancel()">Cancel</button>
+      <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || form.pristine">
+        @if (isEditMode()) {
+          <span>Save Changes</span>
+        } @else {
+          <span>Create {{modelName}}</span>
+        }
+      </button>
+    </div>
+  </form>
+</div>

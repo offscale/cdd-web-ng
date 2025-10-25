@@ -10,13 +10,11 @@ and zero runtime dependencies.
 ## Features
 
 - **Type-Safe:** Generates TypeScript interfaces and types for all schemas.
-- **Modern:** Outputs modern ECMAScript with `fetch`.
-- **Zero Runtime Dependencies:** The generated code is plain TypeScript.
+- **Modern:** Outputs modern Angular with `@if` and `HttpRequest`.
+- **Zero Runtime Dependencies:** The generated code is plain Angular and `@angular/material`.
 - **Simple & Standard:** No complex build tools or non-standard libraries required.
 - **Fully Tested:** Core generation logic has 100% test coverage.
 - **CLI and Library Usage:** Can be used as a command-line tool or programmatically.
-
-A clear and concise README file explaining the project's purpose and usage.
 
 ## Installation
 

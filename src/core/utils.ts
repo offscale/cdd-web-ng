@@ -13,6 +13,22 @@ import { Path, Operation, Parameter as SwaggerOfficialParameter } from "swagger-
 // --- String Manipulation Utilities ---
 
 /**
+ * A simple utility to convert a plural word to its singular form.
+ * This is a heuristic and may not cover all English pluralization rules.
+ * @param str The plural string.
+ * @returns The singular string.
+ */
+export function singular(str: string): string {
+    if (str.endsWith('ies')) {
+        return str.slice(0, -3) + 'y';
+    }
+    if (str.endsWith('s')) {
+        return str.slice(0, -1);
+    }
+    return str;
+}
+
+/**
  * Normalizes a string by trimming separators, handling camelCase boundaries, and replacing separators with spaces.
  * This is a private helper function for camelCase and pascalCase conversions.
  * @param str The string to normalize.
@@ -95,7 +111,7 @@ export function getTypeScriptType(
                 const props = Object.entries(schema.properties).map(([key, propDef]) => {
                     const optional = schema.required?.includes(key) ? '' : '?';
                     // Quote keys that are not valid identifiers
-                    constpropName = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key) ? key : `'${key}'`;
+                    const propName = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key) ? key : `'${key}'`;
                     return `${propName}${optional}: ${getTypeScriptType(propDef, config)}`;
                 }).join('; ');
                 type = `{ ${props} }`;

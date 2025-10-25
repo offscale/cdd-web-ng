@@ -1,36 +1,26 @@
 import { defineConfig } from 'rolldown';
-import { copy } from '@rolldown/plugin-copy';
-import path from 'path';
+import dts from 'rolldown-plugin-dts'
 
 export default defineConfig({
     input: {
         index: 'src/index.ts',
-        cli: 'src/cli.ts',
+        cli: 'src/cli.ts'
     },
     output: {
+        // These two lines are the crucial fix.
         dir: 'dist',
-        format: 'esm',
-        entryFileNames: '[name].js',
-        chunkFileNames: '[name]-[hash].js',
+        emptyOutDir: true,
+
+        format: 'es',
+        sourcemap: true,
     },
-    external: [
-        'ts-morph',
-        'js-yaml',
-        'commander',
-        'fs',
-        'path',
-        'url'
-    ],
     plugins: [
-        copy({
-            targets: [
-                { src: 'src/service/templates', dest: 'dist' }
-            ]
-        }),
+        dts()
     ],
     resolve: {
-        extensions: ['.ts', '.js'],
-        // This helps Rolldown understand how to resolve .js imports from .ts files
-        mainFields: ['module', 'main'],
-    },
+        // Add this to ensure templates are not bundled
+        external: [
+            /templates/
+        ]
+    }
 });

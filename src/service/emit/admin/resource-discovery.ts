@@ -1,29 +1,18 @@
 import { SwaggerParser } from '../../../core/parser.js';
-import { PathInfo, Resource, ResourceOperation, SwaggerDefinition } from '../../../core/types.js';
-import { camelCase, extractPaths, pascalCase } from '../../../core/utils.js';
+import { FormProperty, PathInfo, Resource, ResourceOperation, SwaggerDefinition } from '../../../core/types.js';
+import { camelCase, extractPaths, pascalCase, singular } from '../../../core/utils.js';
 
-/**
- * Heuristically determines the name of a resource from a PathInfo object.
- * It prefers the first tag, falling back to the first non-parameter segment of the URL path.
- */
 function getResourceName(path: PathInfo): string {
-    let name: string;
-    if (path.tags && path.tags.length > 0) {
-        name = path.tags[0];
-    } else {
-        const pathParts = path.path.split('/').filter(p => p && !p.startsWith('{'));
-        name = pathParts.length > 0 ? pathParts[0] : 'default';
-    }
-    return camelCase(name);
+    const tag = path.tags?.[0];
+    if (tag) return camelCase(tag);
+
+    const firstSegment = path.path.split('/').filter(p => p && !p.startsWith('{'))[0];
+    return camelCase(firstSegment ?? 'default');
 }
 
-/**
- * Classifies a PathInfo object into a standard CRUD action or a custom action based on its method and path structure.
- */
 function classifyAction(path: PathInfo): ResourceOperation['action'] {
     const method = path.method.toUpperCase();
-    const hasId = /\{\w+\}$/.test(path.path); // Path ends with a parameter like /{id}  
-    const segments = path.path.split('/').filter(p => p && !p.startsWith('{'));
+    const hasId = /\{\w+\}$/.test(path.path);
 
     if (method === 'GET' && !hasId) return 'list';
     if (method === 'POST' && !hasId) return 'create';
@@ -32,100 +21,110 @@ function classifyAction(path: PathInfo): ResourceOperation['action'] {
     if (method === 'PATCH' && hasId) return 'update';
     if (method === 'DELETE' && hasId) return 'delete';
 
-    // For custom actions like /users/deactivateAll or /users/{id}/resetPassword  
-    if (path.operationId) {
-        return camelCase(path.operationId);
-    }
+    if (path.operationId) return camelCase(path.operationId);
 
-    // Fallback for non-standard paths without an operationId  
+    const segments = path.path.split('/').filter(p => p && !p.startsWith('{'));
     return camelCase(`${method} ${segments.join(' ')}`);
 }
 
-/**
- * Attempts to find the primary model name (e.g., 'User') associated with a resource's operations.
- * It prioritizes response schemas of GET operations and falls back to request body schemas of POST/PUT.
- */
-function getModelName(operations: PathInfo[], resourceName: string): string {
-    let ref: string | undefined;
-
-    const findRef = (schema: SwaggerDefinition | undefined): string | undefined => {
-        if (!schema) return undefined;
-        if (schema.$ref) return schema.$ref;
-        if (schema.type === 'array' && schema.items) {
-            const itemSchema = schema.items as SwaggerDefinition;
-            if (itemSchema.$ref) return itemSchema.$ref;
-        }
-        // Handle nested allOf/oneOf if necessary  
-        const composite = schema.allOf || schema.oneOf || schema.anyOf;
-        if (composite) {
-            for (const subSchema of composite) {
-                const foundRef = findRef(subSchema);
-                if (foundRef) return foundRef;
-            }
-        }
-        return undefined;
-    };
-
-    // Prefer the 'getById' or 'list' operation for model name discovery  
-    const getOp = operations.find(op => op.method === 'GET');
-    if (getOp) {
-        const successResponse = getOp.responses?.['200'] || getOp.responses?.['201'];
-        ref = findRef(successResponse?.content?.['application/json']?.schema);
-    }
-
-    // Fallback to create/update operations  
-    if (!ref) {
-        const postOp = operations.find(op => op.method === 'POST' || op.method === 'PUT');
-        if (postOp) {
-            ref = findRef(postOp.requestBody?.content?.['application/json']?.schema);
-        }
-    }
-
-    return ref ? pascalCase(ref.split('/').pop()!) : pascalCase(resourceName);
+function findSchema(schema: SwaggerDefinition | { $ref: string } | undefined, parser: SwaggerParser): SwaggerDefinition | undefined {
+    if (!schema) return undefined;
+    if ('$ref' in schema) return parser.resolveReference(schema.$ref);
+    return schema;
 }
 
-/**
- * Parses an OpenAPI specification to discover logical RESTful resources and their associated operations.
- * This is the foundational step for generating the admin UI.
- */
+function getFormProperties(operations: PathInfo[], parser: SwaggerParser): FormProperty[] {
+    const op = operations.find(o => o.method === 'POST') ?? operations.find(o => o.method === 'GET');
+    let schema = findSchema(op?.requestBody?.content?.['application/json']?.schema, parser)
+        ?? findSchema(op?.responses?.['200']?.content?.['application/json']?.schema, parser);
+
+    if (schema?.type === 'array' && schema.items) {
+        schema = findSchema(schema.items as SwaggerDefinition, parser);
+    }
+
+    if (!schema) return [{ name: 'id', schema: { type: 'string' } }];
+
+    // Base case: handle schemas with properties
+    const properties: FormProperty[] = Object.entries(schema.properties || {}).map(([name, propSchema]) => {
+        const resolvedSchema = findSchema(propSchema, parser);
+        // Combine properties from the reference point (like readOnly) with the resolved schema
+        const finalSchema = resolvedSchema ? { ...propSchema, ...resolvedSchema } : propSchema;
+        finalSchema.required = !!schema.required?.includes(name);
+        return { name, schema: finalSchema };
+    });
+
+    // Special handling for polymorphism
+    if (schema.oneOf && schema.discriminator) {
+        const dPropName = schema.discriminator.propertyName;
+        // Ensure the discriminator property itself is included, and importantly,
+        // attach the polymorphic schema information to it for the form generator.
+        const existingProp = properties.find(p => p.name === dPropName);
+        if (existingProp) {
+            existingProp.schema.oneOf = schema.oneOf;
+            existingProp.schema.discriminator = schema.discriminator;
+        } else {
+            properties.unshift({
+                name: dPropName,
+                schema: {
+                    type: 'string', // Discriminator is always a simple type
+                    required: schema.required?.includes(dPropName),
+                    oneOf: schema.oneOf,
+                    discriminator: schema.discriminator
+                }
+            });
+        }
+    }
+
+    // Fallback if no properties are found at all
+    if (properties.length === 0) {
+        return [{ name: 'id', schema: { type: 'string' } }];
+    }
+
+    return properties;
+}
+
+function getModelName(resourceName: string, operations: PathInfo[], parser: SwaggerParser): string {
+    const op = operations.find(o => o.method === 'POST') ?? operations.find(o => o.method === 'GET');
+    const schema = op?.requestBody?.content?.['application/json']?.schema
+        ?? op?.responses?.['200']?.content?.['application/json']?.schema;
+
+    if (schema) {
+        const ref = ('$ref' in schema ? schema.$ref : null)
+            || ('items' in schema && (schema.items as any)?.$ref ? (schema.items as any).$ref : null);
+
+        if (ref) return pascalCase(ref.split('/').pop()!);
+    }
+
+    // Fallback: singularize the resource name. This fixes the 'Publishers' -> 'Publisher' case.
+    return singular(pascalCase(resourceName));
+}
+
 export function discoverAdminResources(parser: SwaggerParser): Resource[] {
     const allPaths = extractPaths(parser.getSpec().paths);
     const resourceMap = new Map<string, PathInfo[]>();
 
-    // Group all paths by their inferred resource name  
-    for (const path of allPaths) {
+    allPaths.forEach(path => {
         const resourceName = getResourceName(path);
-        if (!resourceMap.has(resourceName)) {
-            resourceMap.set(resourceName, []);
-        }
+        if (!resourceMap.has(resourceName)) resourceMap.set(resourceName, []);
         resourceMap.get(resourceName)!.push(path);
-    }
+    });
 
     const resources: Resource[] = [];
     for (const [name, operations] of resourceMap.entries()) {
-        const isEditable = operations.some(op => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(op.method.toUpperCase()));
-        const modelName = getModelName(operations, name);
+        const primaryOps = operations.filter(op => op.path.split('/').filter(Boolean).length <= 2);
+        if (primaryOps.length === 0) continue;
 
-        // Filter out paths that are too deeply nested to be considered part of the primary resource interface  
-        // e.g., /users/{id}/permissions/{permId} shouldn't be a primary CRUD op for 'users'  
-        const primaryOps = operations.filter(op => {
-            const segments = op.path.split('/').filter(Boolean);
-            return segments.length <= 2;
-        });
-
-        const resourceOps: ResourceOperation[] = primaryOps.map(op => ({
-            path: op.path,
-            method: op.method,
-            operationId: op.operationId,
-            action: classifyAction(op),
-        }));
+        const modelName = getModelName(name, primaryOps, parser);
 
         resources.push({
             name,
             modelName,
-            isEditable,
-            operations: resourceOps,
-            formProperties: [] // This will be populated later by the form generator  
+            isEditable: primaryOps.some(op => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(op.method)),
+            operations: primaryOps.map(op => ({
+                action: classifyAction(op),
+                ...op
+            })),
+            formProperties: getFormProperties(primaryOps, parser)
         });
     }
 

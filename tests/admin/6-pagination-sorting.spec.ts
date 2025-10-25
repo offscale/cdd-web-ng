@@ -1,5 +1,3 @@
-// ./tests/admin/6-pagination-sorting.spec.ts
-
 import { describe, it, expect, beforeAll } from 'vitest';
 import { Project, SourceFile, ClassDeclaration } from 'ts-morph';
 import { paginationSpec } from './specs/test.specs.js';
@@ -17,54 +15,63 @@ describe('Integration: Pagination and Sorting Generation', () => {
         listClass = tsFile.getClassOrThrow('ProductsListComponent');
     });
 
-    it('should add MatPaginator and MatSort modules to component imports', () => {
+    it('should add necessary modules to component imports', () => {
         const componentDecorator = listClass.getDecoratorOrThrow('Component');
-        // FIX: Check the raw text of the decorator instead of trying to parse it
         const decoratorText = componentDecorator.getText();
-        expect(decoratorText).toContain('imports: [MatPaginatorModule, MatSortModule]');
+        expect(decoratorText).toContain('imports: [');
+        expect(decoratorText).toContain('MatPaginatorModule');
+        expect(decoratorText).toContain('MatSortModule');
+        expect(decoratorText).toContain('MatTableModule');
+        expect(decoratorText).toContain('MatProgressBarModule');
     });
 
     it('should generate mat-paginator and matSort directive in the HTML', () => {
         expect(html).toContain('<mat-paginator');
-        expect(html).toContain('<table mat-table matSort');
+        // FIX: Use a regex to make the test less sensitive to attribute order or spacing
+        expect(html).toMatch(/<table\s+mat-table[^>]+matSort/);
     });
 
-    it('should generate @ViewChild properties for the paginator and sorter', () => {
+    it('should generate signal-based viewChild properties for the paginator and sorter', () => {
         const paginatorProp = listClass.getProperty('paginator');
         const sortProp = listClass.getProperty('sorter');
 
         expect(paginatorProp).toBeDefined();
-        expect(paginatorProp?.getDecorator('ViewChild')?.getArguments()[0].getText()).toBe('MatPaginator');
+        expect(paginatorProp?.getInitializer()?.getText()).toContain('viewChild.required(MatPaginator)');
 
         expect(sortProp).toBeDefined();
-        expect(sortProp?.getDecorator('ViewChild')?.getArguments()[0].getText()).toBe('MatSort');
+        expect(sortProp?.getInitializer()?.getText()).toContain('viewChild.required(MatSort)');
     });
 
-    it('should implement ngAfterViewInit with merge logic to handle events', () => {
-        const ngAfterViewInitMethod = listClass.getMethod('ngAfterViewInit');
-        expect(ngAfterViewInitMethod).toBeDefined();
-        const methodBody = ngAfterViewInitMethod?.getBodyText() ?? '';
-        expect(methodBody).toContain('merge(this.sorter.sortChange, this.paginator.page)');
-        expect(methodBody).toContain('.subscribe(() => this.loadData())');
-    });
+    it('should use an effect with merge and switchMap logic to handle events and data loading', () => {
+        const constructor = listClass.getConstructors()[0];
+        expect(constructor).toBeDefined();
+        const constructorBody = constructor.getBodyText() ?? '';
 
-    it('should update loadData to pass pagination and sorting params to the service', () => {
-        const loadDataMethod = listClass.getMethodOrThrow('loadData');
-        const methodBody = loadDataMethod.getBodyText() ?? '';
-        expect(methodBody).toContain('this.productsService.getProducts({');
-        // FIX: Allow for optional chaining with `?.`
-        expect(methodBody).toMatch(/_page:\s*this\.paginator\?\.pageIndex\s*\+\s*1/);
-        expect(methodBody).toMatch(/_limit:\s*this\.paginator\?\.pageSize/);
-        expect(methodBody).toMatch(/_sort:\s*this\.sorter\?\.active/);
-        expect(methodBody).toMatch(/_order:\s*this\.sorter\?\.direction/);
-    });
+        // FIX: Check for the correct effect signature with the cleanup function
+        expect(constructorBody).toContain('effect((onCleanup) =>');
+        expect(constructorBody).toContain('onCleanup(() => sub.unsubscribe());');
 
-    it('should parse the X-Total-Count header from the response', () => {
-        const loadDataMethod = listClass.getMethodOrThrow('loadData');
-        // FIX: The logic is now directly in the method body, so check that instead.
-        const methodBody = loadDataMethod.getBodyText() ?? '';
-        expect(methodBody).toContain(`observe: 'response'`);
-        expect(methodBody).toContain(`const totalCount = response.headers.get('X-Total-Count');`);
-        expect(methodBody).toContain('this.totalItems = totalCount ? +totalCount : 0;');
+        // Check for the overall structure
+        expect(constructorBody).toContain('const sorter = this.sorter();');
+        expect(constructorBody).toContain('const paginator = this.paginator();');
+        expect(constructorBody).toContain('merge(sorter.sortChange, paginator.page'); // Now includes refreshTrigger
+        expect(constructorBody).toContain('startWith({})');
+        expect(constructorBody).toContain('switchMap(() => {');
+        expect(constructorBody).toContain(').subscribe(data => this.dataSource.set(data));');
+
+        // Check that it calls the service with correct params
+        expect(constructorBody).toContain('this.productsService.getProducts({');
+        expect(constructorBody).toMatch(/_page:\s*paginator\.pageIndex\s*\+\s*1/);
+        expect(constructorBody).toMatch(/_limit:\s*paginator\.pageSize/);
+        expect(constructorBody).toMatch(/_sort:\s*sorter\.active/);
+        expect(constructorBody).toMatch(/_order:\s*sorter\.direction/);
+        expect(constructorBody).toContain(`observe: 'response'`);
+
+        // Check that it processes the response correctly
+        expect(constructorBody).toContain('map(response => {');
+        expect(constructorBody).toContain('this.isLoading.set(false);');
+        expect(constructorBody).toContain(`const totalCount = response.headers.get('X-Total-Count');`);
+        expect(constructorBody).toContain('this.totalItems.set(totalCount ? +totalCount : 0);');
+        expect(constructorBody).toContain('return response.body ?? [];');
     });
 });

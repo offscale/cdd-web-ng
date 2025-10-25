@@ -1,5 +1,3 @@
-// ./tests/admin/7-advanced-validation.spec.ts
-
 import { describe, it, expect, beforeAll } from 'vitest';
 import { Project, SourceFile, ClassDeclaration } from 'ts-morph';
 import { advancedValidationSpec } from './specs/test.specs.js';
@@ -52,8 +50,8 @@ describe('Integration: Advanced Validation Generation', () => {
             expect(initFormBody).toContain('exclusiveMinNumber: new FormControl(null, [CustomValidators.exclusiveMinimum(10)])');
             expect(initFormBody).toContain('exclusiveMaxNumber: new FormControl(null, [CustomValidators.exclusiveMaximum(100)])');
 
-            expect(html).toContain(`*ngIf="form.get('exclusiveMinNumber')?.hasError('exclusiveMinimum')"`);
-            expect(html).toContain(`*ngIf="form.get('exclusiveMaxNumber')?.hasError('exclusiveMaximum')"`);
+            expect(html).toContain(`@if (form.get('exclusiveMinNumber')?.hasError('exclusiveMinimum'))`);
+            expect(html).toContain(`@if (form.get('exclusiveMaxNumber')?.hasError('exclusiveMaximum'))`);
         });
 
         /**
@@ -62,7 +60,7 @@ describe('Integration: Advanced Validation Generation', () => {
         it('should generate and apply a validator for multipleOf', () => {
             expect(customValidatorsFile.getFullText()).toContain('static multipleOf(factor: number): ValidatorFn');
             expect(initFormBody).toContain('multipleOfNumber: new FormControl(null, [CustomValidators.multipleOf(5)])');
-            expect(html).toContain(`*ngIf="form.get('multipleOfNumber')?.hasError('multipleOf')"`);
+            expect(html).toContain(`@if (form.get('multipleOfNumber')?.hasError('multipleOf'))`);
         });
 
         /**
@@ -71,7 +69,7 @@ describe('Integration: Advanced Validation Generation', () => {
         it('should generate and apply a validator for uniqueItems on a FormArray', () => {
             expect(customValidatorsFile.getFullText()).toContain('static uniqueItems(): ValidatorFn');
             expect(initFormBody).toContain('uniqueItemsArray: new FormArray([], [CustomValidators.uniqueItems()])');
-            expect(html).toContain(`*ngIf="form.get('uniqueItemsArray')?.hasError('uniqueItems')"`);
+            expect(html).toContain(`@if (form.get('uniqueItemsArray')?.hasError('uniqueItems'))`);
         });
 
         /**
@@ -80,11 +78,11 @@ describe('Integration: Advanced Validation Generation', () => {
         it('should map standard keywords to built-in Angular validators where applicable', () => {
             // 'pattern' should map to Validators.pattern
             expect(initFormBody).toContain('patternString: new FormControl(null, [Validators.pattern(/^\\d{3}$/)])');
-            expect(html).toContain(`*ngIf="form.get('patternString')?.hasError('pattern')"`);
+            expect(html).toContain(`@if (form.get('patternString')?.hasError('pattern'))`);
 
             // 'minItems' on an array should map to Validators.minLength
             expect(initFormBody).toContain('minItemsArray: new FormArray([], [Validators.minLength(2)])');
-            expect(html).toContain(`*ngIf="form.get('minItemsArray')?.hasError('minlength')"`);
+            expect(html).toContain(`@if (form.get('minItemsArray')?.hasError('minlength'))`);
         });
     });
 });

@@ -1,5 +1,3 @@
-// ./tests/admin/2-form-structures.spec.ts
-
 import { describe, it, expect, beforeAll } from 'vitest';
 import { Project, SourceFile } from 'ts-morph';
 import { advancedStructuresSpec } from './specs/test.specs.js';
@@ -56,9 +54,9 @@ describe('Integration: Form Structures Generation', () => {
         expect(patchFormBody).toContain('this.createItemsArrayItem(item)');
     });
 
-    it('should generate correct HTML for the FormArray', () => {
+    it('should generate correct HTML for the FormArray using @for', () => {
         expect(html).toContain('formArrayName="items"');
-        expect(html).toContain('*ngFor="let item of itemsArray.controls; let i = index"');
+        expect(html).toContain('@for (item of itemsArray.controls; track i; let i = $index)');
         expect(html).toContain('[formGroupName]="i"');
         expect(html).toContain('formControlName="productId"');
         expect(html).toContain('formControlName="quantity"');

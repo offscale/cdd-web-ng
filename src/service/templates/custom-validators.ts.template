@@ -1,19 +1,19 @@
 import { AbstractControl, ValidationErrors, ValidatorFn } from '@angular/forms';
 
 export class CustomValidators {
-  public static exclusiveMin(min: number): ValidatorFn {
+  public static exclusiveMinimum(min: number): ValidatorFn {
     return (control: AbstractControl): ValidationErrors | null => {
       if (control.value === null || control.value === undefined || control.value <= min) {
-        return { exclusiveMin: { min, actual: control.value } };
+        return { exclusiveMinimum: { min, actual: control.value } };
       }
       return null;
     };
   }
 
-  public static exclusiveMax(max: number): ValidatorFn {
+  public static exclusiveMaximum(max: number): ValidatorFn {
     return (control: AbstractControl): ValidationErrors | null => {
       if (control.value === null || control.value === undefined || control.value >= max) {
-        return { exclusiveMax: { max, actual: control.value } };
+        return { exclusiveMaximum: { max, actual: control.value } };
       }
       return null;
     };

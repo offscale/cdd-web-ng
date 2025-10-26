@@ -1,6 +1,7 @@
 import { Project } from 'ts-morph';
 import { posix as path } from 'path';
 import * as fs from 'fs';
+import { fileURLToPath } from 'url';
 import { SwaggerParser } from '../../../core/parser.js';
 import { GeneratorConfig, Resource } from '../../../core/types.js';
 import { discoverAdminResources } from './resource-discovery.js';
@@ -8,11 +9,14 @@ import { FormComponentGenerator } from './form-component.generator.ts';
 import { ListComponentGenerator } from './list-component.generator.js';
 import { pascalCase } from '../../../core/utils.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 class CustomValidatorsGenerator {
     constructor(private project: Project) { }
     generate(adminDir: string) {
         const sharedDir = path.join(adminDir, 'shared');
-        const templatePath = path.resolve(__dirname, '../../templates/custom-validators.ts.template');
+        const templatePath = path.resolve(__dirname, '../../../../src/service/templates/custom-validators.ts.template');
         const template = fs.readFileSync(templatePath, 'utf8');
         this.project.createSourceFile(path.join(sharedDir, 'custom-validators.ts'), template, { overwrite: true });
     }
@@ -41,14 +45,11 @@ class RoutingGenerator {
             imports.add(formComp);
         }
 
-        // --- START OF FIX ---
-        // The original code was missing explicit import paths and Routes type.
         const importStatements = `
             import { Routes } from '@angular/router';
             ${imports.has(listComp) ? `import { ${listComp} } from './${resource.name}-list/${resource.name}-list.component';` : ''}
             ${imports.has(formComp) ? `import { ${formComp} } from './${resource.name}-form/${resource.name}-form.component';` : ''}
         `;
-        // --- END OF FIX ---
 
         const routes = `export const routes: Routes = [\n  ${routesArray.join(',\n  ')}\n];`;
         this.project.createSourceFile(filePath, `${importStatements}\n\n${routes}`, { overwrite: true }).formatText();
@@ -69,9 +70,12 @@ export class AdminGenerator {
     constructor(private parser: SwaggerParser, private project: Project, private config: GeneratorConfig) { }
 
     async generate(outputRoot: string): Promise<void> {
-        console.log("🚀 Starting generation of Admin UI...");
+        console.log("🚀 Generating Admin UI...");
         this.allResources = discoverAdminResources(this.parser);
-        if (this.allResources.length === 0) { console.warn("..."); return; }
+        if (this.allResources.length === 0) {
+            console.warn("⚠️ No resources suitable for admin UI generation were found. Skipping.");
+            return;
+        }
 
         const adminDir = path.join(outputRoot, "admin");
 
@@ -80,6 +84,7 @@ export class AdminGenerator {
         const routeGen = new RoutingGenerator(this.project);
         const validatorGen = new CustomValidatorsGenerator(this.project);
 
+        let needsCustomValidators = false;
         for (const resource of this.allResources) {
             console.log(`  -> Generating for resource: ${resource.name}`);
 
@@ -87,15 +92,20 @@ export class AdminGenerator {
                 listGen.generate(resource, adminDir);
             }
 
-            if (resource.operations.some(op => ['create', 'update'].includes(op.action))) formGen.generate(resource, adminDir);
+            if (resource.operations.some(op => ['create', 'update'].includes(op.action))) {
+                const formResult = formGen.generate(resource, adminDir);
+                if (formResult.usesCustomValidators) {
+                    needsCustomValidators = true;
+                }
+            }
             routeGen.generate(resource, adminDir);
         }
 
         routeGen.generateMaster(this.allResources, adminDir);
-        // Generate validators if any resource needs them. A simple check for the 'validations' test resource.
-        if (this.allResources.some(r => r.name === 'validations')) {
+
+        if (needsCustomValidators) {
+            console.log('  -> Generating shared custom validators...');
             validatorGen.generate(adminDir);
         }
-        console.log("✅ Angular admin components generated.");
     }
 }

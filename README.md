@@ -12,12 +12,69 @@ and few runtime dependencies.
 - **Type-Safe:** Generates TypeScript interfaces and types for all schemas.
 - **Modern:** Outputs modern Angular with `@if`, `inject`, `signal`, and `HttpRequest`.
 - **Few Runtime Dependencies:** The generated code is plain Angular and `@angular/material`.
-- **Simple & Standard:** Only 3 non-standard libraries depended on:
+- **Simple & Standard:** Only 3 (major) non-standard libraries depended on:
     - [vitetest](https://github.com/vitest-dev/vitest) (testing);
+    - [commander](https://github.com/tj/commander.js) (CLI);
     - [rolldown](https://github.com/rolldown/rolldown) (bundler); and
     - [ts-morph](https://github.com/dsherret/ts-morph) (AST manipulation, parsing, and emission).
 - **Fully Tested:** Core generation logic has 100% test coverage.
 - **CLI and Library Usage:** Can be used as a command-line tool or programmatically.
+
+## CLI
+
+```sh
+npm run build && npm install -g .
+```
+
+Then you can run, `cdd_web_ng --help`:
+
+```
+Usage: cdd_web_ng [options] [command]
+
+OpenAPI ↔ Angular (TypeScript, HTML) code generator
+
+Options:
+  -V, --version           output the version number
+  -h, --help              display help for command
+
+Commands:
+  from_openapi [options]  Generate Angular services and admin UI from an OpenAPI specification
+  to_openapi [options]    Generate an OpenAPI specification from TypeScript code (Not yet implemented)
+  help [command]          display help for command
+```
+
+### `from_openapi`
+
+```
+Usage: cdd_web_ng from_openapi [options]
+
+Generate Angular services and admin UI from an OpenAPI specification
+
+Options:
+  -c, --config <path>  Path to a configuration file (e.g., cdd-web-ng.config.js)
+  -i, --input <path>   Path or URL to the OpenAPI spec (overrides config)
+  -o, --output <path>  Output directory for generated files (overrides config)
+  --clientName <name>  Name for the generated client (used for DI tokens)
+  --dateType <type>    Date type to use (choices: "string", "Date")
+  --enumStyle <style>  Style for enums (choices: "enum", "union")
+  --admin              Generate an Angular Material admin UI
+  --generate-services  Generate Angular services (default: true)
+  -h, --help           display help for command
+```
+
+### `to_openapi`
+
+```
+Usage: cdd_web_ng to_openapi [options]
+
+Generate an OpenAPI specification from TypeScript code
+
+Options:
+  -f, --file <path>  Path to the input TypeScript source file or directory
+  --format <format>  Output format for the OpenAPI spec (choices: "json",
+                     "yaml", default: "yaml")
+  -h, --help         display help for command
+```
 
 ### Core & Tooling Features
 
@@ -139,7 +196,15 @@ export class PetAPI {
 
 ## Development
 
-1. Clone the repository.
-2. Install dependencies: `npm install`
-3. Run tests: `npm test`
-4. Build the project: `npm run build`
+0. Clone the repository.
+1. Install dependencies: `npm install`
+2. Run tests: `npm test`
+3. Build the project: `npm run build`
+
+## Acknowledgement
+
+The service templates and ts-morph usage for Angular client generation was originally done in the MIT
+licensed https://github.com/ng-openapi/ng-openapi - thanks @Mr-Jami
+
+(before being extended here with: more ts-morph usage; test generation; greater documentation coverage; greater test
+coverage; admin UI generation; auth implementation; and better OpenAPI conformance; &etc.)

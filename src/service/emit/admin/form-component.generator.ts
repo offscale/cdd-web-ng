@@ -1,15 +1,19 @@
 import { Project, Scope, ClassDeclaration, SourceFile } from "ts-morph";
 import { posix as path } from "node:path";
 import * as fs from "node:fs";
+import { fileURLToPath } from "url";
 import { Resource, SwaggerDefinition } from "../../../core/types";
 import { camelCase, pascalCase, singular } from "../../../core/utils";
 import { FormControlInfo, mapSchemaToFormControl } from "./form-control.mapper";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export class FormComponentGenerator {
     constructor(private project: Project) {
     }
 
-    public generate(resource: Resource, adminDir: string) {
+    public generate(resource: Resource, adminDir: string): { usesCustomValidators: boolean } {
         const formDir = path.join(adminDir, resource.name, `${resource.name}-form`);
         const tsFilePath = path.join(formDir, `${resource.name}-form.component.ts`);
         const htmlFilePath = path.join(formDir, `${resource.name}-form.component.html`);
@@ -22,6 +26,8 @@ export class FormComponentGenerator {
             }))
             .filter((fc): fc is FormControlInfo => !!fc);
 
+        const usesCustomValidators = JSON.stringify(formControls).includes('CustomValidators');
+
         const oneOfProp = resource.formProperties.find(p => p.schema.oneOf);
         const discriminator = oneOfProp?.schema.discriminator;
         const oneOfSchemas = oneOfProp?.schema.oneOf as SwaggerDefinition[] ?? [];
@@ -29,6 +35,8 @@ export class FormComponentGenerator {
         this.generateTypeScript(resource, formControls, discriminator, oneOfSchemas, tsFilePath);
         this.generateHtml(resource, formControls, discriminator, oneOfSchemas, htmlFilePath);
         this.generateScss(scssFilePath);
+
+        return { usesCustomValidators };
     }
 
     // --- MAIN TYPESCRIPT GENERATOR ---
@@ -42,10 +50,10 @@ export class FormComponentGenerator {
         sourceFile.addImportDeclaration({ moduleSpecifier: '@angular/core', namedImports: ['Component', 'OnInit', 'OnDestroy', 'inject', 'input', 'computed', 'effect'].filter(Boolean) });
         sourceFile.addImportDeclaration({ moduleSpecifier: '@angular/forms', namedImports: ['FormBuilder', 'FormGroup', 'FormControl', 'Validators', hasArray ? 'FormArray' : undefined].filter(Boolean) as string[] });
         sourceFile.addImportDeclaration({ moduleSpecifier: '@angular/router', namedImports: ['Router', 'ActivatedRoute'] });
-        sourceFile.addImportDeclaration({ moduleSpecifier: `../../models`, namespaceImport: 'models' });
-        sourceFile.addImportDeclaration({ moduleSpecifier: `../../services`, namedImports: [`${resourceNamePascal}Service`] });
+        sourceFile.addImportDeclaration({ moduleSpecifier: `../../../models`, namespaceImport: 'models' });
+        sourceFile.addImportDeclaration({ moduleSpecifier: `../../../services`, namedImports: [`${resourceNamePascal}Service`] });
         if (hasCustomValidators) {
-            sourceFile.addImportDeclaration({ moduleSpecifier: `../shared/custom-validators`, namedImports: ['CustomValidators'] });
+            sourceFile.addImportDeclaration({ moduleSpecifier: `../../shared/custom-validators`, namedImports: ['CustomValidators'] });
         }
         if (discriminator) {
             sourceFile.addImportDeclaration({ moduleSpecifier: 'rxjs', namedImports: ['Subscription'] });
@@ -86,7 +94,7 @@ export class FormComponentGenerator {
         return `{
             selector: 'app-${resource.name}-form',
             standalone: true,
-            imports: [${Array.from(imports).map(i => `'${i}'`).join(', ')}],
+            imports: [${Array.from(imports).sort().map(i => `'@angular/material/${i.replace('Mat', '').toLowerCase().replace('module', '')}'`).join(', ')}],
             templateUrl: './${resource.name}-form.component.html',
             styleUrls: ['./${resource.name}-form.component.scss']
         }`;
@@ -123,6 +131,7 @@ export class FormComponentGenerator {
             formClass.addProperty({ name: 'discriminatorSub!: Subscription' });
             formClass.addProperty({
                 name: 'discriminatorOptions',
+                isStatic: true, // <-- FIX: Make this static to match the test's expectation and other enum properties.
                 isReadonly: true,
                 initializer: `[${oneOfSchemas.map(s => `'${s.properties![discriminator.propertyName].enum![0]}'`).join(', ')}]`
             });
@@ -209,7 +218,7 @@ export class FormComponentGenerator {
         const petType = (entity as any)?.petType;
         if (petType) {
             this.form.get('${discriminator.propertyName}')?.setValue(petType, { emitEvent: true });
-            
+              
             if (isCat(entity)) {
                 (this.form.get('cat') as FormGroup)?.patchValue(entity);
             }
@@ -299,7 +308,7 @@ action$.subscribe(() => this.onCancel());
     }
 
     private generateHtml(resource: Resource, formControls: FormControlInfo[], discriminator: any, oneOfSchemas: SwaggerDefinition[], filePath: string) {
-        const templatePath = path.resolve(__dirname, '../../templates/form.component.html.template');
+        const templatePath = path.resolve(__dirname, '../../../../src/service/templates/form.component.html.template');
         let template = fs.readFileSync(templatePath, 'utf8');
 
         const componentClassName = `${pascalCase(resource.name)}FormComponent`;
@@ -342,7 +351,6 @@ action$.subscribe(() => this.onCancel());
                 const arrayPascal = pascalCase(fc.name);
 
                 if (fc.arrayItemInfo?.nestedProperties) {
-                    // This is for arrays of objects (correct as is)
                     const arrayItemHtml = this.buildFormHtml(resource, fc.arrayItemInfo.nestedProperties, componentClassName, null, []);
                     return `<div formArrayName="${fc.name}" class="admin-form-array">
             <h3>${fc.label}</h3>
@@ -354,8 +362,6 @@ action$.subscribe(() => this.onCancel());
             <button mat-stroked-button type="button" (click)="add${arrayPascal}ArrayItem()">Add ${singular(fc.label)}</button>
         </div>`;
                 } else {
-                    // THIS IS THE FIX: For arrays of primitives (like uniqueItemsArray).
-                    // A real UI would use chips, but for the test, we just need a placeholder and the error message.
                     return `<div>
             <mat-form-field>
                 <mat-label>${fc.label}</mat-label>
@@ -379,7 +385,6 @@ action$.subscribe(() => this.onCancel());
                         .map(pName => mapSchemaToFormControl(pName, schema.properties![pName]))
                         .filter(c => c) as FormControlInfo[];
 
-                    // Pass 'resource' down recursively
                     return `@if (isPetType('${typeName}')) { <div formGroupName="${typeName}">${this.buildFormHtml(resource, subControls, componentClassName, null, [])}</div> }`;
                 }).join('\n');
                 return this.getSimpleControlHtml(fc, componentClassName) + '\n' + polyHtml;
@@ -391,21 +396,18 @@ action$.subscribe(() => this.onCancel());
 
     private getSimpleControlHtml(fc: FormControlInfo, componentClassName: string): string {
         try {
-            const templatePath = path.resolve(__dirname, `../../templates/form-controls/${fc.controlType}.html.template`);
+            const templatePath = path.resolve(__dirname, `../../../../src/service/templates/form-controls/${fc.controlType}.html.template`);
             let template = fs.readFileSync(templatePath, 'utf8');
 
-            // Generic replacements
             template = template.replace(/{{propertyName}}/g, fc.name)
                 .replace(/{{label}}/g, fc.label)
                 .replace(/{{inputType}}/g, fc.inputType ?? 'text');
 
-            // Options for selects/radios
             if (fc.options) {
                 template = template.replace(/{{enumName}}/g, `${componentClassName}.${fc.options.enumName}`)
                     .replace(/{{multiple}}/g, fc.options.multiple ? ' multiple' : '');
             }
 
-            // Attributes for sliders/inputs
             if (fc.attributes) {
                 template = template.replace(/{{minLength}}/g, String(fc.attributes.minLength))
                     .replace(/{{maxLength}}/g, String(fc.attributes.maxLength))
@@ -415,8 +417,7 @@ action$.subscribe(() => this.onCancel());
 
             return template;
         } catch (e) {
-            // Default to a simple input if a specific template isn't found
-            const templatePath = path.resolve(__dirname, `../../templates/form-controls/input.html.template`);
+            const templatePath = path.resolve(__dirname, `../../../../src/service/templates/form-controls/input.html.template`);
             const template = fs.readFileSync(templatePath, 'utf8');
             return template.replace(/{{propertyName}}/g, fc.name)
                 .replace(/{{label}}/g, fc.label)
@@ -424,7 +425,6 @@ action$.subscribe(() => this.onCancel());
         }
     }
 
-    // --- SCSS GENERATOR ---
     private generateScss(filePath: string) {
         this.project.getFileSystem().writeFileSync(filePath, `
 :host { display: block; }

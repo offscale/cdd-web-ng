@@ -1,8 +1,12 @@
 import { Project, Scope } from "ts-morph";
 import { posix as path } from "node:path";
 import * as fs from "node:fs";
+import { fileURLToPath } from "url";
 import { Resource } from "../../../core/types";
 import { camelCase, kebabCase, pascalCase } from "../../../core/utils";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // This is the correct, complete list of imports for the component array.
 const standaloneListImportsArray = `[ CommonModule, RouterModule, MatPaginatorModule, MatSortModule, MatTableModule, MatButtonModule, MatProgressBarModule, MatIconModule ]`;
@@ -24,9 +28,8 @@ export class ListComponentGenerator {
     private generateTypeScript(resource: Resource, filePath: string) {
         const componentClassName = `${pascalCase(resource.name)}ListComponent`;
         const serviceName = `${camelCase(resource.name)}Service`;
-        // FIX: The generated service file uses camelCase, not kebab-case.
         const servicePath = `../../../services/${camelCase(resource.name)}.service`;
-        const modelPath = `../../../models`; // FIX: Path to models
+        const modelPath = `../../../models`;
         const modelName = resource.modelName;
         const deleteMethodName = `delete${modelName}`;
         const listMethodName = `get${pascalCase(resource.name)}`;
@@ -37,11 +40,10 @@ export class ListComponentGenerator {
             { moduleSpecifier: '@angular/core', namedImports: ['Component', 'inject', 'signal', 'effect', 'viewChild'] },
             { moduleSpecifier: '@angular/common', namedImports: ['CommonModule'] },
             { moduleSpecifier: '@angular/router', namedImports: ['Router', 'RouterModule', 'ActivatedRoute' ] },
-            // Dynamic service import path fix
             { moduleSpecifier: servicePath.replace(/\\/g, '/'), namedImports: [ `${pascalCase(serviceName)}` ] },
             { moduleSpecifier: modelPath, isTypeOnly: true, namedImports: [modelName] },
             { moduleSpecifier: 'rxjs', namedImports: ['Subject', 'merge', 'of', 'startWith', 'switchMap', 'map', 'catchError'] },
-            { moduleSpecifier: '@angular/material/table', namedImports: ['MatTableDataSource', 'MatTableModule'] },
+            { moduleSpecifier: '@angular/material/table', namedImports: ['MatTableModule'] },
             { moduleSpecifier: '@angular/material/paginator', namedImports: ['MatPaginator', 'MatPaginatorModule'] },
             { moduleSpecifier: '@angular/material/sort', namedImports: ['MatSort', 'MatSortModule'] },
             { moduleSpecifier: '@angular/material/icon', namedImports: ['MatIconModule'] },
@@ -64,7 +66,6 @@ export class ListComponentGenerator {
             }]
         });
 
-        // FIX: Use property names consistent with the test file ('isLoading', 'totalItems')
         component.addProperties([
             { name: 'router', scope: Scope.Private, isReadonly: true, initializer: 'inject(Router)' },
             { name: 'route', scope: Scope.Private, isReadonly: true, initializer: 'inject(ActivatedRoute)' },
@@ -78,7 +79,6 @@ export class ListComponentGenerator {
             { name: 'dataSource', initializer: `signal<${modelName}[]>([])` }
         ]);
 
-        // FIX: Replaced constructor with advanced pagination logic that reads headers
         component.addConstructor({
             statements: `
         effect((onCleanup) => {
@@ -89,13 +89,12 @@ export class ListComponentGenerator {
                     startWith({}),
                     switchMap(() => {
                         this.isLoading.set(true);
-                        // Parameters in spec order: _page, _limit, _sort, _order. We also add 'observe'.
                         const listCall$ = this.${serviceName}.${listMethodName}(
-                            paginator.pageIndex + 1, // Assume 1-based API pagination
+                            paginator.pageIndex + 1,
                             paginator.pageSize,
                             sorter.active,
                             sorter.direction,
-                            'response' // Observe the full HttpResponse
+                            'response'
                         ).pipe(catchError(() => of(null)));
                         return listCall$;
                     }),
@@ -103,22 +102,20 @@ export class ListComponentGenerator {
                         this.isLoading.set(false);
                         if (response === null) { return []; }
                         
-                        // Extract total count from response headers
                         const totalCount = response.headers.get('X-Total-Count');
                         this.totalItems.set(totalCount ? +totalCount : 0);
                         return response.body ?? [];
                     })
                 ).subscribe(data => this.dataSource.set(data));
-              
+                
             onCleanup(() => sub.unsubscribe());
         });`
         });
 
         const customActions = resource.operations.filter(op => !['list', 'create', 'getById', 'update', 'delete'].includes(op.action));
         customActions.forEach(action => {
-            const params = (action.parameters || []).filter(p => p.in === 'path').map(p => ({
-                name: camelCase(p.name), type: 'string | number'
-            }));
+            const hasPathParams = action.path.includes('{');
+            const params = hasPathParams ? [{ name: 'id', type: 'string | number' }] : [];
             component.addMethod({
                 name: action.action,
                 parameters: params,
@@ -136,19 +133,9 @@ export class ListComponentGenerator {
     }
 
     private generateHtml(resource: Resource, filePath: string) {
-        let templatePath: string;
-        // Check if pagination/sorting is likely needed to select the correct template
-        const listOp = resource.operations.find(op => op.action === 'list');
-        const hasPaginationParams = listOp?.parameters?.some(p => p.name === '_page' || p.name === '_limit' || p.name === '_sort');
-
-        if (hasPaginationParams) {
-            templatePath = path.resolve(__dirname, '../../templates/list.component.html.template');
-        } else {
-            // Fallback to a simpler template if one existed (using same for now)
-            templatePath = path.resolve(__dirname, '../../templates/list.component.html.template');
-        }
-
+        const templatePath = path.resolve(__dirname, '../../../../src/service/templates/list.component.html.template');
         let template = fs.readFileSync(templatePath, 'utf8');
+
         const modelName = resource.modelName;
         const properties = resource.formProperties.map(p => p.name);
         const columnDefs = properties.map(prop => `
@@ -157,6 +144,7 @@ export class ListComponentGenerator {
           <td mat-cell *matCellDef="let row">{{row.${prop}}}</td>
         </ng-container>
        `).join('\n');
+
         let actionsDef = '';
         if (resource.isEditable) {
             actionsDef = `

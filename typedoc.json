@@ -1,0 +1,14 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src/index.ts"],
+  "out": "docs",
+  "tsconfig": "tsconfig.json",
+  "readme": "README.md",
+  "name": "cdd-web-ng API Documentation",
+  "includeVersion": true,
+  "validation": {
+    "notExported": false,
+    "invalidLink": true,
+    "notDocumented": true
+  }
+}

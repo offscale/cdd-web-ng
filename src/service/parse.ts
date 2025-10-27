@@ -22,7 +22,7 @@ export function groupPathsByController(parser: SwaggerParser): Record<string, Pa
         if (path.tags && path.tags.length > 0) {
             controllerName = path.tags[0];
         } else {
-            const pathParts = path.path.split('/').filter(p => p && !p.startsWith('{'));
+            const pathParts = path.path.split('/').filter((p: string): boolean => p && !p.startsWith('{'));
             if (pathParts.length > 0) {
                 controllerName = pathParts[0];
             }

@@ -58,20 +58,6 @@ export function mapSchemaToFormControl(name: string, schema: SwaggerDefinition):
     if (schema.uniqueItems) { info.validators?.push(`CustomValidators.uniqueItems()`); }
     if (schema.minItems) { info.validators?.push(`Validators.minLength(${schema.minItems})`); } // For FormArray
 
-    if (schema.oneOf && schema.discriminator) {
-        info.controlType = 'select';
-        info.options = {
-            values: schema.oneOf.map(s => (s.properties?.[schema.discriminator!.propertyName] as SwaggerDefinition)?.enum?.[0] as string),
-            multiple: false,
-            enumName: 'discriminatorOptions' // Use a shared name
-        };
-        // Add required validator if the base schema requires it
-        if (schema.required) {
-            info.validators?.push('Validators.required');
-        }
-        return info as FormControlInfo;
-    }
-
     switch (schema.type) {
         case 'string':
             if (schema.format === 'date' || schema.format === 'date-time') { info.controlType = 'datepicker'; }

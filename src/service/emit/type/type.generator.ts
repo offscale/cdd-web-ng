@@ -24,6 +24,8 @@ export class TypeGenerator {
                 this.generateEnum(sourceFile, resolvedName, definition);
             } else if (definition.allOf) {
                 this.generateCompositeType(sourceFile, resolvedName, definition);
+            } else if (definition.oneOf || definition.anyOf) { // FIX: Added condition for union types
+                this.generateUnionType(sourceFile, resolvedName, definition);
             } else {
                 this.generateInterface(sourceFile, resolvedName, definition);
             }
@@ -64,6 +66,16 @@ export class TypeGenerator {
 
     private generateCompositeType(sourceFile: SourceFile, name: string, definition: SwaggerDefinition) {
         const types = definition.allOf!.map(d => this.resolveSwaggerType(d)).join(' & ');
+        sourceFile.addTypeAlias({
+            name,
+            isExported: true,
+            type: types || 'any'
+        });
+    }
+
+    // FIX: Added new private method to handle union type generation
+    private generateUnionType(sourceFile: SourceFile, name: string, definition: SwaggerDefinition) {
+        const types = (definition.oneOf || definition.anyOf)!.map(d => this.resolveSwaggerType(d)).join(' | ');
         sourceFile.addTypeAlias({
             name,
             isExported: true,

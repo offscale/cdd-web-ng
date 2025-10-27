@@ -1,4 +1,21 @@
+# IDEs
 .idea
 .vscode
+
+# Dependencies
 node_modules
 dist
+.DS_Store
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test & Coverage Output
+coverage
+.vitest-cache
+node_modules/.vite
+
+# Documentation Output
+docs

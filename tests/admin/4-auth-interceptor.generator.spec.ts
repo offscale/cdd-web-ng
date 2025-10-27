@@ -155,4 +155,24 @@ describe('AuthInterceptorGenerator', () => {
         expect(interceptorText).toContain('inject(API_KEY_TOKEN, { optional: true })');
         expect(interceptorText).toContain(`req.clone({ setHeaders: { 'X-API-KEY': this.apiKey } })`);
     });
+
+    it('should ignore unsupported security schemes', async () => {
+        const specWithUnsupported = {
+            ...JSON.parse(authSchemesSpec),
+            components: {
+                securitySchemes: {
+                    ...JSON.parse(authSchemesSpec).components.securitySchemes,
+                    Unsupported: { type: 'openIdConnect', openIdConnectUrl: 'test.com' }
+                }
+            }
+        };
+        const interceptorFile = await generateInterceptor(JSON.stringify(specWithUnsupported));
+        const interceptorText = interceptorFile?.getFullText() ?? '';
+
+        // Should still generate for the valid schemes
+        expect(interceptorText).toContain('if (this.apiKey)');
+        expect(interceptorText).toContain('if (this.bearerToken)');
+        // Should NOT contain anything related to the unsupported scheme
+        expect(interceptorText).not.toContain('openIdConnectUrl');
+    });
 });

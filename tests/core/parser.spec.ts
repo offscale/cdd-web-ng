@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import { SwaggerParser } from '../../src/core/parser.js';
 import { GeneratorConfig } from '../../src/core/types.js';
+import * as yaml from 'js-yaml';
 
 // Mock the fs module
 vi.mock('fs', async (importOriginal) => {
@@ -12,6 +13,9 @@ vi.mock('fs', async (importOriginal) => {
         readFileSync: vi.fn(),
     };
 });
+
+// Mock js-yaml
+vi.mock('js-yaml');
 
 // Mock global fetch
 const mockFetch = vi.fn();
@@ -44,6 +48,7 @@ describe('Unit: SwaggerParser', () => {
     it('should create parser from local YAML file detected by extension', async () => {
         (fs.existsSync as vi.Mock).mockReturnValue(true);
         (fs.readFileSync as vi.Mock).mockReturnValue('openapi: 3.0.1\ninfo:\n  title: test\n  version: 1');
+        (yaml.load as vi.Mock).mockReturnValue({ openapi: '3.0.1', info: { title: 'test', version: 1 } });
         const parser = await SwaggerParser.create('spec.yaml', config);
         expect(parser.getSpec().openapi).toBe('3.0.1');
         expect(parser.getSpecVersion()).toEqual({ type: 'openapi', version: '3.0.1' });
@@ -52,6 +57,7 @@ describe('Unit: SwaggerParser', () => {
     it('should create parser from local YAML file detected by content', async () => {
         (fs.existsSync as vi.Mock).mockReturnValue(true);
         (fs.readFileSync as vi.Mock).mockReturnValue('openapi: 3.0.1\ninfo:\n  title: test\n  version: 1');
+        (yaml.load as vi.Mock).mockReturnValue({ openapi: '3.0.1', info: { title: 'test', version: 1 } });
         const parser = await SwaggerParser.create('spec-no-extension', config);
         expect(parser.getSpec().openapi).toBe('3.0.1');
     });
@@ -87,7 +93,15 @@ describe('Unit: SwaggerParser', () => {
     it('should throw on invalid YAML content', async () => {
         (fs.existsSync as vi.Mock).mockReturnValue(true);
         (fs.readFileSync as vi.Mock).mockReturnValue('key: value:\n  - invalid');
+        (yaml.load as vi.Mock).mockImplementation(() => { throw new Error('YAML parse error'); });
         await expect(SwaggerParser.create('spec.yaml', config)).rejects.toThrow(/Failed to parse content/);
+    });
+
+    it('should throw with non-Error object during parsing', async () => {
+        (fs.existsSync as vi.Mock).mockReturnValue(true);
+        (fs.readFileSync as vi.Mock).mockReturnValue('invalid json');
+        JSON.parse = vi.fn().mockImplementation(() => { throw 'a string error'; });
+        await expect(SwaggerParser.create('spec.json', config)).rejects.toThrow('Failed to parse content from spec.json. Error: a string error');
     });
 
     it('should resolve references', () => {

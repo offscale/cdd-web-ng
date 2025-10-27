@@ -58,6 +58,12 @@ describe('Unit: TypeGenerator', () => {
         expect(output).toContain('export type AnyValue = string | number;');
     });
 
+    it('should fall back to `any` for empty `anyOf` array', () => {
+        const spec = { components: { schemas: { AnyValue: { anyOf: [] } } } };
+        const output = runGenerator(spec);
+        expect(output).toContain('export type AnyValue = any;');
+    });
+
     it('should generate a `never` type for an empty enum array', () => {
         const spec = { components: { schemas: { Empty: { type: 'string', enum: [] } } } };
         const output = runGenerator(spec, { enumStyle: 'union' });

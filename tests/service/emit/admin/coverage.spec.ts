@@ -33,6 +33,12 @@ describe('Unit: Admin Generators (Coverage)', () => {
             const result = mapSchemaToFormControl('myFile', schema as any);
             expect(result).toBeNull();
         });
+
+        it('should add minLength validator for minItems', () => {
+            const schema = { type: 'array', items: { type: 'string' }, minItems: 2 };
+            const result = mapSchemaToFormControl('myArray', schema as any);
+            expect(result?.validators).toContain('Validators.minLength(2)');
+        });
     });
 
     describe('ResourceDiscovery', () => {
@@ -65,6 +71,45 @@ describe('Unit: Admin Generators (Coverage)', () => {
             const resources = discoverAdminResources(parser);
             // Expect it not to crash and produce a default property
             expect(resources[0].formProperties).toEqual([{ name: 'id', schema: { type: 'string' } }]);
+        });
+
+        it('should handle discriminator property existing on the base schema', () => {
+            const spec = {
+                paths: {
+                    '/pets': {
+                        post: {
+                            tags: ['Pets'],
+                            // FIX: The operation MUST reference the schema via a requestBody
+                            // for the resource discovery to find and parse its properties.
+                            requestBody: {
+                                content: {
+                                    'application/json': {
+                                        schema: { $ref: '#/components/schemas/Pet' }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                components: {
+                    schemas: {
+                        Pet: {
+                            type: 'object',
+                            required: ['petType'],
+                            properties: { petType: { type: 'string' } }, // Discriminator is here
+                            oneOf: [{ $ref: '#/components/schemas/Cat' }],
+                            discriminator: { propertyName: 'petType' }
+                        },
+                        Cat: { type: 'object', properties: { huntingSkill: { type: 'string' } } },
+                    }
+                }
+            };
+            const parser = createParser(spec);
+            const resources = discoverAdminResources(parser);
+            const petResource = resources.find(r => r.name === 'pets');
+            const petTypeProp = petResource?.formProperties.find(p => p.name === 'petType');
+            expect(petTypeProp).toBeDefined();
+            expect(petTypeProp?.schema.oneOf).toBeDefined();
         });
     });
 });

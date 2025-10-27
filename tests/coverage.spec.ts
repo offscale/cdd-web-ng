@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { Project } from 'ts-morph';
+import { Project, SourceFile } from 'ts-morph';
 import { camelCase } from '../src/core/utils.js';
 import { GeneratorConfig } from '../src/core/types.js';
 import { SwaggerParser } from '../src/core/parser.js';
@@ -12,6 +12,7 @@ import { ServiceIndexGenerator } from '../src/service/emit/utility/index.generat
 import { ProviderGenerator } from '../src/service/emit/utility/provider.generator.js';
 import { TypeGenerator } from '../src/service/emit/type/type.generator.js';
 import { FormComponentGenerator } from '../src/service/emit/admin/form-component.generator.ts';
+import { basicControlsSpec } from './admin/specs/test.specs.js';
 
 vi.mock('node:fs');
 
@@ -64,11 +65,20 @@ describe('Coverage Enhancement Tests', () => {
         const html = project.getFileSystem().readFileSync('/admin/tests/tests-form/tests-form.component.html');
 
         // Assert that the generator successfully used the fallback template.
-        // FIX: The generator creates the label by applying pascalCase to the name 'sliderProp', resulting in 'SliderProp'.
-        // The assertion must match this behavior.
         expect(html).toContain('<mat-label>SliderProp</mat-label>');
         expect(html).toContain('<input matInput formControlName="sliderProp" type="number">');
         expect(html).not.toContain('<mat-slider'); // Ensure the original template was not used.
+    });
+
+    it('should not generate CustomValidators if not needed', async () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const config = { options: { admin: true } } as GeneratorConfig;
+        const parser = new SwaggerParser(JSON.parse(basicControlsSpec), config);
+        const adminGen = new AdminGenerator(parser, project, config);
+        await adminGen.generate('/output');
+
+        const validatorFile = project.getSourceFile('/output/admin/shared/custom-validators.ts');
+        expect(validatorFile).toBeUndefined();
     });
 
     // --- core/utils.ts ---
@@ -123,6 +133,20 @@ describe('Coverage Enhancement Tests', () => {
         const file = project.getSourceFile('/out/services/index.ts');
         expect(file).toBeDefined();
         expect(file?.getExportDeclarations().length).toBe(0);
+    });
+
+    it('should correctly index existing service files', () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const servicesDir = project.createDirectory('/out/services');
+        servicesDir.createSourceFile('users.service.ts', 'export class UsersService {}');
+
+        const indexGen = new ServiceIndexGenerator(project);
+        indexGen.generateIndex('/out');
+
+        const indexFile = project.getSourceFile('/out/services/index.ts');
+        expect(indexFile).toBeDefined();
+        // FIX: Assert with double quotes to match the formatter's output.
+        expect(indexFile?.getFullText()).toContain(`export { UsersService } from "./users.service";`);
     });
 
     // --- service/emit/utility/provider.generator.ts ---

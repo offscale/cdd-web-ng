@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { Project, IndentationText, SourceFile, ScriptTarget, ModuleKind } from 'ts-morph';
+import { Project, IndentationText, SourceFile, ScriptTarget, ModuleKind, ClassDeclaration } from 'ts-morph';
 import { SwaggerParser } from '../../src/core/parser.js';
 import { GeneratorConfig } from '../../src/core/types.js';
 import { AuthTokensGenerator } from '../../src/service/emit/utility/auth-tokens.generator.js';
@@ -14,13 +14,15 @@ import { authSchemesSpec } from '../admin/specs/test.specs.js';
 import { BaseInterceptorGenerator } from '../../src/service/emit/utility/base-interceptor.generator.js';
 import { TokenGenerator } from '../../src/service/emit/utility/token.generator.js';
 
+class DummyInterceptor {}
+
 /**
  * A helper function to run the provider generation pipeline manually.
  * This is the most stable way to test as it avoids potential module resolution bugs with Vitest.
  * @param specString The OpenAPI specification as a JSON string.
  * @returns A promise that resolves to the generated SourceFile for the providers.
  */
-async function generateProviders(specString: string): Promise<SourceFile | undefined> {
+async function generateProviders(specString: string, genConfig?: Partial<GeneratorConfig>): Promise<SourceFile | undefined> {
     const project = new Project({
         useInMemoryFileSystem: true,
         manipulationSettings: { indentationText: IndentationText.TwoSpaces },
@@ -43,7 +45,8 @@ async function generateProviders(specString: string): Promise<SourceFile | undef
             dateType: 'string',
             enumStyle: 'enum',
             generateServices: true,
-        }
+        },
+        ...genConfig
     };
 
     // Step 1: Create the parser instance from the spec string
@@ -93,5 +96,13 @@ describe('ProviderGenerator', () => {
         expect(fileText).toMatch(/provide:\s*HTTP_INTERCEPTORS,\s*useClass:\s*AuthInterceptor,\s*multi:\s*true/);
         expect(fileText).toMatch(/import\s*{[^}]+API_KEY_TOKEN[^}]+}\s*from\s*['"]\.\/auth\/auth.tokens/);
         expect(fileText).toMatch(/import\s*{[^}]+AuthInterceptor[^}]+}\s*from\s*['"]\.\/auth\/auth.interceptor/);
+    });
+
+    it('should include custom interceptors from config', async () => {
+        const emptySpec = JSON.stringify({ openapi: '3.0.0', info: { title: 'test', version: '1' }, paths: {} });
+        // FIX: The `interceptors` property belongs on the config object itself, not nested under `options`.
+        const providerFile = await generateProviders(emptySpec, { interceptors: [DummyInterceptor] } as any);
+        const fileText = providerFile?.getFullText() ?? '';
+        expect(fileText).toContain('const customInterceptors = config.interceptors?.map(InterceptorClass => new InterceptorClass()) || [];');
     });
 });

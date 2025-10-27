@@ -7,6 +7,7 @@ import { GeneratorConfig } from '../../../src/core/types.js';
 const mockAdminGenerate = vi.fn().mockResolvedValue(undefined);
 const mockServiceGenerateFile = vi.fn();
 const mockOAuthGenerate = vi.fn();
+const mockDateTransformerGenerate = vi.fn();
 
 vi.mock('../../../src/service/emit/admin/admin.generator.js', () => ({
     AdminGenerator: vi.fn().mockImplementation(function() { return { generate: mockAdminGenerate }; }),
@@ -20,9 +21,14 @@ vi.mock('../../../src/service/emit/utility/oauth-helper.generator.js', () => ({
     OAuthHelperGenerator: vi.fn().mockImplementation(function() { return { generate: mockOAuthGenerate }; }),
 }));
 
+vi.mock('../../../src/service/emit/utility/date-transformer.generator.js', () => ({
+    DateTransformerGenerator: vi.fn().mockImplementation(function() { return { generate: mockDateTransformerGenerate }; }),
+}));
+
 import { AdminGenerator } from '../../../src/service/emit/admin/admin.generator.js';
 import { ServiceGenerator } from '../../../src/service/emit/service/service.generator.js';
 import { OAuthHelperGenerator } from '../../../src/service/emit/utility/oauth-helper.generator.js';
+import { DateTransformerGenerator } from '../../../src/service/emit/utility/date-transformer.generator.js';
 
 describe('Unit: Orchestrator', () => {
     beforeEach(() => {
@@ -49,6 +55,14 @@ describe('Unit: Orchestrator', () => {
         expect(mockAdminGenerate).toHaveBeenCalledTimes(1);
     });
 
+    it('should NOT call AdminGenerator when admin option is false', async () => {
+        const spec = { openapi: '3.0.0', paths: {}, info: { title: 'test', version: '1' } };
+        const { project, parser, config } = createMocks(spec);
+        config.options.admin = false; // Explicitly set to false
+        await emitClientLibrary('/generated', parser, config, project);
+        expect(AdminGenerator).not.toHaveBeenCalled();
+    });
+
     it('should NOT call ServiceGenerator when generateServices option is false', async () => {
         const spec = { openapi: '3.0.0', paths: {}, info: { title: 'test', version: '1' } };
         const { project, parser, config } = createMocks(spec);
@@ -66,5 +80,21 @@ describe('Unit: Orchestrator', () => {
         await emitClientLibrary('/generated', parser, config, project);
         expect(OAuthHelperGenerator).toHaveBeenCalledTimes(1);
         expect(mockOAuthGenerate).toHaveBeenCalledTimes(1);
+    });
+
+    it('should NOT call auth generators if no security schemes are present', async () => {
+        const spec = { openapi: '3.0.0', paths: {}, info: { title: 'test', version: '1' } };
+        const { project, parser, config } = createMocks(spec);
+        await emitClientLibrary('/generated', parser, config, project);
+        expect(OAuthHelperGenerator).not.toHaveBeenCalled();
+    });
+
+    it('should call DateTransformerGenerator when dateType is Date', async () => {
+        const spec = { openapi: '3.0.0', paths: {}, info: { title: 'test', version: '1' } };
+        const { project, parser, config } = createMocks(spec);
+        config.options.dateType = 'Date';
+        await emitClientLibrary('/generated', parser, config, project);
+        expect(DateTransformerGenerator).toHaveBeenCalledTimes(1);
+        expect(mockDateTransformerGenerate).toHaveBeenCalledTimes(1);
     });
 });

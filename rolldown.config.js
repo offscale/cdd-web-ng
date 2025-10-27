@@ -5,6 +5,7 @@ import { dts } from 'rolldown-plugin-dts';
 import { resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { glob } from 'glob';
+import {inlineTextFiles} from "./rolldown.plugin.string.js";
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
@@ -44,6 +45,7 @@ export default {
         },
     },
     plugins: [
+        inlineTextFiles(),
         // Use the dts plugin to generate TypeScript declaration files (.d.ts)
         dts({
             tsconfig: resolve(__dirname, 'tsconfig.json'),

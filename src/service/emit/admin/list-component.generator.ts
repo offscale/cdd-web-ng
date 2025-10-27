@@ -1,12 +1,8 @@
 import { Project, Scope } from "ts-morph";
 import { posix as path } from "node:path";
-import * as fs from "node:fs";
-import { fileURLToPath } from "url";
 import { Resource } from "../../../core/types";
 import { camelCase, kebabCase, pascalCase } from "../../../core/utils";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import listTemplate from '../../templates/list.component.html.template'; // <-- IMPORT
 
 // This is the correct, complete list of imports for the component array.
 const standaloneListImportsArray = `[ CommonModule, RouterModule, MatPaginatorModule, MatSortModule, MatTableModule, MatButtonModule, MatProgressBarModule, MatIconModule ]`;
@@ -16,6 +12,9 @@ export class ListComponentGenerator {
 
     generate(resource: Resource, adminDir: string) {
         const listDir = path.join(adminDir, resource.name, `${resource.name}-list`);
+        // FIX: Explicitly create the component's directory.
+        this.project.getFileSystem().mkdirSync(listDir, { recursive: true });
+
         const tsFilePath = path.join(listDir, `${resource.name}-list.component.ts`);
         const htmlFilePath = path.join(listDir, `${resource.name}-list.component.html`);
         const scssFilePath = path.join(listDir, `${resource.name}-list.component.scss`);
@@ -101,13 +100,13 @@ export class ListComponentGenerator {
                     map(response => {
                         this.isLoading.set(false);
                         if (response === null) { return []; }
-                        
+                          
                         const totalCount = response.headers.get('X-Total-Count');
                         this.totalItems.set(totalCount ? +totalCount : 0);
                         return response.body ?? [];
                     })
                 ).subscribe(data => this.dataSource.set(data));
-                
+                  
             onCleanup(() => sub.unsubscribe());
         });`
         });
@@ -133,8 +132,7 @@ export class ListComponentGenerator {
     }
 
     private generateHtml(resource: Resource, filePath: string) {
-        const templatePath = path.resolve(__dirname, '../../../../src/service/templates/list.component.html.template');
-        let template = fs.readFileSync(templatePath, 'utf8');
+        let template = listTemplate; // <-- USE IMPORTED TEMPLATE
 
         const modelName = resource.modelName;
         const properties = resource.formProperties.map(p => p.name);

@@ -1,24 +1,19 @@
 import { Project } from 'ts-morph';
 import { posix as path } from 'path';
-import * as fs from 'fs';
-import { fileURLToPath } from 'url';
 import { SwaggerParser } from '../../../core/parser.js';
 import { GeneratorConfig, Resource } from '../../../core/types.js';
 import { discoverAdminResources } from './resource-discovery.js';
 import { FormComponentGenerator } from './form-component.generator.ts';
 import { ListComponentGenerator } from './list-component.generator.js';
 import { pascalCase } from '../../../core/utils.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import customValidatorsTemplate from '../../templates/custom-validators.ts.template'; // <-- IMPORT
 
 class CustomValidatorsGenerator {
     constructor(private project: Project) { }
     generate(adminDir: string) {
         const sharedDir = path.join(adminDir, 'shared');
-        const templatePath = path.resolve(__dirname, '../../../../src/service/templates/custom-validators.ts.template');
-        const template = fs.readFileSync(templatePath, 'utf8');
-        this.project.createSourceFile(path.join(sharedDir, 'custom-validators.ts'), template, { overwrite: true });
+        // FIX: Use the imported template string directly, no more fs!
+        this.project.createSourceFile(path.join(sharedDir, 'custom-validators.ts'), customValidatorsTemplate, { overwrite: true });
     }
 }
 

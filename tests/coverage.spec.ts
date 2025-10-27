@@ -1,7 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { Project, SourceFile } from 'ts-morph';
+import { Project } from 'ts-morph';
 import { camelCase } from '../src/core/utils.js';
 import { GeneratorConfig } from '../src/core/types.js';
 import { SwaggerParser } from '../src/core/parser.js';
@@ -14,7 +12,7 @@ import { TypeGenerator } from '../src/service/emit/type/type.generator.js';
 import { FormComponentGenerator } from '../src/service/emit/admin/form-component.generator.ts';
 import { basicControlsSpec } from './admin/specs/test.specs.js';
 
-vi.mock('node:fs');
+// The fs mock is no longer needed because templates are now imported.
 
 describe('Coverage Enhancement Tests', () => {
 
@@ -26,50 +24,7 @@ describe('Coverage Enhancement Tests', () => {
         vi.restoreAllMocks();
     });
 
-    // --- service/emit/admin/form-component.generator.ts ---
-    it('should fall back to input template if a specific template is missing', () => {
-
-        const mockFileSystem: Record<string, string | null> = {
-            'form.component.html.template': `<div>{{formControlsHtml}}</div>`,
-            'slider.html.template': null,
-            'input.html.template': `<mat-form-field appearance="outline"><mat-label>{{label}}</mat-label><input matInput formControlName="{{propertyName}}" type="{{inputType}}"></mat-form-field>`,
-        };
-
-        vi.mocked(fs.readFileSync).mockImplementation((filePath: any) => {
-            const fileName = path.basename(filePath);
-            if (Object.prototype.hasOwnProperty.call(mockFileSystem, fileName)) {
-                const content = mockFileSystem[fileName];
-                if (content === null) {
-                    throw new Error(`[Mock] File not found: ${fileName}`);
-                }
-                return content;
-            }
-            throw new Error(`[Mock] An unexpected file was requested: ${fileName}`);
-        });
-
-        const project = new Project({ useInMemoryFileSystem: true });
-        const formGen = new FormComponentGenerator(project);
-        const resource = {
-            name: 'tests',
-            modelName: 'Test',
-            isEditable: true,
-            operations: [],
-            formProperties: [{
-                name: 'sliderProp', // The generator uses this `name` to create the label.
-                schema: { type: 'integer' }
-            }]
-        };
-
-        formGen.generate(resource, '/admin');
-
-        const html = project.getFileSystem().readFileSync('/admin/tests/tests-form/tests-form.component.html');
-
-        // Assert that the generator successfully used the fallback template.
-        expect(html).toContain('<mat-label>SliderProp</mat-label>');
-        expect(html).toContain('<input matInput formControlName="sliderProp" type="number">');
-        expect(html).not.toContain('<mat-slider'); // Ensure the original template was not used.
-    });
-
+    // This test covers the case where the admin generator isn't given any custom validators to generate.
     it('should not generate CustomValidators if not needed', async () => {
         const project = new Project({ useInMemoryFileSystem: true });
         const config = { options: { admin: true } } as GeneratorConfig;
@@ -145,7 +100,6 @@ describe('Coverage Enhancement Tests', () => {
 
         const indexFile = project.getSourceFile('/out/services/index.ts');
         expect(indexFile).toBeDefined();
-        // FIX: Assert with double quotes to match the formatter's output.
         expect(indexFile?.getFullText()).toContain(`export { UsersService } from "./users.service";`);
     });
 

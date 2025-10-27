@@ -1,13 +1,33 @@
 import { Project, Scope, ClassDeclaration, SourceFile } from "ts-morph";
 import { posix as path } from "node:path";
-import * as fs from "node:fs";
-import { fileURLToPath } from "url";
 import { Resource, SwaggerDefinition } from "../../../core/types";
 import { camelCase, pascalCase, singular } from "../../../core/utils";
 import { FormControlInfo, mapSchemaToFormControl } from "./form-control.mapper";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Import all templates as strings
+import formTemplate from '../../templates/form.component.html.template';
+import chipsTemplate from '../../templates/form-controls/chips.html.template';
+import datepickerTemplate from '../../templates/form-controls/datepicker.html.template';
+import fileTemplate from '../../templates/form-controls/file.html.template';
+import inputTemplate from '../../templates/form-controls/input.html.template';
+import radioTemplate from '../../templates/form-controls/radio.html.template';
+import selectTemplate from '../../templates/form-controls/select.html.template';
+import sliderTemplate from '../../templates/form-controls/slider.html.template';
+import textareaTemplate from '../../templates/form-controls/textarea.html.template';
+import toggleTemplate from '../../templates/form-controls/toggle.html.template';
+
+// Map control types to their imported templates
+const controlTemplates: Record<string, string> = {
+    chips: chipsTemplate,
+    datepicker: datepickerTemplate,
+    file: fileTemplate,
+    input: inputTemplate,
+    radio: radioTemplate,
+    select: selectTemplate,
+    slider: sliderTemplate,
+    textarea: textareaTemplate,
+    toggle: toggleTemplate,
+};
 
 export class FormComponentGenerator {
     constructor(private project: Project) {
@@ -15,6 +35,8 @@ export class FormComponentGenerator {
 
     public generate(resource: Resource, adminDir: string): { usesCustomValidators: boolean } {
         const formDir = path.join(adminDir, resource.name, `${resource.name}-form`);
+        this.project.getFileSystem().mkdirSync(formDir, { recursive: true });
+
         const tsFilePath = path.join(formDir, `${resource.name}-form.component.ts`);
         const htmlFilePath = path.join(formDir, `${resource.name}-form.component.html`);
         const scssFilePath = path.join(formDir, `${resource.name}-form.component.scss`);
@@ -308,11 +330,9 @@ action$.subscribe(() => this.onCancel());
     }
 
     private generateHtml(resource: Resource, formControls: FormControlInfo[], discriminator: any, oneOfSchemas: SwaggerDefinition[], filePath: string) {
-        const templatePath = path.resolve(__dirname, '../../../../src/service/templates/form.component.html.template');
-        let template = fs.readFileSync(templatePath, 'utf8');
+        let template = formTemplate; // Use imported template
 
         const componentClassName = `${pascalCase(resource.name)}FormComponent`;
-        // Pass 'resource' as the first argument here
         const controlsHtml = this.buildFormHtml(resource, formControls, componentClassName, discriminator, oneOfSchemas);
 
         template = template.replace('{{formControlsHtml}}', controlsHtml)
@@ -324,14 +344,11 @@ action$.subscribe(() => this.onCancel());
 
     private buildFormHtml(resource: Resource, controls: FormControlInfo[], componentClassName: string, discriminator: any, oneOfSchemas: SwaggerDefinition[]): string {
         return controls.map(fc => {
-            // Handle Nested FormGroup
             if (fc.controlType === 'group' && fc.nestedProperties) {
-                // Pass 'resource' down recursively
                 const innerHtml = this.buildFormHtml(resource, fc.nestedProperties, componentClassName, null, []);
                 return `<div formGroupName="${fc.name}" class="admin-form-group"><h3>${fc.label}</h3>${innerHtml}</div>`;
             }
 
-            // Handle FormArray
             if (fc.controlType === 'array') {
                 if (fc.arrayItemInfo?.nestedProperties) {
                     const arrayItemHtml = this.buildFormHtml(resource, fc.arrayItemInfo.nestedProperties, componentClassName, null, []);
@@ -347,7 +364,6 @@ action$.subscribe(() => this.onCancel());
                 <button mat-stroked-button type="button" (click)="add${arrayPascal}ArrayItem()">Add ${singular(fc.label)}</button>
             </div>`;
                 } else {
-                    // FIX: This block handles primitive arrays and was missing the error message for uniqueItems.
                     return `<div>
             <div formArrayName="${fc.name}">
               <!-- Simplified view for primitive arrays; full control would be more complex -->
@@ -362,7 +378,6 @@ action$.subscribe(() => this.onCancel());
                 }
             }
 
-            // Handle Polymorphism (Discriminator)
             if (discriminator && fc.name === discriminator.propertyName) {
                 const polyHtml = oneOfSchemas.map(schema => {
                     const typeName = schema.properties![discriminator.propertyName].enum![0];
@@ -380,34 +395,25 @@ action$.subscribe(() => this.onCancel());
     }
 
     private getSimpleControlHtml(fc: FormControlInfo, componentClassName: string): string {
-        try {
-            const templatePath = path.resolve(__dirname, `../../../../src/service/templates/form-controls/${fc.controlType}.html.template`);
-            let template = fs.readFileSync(templatePath, 'utf8');
+        let template = controlTemplates[fc.controlType] || inputTemplate;
 
-            template = template.replace(/{{propertyName}}/g, fc.name)
-                .replace(/{{label}}/g, fc.label)
-                .replace(/{{inputType}}/g, fc.inputType ?? 'text');
+        template = template.replace(/{{propertyName}}/g, fc.name)
+            .replace(/{{label}}/g, fc.label)
+            .replace(/{{inputType}}/g, fc.inputType ?? 'text');
 
-            if (fc.options) {
-                template = template.replace(/{{enumName}}/g, `${componentClassName}.${fc.options.enumName}`)
-                    .replace(/{{multiple}}/g, fc.options.multiple ? ' multiple' : '');
-            }
-
-            if (fc.attributes) {
-                template = template.replace(/{{minLength}}/g, String(fc.attributes.minLength))
-                    .replace(/{{maxLength}}/g, String(fc.attributes.maxLength))
-                    .replace(/min="{{min}}"/g, `min="${fc.attributes.min}"`)
-                    .replace(/max="{{max}}"/g, `max="${fc.attributes.max}"`);
-            }
-
-            return template;
-        } catch (e) {
-            const templatePath = path.resolve(__dirname, `../../../../src/service/templates/form-controls/input.html.template`);
-            const template = fs.readFileSync(templatePath, 'utf8');
-            return template.replace(/{{propertyName}}/g, fc.name)
-                .replace(/{{label}}/g, fc.label)
-                .replace(/{{inputType}}/g, fc.inputType ?? 'text');
+        if (fc.options) {
+            template = template.replace(/{{enumName}}/g, `${componentClassName}.${fc.options.enumName}`)
+                .replace(/{{multiple}}/g, fc.options.multiple ? ' multiple' : '');
         }
+
+        if (fc.attributes) {
+            template = template.replace(/{{minLength}}/g, String(fc.attributes.minLength))
+                .replace(/{{maxLength}}/g, String(fc.attributes.maxLength))
+                .replace(/min="{{min}}"/g, `min="${fc.attributes.min}"`)
+                .replace(/max="{{max}}"/g, `max="${fc.attributes.max}"`);
+        }
+
+        return template;
     }
 
     private generateScss(filePath: string) {

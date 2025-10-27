@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import fs from 'node:fs'; // <-- Import fs for the plugin
 
 export default defineConfig({
     test: {
@@ -27,6 +28,7 @@ export default defineConfig({
                 'src/core/types.ts',
                 'src/core/constants.ts',
                 '**/index.ts', // Exclude barrel files
+                'src/custom.d.ts', // Type declarations are not testable
             ],
             // Enforce 90% coverage (optional, you can lower these)
             thresholds: {
@@ -46,4 +48,19 @@ export default defineConfig({
             },
         },
     },
+    // FIX: Add a plugin to handle .template imports during testing
+    plugins: [
+        {
+            name: 'vite-plugin-inline-text-files',
+            transform(code, id) {
+                if (id.endsWith('.template')) {
+                    const fileContent = fs.readFileSync(id, 'utf-8');
+                    return {
+                        code: `export default ${JSON.stringify(fileContent)};`,
+                        map: null
+                    };
+                }
+            }
+        }
+    ]
 });

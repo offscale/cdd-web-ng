@@ -50,6 +50,10 @@ export class OAuthHelperGenerator {
 
     private generateRedirectComponent(authDir: string): void {
         const componentDir = path.join(authDir, 'oauth-redirect');
+
+        // FIX: Explicitly create the component's directory before writing files to it.
+        this.project.getFileSystem().mkdirSync(componentDir, { recursive: true });
+
         const tsPath = path.join(componentDir, 'oauth-redirect.component.ts');
         const htmlPath = path.join(componentDir, 'oauth-redirect.component.html');
 

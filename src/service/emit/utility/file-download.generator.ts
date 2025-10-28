@@ -73,6 +73,7 @@ export class FileDownloadGenerator {
     return (source: Observable<T>) => {
         return source.pipe(
             tap((response: T) => {
+                // --- START FIX ---
                 const blob = response instanceof HttpResponse ? response.body : response;
                 if (!blob) {
                     console.error('Download failed: Blob is null or undefined.');
@@ -81,8 +82,9 @@ export class FileDownloadGenerator {
 
                 const contentDisposition = response instanceof HttpResponse ? response.headers.get('content-disposition') : null;
                 const filename = extractFilenameFromContentDisposition(contentDisposition) ?? fallbackFilename;
-                
+
                 downloadFile(blob, filename);
+                // --- END FIX ---
             })
         );
     };`

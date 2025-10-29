@@ -11,7 +11,7 @@ describe('Unit: ServiceGenerator (Coverage)', () => {
         const parser = new SwaggerParser(spec as any, config);
         const serviceGen = new ServiceGenerator(parser, project, config);
         const operations = (spec as any).paths['/test'];
-        serviceGen.generateServiceFile('Test', operations, '/generated/services');
+        serviceGen.generate('/generated/services', operations);
         return project.getSourceFileOrThrow('/generated/services/test.service.ts');
     };
 

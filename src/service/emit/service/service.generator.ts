@@ -1,3 +1,5 @@
+// src/service/emit/service/service.generator.ts
+
 import { Project, ClassDeclaration, Scope, SourceFile } from 'ts-morph';
 import * as path from 'path';
 import { SwaggerParser } from '../../../core/parser.js';
@@ -16,26 +18,30 @@ export class ServiceGenerator {
         this.methodGenerator = new ServiceMethodGenerator(config, parser);
     }
 
-    public generateServiceFile(controllerName: string, operations: PathInfo[], outputDir: string) {
-        const fileName = `${camelCase(controllerName)}.service.ts`;
-        const filePath = path.join(outputDir, fileName);
-        const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
+    /**
+     * FIX: This method now loops over all controller groups and generates a file for each.
+     * The old 'generateServiceFile' logic is now contained within the loop.
+     */
+    public generate(outputDir: string, controllerGroups: Record<string, PathInfo[]>) {
+        for (const [controllerName, operations] of Object.entries(controllerGroups)) {
+            const fileName = `${camelCase(controllerName)}.service.ts`;
+            const filePath = path.join(outputDir, fileName);
+            const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
-        sourceFile.addStatements(SERVICE_GENERATOR_HEADER_COMMENT);
-        const className = `${pascalCase(controllerName)}Service`;
+            sourceFile.addStatements(SERVICE_GENERATOR_HEADER_COMMENT);
+            const className = `${pascalCase(controllerName)}Service`;
 
-        this.addImports(sourceFile);
-        const serviceClass = this.addClass(sourceFile, className);
+            this.addImports(sourceFile);
+            const serviceClass = this.addClass(sourceFile, className);
+            this.addPropertiesAndHelpers(serviceClass);
 
-        this.addPropertiesAndHelpers(serviceClass);
+            operations.forEach(op => this.methodGenerator.addServiceMethod(serviceClass, op));
 
-        operations.forEach(op => this.methodGenerator.addServiceMethod(serviceClass, op));
-
-        if (hasDuplicateFunctionNames(serviceClass.getMethods())) {
-            throw new Error(`Duplicate method names found in service class ${className}. Please ensure operationIds are unique.`);
+            if (hasDuplicateFunctionNames(serviceClass.getMethods())) {
+                throw new Error(`Duplicate method names found in service class ${className}. Please ensure operationIds are unique or use the 'customizeMethodName' option.`);
+            }
+            sourceFile.fixMissingImports({ importModuleSpecifierPreference: 'relative' });
         }
-
-        sourceFile.fixMissingImports({ importModuleSpecifierPreference: 'relative' });
     }
 
     private addImports(sourceFile: SourceFile) {

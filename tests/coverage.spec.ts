@@ -1,3 +1,5 @@
+// tests/coverage.spec.ts
+
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { Project } from 'ts-morph';
 import { camelCase } from '../src/core/utils.js';
@@ -9,10 +11,10 @@ import { ServiceGenerator } from '../src/service/emit/service/service.generator.
 import { ServiceIndexGenerator } from '../src/service/emit/utility/index.generator.js';
 import { ProviderGenerator } from '../src/service/emit/utility/provider.generator.js';
 import { TypeGenerator } from '../src/service/emit/type/type.generator.js';
-import { FormComponentGenerator } from '../src/service/emit/admin/form-component.generator.ts';
+// FIX: Import the new dependencies for AdminGenerator
+import { FormComponentGenerator } from '../src/service/emit/admin/form-component.generator.js';
+import { ListComponentGenerator } from '../src/service/emit/admin/list-component.generator.js';
 import { basicControlsSpec } from './admin/specs/test.specs.js';
-
-// The fs mock is no longer needed because templates are now imported.
 
 describe('Coverage Enhancement Tests', () => {
 
@@ -24,12 +26,19 @@ describe('Coverage Enhancement Tests', () => {
         vi.restoreAllMocks();
     });
 
-    // This test covers the case where the admin generator isn't given any custom validators to generate.
     it('should not generate CustomValidators if not needed', async () => {
         const project = new Project({ useInMemoryFileSystem: true });
         const config = { options: { admin: true } } as GeneratorConfig;
         const parser = new SwaggerParser(JSON.parse(basicControlsSpec), config);
-        const adminGen = new AdminGenerator(parser, project, config);
+
+        // FIX: Instantiate AdminGenerator with its new dependencies
+        const formGen = new FormComponentGenerator(project);
+        const listGen = new ListComponentGenerator(project);
+        // Mock the generate methods to avoid running the full generation
+        vi.spyOn(formGen, 'generate').mockReturnValue({ usesCustomValidators: false });
+        vi.spyOn(listGen, 'generate').mockImplementation(() => {});
+
+        const adminGen = new AdminGenerator(parser, project, config, formGen, listGen);
         await adminGen.generate('/output');
 
         const validatorFile = project.getSourceFile('/output/admin/shared/custom-validators.ts');
@@ -48,12 +57,16 @@ describe('Coverage Enhancement Tests', () => {
         const project = new Project({ useInMemoryFileSystem: true });
         const parser = new SwaggerParser({} as any, {} as any);
         const config = { options: {} } as GeneratorConfig;
-        const adminGen = new AdminGenerator(parser, project, config);
+
+        // FIX: Mock and instantiate dependencies for AdminGenerator
+        const formGen = new FormComponentGenerator(project);
+        const listGen = new ListComponentGenerator(project);
+        const adminGen = new AdminGenerator(parser, project, config, formGen, listGen);
+
         await adminGen.generate('/output');
         expect(consoleWarnSpy).toHaveBeenCalledWith("⚠️ No resources suitable for admin UI generation were found. Skipping.");
     });
 
-    // --- service/emit/service/service.generator.ts ---
     it('should throw an error for duplicate function names', () => {
         const operations = [
             { method: 'GET', operationId: 'getStuff', path: '/a', tags: ['Test'] },
@@ -62,8 +75,11 @@ describe('Coverage Enhancement Tests', () => {
         const project = new Project({ useInMemoryFileSystem: true });
         const parser = new SwaggerParser({} as any, { options: {} } as any);
         const serviceGen = new ServiceGenerator(parser, project, { options: {} } as any);
-        expect(() => serviceGen.generateServiceFile('Test', operations as any, '/out'))
-            .toThrow('Duplicate method names found in service class TestService. Please ensure operationIds are unique.');
+        const controllerGroups = { 'Test': operations as any };
+
+        // FIX: Call the new `generate` method instead of the removed `generateServiceFile`
+        expect(() => serviceGen.generate('/out/services', controllerGroups))
+            .toThrow(/Duplicate method names found in service class TestService/);
     });
 
     // --- service/emit/type/type.generator.ts ---

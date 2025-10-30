@@ -74,11 +74,14 @@ export class FileDownloadGenerator {
         return source.pipe(
             tap((response: T) => {
                 const blob = response instanceof HttpResponse ? response.body : response;
-                if (!blob) return;
+                if (!blob) {
+                    console.error('Download failed: Blob is null or undefined.');
+                    return;
+                }
 
                 const contentDisposition = response instanceof HttpResponse ? response.headers.get('content-disposition') : null;
                 const filename = extractFilenameFromContentDisposition(contentDisposition) ?? fallbackFilename;
-
+                
                 downloadFile(blob, filename);
             })
         );

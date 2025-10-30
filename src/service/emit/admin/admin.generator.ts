@@ -1,37 +1,27 @@
-// ./src/service/emit/admin/admin.generator.ts
-
 import { Project } from 'ts-morph';
 import { posix as path } from 'path';
 import { SwaggerParser } from '../../../core/parser.js';
 import { GeneratorConfig, Resource } from '../../../core/types.js';
 import { discoverAdminResources } from './resource-discovery.js';
-import { FormComponentGenerator } from './form-component.generator.js';
+import { FormComponentGenerator } from './form-component.generator.ts';
 import { ListComponentGenerator } from './list-component.generator.js';
-import { pascalCase } from '../../../core/utils.js';
+import { RoutingGenerator } from './routing.generator.js'; // <-- FIX: Import the correct generator
 import customValidatorsTemplate from '../../templates/custom-validators.ts.template';
-import { mapSchemaToFormControl, FormControlInfo } from './form-control.mapper.js';
 
 class CustomValidatorsGenerator {
     constructor(private project: Project) { }
-    generate(adminDir: string) { /* ... unchanged ... */ }
+    generate(adminDir: string) {
+        const sharedDir = path.join(adminDir, 'shared');
+        this.project.createSourceFile(path.join(sharedDir, 'custom-validators.ts'), customValidatorsTemplate, { overwrite: true });
+    }
 }
 
-class RoutingGenerator {
-    constructor(private project: Project) { }
-    /* ... all methods unchanged ... */
-}
+// FIX: The old, inline RoutingGenerator class has been removed.
 
 export class AdminGenerator {
     private allResources: Resource[] = [];
 
-    // *** FIX: Accept generator dependencies in the constructor ***
-    constructor(
-        private parser: SwaggerParser,
-        private project: Project,
-        private config: GeneratorConfig,
-        private formGen: FormComponentGenerator,
-        private listGen: ListComponentGenerator
-    ) { }
+    constructor(private parser: SwaggerParser, private project: Project, private config: GeneratorConfig) { }
 
     async generate(outputRoot: string): Promise<void> {
         console.log("🚀 Generating Admin UI...");
@@ -43,7 +33,9 @@ export class AdminGenerator {
 
         const adminDir = path.join(outputRoot, "admin");
 
-        // *** FIX: Do NOT create new instances here. Use the injected ones. ***
+        const formGen = new FormComponentGenerator(this.project);
+        const listGen = new ListComponentGenerator(this.project);
+        // FIX: This now correctly instantiates the imported RoutingGenerator
         const routeGen = new RoutingGenerator(this.project);
         const validatorGen = new CustomValidatorsGenerator(this.project);
 
@@ -52,21 +44,16 @@ export class AdminGenerator {
             console.log(`  -> Generating for resource: ${resource.name}`);
 
             if (resource.operations.some(op => op.action === 'list')) {
-                // Use the injected list generator
-                this.listGen.generate(resource, adminDir);
+                listGen.generate(resource, adminDir);
             }
 
             if (resource.operations.some(op => ['create', 'update'].includes(op.action))) {
-                const formControls = resource.formProperties
-                    .map(prop => mapSchemaToFormControl(prop.name, prop.schema))
-                    .filter((fc): fc is FormControlInfo => !!fc);
-
-                // Use the injected form generator
-                const formResult = this.formGen.generate(resource, formControls, (resource as any).discriminator, (resource as any).oneOfSchemas, adminDir);
+                const formResult = formGen.generate(resource, adminDir);
                 if (formResult.usesCustomValidators) {
                     needsCustomValidators = true;
                 }
             }
+            // This now calls the correct generator method
             routeGen.generate(resource, adminDir);
         }
 

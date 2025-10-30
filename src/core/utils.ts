@@ -38,6 +38,7 @@ export function singular(str: string): string {
 function normalizeString(str: string): string {
     if (!str) return '';
     return str
+        .replace(/[^a-zA-Z0-9\s_-]/g, ' ') // Replace invalid characters with spaces
         .replace(/^[_-]+|[-_]+$/g, '') // Remove leading/trailing separators
         .replace(/([a-z])([A-Z])/g, '$1 $2') // Add space before uppercase letters for camelCase inputs
         .replace(/[_-]+/g, ' ') // Replace separators with spaces
@@ -78,6 +79,7 @@ export function pascalCase(str: string): string {
  * @returns The KebabCased string.
  */
 export function kebabCase(str: string): string {
+    if (!str) return '';
     return str
         .replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2')
         .toLowerCase()

@@ -10,15 +10,14 @@ describe('Unit: ServiceGenerator (Coverage)', () => {
         const project = new Project({ useInMemoryFileSystem: true });
         const parser = new SwaggerParser(spec as any, config);
         const serviceGen = new ServiceGenerator(parser, project, config);
-        const operations = (spec as any).paths['/test'];
-        serviceGen.generate('/generated/services', operations);
+        serviceGen.generateServiceFile('Test', (spec as any).paths['/test'], '/generated/services');
         return project.getSourceFileOrThrow('/generated/services/test.service.ts');
     };
 
     it('should use customizeMethodName function when provided', () => {
         const spec = {
             paths: {
-                '/test': [{ path: '/test', operationId: 'get_test_data', method: 'GET' }]
+                '/test': [{ operationId: 'get_test_data', method: 'GET' }]
             }
         };
         const config: GeneratorConfig = {
@@ -36,7 +35,7 @@ describe('Unit: ServiceGenerator (Coverage)', () => {
     it('should throw if customizeMethodName is used but operationId is missing', () => {
         const spec = {
             paths: {
-                '/test': [{ path: '/test', method: 'GET' }] // No operationId
+                '/test': [{ method: 'GET' }] // No operationId
             }
         };
         const config: GeneratorConfig = {
@@ -55,7 +54,6 @@ describe('Unit: ServiceGenerator (Coverage)', () => {
         const spec = {
             paths: {
                 '/test': [{
-                    path: '/test',
                     method: 'GET',
                     operationId: 'getWithHeader',
                     parameters: [{ name: 'X-My-Header', in: 'header', required: true, schema: { type: 'string' } }]
@@ -76,5 +74,6 @@ describe('Unit: ServiceGenerator (Coverage)', () => {
         const bodyText = method.getBodyText();
         expect(bodyText).toContain("let headers = new HttpHeaders();");
         expect(bodyText).toContain("headers = headers.append('X-My-Header', String(xMyHeader));");
+        expect(bodyText).toContain('observe: observe as any,');
     });
 });

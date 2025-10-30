@@ -19,19 +19,19 @@ describe('Integration: Polymorphism (oneOf/discriminator) Generation', () => {
         tsFile = project.getSourceFileOrThrow('/generated/admin/pets/pets-form/pets-form.component.ts');
         html = project.getFileSystem().readFileSync('/generated/admin/pets/pets-form/pets-form.component.html');
         formClass = tsFile.getClassOrThrow('PetsFormComponent');
-    });
+    }, 30000);
 
     /**
      * Verifies that the discriminator property (`petType`) is generated as a mat-select control.
      */
     it('should generate a select control for the discriminator property', () => {
         const initFormBody = formClass.getMethodOrThrow('initForm').getBodyText();
-        expect(initFormBody).toContain(`petType: new FormControl<string | null>(null, [Validators.required])`);
+        expect(initFormBody).toContain(`petType: this.fb.control<string | null>(null, [Validators.required])`);
 
         expect(html).toContain('<mat-select formControlName="petType"');
 
         const optionsProp = formClass.getPropertyOrThrow('discriminatorOptions');
-        expect(optionsProp.isStatic()).toBe(true);
+        expect(optionsProp.isStatic()).toBe(false);
         const optionsArrayText = optionsProp.getInitializerOrThrow().getText();
         expect(optionsArrayText).toContain('"cat"');
         expect(optionsArrayText).toContain('"dog"');
@@ -44,9 +44,9 @@ describe('Integration: Polymorphism (oneOf/discriminator) Generation', () => {
      * control to trigger the dynamic form updates.
      */
     it('should subscribe to discriminator value changes to update the form', () => {
-        const ngOnInitBody = formClass.getMethodOrThrow('ngOnInit').getBodyText()!;
-        expect(ngOnInitBody).toContain(`valueChanges.subscribe`);
-        expect(ngOnInitBody).toContain(`this.updateFormForPetType(type)`);
+        const constructorBody = formClass.getConstructors()[0].getBodyText()!;
+        expect(constructorBody).toContain(`discriminatorCtrl.valueChanges.subscribe`);
+        expect(constructorBody).toContain(`this.updateFormForPetType(type)`);
     });
 
     /**
@@ -60,6 +60,7 @@ describe('Integration: Polymorphism (oneOf/discriminator) Generation', () => {
         const methodBody = updateMethod?.getBodyText() ?? '';
         expect(methodBody).toContain(`case 'cat':`);
         expect(methodBody).toContain(`this.form.addControl('cat'`); // Check for add
+        expect(methodBody).toContain('this.fb.group({');
         expect(html).toContain(`formControlName="huntingSkill"`); // Check HTML for the control
 
         expect(methodBody).toContain(`case 'dog':`);

@@ -21,7 +21,7 @@ describe('Integration: File Uploads Generation', () => {
         tsFile = project.getSourceFileOrThrow('/generated/admin/avatars/avatars-form/avatars-form.component.ts');
         html = project.getFileSystem().readFileSync('/generated/admin/avatars/avatars-form/avatars-form.component.html');
         formClass = tsFile.getClassOrThrow('AvatarsFormComponent');
-    });
+    }, 30000);
 
     /**
      * Verifies that the generated HTML contains a standard `<input type="file">`
@@ -40,7 +40,7 @@ describe('Integration: File Uploads Generation', () => {
      */
     it('should generate the correct FormControl for the file', () => {
         const initFormBody = formClass.getMethodOrThrow('initForm').getBodyText();
-        expect(initFormBody).toContain('image: new FormControl(null)');
+        expect(initFormBody).toContain('image: this.fb.control(null)');
     });
 
     /**

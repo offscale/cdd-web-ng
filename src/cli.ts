@@ -6,15 +6,9 @@ import { generateFromConfig } from './index.js';
 import { GeneratorConfig, GeneratorConfigOptions } from './core/types.js';
 import { isUrl } from './core/utils.js';
 
-// Dynamically import package.json to read the version number
 const packageJsonPath = new URL('../package.json', import.meta.url);
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
 
-/**
- * Loads and parses a JavaScript or JSON configuration file.
- * @param configPath - The path to the configuration file.
- * @returns A promise that resolves to the parsed configuration object.
- */
 async function loadConfigFile(configPath: string): Promise<Partial<GeneratorConfig>> {
     const resolvedPath = path.resolve(process.cwd(), configPath);
     if (!fs.existsSync(resolvedPath)) {
@@ -25,7 +19,6 @@ async function loadConfigFile(configPath: string): Promise<Partial<GeneratorConf
         const configModule = await import(resolvedPath);
         const config = configModule.default || configModule.config || configModule;
 
-        // Resolve input/output paths relative to the config file's directory
         const configDir = path.dirname(resolvedPath);
         if (config.input && !isUrl(config.input) && !path.isAbsolute(config.input)) {
             config.input = path.resolve(configDir, config.input);
@@ -39,11 +32,6 @@ async function loadConfigFile(configPath: string): Promise<Partial<GeneratorConf
     }
 }
 
-/**
- * The action handler for the `from_openapi` command. It constructs the final
- * configuration and triggers the code generation process.
- * @param options - The options object provided by Commander.js.
- */
 async function runGeneration(options: any) {
     const startTime = Date.now();
     try {
@@ -53,8 +41,6 @@ async function runGeneration(options: any) {
             baseConfig = await loadConfigFile(options.config);
         }
 
-        // CLI options override config file options.
-        // We build a separate 'options' object to merge cleanly.
         const cliOptions: Partial<GeneratorConfigOptions> = {
             dateType: options.dateType,
             enumStyle: options.enumStyle,
@@ -62,19 +48,17 @@ async function runGeneration(options: any) {
             admin: options.admin,
         };
 
-        // Remove undefined values so they don't incorrectly override defaults.
         Object.keys(cliOptions).forEach(key => (cliOptions as any)[key] === undefined && delete (cliOptions as any)[key]);
 
         const finalConfig: GeneratorConfig = {
             input: options.input ?? baseConfig.input,
             output: options.output ?? baseConfig.output,
             clientName: options.clientName ?? baseConfig.clientName,
-            // Deep merge the options, with CLI arguments having the highest priority.
             options: {
-                dateType: 'Date', // Default value
-                enumStyle: 'enum', // Default value
-                generateServices: true, // Default value
-                admin: false, // Default value
+                dateType: 'Date',
+                enumStyle: 'enum',
+                generateServices: true,
+                admin: false,
                 ...baseConfig.options,
                 ...cliOptions,
             },
@@ -89,7 +73,6 @@ async function runGeneration(options: any) {
             console.warn(`Output path not specified, defaulting to '${finalConfig.output}'.`);
         }
 
-        // Resolve output path relative to current working directory if not absolute
         if (!path.isAbsolute(finalConfig.output)) {
             finalConfig.output = path.resolve(process.cwd(), finalConfig.output);
         }
@@ -114,7 +97,6 @@ program
     .description('OpenAPI ↔ Angular (TypeScript, HTML) code generator')
     .version(packageJson.version);
 
-// --- from_openapi command ---
 program
     .command('from_openapi')
     .description('Generate Angular services and admin UI from an OpenAPI specification')
@@ -125,10 +107,9 @@ program
     .addOption(new Option('--dateType <type>', 'Date type to use').choices(['string', 'Date']))
     .addOption(new Option('--enumStyle <style>', 'Style for enums').choices(['enum', 'union']))
     .option('--admin', 'Generate an Angular Material admin UI')
-    .addOption(new Option('--generate-services', 'Generate Angular services').default(true))
+    .addOption(new Option('--no-generate-services', 'Disable generation of Angular services'))
     .action(runGeneration);
 
-// --- to_openapi command (stub) ---
 program
     .command('to_openapi')
     .description('Generate an OpenAPI specification from TypeScript code (Not yet implemented)')

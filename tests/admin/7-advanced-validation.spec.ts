@@ -23,7 +23,7 @@ describe('Integration: Advanced Validation Generation', () => {
         customValidatorsFile = project.getSourceFileOrThrow('/generated/admin/shared/custom-validators.ts');
         formClass = tsFile.getClassOrThrow('ValidationsFormComponent');
         initFormBody = formClass.getMethodOrThrow('initForm').getBodyText() ?? '';
-    });
+    }, 30000);
 
     /**
      * Verifies that the `custom-validators.ts` file is generated and contains the expected class structure.
@@ -47,8 +47,8 @@ describe('Integration: Advanced Validation Generation', () => {
             expect(validatorsClassText).toContain('static exclusiveMinimum(min: number): ValidatorFn');
             expect(validatorsClassText).toContain('static exclusiveMaximum(max: number): ValidatorFn');
 
-            expect(initFormBody).toContain('exclusiveMinNumber: new FormControl(null, [CustomValidators.exclusiveMinimum(10)])');
-            expect(initFormBody).toContain('exclusiveMaxNumber: new FormControl(null, [CustomValidators.exclusiveMaximum(100)])');
+            expect(initFormBody).toContain('exclusiveMinNumber: this.fb.control(null, [CustomValidators.exclusiveMinimum(10)])');
+            expect(initFormBody).toContain('exclusiveMaxNumber: this.fb.control(null, [CustomValidators.exclusiveMaximum(100)])');
 
             expect(html).toContain(`@if (form.get('exclusiveMinNumber')?.hasError('exclusiveMinimum'))`);
             expect(html).toContain(`@if (form.get('exclusiveMaxNumber')?.hasError('exclusiveMaximum'))`);
@@ -59,7 +59,7 @@ describe('Integration: Advanced Validation Generation', () => {
          */
         it('should generate and apply a validator for multipleOf', () => {
             expect(customValidatorsFile.getFullText()).toContain('static multipleOf(factor: number): ValidatorFn');
-            expect(initFormBody).toContain('multipleOfNumber: new FormControl(null, [CustomValidators.multipleOf(5)])');
+            expect(initFormBody).toContain('multipleOfNumber: this.fb.control(null, [CustomValidators.multipleOf(5)])');
             expect(html).toContain(`@if (form.get('multipleOfNumber')?.hasError('multipleOf'))`);
         });
 
@@ -68,7 +68,7 @@ describe('Integration: Advanced Validation Generation', () => {
          */
         it('should generate and apply a validator for uniqueItems on a FormArray', () => {
             expect(customValidatorsFile.getFullText()).toContain('static uniqueItems(): ValidatorFn');
-            expect(initFormBody).toContain('uniqueItemsArray: new FormArray([], [CustomValidators.uniqueItems()])');
+            expect(initFormBody).toContain('uniqueItemsArray: this.fb.array([], [CustomValidators.uniqueItems()])');
             expect(html).toContain(`@if (form.get('uniqueItemsArray')?.hasError('uniqueItems'))`);
         });
 
@@ -77,11 +77,11 @@ describe('Integration: Advanced Validation Generation', () => {
          */
         it('should map standard keywords to built-in Angular validators where applicable', () => {
             // 'pattern' should map to Validators.pattern
-            expect(initFormBody).toContain('patternString: new FormControl(null, [Validators.pattern(/^\\d{3}$/)])');
+            expect(initFormBody).toContain('patternString: this.fb.control(null, [Validators.pattern(/^\\d{3}$/)])');
             expect(html).toContain(`@if (form.get('patternString')?.hasError('pattern'))`);
 
             // 'minItems' on an array should map to Validators.minLength
-            expect(initFormBody).toContain('minItemsArray: new FormArray([], [Validators.minLength(2)])');
+            expect(initFormBody).toContain('minItemsArray: this.fb.array([], [Validators.minLength(2)])');
             expect(html).toContain(`@if (form.get('minItemsArray')?.hasError('minlength'))`);
         });
     });

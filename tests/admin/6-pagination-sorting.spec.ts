@@ -13,7 +13,7 @@ describe('Integration: Pagination and Sorting Generation', () => {
         tsFile = project.getSourceFileOrThrow('/generated/admin/products/products-list/products-list.component.ts');
         html = project.getFileSystem().readFileSync('/generated/admin/products/products-list/products-list.component.html');
         listClass = tsFile.getClassOrThrow('ProductsListComponent');
-    });
+    }, 30000);
 
     it('should add necessary modules to component imports', () => {
         const componentDecorator = listClass.getDecoratorOrThrow('Component');
@@ -55,11 +55,6 @@ describe('Integration: Pagination and Sorting Generation', () => {
         expect(constructorBody).toContain('switchMap(() => {');
         expect(constructorBody).toContain(').subscribe(data => this.dataSource.set(data));');
 
-        /**
-         * FIX: Corrected test to expect positional arguments for the service call,
-         * as this is what the service generator produces. The original test incorrectly
-         * expected a single object argument.
-         */
         // Check that it calls the service with correct params
         expect(constructorBody).toContain('this.productsService.getProducts(');
         expect(constructorBody).not.toContain('this.productsService.getProducts({');

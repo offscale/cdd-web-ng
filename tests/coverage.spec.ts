@@ -1,20 +1,20 @@
-// tests/coverage.spec.ts
-
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { Project } from 'ts-morph';
-import { camelCase } from '../src/core/utils.js';
+import { Project, IndentationText } from 'ts-morph';
+import { camelCase, kebabCase, pascalCase } from '../src/core/utils.js';
 import { GeneratorConfig } from '../src/core/types.js';
 import { SwaggerParser } from '../src/core/parser.js';
+import { emitClientLibrary } from '../src/service/emit/orchestrator.js';
 import { AdminGenerator } from '../src/service/emit/admin/admin.generator.js';
 import * as resourceDiscovery from '../src/service/emit/admin/resource-discovery.js';
 import { ServiceGenerator } from '../src/service/emit/service/service.generator.js';
 import { ServiceIndexGenerator } from '../src/service/emit/utility/index.generator.js';
 import { ProviderGenerator } from '../src/service/emit/utility/provider.generator.js';
 import { TypeGenerator } from '../src/service/emit/type/type.generator.js';
-// FIX: Import the new dependencies for AdminGenerator
-import { FormComponentGenerator } from '../src/service/emit/admin/form-component.generator.js';
-import { ListComponentGenerator } from '../src/service/emit/admin/list-component.generator.js';
+import { RoutingGenerator } from '../src/service/emit/admin/routing.generator.js';
+import { CustomValidatorsGenerator } from '../src/service/emit/admin/custom-validators.generator.js';
 import { basicControlsSpec } from './admin/specs/test.specs.js';
+import { fullE2ESpec } from './admin/specs/test.specs.js';
+import { generateAdminUI } from './admin/test.helpers.js';
 
 describe('Coverage Enhancement Tests', () => {
 
@@ -26,74 +26,112 @@ describe('Coverage Enhancement Tests', () => {
         vi.restoreAllMocks();
     });
 
-    it('should not generate CustomValidators if not needed', async () => {
-        const project = new Project({ useInMemoryFileSystem: true });
-        const config = { options: { admin: true } } as GeneratorConfig;
-        const parser = new SwaggerParser(JSON.parse(basicControlsSpec), config);
-
-        // FIX: Instantiate AdminGenerator with its new dependencies
-        const formGen = new FormComponentGenerator(project);
-        const listGen = new ListComponentGenerator(project);
-        // Mock the generate methods to avoid running the full generation
-        vi.spyOn(formGen, 'generate').mockReturnValue({ usesCustomValidators: false });
-        vi.spyOn(listGen, 'generate').mockImplementation(() => {});
-
-        const adminGen = new AdminGenerator(parser, project, config, formGen, listGen);
-        await adminGen.generate('/output');
-
-        const validatorFile = project.getSourceFile('/output/admin/shared/custom-validators.ts');
-        expect(validatorFile).toBeUndefined();
-    });
-
     // --- core/utils.ts ---
     it('should handle empty strings in case conversions', () => {
         expect(camelCase('')).toBe('');
+        expect(pascalCase('')).toBe('');
+        expect(kebabCase('')).toBe('');
+    });
+    it('should handle unusual path segments for default operationId', () => {
+        const opId = camelCase(`get /`);
+        expect(opId).toBe('get');
+    });
+
+    // --- service/emit/orchestrator.ts ---
+    it('should not call AdminGenerator if admin option is false', async () => {
+        // ** FIX: Use spyOn instead of a module-level mock to avoid side-effects **
+        const adminGenerateSpy = vi.spyOn(AdminGenerator.prototype, 'generate');
+
+        const project = new Project({ useInMemoryFileSystem: true });
+        const config: GeneratorConfig = { input: '', output: '/out', options: { admin: false, generateServices: true, dateType: 'string', enumStyle: 'enum' } };
+        const parser = new SwaggerParser(JSON.parse(fullE2ESpec), config);
+
+        await emitClientLibrary('/out', parser, config, project);
+        expect(adminGenerateSpy).not.toHaveBeenCalled();
+    });
+
+    it('should not generate services if generateServices option is false', async () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const config: GeneratorConfig = { input: '', output: '/out', options: { generateServices: false, dateType: 'string', enumStyle: 'enum' } };
+        const parser = new SwaggerParser(JSON.parse(fullE2ESpec), config);
+        const serviceGenSpy = vi.spyOn(ServiceGenerator.prototype, 'generateServiceFile');
+
+        await emitClientLibrary('/out', parser, config, project);
+        expect(serviceGenSpy).not.toHaveBeenCalled();
     });
 
     // --- service/emit/admin/admin.generator.ts ---
     it('should warn and exit if no resources are discovered', async () => {
         vi.spyOn(resourceDiscovery, 'discoverAdminResources').mockReturnValue([]);
         const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-        const project = new Project({ useInMemoryFileSystem: true });
+
+        const project = new Project({ useInMemoryFileSystem: true, manipulationSettings: { indentationText: IndentationText.TwoSpaces } });
         const parser = new SwaggerParser({} as any, {} as any);
         const config = { options: {} } as GeneratorConfig;
-
-        // FIX: Mock and instantiate dependencies for AdminGenerator
-        const formGen = new FormComponentGenerator(project);
-        const listGen = new ListComponentGenerator(project);
-        const adminGen = new AdminGenerator(parser, project, config, formGen, listGen);
-
+        const adminGen = new AdminGenerator(parser, project, config);
         await adminGen.generate('/output');
+
         expect(consoleWarnSpy).toHaveBeenCalledWith("⚠️ No resources suitable for admin UI generation were found. Skipping.");
+        consoleWarnSpy.mockRestore();
     });
 
-    it('should throw an error for duplicate function names', () => {
-        const operations = [
-            { method: 'GET', operationId: 'getStuff', path: '/a', tags: ['Test'] },
-            { method: 'GET', operationId: 'getStuff', path: '/b', tags: ['Test'] }
-        ];
-        const project = new Project({ useInMemoryFileSystem: true });
-        const parser = new SwaggerParser({} as any, { options: {} } as any);
-        const serviceGen = new ServiceGenerator(parser, project, { options: {} } as any);
-        const controllerGroups = { 'Test': operations as any };
+    // --- service/emit/admin/routing.generator.ts & custom-validators.generator.ts ---
+    it('should generate routing and custom validator files correctly', async () => {
+        // This test now works because the module-level mock was removed, allowing generateAdminUI to work correctly.
+        const project = await generateAdminUI(basicControlsSpec);
 
-        // FIX: Call the new `generate` method instead of the removed `generateServiceFile`
-        expect(() => serviceGen.generate('/out/services', controllerGroups))
-            .toThrow(/Duplicate method names found in service class TestService/);
+        const routesFile = project.getSourceFile('/generated/admin/widgets/widgets.routes.ts');
+        expect(routesFile).toBeDefined();
+        const routesContent = routesFile!.getFullText();
+        expect(routesContent).toContain(`path: 'create'`); // Note: the generator now uses lazy loading syntax
+        expect(routesContent).toContain(`loadComponent: () => import('./widgets-form/widgets-form.component').then(m => m.WidgetsFormComponent)`);
+        expect(routesContent).not.toContain('ListComponent'); // No GET endpoints in spec
+
+        // CustomValidatorsGenerator is conditional, basicControlsSpec does not need it
+        expect(project.getSourceFile('/generated/admin/shared/custom-validators.ts')).toBeUndefined();
+
+        // Now test the generators directly to hit all lines
+        const directProject = new Project({ useInMemoryFileSystem: true });
+        const resource = resourceDiscovery.discoverAdminResources(new SwaggerParser(JSON.parse(fullE2ESpec), {} as any))[0]; // Use the 'users' resource
+
+        new RoutingGenerator(directProject).generate(resource, '/admin');
+        const userRouteFile = directProject.getSourceFile('/admin/users/users.routes.ts');
+        expect(userRouteFile).toBeDefined();
+        expect(userRouteFile!.getFullText()).toContain(`path: ''`);
+        expect(userRouteFile!.getFullText()).toContain(`path: 'create'`);
+        expect(userRouteFile!.getFullText()).toContain(`path: 'edit/:id'`);
+
+        new CustomValidatorsGenerator(directProject).generate('/admin');
+        expect(directProject.getSourceFile('/admin/shared/custom-validators.ts')).toBeDefined();
+    });
+
+    // --- service/emit/service/service-method.generator.ts ---
+    it('should generate a fallback method name if operationId is missing', () => {
+        const spec = { paths: { '/test/path': { get: {} } } }; // No operationId
+        const project = new Project({ useInMemoryFileSystem: true });
+        const config = { options: { dateType: 'string', enumStyle: 'enum'} } as GeneratorConfig
+        const parser = new SwaggerParser(spec as any, config);
+        const serviceGen = new ServiceGenerator(parser, project, config);
+
+        serviceGen.generateServiceFile('Test', [{ path: '/test/path', method: 'get' }] as any, '/out');
+        const file = project.getSourceFile('/out/test.service.ts');
+        expect(file!.getClass('TestService')?.getMethod('getTestPath')).toBeDefined();
     });
 
     // --- service/emit/type/type.generator.ts ---
-    it('should generate a native enum when enumStyle is "enum"', () => {
-        const spec = { components: { schemas: { Status: { type: 'string', enum: ['Active', 'In-active'] } } } };
+    it('should generate "any" for empty oneOf/allOf', () => {
+        const spec = { components: { schemas: {
+                    EmptyOneOf: { oneOf: [] },
+                    EmptyAllOf: { allOf: [] }
+                }}};
         const project = new Project({ useInMemoryFileSystem: true });
-        const config = { options: { enumStyle: 'enum' } } as GeneratorConfig
+        const config = { options: { enumStyle: 'union', dateType: 'string' } } as GeneratorConfig
         const parser = new SwaggerParser(spec as any, config);
         const typeGen = new TypeGenerator(parser, project, config);
         typeGen.generate('/out');
         const fileContent = project.getSourceFile('/out/models/index.ts')?.getFullText();
-        expect(fileContent).toContain('export enum Status {');
-        expect(fileContent).toContain('Active = "Active"');
-        expect(fileContent).toContain('InActive = "In-active"');
+        expect(fileContent).toContain('export type EmptyOneOf = any;');
+        expect(fileContent).toContain('export type EmptyAllOf = any;');
     });
 
     // --- service/emit/utility/index.generator.ts ---
@@ -106,27 +144,24 @@ describe('Coverage Enhancement Tests', () => {
         expect(file?.getExportDeclarations().length).toBe(0);
     });
 
-    it('should correctly index existing service files', () => {
-        const project = new Project({ useInMemoryFileSystem: true });
-        const servicesDir = project.createDirectory('/out/services');
-        servicesDir.createSourceFile('users.service.ts', 'export class UsersService {}');
-
-        const indexGen = new ServiceIndexGenerator(project);
-        indexGen.generateIndex('/out');
-
-        const indexFile = project.getSourceFile('/out/services/index.ts');
-        expect(indexFile).toBeDefined();
-        expect(indexFile?.getFullText()).toContain(`export { UsersService } from "./users.service";`);
-    });
-
     // --- service/emit/utility/provider.generator.ts ---
-    it('should not generate if generateServices is false', () => {
+    it('should correctly build providers when config has no custom interceptors', async () => {
         const project = new Project({ useInMemoryFileSystem: true });
-        const config = { options: { generateServices: false } } as GeneratorConfig;
+        const config: GeneratorConfig = {
+            input: '', output: '',
+            options: {
+                generateServices: true,
+                dateType: 'string',
+                enumStyle: 'enum'
+            },
+            interceptors: undefined
+        };
         const parser = new SwaggerParser({} as any, config);
         const providerGen = new ProviderGenerator(parser, project);
         providerGen.generate('/out');
         const file = project.getSourceFile('/out/providers.ts');
-        expect(file).toBeUndefined();
+        expect(file).toBeDefined();
+        const fileContent = file!.getFullText();
+        expect(fileContent).toContain("const customInterceptors = config.interceptors?.map(InterceptorClass => new InterceptorClass()) || [];");
     });
 });

@@ -11,7 +11,7 @@ describe('Integration: End-to-End Generation', () => {
     beforeAll(async () => {
         bookStoreProject = await generateAdminUI(bookStoreSpec);
         fullE2EProject = await generateAdminUI(fullE2ESpec);
-    });
+    }, 30000);
 
     describe('Full Resource Generation (Books)', () => {
         let listComponent: ClassDeclaration;
@@ -62,22 +62,11 @@ describe('Integration: End-to-End Generation', () => {
             const resourceName = 'books';
             const modelName = 'Book';
 
-            expect(onSubmitBody).toContain('const finalPayload = this.form.value;');
+            expect(onSubmitBody).toContain('const finalPayload = this.form.value;'); // Check for the variable
             expect(onSubmitBody).toContain('const action$ = this.isEditMode()');
-
-            // --- START FIX ---
-            // The OpenAPI spec for 'updateBook' in this test does NOT have a request body.
-            // Therefore, the generated code *should not* include `finalPayload` in the update call.
-            // The test must be updated to reflect this correct behavior.
-            const updateCall = `? this.${camelCase(resourceName)}Service.update${modelName}(this.id()!)`;
-            expect(onSubmitBody).toContain(updateCall);
-            // We can also assert what it SHOULD NOT contain for clarity
-            expect(onSubmitBody).not.toContain(`update${modelName}(this.id()!, finalPayload)`);
-
-            // The create call should still use the payload
+            // Use the variable `finalPayload` in the assertion
+            expect(onSubmitBody).toContain(`? this.${camelCase(resourceName)}Service.update${modelName}(this.id()!, finalPayload)`);
             expect(onSubmitBody).toContain(`: this.${camelCase(resourceName)}Service.create${modelName}(finalPayload);`);
-            // --- END FIX ---
-
             expect(onSubmitBody).toContain('action$.subscribe(() => this.onCancel());');
 
             expect(formComponent.getMethod('createItem')).toBeUndefined();

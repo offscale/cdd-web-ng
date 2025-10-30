@@ -1,5 +1,5 @@
 import { defineConfig } from 'vitest/config';
-import fs from 'node:fs'; // <-- Import fs for the plugin
+import fs from 'node:fs';
 
 export default defineConfig({
     test: {
@@ -11,26 +11,19 @@ export default defineConfig({
         alias: {
             '../src': new URL('./src', import.meta.url).pathname,
         },
-        // --- START: Added for Test Coverage ---
         coverage: {
-            // Use 'istanbul' for accurate TS source mapping
             provider: 'istanbul',
-            // Reporters for terminal, HTML, and CI/CD
             reporter: ['text', 'html', 'lcov'],
-            // Directory where the report will be generated
             reportsDirectory: './coverage',
-            // Only include files from the 'src' directory
             include: ['src/**/*.ts'],
-            // Exclude files that don't have testable logic
             exclude: [
-                'src/cli.ts', // CLI entry point is hard to unit test
-                'src/index.ts', // Orchestrator, tested via integration
+                'src/cli.ts',
+                'src/index.ts',
                 'src/core/types.ts',
                 'src/core/constants.ts',
-                '**/index.ts', // Exclude barrel files
-                'src/custom.d.ts', // Type declarations are not testable
+                '**/index.ts',
+                'src/custom.d.ts',
             ],
-            // Enforce 90% coverage (optional, you can lower these)
             thresholds: {
                 statements: 90,
                 branches: 90,
@@ -38,17 +31,14 @@ export default defineConfig({
                 lines: 90,
             },
         },
-        // --- END: Added for Test Coverage ---
         server: {
             deps: {
                 inline: [
                     /src\//
                 ],
-                noExternal: true,
             },
         },
     },
-    // FIX: Add a plugin to handle .template imports during testing
     plugins: [
         {
             name: 'vite-plugin-inline-text-files',

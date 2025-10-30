@@ -47,7 +47,7 @@ export class AuthInterceptorGenerator {
         const interceptorClass = sourceFile.addClass({
             name: `AuthInterceptor`,
             isExported: true,
-            decorators: [{ name: 'Injectable', arguments: [`{ providedIn: 'root' }`] }],
+            decorators: [{ name: 'Injectable' }],
             implements: ['HttpInterceptor'],
             docs: ["Intercepts HTTP requests to apply authentication credentials based on OpenAPI security schemes."]
         });

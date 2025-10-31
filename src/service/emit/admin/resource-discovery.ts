@@ -159,19 +159,19 @@ export function discoverAdminResources(parser: SwaggerParser): Resource[] {
     const allPaths = extractPaths(parser.getSpec().paths);
     const resourceMap = new Map<string, PathInfo[]>();
 
-    // Group all paths by their resource name (tag) without any filtering
+    // **CRITICAL FIX**: Group all paths by their determined resource name.
     allPaths.forEach(path => {
         const resourceName = getResourceName(path);
-        if (!resourceMap.has(resourceName)) resourceMap.set(resourceName, []);
+        if (!resourceMap.has(resourceName)) {
+            resourceMap.set(resourceName, []);
+        }
         resourceMap.get(resourceName)!.push(path);
     });
 
     const resources: Resource[] = [];
     for (const [name, allOpsForResource] of resourceMap.entries()) {
-        // If there are no operations for this name, skip it
         if (allOpsForResource.length === 0) continue;
 
-        // Use any available operation to help determine the model name
         const modelName = getModelName(name, allOpsForResource, parser);
 
         resources.push({

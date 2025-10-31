@@ -5,7 +5,7 @@ import { getBasePathTokenName, getInterceptorsTokenName, pascalCase } from '../.
 import { PROVIDER_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
 
 /**
- * Generates the `providers.ts` file.
+ * Generates the `providers.ts` file using ts-morph for robust AST manipulation.
  */
 export class ProviderGenerator {
     private readonly clientName: string;
@@ -18,7 +18,6 @@ export class ProviderGenerator {
         this.config = parser.config;
         this.clientName = this.config.clientName || 'default';
         this.capitalizedClientName = pascalCase(this.clientName);
-        // Correctly determine which auth types are present based on the input
         this.hasApiKey = this.tokenNames.includes('apiKey');
         this.hasBearer = this.tokenNames.includes('bearerToken');
     }
@@ -38,6 +37,8 @@ export class ProviderGenerator {
         this.addImports(sourceFile, hasSecurity);
         this.addConfigInterface(sourceFile);
         this.addMainProviderFunction(sourceFile, hasSecurity);
+
+        sourceFile.formatText();
     }
 
     private addImports(sourceFile: SourceFile, hasSecurity: boolean): void {
@@ -83,64 +84,59 @@ export class ProviderGenerator {
     }
 
     private addMainProviderFunction(sourceFile: SourceFile, hasSecurity: boolean): void {
-        let securityProviders = '';
-        if (hasSecurity) {
-            securityProviders += `
-    // Provide the AuthInterceptor to handle adding auth credentials to requests.
-    providers.push({
-        provide: HTTP_INTERCEPTORS,
-        useClass: AuthInterceptor,
-        multi: true
-    });
-`;
-            if (this.hasApiKey) {
-                securityProviders += `
-    // Provide the API key via the API_KEY_TOKEN if it's configured.
-    if (config.apiKey) {
-        providers.push({ provide: API_KEY_TOKEN, useValue: config.apiKey });
-    }
-`;
-            }
-            if (this.hasBearer) {
-                securityProviders += `
-    // Provide the bearer token via the BEARER_TOKEN_TOKEN if it's configured.
-    if (config.bearerToken) {
-        providers.push({ provide: BEARER_TOKEN_TOKEN, useValue: config.bearerToken });
-    }
-`;
-            }
-        }
-
         sourceFile.addFunction({
             name: `provide${this.capitalizedClientName}Client`,
             isExported: true,
             parameters: [{ name: "config", type: `${this.capitalizedClientName}Config` }],
             returnType: "EnvironmentProviders",
             docs: [`Provides the necessary services and configuration for the ${this.capitalizedClientName} API client.`],
-            statements: `
-const providers: Provider[] = [
-    { provide: ${getBasePathTokenName(this.clientName)}, useValue: config.basePath },
-    // The base interceptor is responsible for applying client-specific interceptors.
-    { provide: HTTP_INTERCEPTORS, useClass: ${this.capitalizedClientName}BaseInterceptor, multi: true }
-];
+            // **CRITICAL FIX**: Build the entire body as a string.
+            statements: writer => {
+                writer.writeLine(`const providers: Provider[] = [`);
+                writer.indent(() => {
+                    writer.writeLine(`{ provide: ${getBasePathTokenName(this.clientName)}, useValue: config.basePath },`);
+                    writer.writeLine(`// The base interceptor is responsible for applying client-specific interceptors.`);
+                    writer.writeLine(`{ provide: HTTP_INTERCEPTORS, useClass: ${this.capitalizedClientName}BaseInterceptor, multi: true }`);
+                });
+                writer.writeLine(`];`);
 
-${securityProviders}
+                if (hasSecurity) {
+                    writer.blankLine();
+                    writer.writeLine("// Provide the AuthInterceptor to handle adding auth credentials to requests.");
+                    writer.writeLine(`providers.push({ provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true });`);
 
-// Instantiate custom interceptors provided by the user.
-const customInterceptors = config.interceptors?.map(InterceptorClass => new InterceptorClass()) || [];
+                    if (this.hasApiKey) {
+                        writer.blankLine();
+                        writer.write("if (config.apiKey)").block(() => {
+                            writer.writeLine(`providers.push({ provide: API_KEY_TOKEN, useValue: config.apiKey });`);
+                        });
+                    }
+                    if (this.hasBearer) {
+                        writer.blankLine();
+                        writer.write("if (config.bearerToken)").block(() => {
+                            writer.writeLine(`providers.push({ provide: BEARER_TOKEN_TOKEN, useValue: config.bearerToken });`);
+                        });
+                    }
+                }
 
-// Add the date transformer interceptor if enabled. It runs before custom interceptors.
-if (config.enableDateTransform !== false && ${this.config.options.dateType === "Date"}) {
-    customInterceptors.unshift(new DateInterceptor());
-}
+                writer.blankLine();
+                writer.writeLine("// Instantiate custom interceptors provided by the user.");
+                writer.writeLine("const customInterceptors = config.interceptors?.map(InterceptorClass => new InterceptorClass()) || [];");
 
-// Provide a single array of all client-specific interceptors.
-providers.push({
-    provide: ${getInterceptorsTokenName(this.clientName)},
-    useValue: customInterceptors
-});
+                if (this.config.options.dateType === "Date") {
+                    writer.blankLine();
+                    writer.write("if (config.enableDateTransform !== false)").block(() => {
+                        writer.writeLine('// The date transformer interceptor runs before other custom interceptors.');
+                        writer.writeLine('customInterceptors.unshift(new DateInterceptor());');
+                    });
+                }
 
-return makeEnvironmentProviders(providers);`
+                writer.blankLine();
+                writer.writeLine("// Provide a single array of all client-specific interceptors for the BaseInterceptor to use.");
+                writer.writeLine(`providers.push({ provide: ${getInterceptorsTokenName(this.clientName)}, useValue: customInterceptors });`);
+                writer.blankLine();
+                writer.writeLine("return makeEnvironmentProviders(providers);");
+            }
         });
     }
 }

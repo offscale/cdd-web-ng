@@ -39,6 +39,8 @@ export default defineConfig({
             },
         },
     },
+    // The custom plugin for .template files is no longer needed for TypeScript generation.
+    // We keep it for the HTML templates used by the admin generator.
     plugins: [
         {
             name: 'vite-plugin-inline-text-files',

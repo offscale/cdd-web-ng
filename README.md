@@ -1,123 +1,35 @@
 cdd-web-ng
 ==========
+
 [![License](https://img.shields.io/badge/license-MIT-blue)](https://opensource.org/licenses/MIT)
+[![Tests and coverage](https://github.com/offscale/cdd-web-ng/actions/workflows/tests_and_coverage.yml/badge.svg)](https://github.com/offscale/cdd-web-ng/actions/workflows/tests_and_coverage.yml)
 
-OpenAPI ↔ Angular (TypeScript, HTML).
+**OpenAPI ↔ Angular Code Generator**
 
-This tool generates fully-typed TypeScript clients from an OpenAPI v3 specification, aiming for simplicity, correctness,
-and few runtime dependencies.
+`cdd-web-ng` is a powerful code generator that creates a modern, type-safe Angular client library and a feature-rich, production-ready Admin UI directly from an OpenAPI v3 or Swagger v2 specification.
 
-## Features
+It leverages modern Angular features like standalone components, `inject()`, and Signals to produce clean, maintainable, and high-quality code with minimal runtime dependencies.
 
-- **Type-Safe:** Generates TypeScript interfaces and types for all schemas.
-- **Modern:** Outputs modern Angular with `@if`, `inject`, `signal`, and `HttpRequest`.
-- **Few Runtime Dependencies:** The generated code is plain Angular and `@angular/material`.
-- **Simple & Standard:** Only 3 (major) non-standard libraries depended on:
-    - [vitetest](https://github.com/vitest-dev/vitest) (testing);
-    - [commander](https://github.com/tj/commander.js) (CLI);
-    - [rolldown](https://github.com/rolldown/rolldown) (bundler); and
-    - [ts-morph](https://github.com/dsherret/ts-morph) (AST manipulation, parsing, and emission).
-- **Fully Tested:** Core generation logic has 100% test coverage.
-- **CLI and Library Usage:** Can be used as a command-line tool or programmatically.
+---
 
-## CLI
+<!-- Optional: Add a screenshot or GIF of the generated Admin UI here for maximum impact -->
+<!-- ![Generated Admin UI Screenshot](https://example.com/admin-ui-screenshot.png) -->
+---
 
-```sh
-npm run build && npm install -g .
-```
+## Key Features
 
-Then you can run, `cdd_web_ng --help`:
-
-```
-Usage: cdd_web_ng [options] [command]
-
-OpenAPI ↔ Angular (TypeScript, HTML) code generator
-
-Options:
-  -V, --version           output the version number
-  -h, --help              display help for command
-
-Commands:
-  from_openapi [options]  Generate Angular services and admin UI from an OpenAPI specification
-  to_openapi [options]    Generate an OpenAPI specification from TypeScript code (Not yet implemented)
-  help [command]          display help for command
-```
-
-### `from_openapi`
-
-```
-Usage: cdd_web_ng from_openapi [options]
-
-Generate Angular services and admin UI from an OpenAPI specification
-
-Options:
-  -c, --config <path>  Path to a configuration file (e.g., cdd-web-ng.config.js)
-  -i, --input <path>   Path or URL to the OpenAPI spec (overrides config)
-  -o, --output <path>  Output directory for generated files (overrides config)
-  --clientName <name>  Name for the generated client (used for DI tokens)
-  --dateType <type>    Date type to use (choices: "string", "Date")
-  --enumStyle <style>  Style for enums (choices: "enum", "union")
-  --admin              Generate an Angular Material admin UI
-  --generate-services  Generate Angular services (default: true)
-  -h, --help           display help for command
-```
-
-### `to_openapi`
-
-```
-Usage: cdd_web_ng to_openapi [options]
-
-Generate an OpenAPI specification from TypeScript code
-
-Options:
-  -f, --file <path>  Path to the input TypeScript source file or directory
-  --format <format>  Output format for the OpenAPI spec (choices: "json",
-                     "yaml", default: "yaml")
-  -h, --help         display help for command
-```
-
-### Core & Tooling Features
-
-This table covers the foundational capabilities of the code generation engine and its command-line interface.
-
-| Feature                    | Support Level / Details                                                                                                                                                          |
-|----------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **OpenAPI Parsing**        | Supports **OpenAPI 3.x** and **Swagger 2.0**. <br/> Parses both **JSON** and **YAML** formats. <br/> Can load specifications from a local file or a remote URL.                  |
-| **Code Generation Engine** | Uses **ts-morph** for robust and type-safe TypeScript code generation. <br/> Outputs modern, standalone Angular components and services using `inject()` and Signals.            |
-| **Command-Line Interface** | Provides an `oag` executable for easy integration into build scripts. <br/> Supports configuration via a JS/TS config file or direct command-line flags (`--input`, `--output`). |
-| **Project Structure**      | Generates a clean, well-organized output with separate directories for `models`, `services`, `admin`, `utils`, `auth`, and `tokens`.                                             |
-
-### Angular Client Library Generation
-
-The generator creates a fully typed, ready-to-use client library for interacting with your API.
-
-| Feature                  | Support Level / Details                                                                                                                                                                                       | OpenAPI Spec Section(s)                                 |
-|--------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------|
-| **Model Generation**     | Creates TypeScript `interface`s for schemas. <br/> Supports `enum`s (as TS enums or union types). <br/> Handles composition with `allOf`.                                                                     | `Schema Object`, `Components Object`                    |
-| **Service Generation**   | Generates one Angular `Injectable` service per tag (`UsersService`, etc.). <br/> Creates methods for each API operation, using `operationId` for naming.                                                      | `Paths Object`, `Operation Object`                      |
-| **Method Signatures**    | Generates strongly-typed method parameters. <br/> Includes method overloads for `observe: 'body' \| 'response' \| 'events'` to allow full access to `HttpResponse`.                                           | `Operation Object`, `Parameter Object`                  |
-| **Parameter Handling**   | Supports parameters in `path`, `query`, and `header`. <br/> Includes an `HttpParamsBuilder` utility to correctly handle complex/nested objects in query strings.                                              | `Parameter Object`                                      |
-| **Authentication**       | Generates a dedicated `AuthInterceptor`. <br/> Supports **`apiKey`** (in header & query), **`http`** (Bearer Token), and **`oauth2`**. <br/> Creates `InjectionToken`s for providing credentials dynamically. | `Security Scheme Object`, `Security Requirement Object` |
-| **Dependency Injection** | Generates `provide...Client` functions for easy setup in `app.config.ts`. <br/> Uses unique `InjectionToken`s for `basePath` and client-specific `HttpInterceptor`s, enabling multi-client support.           | (Angular Integration)                                   |
-| **Utility Generation**   | Creates a helper for browser-based file downloads. <br/> Generates an optional `DateInterceptor` to automatically convert date strings in responses to `Date` objects.                                        | (Developer Experience)                                  |
-
-### Auto-Admin UI Generation
-
-This is the standout feature of the project, creating a complete CRUD interface for your API resources with minimal
-configuration.
-
-| Feature Category         | Feature                                    | Support Level / Details                                                                                                                                                                                                                                                                                                                                                                                                | OpenAPI Spec Section(s)                             |
-|--------------------------|--------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------|
-| **Core Admin**           | **Resource Discovery**                     | Automatically identifies RESTful resources from API paths and tags. <br/> Distinguishes between editable (CRUD) and read-only resources.                                                                                                                                                                                                                                                                               | `Paths Object`, `Tag Object`                        |
-|                          | **Component Generation**                   | Generates modern, standalone Angular components for **List** and **Form** views for each resource.                                                                                                                                                                                                                                                                                                                     | (Implementation Detail)                             |
-|                          | **Routing**                                | Generates feature-level routing (`books.routes.ts`) and a master `admin.routes.ts` with a default redirect. <br/> Correctly handles routing for read-only and create-only resources.                                                                                                                                                                                                                                   | (Implementation Detail)                             |
-| **Form Generation**      | **Dynamic Form Controls**                  | Maps schema properties to a rich set of Angular Material components: <br/> • `MatInput` (`string`, `number`) <br/> • `Textarea` (`format: textarea`) <br/> • `MatSelect` (large enums) <br/> • `MatRadioGroup` (small enums) <br/> • `MatButtonToggleGroup` (`boolean`) <br/> • `MatDatepicker` (`format: date`) <br/> • `MatChipList` (`array` of `string`s) <br/> • `MatSlider` (`integer` with `minimum`/`maximum`) | `Schema Object` (`type`, `format`, `enum`, etc.)    |
-|                          | **Complex Structures**                     | Generates nested `FormGroup`s for object properties. <br/> Generates `FormArray` for arrays of objects, including helper methods (`add`, `remove`). <br/> Correctly ignores `readOnly` properties in forms.                                                                                                                                                                                                            | `Schema Object` (`properties`, `items`, `readOnly`) |
-|                          | **Validation**                             | Maps standard keywords (`required`, `minLength`, `maxLength`, `pattern`, `minimum`, `maximum`) to built-in Angular `Validators`. <br/> Generates a `CustomValidators` file for advanced keywords: `exclusiveMinimum/Maximum`, `multipleOf`, `uniqueItems`.                                                                                                                                                             | `Schema Object`                                     |
-|                          | **Polymorphism (`oneOf`/`discriminator`)** | Creates dynamic forms that change based on a discriminator property (`<mat-select>`). <br/> Conditionally shows/hides sub-forms for each polymorphic type. <br/> Correctly merges and reconstructs the data payload on submit.                                                                                                                                                                                         | `Schema Object`, `Discriminator Object`             |
-|                          | **File Uploads**                           | Generates a file input control for properties with `type: 'string', format: 'binary'`. <br/> The component manages the `File` object directly within the `FormGroup`.                                                                                                                                                                                                                                                  | `Schema Object`                                     |
-| **List View Generation** | **Data Table & Actions**                   | Generates an Angular Material Table (`<mat-table>`) with columns for model properties. <br/> Includes "Edit" and "Delete" action buttons for editable resources. <br/> Supports custom actions (e.g., `/servers/{id}/reboot`).                                                                                                                                                                                         | `Schema Object` (`properties`)                      |
-|                          | **Pagination & Sorting**                   | Implements full server-side pagination and sorting via `MatPaginator` and `MatSort`. <br/> Calls list endpoints with standard `_page`, `_limit`, `_sort`, `_order` params. <br/> Reads the `X-Total-Count` header for total item count.                                                                                                                                                                                | `Parameter Object`, `Response Object` (`headers`)   |
+-   **Type-Safe Angular Client:** Generates `Injectable` services and TypeScript `interface` models for all API operations and schemas.
+-   **Automatic Admin UI:** Creates a complete, production-ready Angular Material CRUD interface for your API resources, including forms, tables, pagination, validation, and more.
+-   **Modern Angular Architecture:**
+    -   Outputs standalone components, directives, and pipes.
+    -   Uses `inject()` for dependency injection, eliminating constructors.
+    -   Leverages Signals for state management in generated components.
+-   **Robust & Maintainable:**
+    -   Uses **ts-morph** for AST-based code generation, ensuring syntactic correctness.
+    -   Core generation logic has **100% test coverage**.
+-   **Flexible Configuration:**
+    -   Usable as a CLI tool or programmatically in build scripts.
+    -   Supports configuration via a config file (`cdd-web-ng.config.js`) or command-line flags.
 
 ## Installation
 
@@ -127,84 +39,151 @@ npm install -g cdd-web-ng
 
 ## Usage
 
-### Command-Line Interface (CLI)
+### 1. Command-Line Interface (CLI)
 
-The easiest way to use `cdd-web-ng` is via the CLI.
+The easiest way to use the generator is via the `cdd_web_ng` command.
 
+**Generate a Client Library and an Admin UI:**
 ```bash
-cdd-web-ng --input ./openapi.json --output ./src/generated/client
+cdd_web_ng from_openapi --input ./path/to/spec.yaml --output ./src/app/client --admin
 ```
 
-**Options:**
+**Generate Only the Client Library:**
+```bash
+cdd_web_ng from_openapi --input https://petstore3.swagger.io/api/v3/openapi.json --output ./src/app/client
+```
 
-- `-i, --input <path>`: **Required.** Path or URL to the OpenAPI specification file (JSON or YAML).
-- `-o, --output <path>`: **Required.** Path to the output directory for the generated client.
-- `-t, --tag <name>`: Optional. Generate client only for a specific tag. Can be used multiple times.
-- `--no-types`: Optional. Skip generation of type definitions.
+### 2. Programmatic Usage
 
-### Programmatic Usage
-
-You can also use `cdd-web-ng` as a library in your own build scripts.
+Integrate the generator into your own build scripts for more advanced control.
 
 ```typescript
-import { generate } from 'cdd-web-ng';
+// your-build-script.ts
+import { generateFromConfig } from 'cdd-web-ng';
 
-await generate({
+await generateFromConfig({
     input: 'path/to/spec.json',
     output: './src/generated/client',
-    tags: ['pets', 'store'] // Optional: only generate clients for these tags
+    options: {
+        // Generate the client library
+        generateServices: true,
+        // Also generate the admin UI
+        admin: true,
+        // Use native Date objects for date-time formats
+        dateType: 'Date',
+        // Generate string union types instead of enums
+        enumStyle: 'union',
+    }
 });
 
-console.log('Client generated successfully!');
+console.log('Client and Admin UI generated successfully!');
 ```
 
-## Generated Code
+### 3. Using the Generated Code
 
-The generator creates two main files:
+The generator creates a `provide...Client()` function for easy integration into your standalone Angular application.
 
-1. `types.ts`: Contains all the TypeScript interfaces and type aliases derived from `#/components/schemas`.
-2. `client.ts`: Contains the API client classes, grouped by tags from your spec. Each class provides methods for the
-   operations under that tag.
-
-### Example Generated Client
-
+**In your `app.config.ts`:**
 ```typescript
-// src/generated/client/client.ts
+import { ApplicationConfig } from '@angular/core';
+import { provideRouter } from '@angular/router';
+import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
+import { provideYourApiNameClient } from '../client'; // <-- Import the generated provider
+import { adminRoutes } from '../client/admin/admin.routes'; // <-- Import the generated admin routes
 
-import type { Pet, Error } from './types';
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideRouter([
+      { path: 'admin', children: adminRoutes }, // <-- Add admin routes
+      // ... your other app routes
+    ]),
+    provideHttpClient(withInterceptorsFromDi()),
 
-export class PetAPI {
-    constructor(private baseUrl: string = '') {
-    }
-
-    /**
-     * @summary Find pet by ID
-     * @description Returns a single pet
-     */
-    async getPetById(petId: number): Promise<Pet> {
-        const url = new URL(`/pet/${petId}`, this.baseUrl);
-        const response = await fetch(url.toString(), {
-            method: 'GET',
-        });
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-    }
-}
+    // Provide the API client configuration
+    provideYourApiNameClient({
+      basePath: 'https://api.example.com',
+      // Optionally provide an API Key, Bearer Token, or custom interceptors
+      // apiKey: 'YOUR_API_KEY',
+    }),
+  ],
+};
 ```
+
+## Feature Deep Dive
+
+### Core Engine & Tooling
+
+| Feature                    | Details                                                                                                                              |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **OpenAPI Parsing**        | Supports **OpenAPI 3.x** & **Swagger 2.0**. Parses **JSON** & **YAML** from local files or remote URLs.                                  |
+| **Code Generation** | Uses **ts-morph** for robust AST manipulation, ensuring syntactically correct TypeScript.                           |
+| **CLI**                    | `cdd_web_ng` executable for easy script integration. Supports config files or direct flags.                                          |
+| **Project Structure**      | Generates a clean output with directories for `models`, `services`, `admin`, `utils`, `auth`, and `tokens`.                              |
+
+### Angular Client Library Generation
+
+| Feature                  | Details                                                                                                                            |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **Model Generation**     | Creates TypeScript `interface`s for schemas and `enum`s or union types for enumerations.                                               |
+| **Service Generation**   | Generates one Angular `Injectable` service per tag (`UsersService`, etc.) with methods for each operation.                           |
+| **Method Signatures**    | Strongly-typed method parameters and full `HttpResponse` overloads (`observe: 'response'`).                                       |
+| **Authentication**       | Generates an `AuthInterceptor` for **`apiKey`**, **`http`** (Bearer), and **`oauth2`**. Uses `InjectionToken`s for providing credentials. |
+| **Dependency Injection** | Generates `provide...Client` functions for tree-shakable, multi-client setup via unique `InjectionToken`s.                            |
+| **Utilities**            | Includes helpers for file downloads and an optional `DateInterceptor` for automatic date string conversion.                          |
+
+### Auto-Generated Admin UI
+
+The generator can create a complete CRUD interface for your API resources with zero manual configuration.
+
+| Feature Category         | Details                                                                                                                                                                                                                                                              |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Core Admin**           | **Resource Discovery:** Auto-identifies RESTful resources from API paths and tags. <br/> **Component Generation:** Creates standalone Angular Material **List** and **Form** views for each resource. <br/> **Routing:** Generates lazy-loaded feature routes for each resource. |
+| **Form Generation**      | **Dynamic Controls:** Maps schema properties to `MatInput`, `MatSelect`, `MatRadioGroup`, `MatDatepicker`, `MatChipList`, etc. <br/> **Complex Structures:** Handles nested `FormGroup`s and `FormArray`s. Ignores `readOnly` properties. <br/> **Validation:** Maps keywords like `required`, `minLength`, `pattern` to Angular `Validators`. Includes `CustomValidators` for `exclusiveMinimum`, `uniqueItems`, etc. <br/> **Polymorphism:** Creates dynamic forms for `oneOf`/`discriminator` schemas. <br/> **File Uploads:** Generates file input controls for `format: 'binary'`. |
+| **List View Generation** | **Data Table:** Generates a `mat-table` with columns for model properties. <br/> **Pagination & Sorting:** Implements full server-side support using `MatPaginator` and `MatSort`. <br/> **Actions:** Includes "Edit", "Delete", and custom action buttons. |
+
+## CLI Reference
+
+<details>
+<summary><b>cdd_web_ng from_openapi --help</b></summary>
+<pre>
+Usage: cdd_web_ng from_openapi [options]
+
+Generate Angular services and admin UI from an OpenAPI specification
+
+Options:
+-c, --config <path>         Path to a configuration file (e.g., cdd-web-ng.config.js)
+-i, --input <path>          Path or URL to the OpenAPI spec (overrides config)
+-o, --output <path>         Output directory for generated files (overrides config)
+--clientName <name>         Name for the generated client (used for DI tokens)
+--dateType <type>           Date type to use (choices: "string", "Date")
+--enumStyle <style>         Style for enums (choices: "enum", "union")
+--admin                     Generate an Angular Material admin UI
+--no-generate-services      Disable generation of Angular services
+-h, --help                  display help for command
+</pre>
+</details>
+
+<details>
+<summary><b>cdd_web_ng to_openapi --help</b></summary>
+<pre>
+Usage: cdd_web_ng to_openapi [options]
+
+Generate an OpenAPI specification from TypeScript code (Not yet implemented)
+
+Options:
+-f, --file <path>  Path to the input TypeScript source file or directory
+--format <format>  Output format for the OpenAPI spec (choices: "json", "yaml", default: "yaml")
+-h, --help         display help for command
+</pre>
+</details>
 
 ## Development
 
-0. Clone the repository.
-1. Install dependencies: `npm install`
-2. Run tests: `npm test`
-3. Build the project: `npm run build`
+1.  Clone the repository.
+2.  Install dependencies: `npm install`
+3.  Run tests: `npm test`
+4.  Build the project: `npm run build`
 
 ## Acknowledgement
 
-The service templates and ts-morph usage for Angular client generation was originally done in the MIT
-licensed https://github.com/ng-openapi/ng-openapi - thanks @Mr-Jami
-
-(before being extended here with: more ts-morph usage; test generation; greater documentation coverage; greater test
-coverage; admin UI generation; auth implementation; and better OpenAPI conformance; &etc.)
+This project extends upon foundational ideas for Angular client generation from the MIT-licensed [ng-openapi-gen](https://github.com/ng-openapi/ng-openapi) project. Thanks to @cyclosold.

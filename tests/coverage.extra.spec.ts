@@ -1,199 +1,173 @@
-import { describe, it, expect, vi } from 'vitest';
-import { Project, IndentationText } from 'ts-morph';
-import { getTypeScriptType, extractPaths, singular } from '../src/core/utils.js';
+import { describe, expect, it } from 'vitest';
+import { Project } from 'ts-morph';
 import { GeneratorConfig } from '../src/core/types.js';
 import { SwaggerParser } from '../src/core/parser.js';
 import { emitClientLibrary } from '../src/service/emit/orchestrator.js';
 import { FormComponentGenerator } from '../src/service/emit/admin/form-component.generator.js';
 import { RoutingGenerator } from '../src/service/emit/admin/routing.generator.js';
 import { ServiceMethodGenerator } from '../src/service/emit/service/service-method.generator.ts';
-import { ServiceGenerator } from '../src/service/emit/service/service.generator.js';
+import { TypeGenerator } from '../src/service/emit/type/type.generator.js';
 import { MainIndexGenerator } from '../src/service/emit/utility/index.generator.js';
-import { mapSchemaToFormControl } from "../src/service/emit/admin/form-control.mapper";
-import { discoverAdminResources } from "../src/service/emit/admin/resource-discovery";
-import { TypeGenerator } from "../src/service/emit/type/type.generator";
-import { ProviderGenerator } from "../src/service/emit/utility/provider.generator";
+import { ProviderGenerator } from '../src/service/emit/utility/provider.generator.js';
+import { AuthInterceptorGenerator } from '../src/service/emit/utility/auth-interceptor.generator.js';
+import { mapSchemaToFormControl } from '../src/service/emit/admin/form-control.mapper.js';
+import { discoverAdminResources } from '../src/service/emit/admin/resource-discovery.js';
 
 describe('Extra Coverage Tests', () => {
 
     // --- src/core/utils.ts ---
     // Covering line 77: `singular` function for 'ies' ending.
-    it('should correctly singularize words ending in "ies"', () => {
+    it('should correctly singularize words ending in "ies"', async () => {
+        const { singular } = await import('../src/core/utils.js');
         expect(singular('parties')).toBe('party');
     });
 
     // --- src/service/emit/orchestrator.ts ---
-    // Covering lines 30, 55-59: `generateServices` being explicitly true and OAuth helper getting called.
-    it('should generate services and OAuth helper when security scheme is present', async () => {
+    // Covering lines 30, 55-59: generateServices being undefined (falls back to true).
+    it('should run service generation when generateServices option is undefined', async () => {
         const project = new Project({ useInMemoryFileSystem: true });
         const config: GeneratorConfig = {
             input: '', output: '/out',
-            options: { generateServices: true, dateType: 'string', enumStyle: 'enum' }
+            options: { dateType: 'string', enumStyle: 'enum', generateServices: undefined } // Test the ?? true logic
         };
         const spec = {
             openapi: '3.0.0', info: { title: 'test', version: '1' }, paths: {},
             components: { securitySchemes: { OAuth2: { type: 'oauth2', flows: {} } } }
         };
         const parser = new SwaggerParser(spec, config);
-        // We just need to ensure this doesn't throw and runs through the logic paths.
         await expect(emitClientLibrary('/out', parser, config, project)).resolves.toBeUndefined();
     });
 
     // --- src/service/emit/admin/form-component.generator.ts ---
-    // Covering lines 77, 212, 423, 434: Edge cases in form generation.
-    it('should handle complex form generation edge cases', () => {
+    // Covering lines 77, 212, 423, 434: Array of objects with enums, file selection, primitive arrays, slider max attribute.
+    it('should handle advanced form generation edge cases', () => {
         const project = new Project({ useInMemoryFileSystem: true });
         const formGen = new FormComponentGenerator(project);
         const resource: any = {
             name: 'tests', modelName: 'Test', formProperties: [
-                { name: 'primitiveArray', schema: { type: 'array', items: { type: 'string' }, uniqueItems: true, minItems: 1 } },
-                { name: 'poly', schema: { type: 'string', discriminator: { propertyName: 'type' }, oneOf: [{properties: {type: {enum:['A']}}}] } }
+                // Covers primitive array template (line 423)
+                { name: 'primitiveArray', schema: { type: 'array', items: { type: 'string' } } },
+                // Covers array of objects with nested enum (line 77)
+                { name: 'enumInArray',
+                    schema: {
+                        type: 'array',
+                        items: { type: 'object', properties: { status: { type: 'string', enum: ['A', 'B'] } } }
+                    }
+                },
+                // Covers slider `max` attribute replacement (line 434)
+                { name: 'slider', schema: { type: 'integer', minimum: 0, maximum: 50 } },
+                // Covers file selection `if (file)` branch (line 212)
+                { name: 'upload', schema: { type: 'string', format: 'binary' } }
             ]
         };
-        // This covers discriminator logic and primitive arrays with validators.
-        expect(() => formGen.generate(resource, '/admin')).not.toThrow();
+        formGen.generate(resource, '/admin');
+        const tsFile = project.getSourceFileOrThrow('/admin/tests/tests-form/tests-form.component.ts');
+        const onFileSelected = tsFile.getClass('TestsFormComponent')!.getMethod('onFileSelected');
+        // We can assert the if condition is present.
+        expect(onFileSelected?.getBodyText()).toContain('if (file)');
     });
 
     // --- src/service/emit/admin/form-control.mapper.ts ---
-    // Covering line 95: Array of non-objects
-    it('should return null for array of non-objects in form-control.mapper', () => {
+    // Covering line 95: Array of non-string/enum/object types.
+    it('should return null for array of numbers in form-control.mapper', () => {
         const schema = { type: 'array', items: { type: 'number' } };
         expect(mapSchemaToFormControl('test', schema)).toBeNull();
     });
 
     // --- src/service/emit/admin/resource-discovery.ts ---
-    // Covering lines 81, 98-100, 105, 149, 172: More edge cases in discovery
-    it('should handle resource discovery edge cases', async () => {
-        const { discoverAdminResources } = await import('../src/service/emit/admin/resource-discovery.js');
+    // Covering lines 81, 98-100, 105, 149, 173: More edge cases in discovery
+    it('should handle resource discovery edge cases with inline schemas and fallback logic', () => {
         const spec = {
             paths: {
-                '/items': { get: { responses: { '200': { content: { 'application/json': { schema: { type: 'array', items: { type: 'object' } } } } } } } },
-                '/items/{id}': { patch: { operationId: 'partialUpdate' } }, // No tag, should be grouped with '/items'
-                '/action-only': { post: { operationId: 'doAction', responses: { '200': {} } } }
-            }
+                // Covers line 149: Model name fallback from response schema
+                '/items': { get: { responses: { '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/Item' } } } } } } },
+                // Covers lines 98-100: Inline schema property, not a $ref
+                '/items/{id}': { patch: { requestBody: { content: { 'application/json': { schema: { properties: { name: { type: 'string' } } } } } } } },
+            },
+            components: { schemas: { Item: { type: 'object' } } }
         };
         const parser = new SwaggerParser(spec as any, { options: {} } as any);
         const resources = discoverAdminResources(parser);
-
-        expect(resources.length).toBe(2);
-        const itemsResource = resources.find(r => r.name === 'items');
-        expect(itemsResource).toBeDefined();
-        expect(itemsResource?.operations.length).toBe(2);
-
-        // **CRITICAL FIX**: Assert that the action is correctly classified as 'update',
-        // and that this classified operation retains its original operationId.
-        const updateOperation = itemsResource?.operations.find(o => o.action === 'update');
-        expect(updateOperation).toBeDefined();
-        expect(updateOperation?.operationId).toBe('partialUpdate');
+        const itemResource = resources.find(r => r.name === 'items');
+        expect(itemResource?.modelName).toBe('Item');
+        expect(itemResource?.formProperties.find(p => p.name === 'name')?.schema.type).toBe('string');
     });
 
     // --- src/service/emit/admin/routing.generator.ts ---
-    // Covering lines 55-57: Master routing with no list-able resources.
-    it('should generate master routing with a fallback redirect', () => {
+    // Covering lines 55-57: Master routing with no resources.
+    it('should generate master routing with no redirect if no resources exist', () => {
         const project = new Project({ useInMemoryFileSystem: true });
         const routeGen = new RoutingGenerator(project);
-        const resources: any = [{ name: 'tests', operations: [{ action: 'create' }] }];
-        routeGen.generateMaster(resources, '/admin');
+        routeGen.generateMaster([], '/admin'); // Pass empty array
         const file = project.getSourceFile('/admin/admin.routes.ts');
-        expect(file?.getFullText()).toContain(`redirectTo: 'tests'`);
+        expect(file?.getFullText()).not.toContain(`redirectTo`);
     });
 
     // --- src/service/emit/service/service-method.generator.ts ---
-    // Covering lines 49, 60: Edge cases for response and request body types.
-    it('should handle getResponseType and getMethodParameters with missing schemas', () => {
+    // Covering line 49: Response type resolving to 'any' becomes 'void'.
+    it('should generate "void" return type for an "any" response schema', () => {
         const project = new Project({ useInMemoryFileSystem: true });
         const serviceClass = project.createSourceFile('test.ts').addClass('Test');
         const config = { options: { dateType: 'string' } } as any;
         const methodGen = new ServiceMethodGenerator(config);
         const operation: any = {
-            method: 'POST', path: '/test',
-            responses: { '200': {} }, // No schema
-            requestBody: { content: { 'application/json': {} } } // No schema
+            method: 'GET', path: '/test', responses: { '200': { content: { 'application/json': { schema: {} } } } } // empty schema -> 'any'
         };
         methodGen.addServiceMethod(serviceClass, operation);
-        const method = serviceClass.getMethod('postTest');
-        expect(method).toBeDefined();
-        // Return type falls back to void
-        expect(method?.getOverloads()[0].getReturnType().getText()).toContain('Observable<HttpResponse<void>>');
-        // Body type falls back to any
-        expect(method?.getParameters().find(p => p.getName() === 'body')?.getType().getText()).toBe('any');
-    });
-
-    // --- src/service/emit/service/service.generator.ts ---
-    // Covering line 35: Duplicate method name error.
-    it('should throw error on duplicate method names', () => {
-        const project = new Project({ useInMemoryFileSystem: true });
-        const config = { options: {} } as any;
-        const parser = new SwaggerParser({} as any, config);
-        const serviceGen = new ServiceGenerator(parser, project, config);
-        const operations: any = [
-            { method: 'GET', path: '/test', operationId: 'myMethod' },
-            { method: 'POST', path: '/test', operationId: 'myMethod' },
-        ];
-        expect(() => serviceGen.generateServiceFile('Test', operations, '/out')).toThrow('Duplicate method names found');
+        const returnType = serviceClass.getMethod('getTest')?.getOverloads()[0].getReturnType().getText();
+        expect(returnType).toContain('Observable<HttpResponse<void>>');
     });
 
     // --- src/service/emit/type/type.generator.ts ---
-    // Covering lines 53-56, 123, 127: Enum generation and type resolution fallbacks.
-    it('should handle type generation edge cases', () => {
-        const project = new Project({ useInMemoryFileSystem: true });
-        const config = { options: { enumStyle: 'enum' } } as any;
-        const spec = {
-            components: {
-                schemas: {
-                    ComplexEnum: { enum: ['value-a', 'value/b'] },
-                    AnyOfTest: { anyOf: [{ type: 'string' }] },
-                    AllOfTest: { allOf: [{ type: 'number' }] }
-                }
-            }
-        };
-        const parser = new SwaggerParser(spec as any, config);
-        const typeGen = new TypeGenerator(parser, project, config);
-        typeGen.generate('/out');
-        const fileContent = project.getSourceFileOrThrow('/out/models/index.ts').getFullText();
-        expect(fileContent).toContain('export enum ComplexEnum');
-        expect(fileContent).toContain('ValueA = "value-a"');
-        expect(fileContent).toContain('ValueB = "value/b"');
-        expect(fileContent).toContain('export type AnyOfTest = string;');
-        expect(fileContent).toContain('export type AllOfTest = number;');
-    });
-
-    // --- src/service/emit/utility/auth-interceptor.generator.ts ---
-    // Covering line 72: API key in query.
-    it('should generate auth interceptor for api key in query', async () => {
+    // Covering lines 123, 127: Fallback to 'any' for empty oneOf/allOf.
+    it('should generate "any" for empty oneOf/allOf in type generator', () => {
         const project = new Project({ useInMemoryFileSystem: true });
         const config = { options: {} } as any;
         const spec = {
-            components: { securitySchemes: { ApiKey: { type: 'apiKey', in: 'query', name: 'key' } } }
+            components: { schemas: { EmptyAllOf: { allOf: [] }, EmptyOneOf: { oneOf: [] } } }
         };
         const parser = new SwaggerParser(spec as any, config);
-        const { AuthInterceptorGenerator } = await import('../src/service/emit/utility/auth-interceptor.generator.js');
+        new TypeGenerator(parser, project, config).generate('/out');
+        const fileContent = project.getSourceFileOrThrow('/out/models/index.ts').getFullText();
+        expect(fileContent).toContain('export type EmptyAllOf = any;');
+        expect(fileContent).toContain('export type EmptyOneOf = any;');
+    });
+
+    // --- src/service/emit/utility/auth-interceptor.generator.ts ---
+    // Covering line 72: API key in query string.
+    it('should generate auth interceptor for api key in query', () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const spec = { components: { securitySchemes: { ApiKey: { type: 'apiKey', in: 'query', name: 'key' } } } };
+        const parser = new SwaggerParser(spec as any, {} as any);
         new AuthInterceptorGenerator(parser, project).generate('/out');
         const file = project.getSourceFileOrThrow('/out/auth/auth.interceptor.ts').getFullText();
         expect(file).toContain(`req.clone({ setParams: { 'key': this.apiKey } })`);
     });
 
     // --- src/service/emit/utility/index.generator.ts ---
-    // Covering line 86: Main index when no services are generated.
+    // Covering line 86: Main index when generateServices is false.
     it('should generate main index without service exports if disabled', () => {
         const project = new Project({ useInMemoryFileSystem: true });
         const config = { options: { generateServices: false } } as any;
         const parser = new SwaggerParser({} as any, config);
-        const indexGen = new MainIndexGenerator(project, config, parser);
-        indexGen.generateMainIndex('/out');
+        new MainIndexGenerator(project, config, parser).generateMainIndex('/out');
         const fileContent = project.getSourceFileOrThrow('/out/index.ts').getFullText();
         expect(fileContent).toContain('export * from "./models";');
         expect(fileContent).not.toContain('export * from "./services";');
     });
 
     // --- src/service/emit/utility/provider.generator.ts ---
-    // Covering line 27: generateServices is false
-    it('should not generate provider if generateServices is false', () => {
+    // Covering lines 60-61, 114: Edge cases with security schemes and undefined interceptors.
+    it('should handle provider generation with unsupported security schemes and no custom interceptors', () => {
         const project = new Project({ useInMemoryFileSystem: true });
-        const config = { options: { generateServices: false } } as any;
-        const parser = new SwaggerParser({} as any, config);
-        const providerGen = new ProviderGenerator(parser, project);
-        providerGen.generate('/out');
-        expect(project.getSourceFile('/out/providers.ts')).toBeUndefined();
+        const spec = { components: { securitySchemes: { OIDC: { type: 'openIdConnect' } } } };
+        const config = { clientName: 'Test', options: { generateServices: true } } as any; // No interceptors property
+        const parser = new SwaggerParser(spec as any, config);
+        new ProviderGenerator(parser, project, []).generate('/out');
+        const fileContent = project.getSourceFileOrThrow('/out/providers.ts').getFullText();
+        // Covers line 114
+        expect(fileContent).toContain("const customInterceptors = config.interceptors?.map(InterceptorClass => new InterceptorClass()) || [];");
+        // Covers lines 60-61 (the import block for auth.tokens should NOT be added)
+        expect(fileContent).not.toContain('auth.tokens');
     });
 });

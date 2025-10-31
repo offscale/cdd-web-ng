@@ -3,7 +3,7 @@ name: Tests and coverage
 on:
   push:
     branches:
-    - master
+      - master
 
 jobs:
   tests_and_coverage:
@@ -22,13 +22,14 @@ jobs:
         run: npm run-script test:coverage
 
       - name: Upload coverage report artifact
-        # This action zips up the ./coverage directory and makes it downloadable
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
-          path: ./coverage
+          path: ./coverage/lcov.info
 
       - name: Upload coverage reports to Codecov with GitHub Action
         uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage/lcov.info
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

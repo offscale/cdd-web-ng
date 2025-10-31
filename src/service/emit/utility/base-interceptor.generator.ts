@@ -49,7 +49,7 @@ export class BaseInterceptorGenerator {
         sourceFile.addClass({
             name: `${this.capitalizedClientName}BaseInterceptor`,
             isExported: true,
-            decorators: [{ name: "Injectable" }],
+            decorators: [{ name: 'Injectable', arguments: [`{ providedIn: 'root' }`] }],
             implements: ["HttpInterceptor"],
             docs: [
                 `Base HttpInterceptor for the ${this.capitalizedClientName} client.`,

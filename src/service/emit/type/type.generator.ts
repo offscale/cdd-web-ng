@@ -24,23 +24,23 @@ export class TypeGenerator {
                 this.generateEnum(sourceFile, resolvedName, definition);
             } else if (definition.allOf) {
                 this.generateCompositeType(sourceFile, resolvedName, definition);
-            } else if (definition.oneOf || definition.anyOf) { // FIX: Added condition for union types
+            } else if (definition.oneOf || definition.anyOf) {
                 this.generateUnionType(sourceFile, resolvedName, definition);
             } else {
                 this.generateInterface(sourceFile, resolvedName, definition);
             }
         }
 
+        // The final, fully-typed RequestOptions interface.
+        // It provides the base for all HttpClient options.
         sourceFile.addInterface({
             name: "RequestOptions",
             isExported: true,
             properties: [
-                { name: 'headers?', type: 'HttpHeaders' },
+                { name: 'headers?', type: 'HttpHeaders | { [header: string]: string | string[]; }' },
                 { name: 'context?', type: 'HttpContext' },
-                { name: 'observe?', type: `'body' | 'events' | 'response'` },
                 { name: 'params?', type: 'HttpParams | { [param: string]: string | number | boolean | ReadonlyArray<string | number | boolean>; }' },
                 { name: 'reportProgress?', type: 'boolean' },
-                { name: 'responseType?', type: `'arraybuffer' | 'blob' | 'json' | 'text'` },
                 { name: 'withCredentials?', type: 'boolean' },
             ]
         });
@@ -73,7 +73,6 @@ export class TypeGenerator {
         });
     }
 
-    // FIX: Added new private method to handle union type generation
     private generateUnionType(sourceFile: SourceFile, name: string, definition: SwaggerDefinition) {
         const types = (definition.oneOf || definition.anyOf)!.map(d => this.resolveSwaggerType(d)).join(' | ');
         sourceFile.addTypeAlias({

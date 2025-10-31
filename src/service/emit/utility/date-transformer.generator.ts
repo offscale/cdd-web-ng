@@ -81,7 +81,7 @@ export class DateTransformerGenerator {
         sourceFile.addClass({
             name: "DateInterceptor",
             isExported: true,
-            decorators: [{ name: "Injectable" }],
+            decorators: [{ name: 'Injectable', arguments: [`{ providedIn: 'root' }`] }],
             implements: ["HttpInterceptor"],
             docs: ["Intercepts HTTP responses and transforms ISO date strings to Date objects in the response body."],
             methods: [

@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { Project, SourceFile } from 'ts-morph';
+import { Project, Scope, SourceFile } from 'ts-morph';
 import { SwaggerParser } from '../../../core/parser.js';
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
 
@@ -37,7 +37,7 @@ export class OAuthHelperGenerator {
             decorators: [{ name: 'Injectable', arguments: [`{ providedIn: 'root' }`] }],
             docs: ["A simple service to manage OAuth tokens stored in localStorage."],
             properties: [
-                { name: 'TOKEN_KEY', isReadonly: true, scope: 'private', initializer: "'oauth_token'" }
+                { name: 'TOKEN_KEY', isReadonly: true, scope: Scope.Private, initializer: "'oauth_token'" }
             ],
             methods: [
                 { name: 'setToken', parameters: [{ name: 'token', type: 'string' }], statements: `localStorage.setItem(this.TOKEN_KEY, token);` },
@@ -52,7 +52,7 @@ export class OAuthHelperGenerator {
         const componentDir = path.join(authDir, 'oauth-redirect');
 
         // FIX: Explicitly create the component's directory before writing files to it.
-        this.project.getFileSystem().mkdirSync(componentDir, { recursive: true });
+        this.project.getFileSystem().mkdirSync(componentDir);
 
         const tsPath = path.join(componentDir, 'oauth-redirect.component.ts');
         const htmlPath = path.join(componentDir, 'oauth-redirect.component.html');
@@ -81,9 +81,9 @@ export class OAuthHelperGenerator {
             }],
             docs: ["Handles the redirect from an OAuth provider, extracting the access token from the URL fragment."],
             properties: [
-                { name: 'route', scope: 'private', isReadonly: true, initializer: 'inject(ActivatedRoute)' },
-                { name: 'router', scope: 'private', isReadonly: true, initializer: 'inject(Router)' },
-                { name: 'oauthService', scope: 'private', isReadonly: true, initializer: 'inject(OAuthService)' }
+                { name: 'route', scope: Scope.Private, isReadonly: true, initializer: 'inject(ActivatedRoute)' },
+                { name: 'router', scope: Scope.Private, isReadonly: true, initializer: 'inject(Router)' },
+                { name: 'oauthService', scope: Scope.Private, isReadonly: true, initializer: 'inject(OAuthService)' }
             ],
             methods: [{
                 name: 'ngOnInit',

@@ -5,10 +5,11 @@ import {
     MethodDeclarationStructure,
     OptionalKind,
     ParameterDeclarationStructure,
-    MethodOverloadStructure,
+    MethodDeclarationOverloadStructure,
     Project
 } from 'ts-morph';
-import { GeneratorConfig, PathInfo, SwaggerParser, SwaggerDefinition } from '../../../core/types.js';
+import { GeneratorConfig, PathInfo, SwaggerDefinition } from '../../../core/types.js';
+import { SwaggerParser } from '../../../core/parser.js';
 import { getTypeScriptType, camelCase, isDataTypeInterface } from '../../../core/utils.js';
 
 /**
@@ -160,10 +161,10 @@ export class ServiceMethodGenerator {
      * Builds the array of method overloads for different `observe` and `responseType` combinations.
      * @param responseType The primary TypeScript type of the response body.
      * @param parameters The base parameters of the method.
-     * @returns An array of `MethodOverloadStructure` objects.
+     * @returns An array of `MethodDeclarationOverloadStructure` objects.
      * @private
      */
-    private buildOverloads(responseType: string, parameters: OptionalKind<ParameterDeclarationStructure>[]): OptionalKind<MethodOverloadStructure>[] {
+    private buildOverloads(responseType: string, parameters: OptionalKind<ParameterDeclarationStructure>[]): OptionalKind<MethodDeclarationOverloadStructure>[] {
         return [
             // observe: 'response'
             {
@@ -173,7 +174,7 @@ export class ServiceMethodGenerator {
             },
             // observe: 'events'
             {
-                parameters: [...parameters, { name: 'options', hasQuestionoken: false, type: `RequestOptions & { observe: 'events' }` }],
+                parameters: [...parameters, { name: 'options', hasQuestionToken: false, type: `RequestOptions & { observe: 'events' }` }],
                 returnType: `Observable<HttpEvent<${responseType}>>`,
                 docs: ["@param options The options for this request, with event observation enabled."]
             },

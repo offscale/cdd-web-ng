@@ -151,7 +151,11 @@ function getModelName(resourceName: string, operations: PathInfo[], parser: Swag
     const op = operations.find(o => o.method === 'POST') ?? operations.find(o => o.method === 'GET');
     const schema = op?.requestBody?.content?.['application/json']?.schema ?? op?.responses?.['200']?.content?.['application/json']?.schema;
     if (schema) {
-        const ref = ('$ref' in schema ? schema.$ref : null) || (schema.type === 'array' && (schema.items as any)?.$ref ? (schema.items as any).$ref : null);
+        const ref = '$ref' in schema
+            ? schema.$ref
+            : schema.type === 'array' && schema.items && !Array.isArray(schema.items) && '$ref' in schema.items
+                ? schema.items.$ref
+                : null;
         if (ref) return pascalCase(ref.split('/').pop()!);
     }
     return singular(pascalCase(resourceName));
@@ -177,7 +181,7 @@ export function discoverAdminResources(parser: SwaggerParser): Resource[] {
         resources.push({
             name, modelName,
             isEditable: allOpsForResource.some(op => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(op.method)),
-            operations: allOpsForResource.map((op) => {
+            operations: allOpsForResource.map((op): ResourceOperation => {
                 const action = classifyAction(op);
                 const standardActions = ['list', 'create', 'getById', 'update', 'delete'];
                 const isItemOp = op.path.includes('{');

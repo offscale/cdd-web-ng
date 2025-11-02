@@ -5,7 +5,7 @@
  * action buttons, and pagination.
  */
 
-import { Resource } from '../../../../core/types.js';
+import { FormProperty, Resource } from '../../../../core/types.js';
 import { camelCase, pascalCase, singular } from '../../../../core/utils.js';
 
 /**
@@ -31,7 +31,7 @@ export function generateListComponentHtml(resource: Resource, idProperty: string
     const generateColumns = () => {
         // FIX: Add a defensive guard against undefined listProperties.
         const properties = resource.listProperties || [];
-        return properties.map(prop => `
+        return properties.map((prop: FormProperty) => `
     <!-- ${pascalCase(prop.name)} Column -->
     <ng-container matColumnDef="${prop.name}">
       <th mat-header-cell *matHeaderCellDef>${pascalCase(prop.name)}</th>
@@ -94,7 +94,7 @@ export function generateListComponentHtml(resource: Resource, idProperty: string
       </tr>
     </table>
 
-    <mat-paginator 
+    <mat-paginator
       [length]="totalItems()"
       [pageSizeOptions]="[5, 10, 25, 100]"
       aria-label="Select page">

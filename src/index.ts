@@ -7,11 +7,21 @@ import { SwaggerParser } from './core/parser.js';
 import { emitClientLibrary } from './service/emit/index.js';
 import * as fs from 'fs';
 
-// A new type for test environments to pass pre-parsed data
+/**
+ * For test environments, allows passing a pre-parsed OpenAPI specification object.
+ */
 export type TestGeneratorConfig = {
+    /** The pre-parsed OpenAPI specification object. */
     spec: object;
 }
 
+/**
+ * Orchestrates the entire code generation process based on a configuration object.
+ * @param config The generator configuration object.
+ * @param project Optional ts-morph Project to use. If not provided, a new one is created. Useful for testing.
+ * @param testConfig Optional configuration for test environments to inject a pre-parsed spec.
+ * @returns A promise that resolves when generation is complete.
+ */
 export async function generateFromConfig(
     config: GeneratorConfig,
     project?: Project,

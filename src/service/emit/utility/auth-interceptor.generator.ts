@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { Project } from 'ts-morph';
+import { Project, Scope } from 'ts-morph';
 import { SwaggerParser } from '../../../core/parser.js';
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
 
@@ -53,10 +53,10 @@ export class AuthInterceptorGenerator {
         });
 
         if (hasApiKey) {
-            interceptorClass.addProperty({ name: 'apiKey', isReadonly: true, scope: 'private', type: 'string | null', initializer: `inject(API_KEY_TOKEN, { optional: true })` });
+            interceptorClass.addProperty({ name: 'apiKey', isReadonly: true, scope: Scope.Private, type: 'string | null', initializer: `inject(API_KEY_TOKEN, { optional: true })` });
         }
         if (hasBearer) {
-            interceptorClass.addProperty({ name: 'bearerToken', isReadonly: true, scope: 'private', type: '(string | (() => string)) | null', initializer: `inject(BEARER_TOKEN_TOKEN, { optional: true })` });
+            interceptorClass.addProperty({ name: 'bearerToken', isReadonly: true, scope: Scope.Private, type: '(string | (() => string)) | null', initializer: `inject(BEARER_TOKEN_TOKEN, { optional: true })` });
         }
 
         const securityLogicBlocks: string[] = [];

@@ -40,11 +40,15 @@ export class HttpParamsBuilderGenerator {
                 scope: Scope.Public,
                 parameters: [
                     { name: "httpParams", type: "HttpParams" },
-                    { name: "value", type: "unknown", docs: ["The value to add. Can be a primitive, object, or array."] },
-                    { name: "key", type: "string", docs: ["The key for the parameter."] },
+                    { name: "value", type: "unknown" },
+                    { name: "key", type: "string" },
                 ],
                 returnType: "HttpParams",
-                docs: ["Public entry point to add a value to HttpParams. It delegates to the recursive handler."],
+                docs: [
+                    "Public entry point to add a value to HttpParams. It delegates to the recursive handler.",
+                    "@param value The value to add. Can be a primitive, object, or array.",
+                    "@param key The key for the parameter."
+                ],
                 statements: `
 if (value == null) {
     return httpParams;

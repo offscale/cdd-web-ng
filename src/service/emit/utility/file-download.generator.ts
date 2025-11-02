@@ -33,11 +33,15 @@ export class FileDownloadGenerator {
             name: "downloadFile",
             isExported: true,
             parameters: [
-                { name: "blob", type: "Blob", docs: ["The file content."] },
-                { name: "filename", type: "string", docs: ["The desired name of the file."] },
+                { name: "blob", type: "Blob" },
+                { name: "filename", type: "string" },
             ],
             returnType: "void",
-            docs: ["Triggers a browser file download by creating a temporary anchor element."],
+            docs: [
+                "Triggers a browser file download by creating a temporary anchor element.",
+                "@param blob The file content.",
+                "@param filename The desired name of the file."
+            ],
             statements: `
     // Create a URL for the blob object
     const url = window.URL.createObjectURL(blob);
@@ -81,7 +85,7 @@ export class FileDownloadGenerator {
 
                 const contentDisposition = response instanceof HttpResponse ? response.headers.get('content-disposition') : null;
                 const filename = extractFilenameFromContentDisposition(contentDisposition) ?? fallbackFilename;
-                
+                  
                 downloadFile(blob, filename);
             })
         );
@@ -110,7 +114,7 @@ export class FileDownloadGenerator {
     }
 
     const filename = filenameMatch[1];
-    
+      
     // Handle RFC 5987 encoding (filename*=UTF-8''...)
     if (filename.toLowerCase().startsWith("utf-8''")) {
         try {
@@ -120,7 +124,7 @@ export class FileDownloadGenerator {
             return filename.substring(7);
         }
     }
-    
+      
     // Return the simple filename="value"
     return filename;`
         });

@@ -1,6 +1,6 @@
 // src/service/emit/admin/routing.generator.ts
 
-import { Project } from 'ts-morph';
+import { Project, VariableDeclarationKind } from 'ts-morph';
 import { Resource } from '../../../core/types.js';
 import { camelCase, pascalCase } from '../../../core/utils.js';
 
@@ -35,7 +35,7 @@ export class RoutingGenerator {
 
         sourceFile.addVariableStatement({
             isExported: true,
-            declarationKind: 'const',
+            declarationKind: VariableDeclarationKind.Const,
             declarations: [{
                 name: 'adminRoutes',
                 type: 'Routes',
@@ -79,7 +79,7 @@ export class RoutingGenerator {
 
         sourceFile.addVariableStatement({
             isExported: true,
-            declarationKind: 'const',
+            declarationKind: VariableDeclarationKind.Const,
             declarations: [{
                 name: `${camelCase(resource.name)}Routes`,
                 type: 'Routes',

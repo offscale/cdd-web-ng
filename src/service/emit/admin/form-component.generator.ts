@@ -1,4 +1,4 @@
-import { ClassDeclaration, Project, SyntaxKind } from 'ts-morph';
+import { ClassDeclaration, Project, Scope, SyntaxKind } from 'ts-morph';
 import { FormProperty, Resource, SwaggerDefinition } from '../../../core/types.js';
 import { camelCase, pascalCase, singular } from '../../../core/utils.js';
 import { commonStandaloneImports } from './common-imports.js';
@@ -29,7 +29,7 @@ export class FormComponentGenerator {
      */
     public generate(resource: Resource, outDir: string): { usesCustomValidators: boolean } {
         const formDir = `${outDir}/${resource.name}/${resource.name}-form`;
-        this.project.getFileSystem().mkdirSync(formDir, { recursive: true });
+        this.project.getFileSystem().mkdirSync(formDir);
 
         const tsResult = this.generateFormComponentTs(resource, formDir);
         this.generateFormComponentHtml(resource, formDir);
@@ -152,7 +152,7 @@ export class FormComponentGenerator {
                 .map(def => def.properties![dPropName].enum![0]);
             classDeclaration.addProperties([
                 { name: 'discriminatorOptions', isReadonly: true, initializer: JSON.stringify(dOptions) },
-                { name: 'discriminatorPropName', isReadonly: true, scope: 'private', initializer: `'${dPropName}'` }
+                { name: 'discriminatorPropName', isReadonly: true, scope: Scope.Private, initializer: `'${dPropName}'` }
             ]);
         }
 
@@ -211,7 +211,7 @@ export class FormComponentGenerator {
             .filter(prop => !prop.schema.readOnly)
             .map(prop => `'${prop.name}': ${this.getFormControlString(prop.schema)}`)
             .join(',\n      ');
-        classDeclaration.addMethod({ name: 'initForm', isPrivate: true, statements: `this.form = this.fb.group({\n      ${formControls}\n    });` });
+        classDeclaration.addMethod({ name: 'initForm', scope: Scope.Private, statements: `this.form = this.fb.group({\n      ${formControls}\n    });` });
     }
 
     /**
@@ -325,7 +325,7 @@ export class FormComponentGenerator {
 
         classDeclaration.addMethod({
             name: 'patchForm',
-            isPrivate: true,
+            scope: Scope.Private,
             parameters: [{ name: 'entity', type: resource.modelName }],
             statements: body
         });
@@ -391,7 +391,7 @@ export class FormComponentGenerator {
 
             const createMethod = classDeclaration.addMethod({
                 name: `create${singularPascal}`,
-                isPrivate: true,
+                scope: Scope.Private,
                 parameters: [{ name: 'item?', type: 'any /* Replace with actual item type */', initializer: '{}' }],
                 returnType: 'FormGroup'
             });
@@ -426,7 +426,7 @@ export class FormComponentGenerator {
         // This method dynamically adds/removes the appropriate sub-form group.
         const updateMethod = classDeclaration.addMethod({
             name: 'updateFormForPetType',
-            isPrivate: true,
+            scope: Scope.Private,
             parameters: [{ name: 'type', type: 'string' }]
         });
 
@@ -466,7 +466,7 @@ export class FormComponentGenerator {
             const typeName = this.parser.resolveReference(subSchemaRef.$ref!)!.properties![dPropName].enum![0] as string;
             classDeclaration.addMethod({
                 name: `is${subSchemaName}`,
-                isPrivate: true,
+                scope: Scope.Private,
                 parameters: [{ name: 'entity', type: resource.modelName }],
                 returnType: `entity is ${subSchemaName}`,
                 statements: `return (entity as any).${dPropName} === '${typeName}';`
@@ -483,7 +483,7 @@ export class FormComponentGenerator {
     private addGetPayload(classDeclaration: ClassDeclaration, prop: FormProperty) {
         const dPropName = prop.schema.discriminator!.propertyName;
         const body = `const baseValue = this.form.getRawValue();\nconst petType = baseValue.${dPropName};\nif (!petType) return baseValue;\n\nconst subFormValue = this.form.get(petType)?.value || {};\nconst payload = { ...baseValue, ...subFormValue };\nthis.discriminatorOptions.forEach(opt => delete payload[opt]);\nreturn payload;`;
-        classDeclaration.addMethod({ name: 'getPayload', isPrivate: true, statements: body });
+        classDeclaration.addMethod({ name: 'getPayload', scope: Scope.Private, statements: body });
     }
 
     /**

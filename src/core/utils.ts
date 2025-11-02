@@ -228,13 +228,15 @@ export function extractPaths(swaggerPaths: { [p: string]: Path } | undefined): P
 
                 const allParams = Array.from(paramsMap.values());
                 const nonBodyParams = allParams.filter(p => p.in !== 'body');
-                const bodyParam = allParams.find((p): p is BodyParameter => p.in === 'body');
+                // FIX: Use a standard find with a type assertion instead of a type predicate due to type incompatibilities.
+                const bodyParam = allParams.find(p => p.in === 'body') as BodyParameter | undefined;
 
                 const parameters = nonBodyParams.map((p): Parameter => ({
                     name: p.name,
                     in: p.in as "query" | "path" | "header" | "cookie",
                     required: p.required,
-                    schema: p.schema || p, // Fallback for parameters that are schemas themselves
+                    // FIX: Cast to `any` to bridge the gap between `swagger-schema-official`'s `Schema` and our `SwaggerDefinition`.
+                    schema: (p.schema || p) as any, // Fallback for parameters that are schemas themselves
                     description: p.description
                 }));
 

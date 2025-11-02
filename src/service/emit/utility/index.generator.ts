@@ -20,7 +20,6 @@ export class MainIndexGenerator {
         // Always export models.
         sourceFile.addExportDeclaration({
             moduleSpecifier: "./models",
-            docs: ["Export all generated models (interfaces and enums)."]
         });
 
         // Conditionally export services and related utilities.
@@ -28,19 +27,15 @@ export class MainIndexGenerator {
             sourceFile.addExportDeclarations([
                 {
                     moduleSpecifier: "./services",
-                    docs: ["Export all generated services."]
                 },
                 {
                     moduleSpecifier: "./tokens",
-                    docs: ["Export all dependency injection tokens."]
                 },
                 {
                     moduleSpecifier: "./providers",
-                    docs: ["Export all provider functions for easy setup."]
                 },
                 {
                     moduleSpecifier: "./utils/file-download",
-                    docs: ["Export file download utilities."]
                 },
             ]);
 
@@ -48,7 +43,6 @@ export class MainIndexGenerator {
             if (this.config.options.dateType === "Date") {
                 sourceFile.addExportDeclaration({
                     moduleSpecifier: "./utils/date-transformer",
-                    docs: ["Export the date transformation interceptor and helpers."]
                 });
             }
 
@@ -56,7 +50,6 @@ export class MainIndexGenerator {
             if (Object.keys(this.parser.getSecuritySchemes()).length > 0) {
                 sourceFile.addExportDeclaration({
                     moduleSpecifier: "./auth/auth.tokens",
-                    docs: ["Export authentication-related injection tokens."]
                 });
             }
         }

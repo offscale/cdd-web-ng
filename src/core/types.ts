@@ -42,7 +42,7 @@ export interface SwaggerResponse {
 }
 
 export interface SwaggerDefinition {
-    type?: "string" | "number" | "integer" | "boolean" | "object" | "array" | "null" | ("string" | "number" | "integer" | "boolean" | "object" | "array" | "null")[];
+    type?: "string" | "number" | "integer" | "boolean" | "object" | "array" | "file" | "null" | ("string" | "number" | "integer" | "boolean" | "object" | "array" | "null")[];
     format?: string;
     description?: string;
     default?: unknown;
@@ -67,6 +67,7 @@ export interface SwaggerDefinition {
     properties?: { [propertyName: string]: SwaggerDefinition };
     discriminator?: DiscriminatorObject;
     readOnly?: boolean;
+    writeOnly?: boolean;
     nullable?: boolean;
     required?: string[];
 }
@@ -126,6 +127,8 @@ export interface ResourceOperation {
     operationId?: string;
     methodName?: string;
     methodParameters?: Parameter[];
+    isCustomItemAction?: boolean;
+    isCustomCollectionAction?: boolean;
 }
 
 export interface Resource {
@@ -134,6 +137,7 @@ export interface Resource {
     operations: ResourceOperation[];
     isEditable: boolean; // Has any of POST, PUT, DELETE, PATCH
     formProperties: FormProperty[]; // Properties processed for form generation
+    listProperties: FormProperty[];
 }
 
 export interface FormProperty {

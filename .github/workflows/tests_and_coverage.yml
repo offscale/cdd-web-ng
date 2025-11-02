@@ -18,6 +18,9 @@ jobs:
       - name: Install requirements
         run: npm ci
 
+      - name: Generate docs (also checks types)
+        run: npm run-script docs
+
       - name: Run tests and collect coverage
         run: npm run-script test:coverage
 

@@ -41,9 +41,9 @@ export class DateTransformerGenerator {
                 {
                     name: "ISO_DATE_REGEX",
                     initializer: `/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$/`,
-                    docs: ["A regex pattern to identify strings that are likely ISO 8601 date-time formats."]
                 },
             ],
+            docs: ["A regex pattern to identify strings that are likely ISO 8601 date-time formats."]
         });
 
         // Add the recursive transformer function

@@ -1,6 +1,7 @@
 import { Project, SourceFile } from 'ts-morph';
 import * as path from 'path';
-import { GeneratorConfig, SwaggerParser } from '../../../core/types.js';
+import { GeneratorConfig } from '../../../core/types.js';
+import { SwaggerParser } from '../../../core/parser.js';
 import { getBasePathTokenName, getInterceptorsTokenName, pascalCase } from '../../../core/utils.js';
 import { PROVIDER_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
 

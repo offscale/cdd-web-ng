@@ -6,8 +6,8 @@
  * HTML and SCSS to specialized builder functions.
  */
 
-import { ClassDeclaration, Project } from 'ts-morph';
-import { Resource } from '../../../core/types.js';
+import { ClassDeclaration, Project, Scope } from 'ts-morph';
+import { FormProperty, Resource } from '../../../core/types.js';
 import { camelCase, pascalCase } from '../../../core/utils.js';
 import { commonStandaloneImports } from './common-imports.js';
 import { generateListComponentHtml } from './html/list-component-html.builder.js';
@@ -32,7 +32,7 @@ export class ListComponentGenerator {
      */
     public generate(resource: Resource, outDir: string): void {
         const listDir = `${outDir}/${resource.name}/${resource.name}-list`;
-        this.project.getFileSystem().mkdirSync(listDir, { recursive: true });
+        this.project.getFileSystem().mkdirSync(listDir);
 
         this.generateListComponentTs(resource, listDir);
         this.generateListComponentHtml(resource, listDir);
@@ -99,7 +99,7 @@ export class ListComponentGenerator {
         const idProperty = this.getIdProperty(resource);
 
         const listableProps = resource.listProperties || [];
-        const displayedColumns = [...new Set([idProperty, ...listableProps.map(p => p.name)])].filter(Boolean);
+        const displayedColumns = [...new Set([idProperty, ...listableProps.map((p: FormProperty) => p.name)])].filter(Boolean);
 
         const hasActions = resource.operations.some(op => ['update', 'delete'].includes(op.action) || op.isCustomItemAction);
         if (hasActions) {
@@ -117,7 +117,7 @@ export class ListComponentGenerator {
             },
             { name: 'dataSource', type: `MatTableDataSource<${resource.modelName}>`, initializer: `new MatTableDataSource<${resource.modelName}>()` },
             { name: 'totalItems', initializer: 'signal(0)' },
-            { name: 'isViewInitialized', scope: 'private', initializer: 'signal(false)' },
+            { name: 'isViewInitialized', scope: Scope.Private, initializer: 'signal(false)' },
             { name: 'displayedColumns: string[]', initializer: JSON.stringify(displayedColumns) },
             { name: 'idProperty: string', initializer: `'${idProperty}'` },
             { name: 'subscriptions: Subscription[]', initializer: '[]' },

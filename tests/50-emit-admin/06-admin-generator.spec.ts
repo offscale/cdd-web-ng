@@ -3,7 +3,7 @@ import { Project } from 'ts-morph';
 import { AdminGenerator } from '../../src/service/emit/admin/admin.generator.js';
 import * as resourceDiscovery from '../../src/service/emit/admin/resource-discovery.js';
 import { createTestProject } from '../shared/helpers.js';
-import { coverageSpec } from '../shared/specs.js';
+import { coverageSpec, adminFormSpec } from '../shared/specs.js';
 import { SwaggerParser } from '../../src/core/parser.js';
 import { CustomValidatorsGenerator } from '../../src/service/emit/admin/custom-validators.generator.js';
 
@@ -24,6 +24,10 @@ describe('Admin: AdminGenerator (Orchestrator)', () => {
         // Publications: Has only form operations
         expect(project.getSourceFile('/out/admin/publications/publications-list/publications-list.component.ts')).toBeUndefined();
         expect(project.getSourceFile('/out/admin/publications/publications-form/publications-form.component.ts')).toBeDefined();
+
+        // Logs: Has only list operations
+        expect(project.getSourceFile('/out/admin/logs/logs-list/logs-list.component.ts')).toBeDefined();
+        expect(project.getSourceFile('/out/admin/logs/logs-form/logs-form.component.ts')).toBeUndefined();
     });
 
     it('should generate a master routing file', async () => {
@@ -35,15 +39,27 @@ describe('Admin: AdminGenerator (Orchestrator)', () => {
         expect(project.getSourceFile('/out/admin/admin.routes.ts')).toBeDefined();
     });
 
-    it('should conditionally generate custom validators file', async () => {
+    it('should NOT generate custom validators file if not needed', async () => {
         const project = createTestProject();
         const parser = new SwaggerParser(coverageSpec as any, { options: { admin: true } } as any);
-        // This spec does NOT require custom validators
         const adminGen = new AdminGenerator(parser, project, { options: {} } as any);
 
         const validatorSpy = vi.spyOn(CustomValidatorsGenerator.prototype, 'generate');
         await adminGen.generate('/out');
         expect(validatorSpy).not.toHaveBeenCalled();
+        validatorSpy.mockRestore();
+    });
+
+    it('should generate custom validators file WHEN needed', async () => {
+        const project = createTestProject();
+        // adminFormSpec uses exclusiveMinimum, which requires the custom validator
+        const parser = new SwaggerParser(adminFormSpec as any, { options: { admin: true } } as any);
+        const adminGen = new AdminGenerator(parser, project, { options: {} } as any);
+
+        const validatorSpy = vi.spyOn(CustomValidatorsGenerator.prototype, 'generate');
+        await adminGen.generate('/out');
+        expect(validatorSpy).toHaveBeenCalled();
+        validatorSpy.mockRestore();
     });
 
     it('should warn and exit gracefully if no resources are discovered', async () => {

@@ -70,6 +70,15 @@ describe('Core: utils.ts', () => {
             expect(paths[0].requestBody).toBeDefined();
             expect(paths[0].requestBody?.content?.['application/json'].schema).toEqual({ type: 'string' });
         });
+
+        it('should handle path items with no top-level parameters', () => {
+            const swaggerPaths = {
+                '/test': { get: { operationId: 'test' } } // No 'parameters' key on the path item
+            };
+            const paths = utils.extractPaths(swaggerPaths as any);
+            expect(paths.length).toBe(1);
+            expect(paths[0].parameters).toEqual([]); // Should default to empty array
+        });
     });
 
     describe('Token Name Generation', () => {

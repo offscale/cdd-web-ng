@@ -30,7 +30,7 @@ describe('E2E: Admin UI Generation', () => {
             expect(constructorBody).toContain('this.usersService.getUsers(');
             expect(listComponent.getMethod('onCreate')).toBeDefined();
             expect(listComponent.getMethod('onEdit')).toBeDefined();
-            expect(listComponent.getMethod('deleteItem')).toBeDefined();
+            expect(listComponent.getMethod('onDelete')).toBeDefined();
         });
 
         it('should generate a fully-featured form component', () => {

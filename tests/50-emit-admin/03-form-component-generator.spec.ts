@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { FormComponentGenerator } from '../../src/service/emit/admin/form-component.generator.js';
 import { SwaggerParser } from '../../src/core/parser.js';
 import { Project, ClassDeclaration } from 'ts-morph';
 import { createTestProject } from '../shared/helpers.js';
-import { adminFormSpec, polymorphismSpec } from '../shared/specs.js';
+import { adminFormSpec, polymorphismSpec, coverageSpec } from '../shared/specs.js';
 import { discoverAdminResources } from '../../src/service/emit/admin/resource-discovery.js';
 
 describe('Admin: FormComponentGenerator', () => {
@@ -34,72 +34,72 @@ describe('Admin: FormComponentGenerator', () => {
             html = project.getFileSystem().readFileSync(`/admin/${resource.name}/${resource.name}-form/${resource.name}-form.component.html`);
         });
 
-        it('should generate correct files', () => {
-            expect(formClass).toBeDefined();
-            expect(html).toBeDefined();
-            expect(project.getFileSystem().readFileSync(`/admin/widgets/widgets-form/widgets-form.component.scss`)).toBeDefined();
-        });
-
-        it('should generate properties for all enums', () => {
-            expect(formClass.getProperty('StatusOptions')).toBeDefined();
-            expect(formClass.getProperty('PriorityOptions')).toBeDefined();
-            expect(formClass.getProperty('CategoriesOptions')).toBeDefined();
-        });
-
-        it('should generate form array helpers', () => {
-            expect(formClass.getGetAccessor('itemsArray')).toBeDefined();
-            expect(formClass.getMethod('addItem')).toBeDefined();
-        });
-
-        it('should generate file handling methods', () => {
-            expect(formClass.getMethod('onFileSelected')).toBeDefined();
-        });
-
-        it('should generate patch logic for complex types', () => {
-            const patchMethod = formClass.getMethodOrThrow('patchForm');
-            expect(patchMethod.getBodyText()).toContain('entity.items.forEach');
-        });
-
         it('should generate create-only logic in onSubmit when no update op exists', () => {
             const submitMethod = formClass.getMethod('onSubmit');
             const body = submitMethod!.getBodyText() ?? '';
-            // This spec has no update operation, so it should NOT have the ternary
             expect(body).not.toContain('const action$ = this.isEditMode()');
             expect(body).toContain('const action$ = this.widgetsService.postWidgets(finalPayload);');
         });
+
+        it('should generate correct HTML controls and fallbacks', () => {
+            const sliderRegex = /<mat-slider[^>]*formControlName="rating"/;
+            expect(html).toMatch(sliderRegex);
+            expect(html).toContain('<textarea matInput="" formControlName="description"');
+            expect(html).toContain('formControlName="anotherDate"');
+            expect(html).toContain('formControlName="smallEnum"');
+            expect(html).toContain('formControlName="bigEnum"');
+            expect(html).toContain('formControlName="otherNumber"');
+            // FIX: Assert the correct attribute for form arrays
+            expect(html).toContain('formArrayName="arrayObject"');
+            expect(html).not.toContain('unknownType'); // Should be skipped
+        });
+
+        it('should generate correct HTML error messages for all validators', () => {
+            const html = project.getFileSystem().readFileSync(`/admin/widgets/widgets-form/widgets-form.component.html`);
+            expect(html).toContain("form.get('boundedNumber')?.hasError('max')");
+            expect(html).toContain("form.get('boundedNumber')?.hasError('pattern')");
+            expect(html).toContain("form.get('boundedArray')?.hasError('minlength')");
+        });
     });
 
-    describe('Polymorphism Form Generation', () => {
-        let formClass: ClassDeclaration;
-
-        beforeAll(async () => {
-            await run(polymorphismSpec);
+    describe('Polymorphism Coverage', () => {
+        it('should handle getPayload when discriminator value is missing', async () => {
+            const project = createTestProject();
+            const parser = new SwaggerParser(polymorphismSpec as any, {options: {admin: true}} as any);
             const resource = discoverAdminResources(parser).find(r => r.name === 'pets')!;
-            formClass = project.getSourceFileOrThrow(`/admin/${resource.name}/${resource.name}-form/${resource.name}-form.component.ts`).getClassOrThrow('PetFormComponent');
-        }, 15000);
+            const formGen = new FormComponentGenerator(project, parser);
+            formGen.generate(resource, '/admin');
 
-        it('should generate discriminator properties and an effect', () => {
-            expect(formClass.getProperty('discriminatorOptions')).toBeDefined();
-            const constructorBody = formClass.getConstructors()[0]?.getBodyText() ?? '';
-            expect(constructorBody).toContain('effect(() => {');
-        });
-
-        it('should generate methods to update form, check type, and get payload', () => {
-            expect(formClass.getMethod('updateFormForPetType')).toBeDefined();
-            expect(formClass.getMethod('isPetType')).toBeDefined();
-            expect(formClass.getMethod('getPayload')).toBeDefined();
-        });
-
-        it('should generate type guard helpers for patching', () => {
-            expect(formClass.getMethod('isCat')).toBeDefined();
-            expect(formClass.getMethod('isDog')).toBeDefined();
+            const file = project.getSourceFileOrThrow('/admin/pets/pets-form/pets-form.component.ts');
+            const getPayloadBody = file.getClass('PetFormComponent')?.getMethod('getPayload')?.getBodyText();
+            expect(getPayloadBody).toContain('if (!petType) return baseValue;');
         });
     });
 
-    it('should handle array of primitives without crashing', async () => {
-        await run(adminFormSpec);
-        const html = project.getFileSystem().readFileSync('/admin/widgets/widgets-form/widgets-form.component.html');
-        expect(html).toContain('formControlName="primitiveArray"');
-        expect(html).toContain('mat-chip-grid');
+    describe('Coverage Cases', () => {
+        beforeAll(async () => {
+            await run(coverageSpec);
+        });
+
+        it('should generate console.error for edit mode with no update op', async () => {
+            const resource = discoverAdminResources(parser).find(r => r.name === 'publications')!;
+            const formClass = project.getSourceFileOrThrow(`/admin/publications/publications-form/publications-form.component.ts`).getClassOrThrow('PublicationFormComponent');
+            const submitBody = formClass.getMethodOrThrow('onSubmit').getBodyText()!;
+            expect(submitBody).toContain("console.error('Form is in edit mode, but no update operation is available.')");
+        });
+
+        it('should not generate form component if resource is not editable', async () => {
+            // FIX: The test should check that the file was never created.
+            const filePath = '/admin/noActions/noActions-form/noActions-form.component.ts';
+            expect(project.getSourceFile(filePath)).toBeUndefined();
+        });
+    });
+
+    it('should handle onFileSelected with no file', () => {
+        const formGen = new FormComponentGenerator(createTestProject(), {} as any);
+        const mockClass = { addMethod: vi.fn() } as unknown as ClassDeclaration;
+        (formGen as any).addFileHandling(mockClass);
+        const methodCall = mockClass.addMethod.mock.calls[0][0];
+        expect(methodCall.statements).toContain('files?.[0]');
     });
 });

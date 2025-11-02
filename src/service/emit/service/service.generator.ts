@@ -21,7 +21,7 @@ export class ServiceGenerator {
     private methodGenerator: ServiceMethodGenerator;
 
     constructor(private parser: SwaggerParser, private project: Project, private config: GeneratorConfig) {
-        this.methodGenerator = new ServiceMethodGenerator(config, parser);
+        this.methodGenerator = new ServiceMethodGenerator(this.config, this.parser);
     }
 
     public generateServiceFile(controllerName: string, operations: PathInfo[], outputDir: string) {
@@ -31,25 +31,26 @@ export class ServiceGenerator {
 
         sourceFile.addStatements(SERVICE_GENERATOR_HEADER_COMMENT);
         const className = `${pascalCase(controllerName)}Service`;
-
+        const knownTypes = this.parser.schemas.map(s => s.name);
         const modelImports = new Set<string>(['RequestOptions']);
+
         for (const op of operations) {
             const resSchema = op.responses?.['200']?.content?.['application/json']?.schema;
-            const responseType = getTypeScriptType(resSchema as any, this.config).replace(/\[\]| \| null/g, '');
+            const responseType = getTypeScriptType(resSchema as any, this.config, knownTypes).replace(/\[\]| \| null/g, '');
             if (isDataTypeInterface(responseType)) {
                 modelImports.add(responseType);
             }
 
             (op.parameters ?? []).forEach(param => {
                 const schemaObject = param.schema ? param.schema : param;
-                const paramType = getTypeScriptType(schemaObject as any, this.config).replace(/\[\]| \| null/g, '');
+                const paramType = getTypeScriptType(schemaObject as any, this.config, knownTypes).replace(/\[\]| \| null/g, '');
                 if (isDataTypeInterface(paramType)) {
                     modelImports.add(paramType);
                 }
             });
             const reqBodySchema = op.requestBody?.content?.['application/json']?.schema;
             if (reqBodySchema) {
-                const bodyType = getTypeScriptType(reqBodySchema as any, this.config).replace(/\[\]| \| null/g, '');
+                const bodyType = getTypeScriptType(reqBodySchema as any, this.config, knownTypes).replace(/\[\]| \| null/g, '');
                 if (isDataTypeInterface(bodyType)) {
                     modelImports.add(bodyType);
                 }
@@ -65,12 +66,9 @@ export class ServiceGenerator {
 
         operations.forEach(op => {
             let methodName: string;
-
-            if (this.config.options.customizeMethodName) {
-                if (!op.operationId) {
-                    throw new Error('Operation ID is required for method name customization');
-                }
-                methodName = this.config.options.customizeMethodName(op.operationId);
+            const customizer = this.config.options?.customizeMethodName;
+            if (customizer && op.operationId) {
+                methodName = customizer(op.operationId);
             } else {
                 methodName = op.operationId
                     ? camelCase(op.operationId)
@@ -82,7 +80,6 @@ export class ServiceGenerator {
             while (usedMethodNames.has(uniqueMethodName)) {
                 uniqueMethodName = `${methodName}${++counter}`;
             }
-
             usedMethodNames.add(uniqueMethodName);
             op.methodName = uniqueMethodName;
 

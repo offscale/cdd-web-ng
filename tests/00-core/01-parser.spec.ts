@@ -89,7 +89,40 @@ describe('Core: SwaggerParser', () => {
         await expect(SwaggerParser.create('spec.json', config)).rejects.toThrow('Failed to parse content from spec.json. Error: a string error');
     });
 
-    it('should resolve references', () => {
+    describe('resolve()', () => {
+        const spec = { components: { schemas: { User: { type: 'string' } } } };
+        const parser = new SwaggerParser(spec as any, config);
+
+        it('should resolve a valid local reference object', () => {
+            const result = parser.resolve<{ type: string }>({ $ref: '#/components/schemas/User' });
+            expect(result).toEqual({ type: 'string' });
+        });
+
+        it('should return the object itself if it is not a reference', () => {
+            const obj = { type: 'number' };
+            const result = parser.resolve(obj);
+            expect(result).toBe(obj);
+        });
+
+        it('should warn and return undefined for external references', () => {
+            const result = parser.resolve({ $ref: 'external.json#/User' });
+            expect(result).toBeUndefined();
+            expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('Unsupported external'));
+        });
+
+        it('should warn and return undefined for invalid reference paths', () => {
+            const result = parser.resolve({ $ref: '#/components/schemas/NonExistent' });
+            expect(result).toBeUndefined();
+            expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('Failed to resolve reference part "NonExistent"'));
+        });
+
+        it('should return undefined for a null/undefined object', () => {
+            expect(parser.resolve(null as any)).toBeNull();
+            expect(parser.resolve(undefined as any)).toBeUndefined();
+        });
+    });
+
+    it('should resolve references via resolveReference', () => {
         const spec = { components: { schemas: { User: { type: 'string' } } } };
         const parser = new SwaggerParser(spec as any, config);
         expect(parser.resolveReference('#/components/schemas/User')).toEqual({ type: 'string' });

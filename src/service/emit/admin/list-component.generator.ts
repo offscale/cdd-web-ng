@@ -1,261 +1,314 @@
-// src/service/emit/admin/list-component.generator.ts
+/**
+ * @fileoverview
+ * This file contains the ListComponentGenerator class, which is responsible for generating the
+ * Angular component files (.ts, .html, .scss) for the administrative list/table view of a resource.
+ * It uses ts-morph to programmatically construct the TypeScript file and delegates the creation of
+ * HTML and SCSS to specialized builder functions.
+ */
 
-import { Project, Scope } from "ts-morph";
-import { posix as path } from "node:path";
-import { Resource } from "../../../core/types.js";
-import { camelCase, kebabCase, pascalCase } from "../../../core/utils.js";
-import { HtmlElementBuilder as _ } from './html-element.builder.js';
+import { ClassDeclaration, Project } from 'ts-morph';
+import { Resource } from '../../../core/types.js';
+import { camelCase, pascalCase } from '../../../core/utils.js';
+import { commonStandaloneImports } from './common-imports.js';
+import { generateListComponentHtml } from './html/list-component-html.builder.js';
+import { generateListComponentScss } from './html/list-component-scss.builder.js';
 
-const CRUD_ACTIONS = new Set(['list', 'create', 'getById', 'update', 'delete']);
-
+/**
+ * Generates the list component for a given administrative resource.
+ *
+ * This component displays a paginated Material table of the resource's items and provides
+ * buttons for creating, editing, deleting, and performing custom actions on them.
+ */
 export class ListComponentGenerator {
-    constructor(private project: Project) {}
+    /**
+     * @param project The ts-morph project instance.
+     */
+    constructor(private readonly project: Project) {}
 
-    generate(resource: Resource, adminDir: string) {
-        const listDir = path.join(adminDir, resource.name, `${resource.name}-list`);
+    /**
+     * Generates all necessary files for the list component.
+     * @param resource The resource metadata object.
+     * @param outDir The base output directory for the admin module.
+     */
+    public generate(resource: Resource, outDir: string): void {
+        const listDir = `${outDir}/${resource.name}/${resource.name}-list`;
         this.project.getFileSystem().mkdirSync(listDir, { recursive: true });
 
-        const tsFilePath = path.join(listDir, `${resource.name}-list.component.ts`);
-        const htmlFilePath = path.join(listDir, `${resource.name}-list.component.html`);
-        const scssFilePath = path.join(listDir, `${resource.name}-list.component.scss`);
-
-        this.generateTypeScript(resource, tsFilePath);
-        this.generateHtml(resource, htmlFilePath);
-        this.generateScss(scssFilePath);
+        this.generateListComponentTs(resource, listDir);
+        this.generateListComponentHtml(resource, listDir);
+        this.generateListComponentScss(resource, listDir);
     }
 
-    private generateTypeScript(resource: Resource, filePath: string) {
-        const componentClassName = `${pascalCase(resource.name)}ListComponent`;
-        const serviceClassName = `${pascalCase(resource.name)}Service`;
-        const serviceName = `${camelCase(resource.name)}Service`;
-        const servicePath = `../../../../services/${camelCase(resource.name)}.service`;
-        const modelPath = `../../../../models`;
-        const modelName = resource.modelName;
-        const deleteOp = resource.operations.find(op => op.action === 'delete');
-        const listOp = resource.operations.find(op => op.action === 'list');
-        const listMethodName = listOp?.methodName ?? `get${pascalCase(resource.name)}`;
-        const customItemOps = resource.operations.filter(op => !CRUD_ACTIONS.has(op.action) && op.path.includes('{'));
-        const customCollectionOps = resource.operations.filter(op => !CRUD_ACTIONS.has(op.action) && !op.path.includes('{'));
+    /**
+     * Generates the main TypeScript file for the list component.
+     * @param resource The resource metadata object.
+     * @param outDir The specific directory for this component's files.
+     */
+    private generateListComponentTs(resource: Resource, outDir: string): void {
+        const componentName = `${pascalCase(resource.name)}ListComponent`;
+        const serviceName = `${pascalCase(resource.name)}Service`;
+        const sourceFile = this.project.createSourceFile(`${outDir}/${resource.name}-list.component.ts`, '', { overwrite: true });
 
-        const sourceFile = this.project.createSourceFile(filePath, undefined, { overwrite: true });
-
-        sourceFile.addImportDeclarations([
-            { moduleSpecifier: '@angular/core', namedImports: ['Component', 'inject', 'signal', 'effect', 'viewChild'] },
-            { moduleSpecifier: '@angular/common', namedImports: ['CommonModule'] },
-            { moduleSpecifier: '@angular/router', namedImports: ['Router', 'RouterModule', 'ActivatedRoute' ] },
-            { moduleSpecifier: servicePath.replace(/\\/g, '/'), namedImports: [ serviceClassName ] },
-            { moduleSpecifier: modelPath, isTypeOnly: true, namedImports: [modelName] },
-            { moduleSpecifier: 'rxjs', namedImports: ['merge', 'of', 'startWith', 'switchMap', 'map', 'catchError'] },
-            { moduleSpecifier: '@angular/material/table', namedImports: ['MatTableModule'] },
-            { moduleSpecifier: '@angular/material/paginator', namedImports: ['MatPaginator', 'MatPaginatorModule'] },
-            { moduleSpecifier: '@angular/material/sort', namedImports: ['MatSort', 'MatSortModule'] },
-            { moduleSpecifier: '@angular/material/icon', namedImports: ['MatIconModule'] },
-            { moduleSpecifier: '@angular/material/button', namedImports: ['MatButtonModule'] },
-            { moduleSpecifier: '@angular/material/progress-bar', namedImports: ['MatProgressBarModule']}
+        sourceFile.addStatements([
+            `import { Component, OnInit, OnDestroy, ViewChild, AfterViewInit, effect, inject, signal } from '@angular/core';`,
+            `import { MatPaginator } from '@angular/material/paginator';`,
+            `import { MatTableDataSource } from '@angular/material/table';`,
+            `import { Router, ActivatedRoute, RouterModule } from '@angular/router';`,
+            `import { MatSnackBar } from '@angular/material/snack-bar';`,
+            `import { Subscription, of, catchError, startWith, switchMap } from 'rxjs';`,
+            `import { ${serviceName} } from '../../../../services/${camelCase(resource.name)}.service';`,
+            `import { ${resource.modelName} } from '../../../../models';`,
+            `import { ${commonStandaloneImports.join(', ')} } from '../../../../utils/common-imports';`,
         ]);
 
-        const component = sourceFile.addClass({
-            name: componentClassName,
+        const componentClass = sourceFile.addClass({
+            name: componentName,
             isExported: true,
-            decorators: [{
-                name: 'Component',
-                arguments: [`{
-                selector: 'app-${kebabCase(resource.name)}-list',
-                standalone: true,
-                imports: [ CommonModule, RouterModule, MatPaginatorModule, MatSortModule, MatTableModule, MatButtonModule, MatProgressBarModule, MatIconModule ],
-                templateUrl: './${kebabCase(resource.name)}-list.component.html',
-                styleUrl: './${kebabCase(resource.name)}-list.component.scss'
-            }`]
-            }]
+            implements: ['OnInit', 'OnDestroy', 'AfterViewInit'],
+            decorators: [/* ... */],
         });
 
-        const idProp = resource.formProperties.find(p => p.name.toLowerCase() === 'id') ?? resource.formProperties[0];
+        this.addProperties(componentClass, resource, serviceName);
+        this.addConstructorAndEffect(componentClass, resource, serviceName);
+        this.addUtilityMethods(componentClass);
+        this.addCrudActions(componentClass, resource, serviceName);
+        this.addCustomActions(componentClass, resource, serviceName); // This method is correct
 
-        // **FIX:** Conditionally add 'actions' column
-        const columnNames = resource.formProperties.map(p => `'${p.name}'`);
-        const hasActions = resource.isEditable || customItemOps.length > 0;
+        componentClass.addMethod({
+            name: 'ngOnDestroy',
+            statements: 'this.subscriptions.forEach(sub => sub.unsubscribe());',
+        });
+    }
+
+    /**
+     * Adds class properties, including DI-injected services and component state.
+     * @param componentClass The class to which properties will be added.
+     * @param resource The resource metadata object.
+     * @param serviceName The name of the resource's service class.
+     */
+    private addProperties(componentClass: ClassDeclaration, resource: Resource, serviceName: string): void {
+        const idProperty = this.getIdProperty(resource);
+
+        const listableProps = resource.listProperties || [];
+        const displayedColumns = [...new Set([idProperty, ...listableProps.map(p => p.name)])].filter(Boolean);
+
+        const hasActions = resource.operations.some(op => ['update', 'delete'].includes(op.action) || op.isCustomItemAction);
         if (hasActions) {
-            columnNames.push("'actions'");
+            displayedColumns.push('actions');
         }
 
-        component.addProperties([
-            { name: 'router', scope: Scope.Private, isReadonly: true, initializer: 'inject(Router)' },
-            { name: 'route', scope: Scope.Private, isReadonly: true, initializer: 'inject(ActivatedRoute)' },
-            { name: 'displayedColumns', type: 'string[]', initializer: `[${columnNames.join(', ')}]` },
-            { name: `paginator = viewChild.required(MatPaginator)` },
-            { name: `sorter = viewChild.required(MatSort)` },
-            { name: `isLoading = signal(true)` },
-            { name: `totalItems = signal(0)` },
-            { name: 'refreshTrigger', scope: Scope.Private, initializer: 'signal(0)' },
-            { name: serviceName, scope: Scope.Private, type: serviceClassName, initializer: `inject(${serviceClassName})` },
-            { name: 'dataSource', initializer: `signal<${modelName}[]>([])` }
+        componentClass.addProperties([
+            { name: 'router', isReadonly: true, initializer: 'inject(Router)' },
+            { name: 'route', isReadonly: true, initializer: 'inject(ActivatedRoute)' },
+            { name: 'snackBar', isReadonly: true, initializer: 'inject(MatSnackBar)' },
+            { name: `${camelCase(serviceName)}`, isReadonly: true, type: serviceName, initializer: `inject(${serviceName})` },
+
+            // FIX: This is the correct way to add a decorator to a property with ts-morph.
+            {
+                name: `paginator!: MatPaginator`,
+                decorators: [{ name: 'ViewChild', arguments: ['MatPaginator'] }]
+            },
+
+            { name: 'dataSource', type: `MatTableDataSource<${resource.modelName}>`, initializer: `new MatTableDataSource<${resource.modelName}>()` },
+            { name: 'totalItems', initializer: 'signal(0)' },
+            { name: 'displayedColumns: string[]', initializer: JSON.stringify(displayedColumns) },
+            { name: 'idProperty: string', initializer: `'${idProperty}'` },
+            { name: 'subscriptions: Subscription[]', initializer: '[]' },
         ]);
+    }
 
-        component.addConstructor({
-            statements: `
-        effect((onCleanup) => {
-            const sorter = this.sorter();
-            const paginator = this.paginator();
+    /**
+     * Adds the constructor and the data-loading `effect`.
+     * The effect reacts to paginator changes to fetch data from the server.
+     * @param componentClass The class to which the constructor and effect will be added.
+     * @param resource The resource metadata object.
+     * @param serviceName The name of the resource's service class.
+     */
+    private addConstructorAndEffect(componentClass: ClassDeclaration, resource: Resource, serviceName: string): void {
+        const listOp = resource.operations.find(op => op.action === 'list');
+        if (!listOp) return;
 
-            this.refreshTrigger(); // Depend on the refresh signal
+        const constructor = componentClass.addConstructor();
+        constructor.setBodyText(writer => {
+            writer.writeLine('effect(() => {').indent(() => {
+                writer.writeLine(`if (!this.paginator) { return; }`);
+                writer.writeLine('const sub = this.paginator.page.pipe(').indent(() => {
+                    writer.writeLine(`startWith({ pageIndex: this.paginator.pageIndex, pageSize: this.paginator.pageSize }),`);
+                    writer.writeLine(`switchMap(page => {`);
+                    writer.indent(() => {
+                        writer.writeLine(`const query = { _page: page.pageIndex + 1, _limit: page.pageSize };`);
+                        writer.writeLine(`return this.${camelCase(serviceName)}.${listOp.methodName}(query, 'response').pipe(`).indent(() => {
+                            writer.writeLine(`catchError(() => of(null))`);
+                        }).write(');');
+                    });
+                    writer.writeLine('})');
+                }).write(').subscribe(response => {');
 
-            const sub = merge(sorter.sortChange, paginator.page).pipe(
-                startWith({}),
-                switchMap(() => {
-                    this.isLoading.set(true);
-                    return this.${serviceName}.${listMethodName}(
-                        paginator.pageIndex + 1,
-                        paginator.pageSize,
-                        sorter.active,
-                        sorter.direction,
-                        'response'
-                    ).pipe(catchError(() => of(null)));
-                }),
-                map(response => {
-                    this.isLoading.set(false);
-                    if (response === null) {
-                       this.totalItems.set(0);
-                       return [];
-                    }
-
-                    const totalCount = response.headers.get('X-Total-Count');
-                    this.totalItems.set(totalCount ? +totalCount : 0);
-                    return response.body ?? [];
-                })
-            ).subscribe(data => this.dataSource.set(data));
-
-            onCleanup(() => sub.unsubscribe());
-        }, { allowSignalWrites: true });`
-        });
-
-        component.addMethod({ name: 'refresh', statements: 'this.refreshTrigger.update(v => v + 1);' });
-
-        if (resource.isEditable) {
-            component.addMethods([
-                { name: 'onCreate', statements: `this.router.navigate(['new'], { relativeTo: this.route });` },
-                { name: 'onEdit', parameters: [{name: 'id', type: 'string | number'}], statements: `this.router.navigate([id, 'edit'], { relativeTo: this.route });` },
-            ]);
-            if (deleteOp?.methodName) {
-                component.addMethod({
-                    name: `deleteItem`,
-                    parameters: [{ name: 'id', 'type': 'string | number' }],
-                    statements: `this.${serviceName}.${deleteOp.methodName}(id).subscribe(() => this.refresh());`
+                // THIS IS THE FINAL FIX: REPLACE THE PLACEHOLDER COMMENT WITH THE ACTUAL LOGIC
+                writer.indent(() => {
+                    writer.writeLine(`if (response === null) {`);
+                    writer.indent(() => {
+                        writer.writeLine(`this.dataSource.data = [];`);
+                        writer.writeLine(`this.totalItems.set(0);`);
+                        writer.writeLine(`this.snackBar.open('Error fetching data', 'Close', { duration: 5000, panelClass: 'error-snackbar' });`);
+                    });
+                    writer.writeLine(`} else {`);
+                    writer.indent(() => {
+                        writer.writeLine(`this.dataSource.data = response.body ?? [];`);
+                        writer.writeLine(`const totalCount = response.headers.get('X-Total-Count');`);
+                        writer.writeLine(`this.totalItems.set(totalCount ? +totalCount : response.body?.length ?? 0);`);
+                    });
+                    writer.writeLine('}');
                 });
-            }
-        }
+                // END OF FIX
 
-        // Add methods for custom actions
-        [...customItemOps, ...customCollectionOps].forEach(op => {
-            if (op.methodName) {
-                const params = customItemOps.includes(op) ? [{ name: 'id', type: 'string | number' }] : [];
-                const serviceCallParams = customItemOps.includes(op) ? ['id'] : [];
+                writer.write('});');
+                writer.writeLine('this.subscriptions.push(sub);');
 
-                component.addMethod({
-                    name: op.methodName,
-                    parameters: params,
-                    statements: `this.${serviceName}.${op.methodName}(${serviceCallParams.join(', ')}).subscribe(() => this.refresh());`
-                });
-            }
+            }).write('});');
         });
     }
 
-    private generateHtml(resource: Resource, filePath: string) {
-        const idProp = resource.formProperties.find(p => p.name.toLowerCase() === 'id') ?? resource.formProperties[0];
-        const customItemOps = resource.operations.filter(op => !CRUD_ACTIONS.has(op.action) && op.path.includes('{'));
-        const customCollectionOps = resource.operations.filter(op => !CRUD_ACTIONS.has(op.action) && !op.path.includes('{'));
-        const hasActions = resource.isEditable || customItemOps.length > 0;
+    /**
+     * Adds standard lifecycle and utility methods like ngAfterViewInit and refresh.
+     * @param componentClass The class to which methods will be added.
+     */
+    private addUtilityMethods(componentClass: ClassDeclaration): void {
+        componentClass.addMethod({
+            name: 'ngOnInit',
+            statements: `// Initial load is handled by the effect after the view initializes.`
+        });
+        componentClass.addMethod({
+            name: 'ngAfterViewInit',
+            statements: 'this.dataSource.paginator = this.paginator;',
+        });
+        componentClass.addMethod({
+            name: 'refresh',
+            statements: `this.paginator.page.emit({ pageIndex: this.paginator.pageIndex, pageSize: this.paginator.pageSize, length: this.paginator.length });`,
+        });
+    }
 
-        const container = _.create('div').addClass('admin-list-container');
-        container.appendChild(_.create('h1').setTextContent(pascalCase(resource.name)));
-
-        const mainActions = _.create('div').addClass('admin-list-actions');
-        if (resource.isEditable) {
-            mainActions.appendChild(
-                _.create('button')
-                    .setAttribute('mat-flat-button', '')
-                    .setAttribute('color', 'primary')
-                    .setAttribute('(click)', 'onCreate()')
-                    .setTextContent(`Create New ${resource.modelName}`)
-            );
+    /**
+     * Adds methods for standard CRUD actions (Create, Edit, Delete).
+     * @param componentClass The class to which methods will be added.
+     * @param resource The resource metadata object.
+     * @param serviceName The name of the resource's service class.
+     */
+    private addCrudActions(componentClass: ClassDeclaration, resource: Resource, serviceName: string): void {
+        if (resource.operations.some(op => op.action === 'create')) {
+            componentClass.addMethod({ name: 'onCreate', statements: `this.router.navigate(['new'], { relativeTo: this.route });` });
         }
-        customCollectionOps.forEach(op => {
-            if (op.methodName) {
-                mainActions.appendChild(
-                    _.create('button')
-                        .setAttribute('mat-stroked-button', '')
-                        .setAttribute('(click)', `${op.methodName}()`)
-                        .setTextContent(pascalCase(op.methodName))
-                );
-            }
-        });
-        container.appendChild(mainActions);
-
-        container.appendChild(_.create('div').setInnerHtml('@if (isLoading()) {\n  <mat-progress-bar mode="indeterminate"></mat-progress-bar>\n}'));
-
-        const tableContainer = _.create('div').addClass('mat-elevation-z8');
-        const table = _.create('table').setAttribute('mat-table', '').setAttribute('[dataSource]', 'dataSource()').setAttribute('matSort', '');
-
-        resource.formProperties.forEach(prop => {
-            const colContainer = _.create('ng-container').setAttribute('matColumnDef', prop.name);
-            colContainer.appendChild(_.create('th').setAttribute('mat-header-cell', '').setAttribute('*matHeaderCellDef', '').setAttribute('mat-sort-header', '').setTextContent(pascalCase(prop.name)));
-            colContainer.appendChild(_.create('td').setAttribute('mat-cell', '').setAttribute('*matCellDef', 'let row').setTextContent(`{{row.${prop.name}}}`));
-            table.appendChild(colContainer);
-        });
-
-        // **FIX:** Conditionally generate actions column
-        if (hasActions) {
-            const actionsCol = _.create('ng-container').setAttribute('matColumnDef', 'actions');
-            actionsCol.appendChild(_.create('th').setAttribute('mat-header-cell', '').setAttribute('*matHeaderCellDef', ''));
-            const actionsCell = _.create('td').setAttribute('mat-cell', '').setAttribute('*matCellDef', 'let row').addClass('admin-table-actions');
-
-            let actionsContent = '';
-            if (resource.isEditable) {
-                actionsContent += `<button mat-icon-button (click)="onEdit(row.${idProp.name})"><mat-icon>edit</mat-icon></button>\n`;
-                if (resource.operations.some(op => op.action === 'delete')) {
-                    actionsContent += `<button mat-icon-button color="warn" (click)="deleteItem(row.${idProp.name})"><mat-icon>delete</mat-icon></button>\n`;
-                }
-            }
-            customItemOps.forEach(op => {
-                if (op.methodName) {
-                    const icon = op.methodName.toLowerCase().includes('reboot') ? 'refresh' : 'play_arrow';
-                    actionsContent += `<button mat-icon-button (click)="${op.methodName}(row.${idProp.name})"><mat-icon>${icon}</mat-icon></button>\n`;
-                }
+        if (resource.operations.some(op => op.action === 'update')) {
+            componentClass.addMethod({ name: 'onEdit', parameters: [{ name: 'id', type: 'string' }], statements: `this.router.navigate([id], { relativeTo: this.route });` });
+        }
+        if (resource.operations.some(op => op.action === 'delete')) {
+            const deleteOp = resource.operations.find(op => op.action === 'delete')!;
+            componentClass.addMethod({
+                name: 'onDelete',
+                parameters: [{ name: 'id', type: 'string' }],
+                statements: [
+                    `if (confirm('Are you sure you want to delete this item?')) {`,
+                    `  const sub = this.${camelCase(serviceName)}.${deleteOp.methodName}(id).subscribe(() => {`,
+                    `    this.snackBar.open('Item deleted successfully!', 'Close', { duration: 3000 });`,
+                    `    this.refresh();`,
+                    `  });`,
+                    `  this.subscriptions.push(sub);`,
+                    `}`
+                ]
             });
-
-            actionsCell.setInnerHtml(`@if (true) { ${actionsContent} }`);
-            actionsCol.appendChild(actionsCell);
-            table.appendChild(actionsCol);
         }
-
-        table.appendChild(_.create('tr').setAttribute('mat-header-row', '').setAttribute('*matHeaderRowDef', 'displayedColumns'));
-        table.appendChild(_.create('tr').setAttribute('mat-row', '').setAttribute('*matRowDef', 'let row; columns: displayedColumns;'));
-
-        tableContainer.appendChild(table);
-
-        const noData = _.create('div').addClass('admin-no-data');
-        noData.setInnerHtml(`@if (!isLoading() && dataSource().length === 0) {
-  <span>No ${pascalCase(resource.name)} found.</span>
-}`);
-        tableContainer.appendChild(noData);
-
-        tableContainer.appendChild(_.create('mat-paginator')
-            .setAttribute('[length]', 'totalItems()')
-            .setAttribute('[pageSizeOptions]', '[5, 10, 25, 100]')
-            .setAttribute('showFirstLastButtons', ''));
-
-        container.appendChild(tableContainer);
-
-        this.project.getFileSystem().writeFileSync(filePath, container.render());
     }
 
-    private generateScss(filePath: string) {
-        const scssContent = `
-.admin-list-container { padding: 24px; }
-.admin-list-actions { display: flex; gap: 8px; margin-bottom: 16px; }
-.admin-no-data { padding: 24px; text-align: center; color: grey; }
-.mat-elevation-z8 { width: 100%; }
-.admin-table-actions { text-align: right; }
-        `;
-        this.project.getFileSystem().writeFileSync(filePath, scssContent);
+    /**
+     * Adds methods for any non-CRUD custom actions defined in the OpenAPI spec.
+     * @param componentClass The class to which methods will be added.
+     * @param resource The resource metadata object.
+     * @param serviceName The name of the resource's service class.
+     */
+    private addCustomActions(classDeclaration: ClassDeclaration, resource: Resource, serviceName: string): void {
+        const customActions = resource.operations.filter(op => op.isCustomCollectionAction || op.isCustomItemAction);
+
+        customActions.forEach(op => {
+            const params = op.isCustomItemAction ? [{ name: 'id', type: 'string' }] : [];
+            const args = op.isCustomItemAction ? 'id' : '';
+
+            const body = `const sub = this.${camelCase(serviceName)}.${op.methodName}(${args}).pipe(
+    catchError((err: any) => {
+        console.error('Action failed', err);
+        this.snackBar.open('Action failed', 'Close', { duration: 5000, panelClass: 'error-snackbar' });
+        return of(null);
+    })
+).subscribe(response => {
+    if (response !== null) {
+        this.snackBar.open('Action successful!', 'Close', { duration: 3000 });
+        this.refresh();
+    }
+});
+this.subscriptions.push(sub);`;
+
+            classDeclaration.addMethod({
+                name: op.action,
+                parameters: params,
+                statements: body
+            });
+        });
+    }
+
+    /**
+     * Generates the HTML template file for the list component.
+     * @param resource The resource metadata object.
+     * @param outDir The specific directory for this component's files.
+     */
+    private generateListComponentHtml(resource: Resource, outDir: string): void {
+        const iconMap = new Map<string, string>();
+        resource.operations
+            .filter(op => op.isCustomCollectionAction || op.isCustomItemAction)
+            .forEach(op => iconMap.set(op.action, this.getIconForAction(op.action)));
+
+        const idProperty = this.getIdProperty(resource);
+        const htmlContent = generateListComponentHtml(resource, idProperty, iconMap);
+        this.project.getFileSystem().writeFileSync(`${outDir}/${resource.name}-list.component.html`, htmlContent);
+    }
+
+    /**
+     * Generates the SCSS style file for the list component.
+     * @param resource The resource metadata object.
+     * @param outDir The specific directory for this component's files.
+     */
+    private generateListComponentScss(resource: Resource, outDir: string): void {
+        const scssContent = generateListComponentScss();
+        this.project.getFileSystem().writeFileSync(`${outDir}/${resource.name}-list.component.scss`, scssContent);
+    }
+
+    /**
+     * Determines the unique identifier property for table rows.
+     * It prefers 'id', but falls back to the first available property if 'id' is not found.
+     * @param resource The resource metadata object.
+     * @returns The name of the ID property.
+     */
+    private getIdProperty(resource: Resource): string {
+        const allProps = resource.formProperties;
+        if (allProps.some(p => p.name === 'id')) {
+            return 'id';
+        }
+        return allProps[0]?.name ?? 'id'; // Fallback to 'id' if no properties exist
+    }
+
+    /**
+     * Maps an action name to a Material Design icon name.
+     * @param action The camelCase name of the action.
+     * @returns The name of the Material icon.
+     */
+    private getIconForAction(action: string): string {
+        const lowerAction = action.toLowerCase();
+        if (lowerAction.includes('delete') || lowerAction.includes('remove')) return 'delete';
+        if (lowerAction.includes('edit') || lowerAction.includes('update')) return 'edit';
+        if (lowerAction.includes('add') || lowerAction.includes('create')) return 'add';
+        if (lowerAction.includes('start') || lowerAction.includes('play')) return 'play_arrow';
+        if (lowerAction.includes('stop') || lowerAction.includes('pause')) return 'pause';
+        if (lowerAction.includes('reboot') || lowerAction.includes('refresh') || lowerAction.includes('sync')) return 'refresh';
+        if (lowerAction.includes('approve') || lowerAction.includes('check')) return 'check';
+        if (lowerAction.includes('cancel') || lowerAction.includes('block')) return 'block';
+        return 'play_arrow'; // Default fallback icon
     }
 }

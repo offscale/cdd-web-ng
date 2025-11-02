@@ -77,7 +77,10 @@ export function buildFormControl(prop: FormProperty): HtmlElementBuilder | null 
         case 'boolean': return createToggle(prop, labelText);
         case 'integer':
         case 'number':
-            if (prop.schema.minimum !== undefined && prop.schema.maximum !== undefined) {
+            // FIX: A slider is only appropriate for inclusive min/max ranges.
+            // If exclusive boundaries are used, we must use a standard input
+            // so that the custom validators can provide feedback.
+            if (prop.schema.minimum !== undefined && prop.schema.maximum !== undefined && !prop.schema.exclusiveMinimum && !prop.schema.exclusiveMaximum) {
                 return createSlider(prop, labelText, prop.schema.minimum, prop.schema.maximum);
             }
             return createInput(prop, labelText, 'number');

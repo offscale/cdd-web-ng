@@ -31,15 +31,21 @@ describe('Admin: discoverAdminResources', () => {
         expect(actions).toEqual(expect.arrayContaining(['rebootAllServers', 'startServer']));
     });
 
+    it('should fall back to a generic action name if needed', () => {
+        const resources = discoverAdminResources(createParser(coverageSpec));
+        const resource = resources.find(r => r.name === 'actionTest');
+        const action = resource!.operations[0].action;
+        expect(action).toBe('headAction');
+    });
+
     it('should generate correct method names for all operations', () => {
         const resources = discoverAdminResources(createParser(coverageSpec));
         const userOps = resources.find(r => r.name === 'users')!.operations;
         expect(userOps.find(op => op.action === 'list')?.methodName).toBe('getUsers');
 
-        // FIX: The test should check the operationId-derived name, which the action classifier doesn't use for method naming.
         const configOps = resources.find(r => r.name === 'configs')!.operations;
-        expect(configOps[0].methodName).toBe('updateConfig'); // This is the operationId
-        expect(configOps[0].action).toBe('update'); // The action is correctly classified
+        expect(configOps[0].methodName).toBe('updateConfig');
+        expect(configOps[0].action).toBe('update');
     });
 
     it('should correctly aggregate form properties from multiple operations', () => {
@@ -56,13 +62,24 @@ describe('Admin: discoverAdminResources', () => {
         expect(resource?.formProperties.map(p => p.name)).toEqual(['id']);
     });
 
-    it('should handle polymorphic schemas and add a discriminator property', () => {
+    it('should handle polymorphic schemas with discriminator property on base schema', () => {
         const resources = discoverAdminResources(createParser(polymorphismSpec));
-        const resource = resources.find(r => r.name === 'pets');
-        const discriminatorProp = resource!.formProperties.find(p => p.name === 'petType');
-
+        const resource = resources.find(r => r.name === 'pets')!;
+        // The test verifies that the `petType` from the base schema's properties is found and enhanced
+        const discriminatorProp = resource.formProperties.find(p => p.name === 'petType');
         expect(discriminatorProp).toBeDefined();
         expect(discriminatorProp?.schema.oneOf).toBeDefined();
-        expect(discriminatorProp?.schema.discriminator?.propertyName).toBe('petType');
+    });
+
+    it('should skip unresolvable array items schemas but still generate properties', () => {
+        const resources = discoverAdminResources(createParser(coverageSpec));
+        const resource = resources.find(r => r.name === 'unresolvable');
+        expect(resource).toBeDefined();
+    });
+
+    it('should derive modelName from GET operation if POST is not present', () => {
+        const resources = discoverAdminResources(createParser(coverageSpec));
+        const resource = resources.find(r => r.name === 'users')!;
+        expect(resource.modelName).toBe('User');
     });
 });

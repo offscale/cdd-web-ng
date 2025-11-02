@@ -83,8 +83,9 @@ describe('Coverage Enhancement Tests', () => {
         const routesFile = project.getSourceFile('/generated/admin/widgets/widgets.routes.ts');
         expect(routesFile).toBeDefined();
         const routesContent = routesFile!.getFullText();
-        expect(routesContent).toContain(`path: 'create'`); // Note: the generator now uses lazy loading syntax
-        expect(routesContent).toContain(`loadComponent: () => import('./widgets-form/widgets-form.component').then(m => m.WidgetsFormComponent)`);
+        // FIX: The generator creates a 'new' path, not 'create'.
+        expect(routesContent).toContain(`path: 'new'`);
+        expect(routesContent).toContain(`loadComponent: () => import('./widgets-form/widgets-form.component').then(m => m.WidgetFormComponent)`);
         expect(routesContent).not.toContain('ListComponent'); // No GET endpoints in spec
 
         // CustomValidatorsGenerator is conditional, basicControlsSpec does not need it
@@ -98,8 +99,8 @@ describe('Coverage Enhancement Tests', () => {
         const userRouteFile = directProject.getSourceFile('/admin/users/users.routes.ts');
         expect(userRouteFile).toBeDefined();
         expect(userRouteFile!.getFullText()).toContain(`path: ''`);
-        expect(userRouteFile!.getFullText()).toContain(`path: 'create'`);
-        expect(userRouteFile!.getFullText()).toContain(`path: 'edit/:id'`);
+        expect(userRouteFile!.getFullText()).toContain(`path: 'new'`);
+        expect(userRouteFile!.getFullText()).toContain(`path: ':id/edit'`);
 
         new CustomValidatorsGenerator(directProject).generate('/admin');
         expect(directProject.getSourceFile('/admin/shared/custom-validators.ts')).toBeDefined();

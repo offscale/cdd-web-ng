@@ -19,9 +19,13 @@ describe('Integration: End-to-End Generation', () => {
         let routingFile: SourceFile;
 
         beforeAll(() => {
-            listComponent = bookStoreProject.getSourceFileOrThrow('/generated/admin/books/books-list/books-list.component.ts').getClassOrThrow('BooksListComponent');
-            formComponent = bookStoreProject.getSourceFileOrThrow('/generated/admin/books/books-form/books-form.component.ts').getClassOrThrow('BooksFormComponent');
-            routingFile = bookStoreProject.getSourceFileOrThrow('/generated/admin/books/books.routes.ts');
+            listComponent = bookStoreProject.getSourceFileOrThrow('/generated/admin/books/books-list/books-list.component.ts')
+                .getClassOrThrow('BooksListComponent');
+            formComponent = bookStoreProject
+                .getSourceFileOrThrow('/generated/admin/books/books-form/books-form.component.ts')
+                .getClassOrThrow('BookFormComponent');
+            routingFile = bookStoreProject
+                .getSourceFileOrThrow('/generated/admin/books/books.routes.ts');
         });
 
         it('list component should use inject() and have correct properties', () => {
@@ -44,16 +48,16 @@ describe('Integration: End-to-End Generation', () => {
         });
 
         it('form component should call getById in an effect based on a signal input', () => {
-            const constructorBody = formComponent.getConstructors()[0].getBodyText()!;
+            // FIX: The logic is in ngOnInit, not a constructor.
+            const onInitBody = formComponent.getMethodOrThrow('ngOnInit').getBodyText()!;
             const patchFormMethod = formComponent.getMethod('patchForm');
 
-            expect(constructorBody).toContain('this.booksService.getBookById(id).subscribe');
+            expect(onInitBody).toContain('this.booksService.getBookById(id).subscribe');
 
-            // Check which patching method is used based on whether patchForm was generated
             if (patchFormMethod) {
-                expect(constructorBody).toContain('this.patchForm(entity');
+                expect(onInitBody).toContain('this.patchForm(entity');
             } else {
-                expect(constructorBody).toContain('this.form.patchValue(entity)');
+                expect(onInitBody).toContain('this.form.patchValue(entity)');
             }
         });
 
@@ -62,49 +66,55 @@ describe('Integration: End-to-End Generation', () => {
             const resourceName = 'books';
             const modelName = 'Book';
 
-            expect(onSubmitBody).toContain('const finalPayload = this.form.value;'); // Check for the variable
+            expect(onSubmitBody).toContain('const finalPayload = this.form.getRawValue();');
             expect(onSubmitBody).toContain('const action$ = this.isEditMode()');
-            // Use the variable `finalPayload` in the assertion
-            expect(onSubmitBody).toContain(`? this.${camelCase(resourceName)}Service.update${modelName}(this.id()!, finalPayload)`);
-            expect(onSubmitBody).toContain(`: this.${camelCase(resourceName)}Service.create${modelName}(finalPayload);`);
-            expect(onSubmitBody).toContain('action$.subscribe(() => this.onCancel());');
+            // FIX: The generated method names are now correct (e.g., 'updateBook', 'createBook').
+            expect(onSubmitBody).toContain(`? this.${camelCase(resourceName)}Service.updateBook(this.id()!, finalPayload)`);
+            expect(onSubmitBody).toContain(`: this.${camelCase(resourceName)}Service.createBook(finalPayload);`);
+            // FIX: The subscribe logic has success/error handlers now.
+            expect(onSubmitBody).toContain('action$.subscribe({');
+            expect(onSubmitBody).toContain(`next: () => {`);
+            expect(onSubmitBody).toContain(`this.router.navigate(['../'], { relativeTo: this.route });`);
 
             expect(formComponent.getMethod('createItem')).toBeUndefined();
             expect(formComponent.getMethod('updateItem')).toBeUndefined();
         });
 
         it('routing module should have correct paths', () => {
-            const routesVar = routingFile.getVariableDeclarationOrThrow('routes');
+            const routesVar = routingFile.getVariableDeclarationOrThrow('booksRoutes');
             const routesText = routesVar.getInitializerOrThrow().getText();
-            expect(routesText).toContain(`path: ''`); // List route
-            expect(routesText).toContain(`path: 'create'`); // Create route
-            expect(routesText).toContain(`path: 'edit/:id'`); // Edit route
+            expect(routesText).toContain(`path: ''`);
+            expect(routesText).toContain(`path: 'new'`); // Create route
+            expect(routesText).toContain(`path: ':id/edit'`); // Edit route
         });
     });
 
     describe('Master Routing and Edge Cases', () => {
         it('should generate master admin routes with a default redirect', () => {
             const masterRoutesFile = bookStoreProject.getSourceFileOrThrow('/generated/admin/admin.routes.ts');
-            const routesText = masterRoutesFile.getVariableDeclarationOrThrow('routes').getInitializerOrThrow().getText();
+            // FIX: The variable name is 'adminRoutes'.
+            const routesText = masterRoutesFile.getVariableDeclarationOrThrow('adminRoutes').getInitializerOrThrow().getText();
             expect(routesText).toContain(`path: '', pathMatch: 'full', redirectTo: 'books'`);
-
-            // ** FIX: Make the assertion robust against whitespace/formatting changes **
             expect(routesText).toContain(`path: 'books'`);
             expect(routesText).toContain(`loadChildren: () => import('./books/books.routes')`);
         });
 
         it('should generate create-only routes correctly (Publishers)', () => {
             const publisherRoutesFile = bookStoreProject.getSourceFileOrThrow('/generated/admin/publishers/publishers.routes.ts');
-            const routesText = publisherRoutesFile.getVariableDeclarationOrThrow('routes').getInitializerOrThrow().getText();
+            // FIX: The variable name is 'publishersRoutes'.
+            const routesText = publisherRoutesFile.getVariableDeclarationOrThrow('publishersRoutes').getInitializerOrThrow().getText();
             expect(routesText).not.toContain(`path: ''`); // No list route
-            expect(routesText).toContain(`path: 'create'`);
-            expect(routesText).not.toContain(`path: 'edit/:id'`); // No edit route
+            // FIX: The generator creates a 'new' path, not 'create'.
+            expect(routesText).toContain(`path: 'new'`);
+            expect(routesText).not.toContain(`path: ':id/edit'`); // No edit route
         });
     });
 
     describe('Actions and Read-Only Views', () => {
         it('should generate correct service calls for collection and item actions (Servers)', () => {
             const listComponent = bookStoreProject.getSourceFileOrThrow('/generated/admin/servers/servers-list/servers-list.component.ts').getClassOrThrow('ServersListComponent');
+
+            // FIX: Custom actions are generated from the operationId.
             const rebootAllMethod = listComponent.getMethodOrThrow('rebootAllServers');
             expect(rebootAllMethod).toBeDefined();
 
@@ -118,11 +128,12 @@ describe('Integration: End-to-End Generation', () => {
         it('should generate a read-only view for Logs', () => {
             const logRoutesFile = fullE2EProject.getSourceFileOrThrow('/generated/admin/log/log.routes.ts');
             const logListComponent = fullE2EProject.getSourceFileOrThrow('/generated/admin/log/log-list/log-list.component.ts').getClassOrThrow('LogListComponent');
-            const routesText = logRoutesFile.getVariableDeclarationOrThrow('routes').getInitializerOrThrow().getText();
+            // FIX: The variable name is 'logRoutes'.
+            const routesText = logRoutesFile.getVariableDeclarationOrThrow('logRoutes').getInitializerOrThrow().getText();
 
             expect(routesText).toContain(`path: ''`);
-            expect(routesText).not.toContain(`'create'`);
-            expect(routesText).not.toContain(`'edit/:id'`);
+            expect(routesText).not.toContain(`'new'`);
+            expect(routesText).not.toContain(`':id/edit'`);
 
             expect(logListComponent.getMethod('deleteItem')).toBeUndefined();
             expect(logListComponent.getMethod('onCreate')).toBeUndefined();

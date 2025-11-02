@@ -4,6 +4,20 @@ import { SwaggerParser } from '../../../core/parser.js';
 import { FormProperty, PathInfo, Resource, ResourceOperation, SwaggerDefinition } from '../../../core/types.js';
 import { camelCase, extractPaths, pascalCase, singular } from '../../../core/utils.js';
 
+function getMethodName(op: PathInfo): string {
+    const pathToMethodName = (path: string) =>
+        path.split('/').filter(Boolean).map(segment =>
+            segment.startsWith('{') && segment.endsWith('}')
+                ? `By${pascalCase(segment.slice(1, -1))}`
+                : pascalCase(segment)
+        ).join('');
+
+    return op.operationId
+        ? camelCase(op.operationId)
+        : `${op.method.toLowerCase()}${pathToMethodName(op.path)}`;
+}
+
+
 function getResourceName(path: PathInfo): string {
     const tag = path.tags?.[0];
     if (tag) return camelCase(tag);
@@ -12,39 +26,26 @@ function getResourceName(path: PathInfo): string {
     return camelCase(firstSegment ?? 'default');
 }
 
-/**
- * FIX: Replaced with a more robust version that correctly distinguishes standard CRUD
- * from custom collection/item actions based on path structure. This prevents misclassifying
- * actions like 'POST /servers/rebootAll' as 'create'.
- */
 function classifyAction(path: PathInfo): ResourceOperation['action'] {
     const method = path.method.toUpperCase();
     const hasIdSuffix = /\{\w+\}$/.test(path.path);
     const nonParamSegments = path.path.split('/').filter(p => p && !p.startsWith('{'));
 
-    // Standard CRUD operations on root collection paths (e.g., /users, /books)
     if (nonParamSegments.length === 1) {
         if (method === 'GET' && !hasIdSuffix) return 'list';
         if (method === 'POST' && !hasIdSuffix) return 'create';
     }
 
-    // Standard CRUD operations on item paths (e.g., /users/{id}, /books/{id})
     if (hasIdSuffix) {
         switch (method) {
-            case 'GET':
-                return 'getById';
+            case 'GET': return 'getById';
             case 'PUT':
-            case 'PATCH':
-                return 'update';
-            case 'DELETE':
-                return 'delete';
+            case 'PATCH': return 'update';
+            case 'DELETE': return 'delete';
         }
     }
 
-    // If none of the standard patterns match, it's a custom action. Use operationId.
     if (path.operationId) return camelCase(path.operationId);
-
-    // Fallback if no operationId is provided
     return camelCase(`${method} ${nonParamSegments.join(' ')}`);
 }
 
@@ -57,7 +58,6 @@ function findSchema(schema: SwaggerDefinition | { $ref: string } | undefined, pa
 function getFormProperties(operations: PathInfo[], parser: SwaggerParser): FormProperty[] {
     const allSchemas: SwaggerDefinition[] = [];
 
-    // Collect schemas from ALL operations to build a complete model
     operations.forEach(op => {
         const reqSchema = findSchema(op?.requestBody?.content?.['application/json']?.schema, parser);
         if (reqSchema) allSchemas.push(reqSchema);
@@ -69,7 +69,6 @@ function getFormProperties(operations: PathInfo[], parser: SwaggerParser): FormP
 
     if (allSchemas.length === 0) return [{ name: 'id', schema: { type: 'string' } }];
 
-    // Merge properties from all found schemas
     const mergedProperties: Record<string, SwaggerDefinition> = {};
     const mergedRequired = new Set<string>();
     let mergedOneOf: SwaggerDefinition[] | undefined;
@@ -94,10 +93,9 @@ function getFormProperties(operations: PathInfo[], parser: SwaggerParser): FormP
         discriminator: mergedDiscriminator
     };
 
-    // Now continue with the existing logic using the final merged schema
     const properties: FormProperty[] = Object.entries(finalSchema.properties || {}).map(([name, propSchema]) => {
         const resolvedSchema = findSchema(propSchema, parser);
-        const finalPropSchema = resolvedSchema ? { ...resolvedSchema, ...propSchema } : propSchema;
+        const finalPropSchema = resolvedSchema ? { ...propSchema, ...resolvedSchema } : propSchema;
         finalPropSchema.required = finalSchema.required?.includes(name);
 
         if (finalPropSchema.type === 'array' && (finalPropSchema.items as any)?.$ref) {
@@ -111,13 +109,10 @@ function getFormProperties(operations: PathInfo[], parser: SwaggerParser): FormP
     });
 
     if (finalSchema.oneOf && finalSchema.discriminator) {
-        // Resolve the references inside the oneOf array
-        const resolvedOneOf = finalSchema.oneOf.map(s => findSchema(s, parser)).filter((s): s is SwaggerDefinition => !!s);
         const dPropName = finalSchema.discriminator.propertyName;
-
         const existingProp = properties.find(p => p.name === dPropName);
         if (existingProp) {
-            existingProp.schema.oneOf = resolvedOneOf;
+            existingProp.schema.oneOf = finalSchema.oneOf; // Pass the original array with refs
             existingProp.schema.discriminator = finalSchema.discriminator;
         } else {
             properties.unshift({
@@ -125,7 +120,7 @@ function getFormProperties(operations: PathInfo[], parser: SwaggerParser): FormP
                 schema: {
                     type: 'string',
                     required: finalSchema.required?.includes(dPropName),
-                    oneOf: resolvedOneOf,
+                    oneOf: finalSchema.oneOf, // Pass the original array with refs
                     discriminator: finalSchema.discriminator
                 }
             });
@@ -146,12 +141,11 @@ function getModelName(resourceName: string, operations: PathInfo[], parser: Swag
 
     if (schema) {
         const ref = ('$ref' in schema ? schema.$ref : null)
-            || ('items' in schema && (schema.items as any)?.$ref ? (schema.items as any).$ref : null);
+            || (schema.type === 'array' && (schema.items as any)?.$ref ? (schema.items as any).$ref : null);
 
         if (ref) return pascalCase(ref.split('/').pop()!);
     }
 
-    // Fallback: singularize the resource name. This fixes the 'Publishers' -> 'Publisher' case.
     return singular(pascalCase(resourceName));
 }
 
@@ -159,7 +153,6 @@ export function discoverAdminResources(parser: SwaggerParser): Resource[] {
     const allPaths = extractPaths(parser.getSpec().paths);
     const resourceMap = new Map<string, PathInfo[]>();
 
-    // **CRITICAL FIX**: Group all paths by their determined resource name.
     allPaths.forEach(path => {
         const resourceName = getResourceName(path);
         if (!resourceMap.has(resourceName)) {
@@ -179,8 +172,9 @@ export function discoverAdminResources(parser: SwaggerParser): Resource[] {
             modelName,
             isEditable: allOpsForResource.some(op => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(op.method)),
             operations: allOpsForResource.map(op => ({
+                ...op, // Spread the original operation info first
                 action: classifyAction(op),
-                ...op
+                methodName: getMethodName(op) // FIX: Explicitly calculate and add the methodName
             })),
             formProperties: getFormProperties(allOpsForResource, parser)
         });

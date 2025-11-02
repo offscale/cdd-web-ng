@@ -1,6 +1,0 @@
-<div>
-  <mat-label>{{label}}</mat-label>
-  <input type="file" #fileInput{{propertyName}}_id (change)="onFileSelected($event, '{{propertyName}}')" style="display: none;">
-  <button mat-flat-button type="button" (click)="fileInput{{propertyName}}_id.click()">Upload File</button>
-  <span>{{ form.get('{{propertyName}}')?.value?.name || 'No file chosen' }}</span>
-</div>

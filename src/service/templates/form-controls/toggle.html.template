@@ -1,7 +1,0 @@
-<div class="admin-toggle-group">
-  <mat-label>{{label}}</mat-label>
-  <mat-button-toggle-group formControlName="{{propertyName}}">
-    <mat-button-toggle [value]="true">Yes</mat-button-toggle>
-    <mat-button-toggle [value]="false">No</mat-button-toggle>
-  </mat-button-toggle-group>
-</div>

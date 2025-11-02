@@ -1,3 +1,5 @@
+// tests/service/emit/admin/coverage.spec.ts
+
 import { describe, it, expect } from 'vitest';
 import { mapSchemaToFormControl } from '../../../../src/service/emit/admin/form-control.mapper.js';
 import { discoverAdminResources } from '../../../../src/service/emit/admin/resource-discovery.js';
@@ -18,25 +20,25 @@ describe('Unit: Admin Generators (Coverage)', () => {
     describe('FormControlMapper', () => {
         it('should return null for array of non-string/enum/object', () => {
             const schema = { type: 'array', items: { type: 'integer' } };
-            const result = mapSchemaToFormControl('myArray', schema as any);
+            const result = mapSchemaToFormControl(schema as any);
             expect(result).toBeNull();
         });
 
         it('should return null for object with no properties', () => {
             const schema = { type: 'object' };
-            const result = mapSchemaToFormControl('myObject', schema as any);
+            const result = mapSchemaToFormControl(schema as any);
             expect(result).toBeNull();
         });
 
         it('should return null for unsupported types', () => {
             const schema = { type: 'file' }; // Not a standard JSON schema type
-            const result = mapSchemaToFormControl('myFile', schema as any);
+            const result = mapSchemaToFormControl(schema as any);
             expect(result).toBeNull();
         });
 
         it('should add minLength validator for minItems', () => {
             const schema = { type: 'array', items: { type: 'string' }, minItems: 2 };
-            const result = mapSchemaToFormControl('myArray', schema as any);
+            const result = mapSchemaToFormControl(schema as any);
             expect(result?.validators).toContain('Validators.minLength(2)');
         });
     });
@@ -69,7 +71,6 @@ describe('Unit: Admin Generators (Coverage)', () => {
             const spec = { paths: { '/items': { get: { tags:['Items'], responses: { '200': { content: { 'application/json': { schema: { type: 'object' } } } } } } } } };
             const parser = createParser(spec);
             const resources = discoverAdminResources(parser);
-            // Expect it not to crash and produce a default property
             expect(resources[0].formProperties).toEqual([{ name: 'id', schema: { type: 'string' } }]);
         });
 
@@ -79,8 +80,6 @@ describe('Unit: Admin Generators (Coverage)', () => {
                     '/pets': {
                         post: {
                             tags: ['Pets'],
-                            // FIX: The operation MUST reference the schema via a requestBody
-                            // for the resource discovery to find and parse its properties.
                             requestBody: {
                                 content: {
                                     'application/json': {
@@ -96,7 +95,7 @@ describe('Unit: Admin Generators (Coverage)', () => {
                         Pet: {
                             type: 'object',
                             required: ['petType'],
-                            properties: { petType: { type: 'string' } }, // Discriminator is here
+                            properties: { petType: { type: 'string' } },
                             oneOf: [{ $ref: '#/components/schemas/Cat' }],
                             discriminator: { propertyName: 'petType' }
                         },

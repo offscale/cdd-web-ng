@@ -102,9 +102,9 @@ export const bookStoreSpec = JSON.stringify({
     openapi: '3.0.0',
     info,
     paths: {
-        '/servers': { "get": { "tags": ["Servers"], "operationId": "getServers" } },
         '/books': { get: { tags: ['Books'], operationId: 'getBooks' }, post: { tags: ['Books'], operationId: 'createBook', requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/Book' } } } } } },
         '/books/{id}': { get: { tags: ['Books'], operationId: 'getBookById', parameters: [{name: 'id', in: 'path'}] }, put: { tags: ['Books'], operationId: 'updateBook', parameters: [{name: 'id', in: 'path'}] }, delete: { tags: ['Books'], operationId: 'deleteBook', parameters: [{name: 'id', in: 'path'}] } },
+        '/servers': { "get": { "tags": ["Servers"], "operationId": "getServers" } },
         '/publishers': { post: { tags: ['Publishers'], operationId: 'createPublisher', requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/Publisher' } } } } } },
         '/servers/rebootAll': { post: { tags: ['Servers'], operationId: 'rebootAllServers' } },
         '/servers/{id}/reboot': { post: { tags: ['Servers'], operationId: 'rebootServer', parameters: [{name: 'id', in: 'path'}] } }

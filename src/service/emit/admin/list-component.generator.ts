@@ -1,10 +1,12 @@
+// src/service/emit/admin/list-component.generator.ts
+
 import { Project, Scope } from "ts-morph";
 import { posix as path } from "node:path";
-import { Resource } from "../../../core/types";
-import { camelCase, kebabCase, pascalCase } from "../../../core/utils";
-import listTemplate from '../../templates/list.component.html.template';
+import { Resource } from "../../../core/types.js";
+import { camelCase, kebabCase, pascalCase } from "../../../core/utils.js";
+import { HtmlElementBuilder as _ } from './html-element.builder.js';
 
-const standaloneListImportsArray = `[ CommonModule, RouterModule, MatPaginatorModule, MatSortModule, MatTableModule, MatButtonModule, MatProgressBarModule, MatIconModule ]`;
+const CRUD_ACTIONS = new Set(['list', 'create', 'getById', 'update', 'delete']);
 
 export class ListComponentGenerator {
     constructor(private project: Project) {}
@@ -24,12 +26,16 @@ export class ListComponentGenerator {
 
     private generateTypeScript(resource: Resource, filePath: string) {
         const componentClassName = `${pascalCase(resource.name)}ListComponent`;
+        const serviceClassName = `${pascalCase(resource.name)}Service`;
         const serviceName = `${camelCase(resource.name)}Service`;
-        const servicePath = `../../../services/${camelCase(resource.name)}.service`;
-        const modelPath = `../../../models`;
+        const servicePath = `../../../../services/${camelCase(resource.name)}.service`;
+        const modelPath = `../../../../models`;
         const modelName = resource.modelName;
-        const deleteMethodName = `delete${modelName}`;
-        const listMethodName = `get${pascalCase(resource.name)}`;
+        const deleteOp = resource.operations.find(op => op.action === 'delete');
+        const listOp = resource.operations.find(op => op.action === 'list');
+        const listMethodName = listOp?.methodName ?? `get${pascalCase(resource.name)}`;
+        const customItemOps = resource.operations.filter(op => !CRUD_ACTIONS.has(op.action) && op.path.includes('{'));
+        const customCollectionOps = resource.operations.filter(op => !CRUD_ACTIONS.has(op.action) && !op.path.includes('{'));
 
         const sourceFile = this.project.createSourceFile(filePath, undefined, { overwrite: true });
 
@@ -37,7 +43,7 @@ export class ListComponentGenerator {
             { moduleSpecifier: '@angular/core', namedImports: ['Component', 'inject', 'signal', 'effect', 'viewChild'] },
             { moduleSpecifier: '@angular/common', namedImports: ['CommonModule'] },
             { moduleSpecifier: '@angular/router', namedImports: ['Router', 'RouterModule', 'ActivatedRoute' ] },
-            { moduleSpecifier: servicePath.replace(/\\/g, '/'), namedImports: [ `${pascalCase(serviceName)}` ] },
+            { moduleSpecifier: servicePath.replace(/\\/g, '/'), namedImports: [ serviceClassName ] },
             { moduleSpecifier: modelPath, isTypeOnly: true, namedImports: [modelName] },
             { moduleSpecifier: 'rxjs', namedImports: ['merge', 'of', 'startWith', 'switchMap', 'map', 'catchError'] },
             { moduleSpecifier: '@angular/material/table', namedImports: ['MatTableModule'] },
@@ -56,24 +62,25 @@ export class ListComponentGenerator {
                 arguments: [`{
                 selector: 'app-${kebabCase(resource.name)}-list',
                 standalone: true,
-                imports: ${standaloneListImportsArray},
+                imports: [ CommonModule, RouterModule, MatPaginatorModule, MatSortModule, MatTableModule, MatButtonModule, MatProgressBarModule, MatIconModule ],
                 templateUrl: './${kebabCase(resource.name)}-list.component.html',
                 styleUrl: './${kebabCase(resource.name)}-list.component.scss'
             }`]
             }]
         });
 
+        const idProp = resource.formProperties.find(p => p.name.toLowerCase() === 'id') ?? resource.formProperties[0];
+
         component.addProperties([
             { name: 'router', scope: Scope.Private, isReadonly: true, initializer: 'inject(Router)' },
             { name: 'route', scope: Scope.Private, isReadonly: true, initializer: 'inject(ActivatedRoute)' },
             { name: 'displayedColumns', type: 'string[]', initializer: `[${resource.formProperties.map(p => `'${p.name}'`).join(', ')}, 'actions']` },
-            { name: 'isEditable', isReadonly: true, initializer: `${resource.isEditable}`},
-            { name: 'paginator', initializer: 'viewChild.required(MatPaginator)' },
-            { name: 'sorter', initializer: 'viewChild.required(MatSort)' },
-            { name: 'isLoading', initializer: 'signal(true)' },
-            { name: 'totalItems', initializer: 'signal(0)' },
+            { name: `paginator = viewChild.required(MatPaginator)` },
+            { name: `sorter = viewChild.required(MatSort)` },
+            { name: `isLoading = signal(true)` },
+            { name: `totalItems = signal(0)` },
             { name: 'refreshTrigger', scope: Scope.Private, initializer: 'signal(0)' },
-            { name: serviceName, scope: Scope.Private, type: pascalCase(serviceName), initializer: `inject(${pascalCase(serviceName)})` },
+            { name: serviceName, scope: Scope.Private, type: serviceClassName, initializer: `inject(${serviceClassName})` },
             { name: 'dataSource', initializer: `signal<${modelName}[]>([])` }
         ]);
 
@@ -83,14 +90,12 @@ export class ListComponentGenerator {
             const sorter = this.sorter();
             const paginator = this.paginator();
 
-            // React to sorting, pagination, or manual refresh triggers
             this.refreshTrigger(); // Depend on the refresh signal
 
             const sub = merge(sorter.sortChange, paginator.page).pipe(
                 startWith({}),
                 switchMap(() => {
                     this.isLoading.set(true);
-                    // *** FIX: Pass pageIndex + 1 for 1-based pagination APIs ***
                     return this.${serviceName}.${listMethodName}(
                         paginator.pageIndex + 1,
                         paginator.pageSize,
@@ -116,63 +121,134 @@ export class ListComponentGenerator {
         }, { allowSignalWrites: true });`
         });
 
-        const customActions = resource.operations.filter(op => !['list', 'create', 'getById', 'update', 'delete'].includes(op.action));
-        customActions.forEach(action => {
-            const hasPathParams = action.path.includes('{');
-            const params = hasPathParams ? [{ name: 'id', type: 'string | number' }] : [];
-            component.addMethod({
-                name: action.action,
-                parameters: params,
-                statements: `this.${serviceName}.${action.action}(${params.map(p => p.name).join(', ')}).subscribe(() => this.refresh());`
-            });
-        });
-
         component.addMethod({ name: 'refresh', statements: 'this.refreshTrigger.update(v => v + 1);' });
 
-        // *** FIX: Only add create/edit/delete methods if the resource is editable ***
         if (resource.isEditable) {
             component.addMethods([
-                { name: 'onCreate', statements: `this.router.navigate(['create'], { relativeTo: this.route });` },
-                { name: 'onEdit', parameters: [{name: 'id', type: 'string | number'}], statements: `this.router.navigate(['edit', id], { relativeTo: this.route });` },
-                { name: 'deleteItem', parameters: [{ name: 'id', 'type': 'string | number' }], statements: `this.${serviceName}.${deleteMethodName}(id).subscribe(() => this.refresh());` }
+                { name: 'onCreate', statements: `this.router.navigate(['new'], { relativeTo: this.route });` },
+                // FIX: Pass the correct property 'id' to the method. The 'id' parameter is what the router link uses.
+                { name: 'onEdit', parameters: [{name: 'id', type: 'string | number'}], statements: `this.router.navigate([':id/edit', id], { relativeTo: this.route });` },
             ]);
+            if (deleteOp?.methodName) {
+                component.addMethod({
+                    name: `deleteItem`,
+                    parameters: [{ name: 'id', 'type': 'string | number' }],
+                    // FIX: The 'id' parameter is passed directly to the service call.
+                    statements: `this.${serviceName}.${deleteOp.methodName}(id).subscribe(() => this.refresh());`
+                });
+            }
         }
+
+        // Add methods for custom actions
+        [...customItemOps, ...customCollectionOps].forEach(op => {
+            if (op.methodName) {
+                const params = customItemOps.includes(op) ? [{ name: 'id', type: 'string | number' }] : [];
+                const serviceCallParams = customItemOps.includes(op) ? ['id'] : [];
+
+                component.addMethod({
+                    name: op.methodName,
+                    parameters: params,
+                    statements: `this.${serviceName}.${op.methodName}(${serviceCallParams.join(', ')}).subscribe(() => this.refresh());`
+                });
+            }
+        });
     }
 
     private generateHtml(resource: Resource, filePath: string) {
-        let template = listTemplate;
+        const idProp = resource.formProperties.find(p => p.name.toLowerCase() === 'id') ?? resource.formProperties[0];
+        const customItemOps = resource.operations.filter(op => !CRUD_ACTIONS.has(op.action) && op.path.includes('{'));
+        const customCollectionOps = resource.operations.filter(op => !CRUD_ACTIONS.has(op.action) && !op.path.includes('{'));
 
-        const modelName = resource.modelName;
-        const properties = resource.formProperties.map(p => p.name);
-        const columnDefs = properties.map(prop => `
-        <ng-container matColumnDef="${prop}">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header>${pascalCase(prop)}</th>
-          <td mat-cell *matCellDef="let row">{{row.${prop}}}</td>
-        </ng-container>
-       `).join('\n');
+        const container = _.create('div').addClass('admin-list-container');
+        container.appendChild(_.create('h1').setTextContent(pascalCase(resource.name)));
 
-        const actionsDef = `
-            <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef></th>
-              <td mat-cell *matCellDef="let row" class="admin-table-actions">
-                @if (isEditable) {
-                    <button mat-icon-button (click)="onEdit(row.id)"><mat-icon>edit</mat-icon></button>
-                    <button mat-icon-button color="warn" (click)="deleteItem(row.id)"><mat-icon>delete</mat-icon></button>
-                }
-              </td>
-            </ng-container>
-           `;
+        // Main action buttons container
+        const mainActions = _.create('div').addClass('admin-list-actions');
+        if (resource.isEditable) {
+            mainActions.appendChild(
+                _.create('button')
+                    .setAttribute('mat-flat-button', '')
+                    .setAttribute('color', 'primary')
+                    .setAttribute('(click)', 'onCreate()')
+                    .setTextContent(`Create New ${resource.modelName}`)
+            );
+        }
+        customCollectionOps.forEach(op => {
+            if (op.methodName) {
+                mainActions.appendChild(
+                    _.create('button')
+                        .setAttribute('mat-stroked-button', '')
+                        .setAttribute('(click)', `${op.methodName}()`)
+                        .setTextContent(pascalCase(op.methodName))
+                );
+            }
+        });
+        container.appendChild(mainActions);
 
-        template = template.replace('{{modelName}}', modelName);
-        template = template.replace(/{{pluralModelName}}/g, `${modelName}s`);
-        template = template.replace('{{columnDefinitions}}', columnDefs + actionsDef);
-        this.project.getFileSystem().writeFileSync(filePath, template);
+        // Progress Bar
+        container.appendChild(_.create('div').setInnerHtml('@if (isLoading()) {\n  <mat-progress-bar mode="indeterminate"></mat-progress-bar>\n}'));
+
+        const tableContainer = _.create('div').addClass('mat-elevation-z8');
+        const table = _.create('table').setAttribute('mat-table', '').setAttribute('[dataSource]', 'dataSource()').setAttribute('matSort', '');
+
+        // Column Definitions
+        resource.formProperties.forEach(prop => {
+            const colContainer = _.create('ng-container').setAttribute('matColumnDef', prop.name);
+            colContainer.appendChild(_.create('th').setAttribute('mat-header-cell', '').setAttribute('*matHeaderCellDef', '').setAttribute('mat-sort-header', '').setTextContent(pascalCase(prop.name)));
+            colContainer.appendChild(_.create('td').setAttribute('mat-cell', '').setAttribute('*matCellDef', 'let row').setTextContent(`{{row.${prop.name}}}`));
+            table.appendChild(colContainer);
+        });
+
+        // Actions Column
+        const actionsCol = _.create('ng-container').setAttribute('matColumnDef', 'actions');
+        actionsCol.appendChild(_.create('th').setAttribute('mat-header-cell', '').setAttribute('*matHeaderCellDef', ''));
+        const actionsCell = _.create('td').setAttribute('mat-cell', '').setAttribute('*matCellDef', 'let row').addClass('admin-table-actions');
+
+        let actionsContent = '';
+        if (resource.isEditable) {
+            // FIX: Consistently use idProp.name for all row actions
+            actionsContent += `<button mat-icon-button (click)="onEdit(row.${idProp.name})"><mat-icon>edit</mat-icon></button>\n`;
+            if (resource.operations.some(op => op.action === 'delete')) {
+                actionsContent += `<button mat-icon-button color="warn" (click)="deleteItem(row.${idProp.name})"><mat-icon>delete</mat-icon></button>\n`;
+            }
+        }
+        customItemOps.forEach(op => {
+            if (op.methodName) {
+                const icon = op.methodName.toLowerCase().includes('reboot') ? 'refresh' : 'play_arrow';
+                // FIX: Consistently use idProp.name here too
+                actionsContent += `<button mat-icon-button (click)="${op.methodName}(row.${idProp.name})"><mat-icon>${icon}</mat-icon></button>\n`;
+            }
+        });
+
+        actionsCell.setInnerHtml(`@if (true) { ${actionsContent} }`);
+        actionsCol.appendChild(actionsCell);
+        table.appendChild(actionsCol);
+
+        table.appendChild(_.create('tr').setAttribute('mat-header-row', '').setAttribute('*matHeaderRowDef', 'displayedColumns'));
+        table.appendChild(_.create('tr').setAttribute('mat-row', '').setAttribute('*matRowDef', 'let row; columns: displayedColumns;'));
+
+        tableContainer.appendChild(table);
+
+        const noData = _.create('div').addClass('admin-no-data');
+        noData.setInnerHtml(`@if (!isLoading() && dataSource().length === 0) {
+  <span>No ${pascalCase(resource.name)} found.</span>
+}`);
+        tableContainer.appendChild(noData);
+
+        tableContainer.appendChild(_.create('mat-paginator')
+            .setAttribute('[length]', 'totalItems()')
+            .setAttribute('[pageSizeOptions]', '[5, 10, 25, 100]')
+            .setAttribute('showFirstLastButtons', ''));
+
+        container.appendChild(tableContainer);
+
+        this.project.getFileSystem().writeFileSync(filePath, container.render());
     }
 
     private generateScss(filePath: string) {
         const scssContent = `
 .admin-list-container { padding: 24px; }
-.admin-list-actions { margin-bottom: 16px; }
+.admin-list-actions { display: flex; gap: 8px; margin-bottom: 16px; }
 .admin-no-data { padding: 24px; text-align: center; color: grey; }
 .mat-elevation-z8 { width: 100%; }
 .admin-table-actions { text-align: right; }

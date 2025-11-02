@@ -33,13 +33,13 @@ export async function generateFromConfig(
         fs.mkdirSync(config.output, { recursive: true });
     }
 
-    console.log(`📡 Processing OpenAPI specification from ${isUrl(config.input) ? "URL" : "file"}: ${config.input}`);
+    if (!isTestEnv) {
+        console.log(`📡 Processing OpenAPI specification from ${isUrl(config.input) ? "URL" : "file"}: ${config.input}`);
+    }
 
     try {
         let swaggerParser: SwaggerParser;
         if (isTestEnv) {
-            // FIX: Use the pre-parsed spec object directly from the test setup
-            // This completely avoids any file system reads here.
             swaggerParser = new SwaggerParser(testConfig.spec as any, config);
         } else {
             swaggerParser = await SwaggerParser.create(config.input, config);
@@ -52,7 +52,9 @@ export async function generateFromConfig(
         }
 
     } catch (error) {
-        console.error("❌ Generation failed:", error instanceof Error ? error.message : error);
+        if (!isTestEnv) {
+            console.error("❌ Generation failed:", error instanceof Error ? error.message : error);
+        }
         throw error;
     }
 }

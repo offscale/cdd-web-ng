@@ -28,6 +28,7 @@ export interface PathInfo {
     parameters?: Parameter[];
     requestBody?: RequestBody;
     responses?: Record<string, SwaggerResponse>;
+    methodName?: string;
 }
 
 export interface RequestBody {
@@ -123,6 +124,8 @@ export interface ResourceOperation {
     path: string;
     method: string;
     operationId?: string;
+    methodName?: string;
+    methodParameters?: Parameter[];
 }
 
 export interface Resource {

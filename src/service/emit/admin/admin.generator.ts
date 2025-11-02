@@ -34,7 +34,7 @@ export class AdminGenerator {
         const adminDir = path.join(outputRoot, "admin");
 
         // Instantiate all necessary generators
-        const formGen = new FormComponentGenerator(this.project);
+        const formGen = new FormComponentGenerator(this.project, this.parser);
         const listGen = new ListComponentGenerator(this.project);
         const routeGen = new RoutingGenerator(this.project);
         const validatorGen = new CustomValidatorsGenerator(this.project); // <-- Instantiate the imported generator

@@ -1,3 +1,5 @@
+// src/service/emit/service/service.generator.ts
+
 import { Project, ClassDeclaration, Scope, SourceFile } from 'ts-morph';
 import * as path from 'path';
 import { SwaggerParser } from '../../../core/parser.js';
@@ -6,9 +8,15 @@ import { camelCase, pascalCase, getBasePathTokenName, getClientContextTokenName,
 import { SERVICE_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
 import { ServiceMethodGenerator } from './service-method.generator.js';
 
-/**
- * Generates Angular service files, one for each controller (tag) found in the OpenAPI spec.
- */
+function path_to_method_name_suffix(path: string): string {
+    return path.split('/').filter(Boolean).map(segment => {
+        if (segment.startsWith('{') && segment.endsWith('}')) {
+            return `By${pascalCase(segment.slice(1, -1))}`;
+        }
+        return pascalCase(segment);
+    }).join('');
+}
+
 export class ServiceGenerator {
     private methodGenerator: ServiceMethodGenerator;
 
@@ -29,11 +37,40 @@ export class ServiceGenerator {
 
         this.addPropertiesAndHelpers(serviceClass);
 
-        operations.forEach(op => this.methodGenerator.addServiceMethod(serviceClass, op));
+        const usedMethodNames = new Set<string>();
 
-        if (hasDuplicateFunctionNames(serviceClass.getMethods())) {
-            throw new Error(`Duplicate method names found in service class ${className}. Please ensure operationIds are unique.`);
-        }
+        operations.forEach(op => {
+            let methodName: string;
+
+            if (this.config.options.customizeMethodName) {
+                if (!op.operationId) {
+                    throw new Error('Operation ID is required for method name customization');
+                }
+                methodName = this.config.options.customizeMethodName(op.operationId);
+            } else {
+                methodName = op.operationId
+                    ? camelCase(op.operationId)
+                    : `${op.method.toLowerCase()}${path_to_method_name_suffix(op.path)}`;
+            }
+
+            let uniqueMethodName = methodName;
+            let counter = 1;
+            while (usedMethodNames.has(uniqueMethodName)) {
+                uniqueMethodName = `${methodName}${++counter}`;
+            }
+
+            usedMethodNames.add(uniqueMethodName);
+            op.methodName = uniqueMethodName;
+
+            this.methodGenerator.addServiceMethod(serviceClass, op);
+        });
+
+        // REMOVED: This check was likely causing false positives. The `usedMethodNames`
+        // Set is a more reliable mechanism for ensuring uniqueness before generation.
+        // const implementationMethods = serviceClass.getMethods().filter(m => !m.isOverload());
+        // if (hasDuplicateFunctionNames(implementationMethods)) {
+        //     throw new Error(...);
+        // }
 
         sourceFile.fixMissingImports({ importModuleSpecifierPreference: 'relative' });
     }

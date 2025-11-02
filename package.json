@@ -46,12 +46,13 @@
     "ts-morph": "^27.0"
   },
   "devDependencies": {
-    "@types/glob": "^9",
     "@types/js-yaml": "^4.0.9",
+    "@types/jsdom": "^27.0.0",
     "@types/node": "^24",
     "@types/swagger-schema-official": "^2.0.25",
     "@vitest/coverage-istanbul": "^4.0.3",
     "glob": "^11.0",
+    "jsdom": "^27.1.0",
     "rolldown": "^1.0.0-beta.44",
     "rolldown-plugin-dts": "^0.17.1",
     "swagger-schema-official": "^2.0.0-bab6bed",

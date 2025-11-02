@@ -1,4 +1,0 @@
-<div>
-  <mat-label>{{label}}</mat-label>
-  <mat-slider min="{{min}}" max="{{max}}" discrete formControlName="{{propertyName}}"></mat-slider>
-</div>

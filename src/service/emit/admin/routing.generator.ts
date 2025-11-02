@@ -1,74 +1,90 @@
 // src/service/emit/admin/routing.generator.ts
 
 import { Project } from 'ts-morph';
-import { posix as path } from 'path';
 import { Resource } from '../../../core/types.js';
-import { kebabCase, pascalCase } from '../../../core/utils.js';
+import { camelCase, pascalCase } from '../../../core/utils.js';
 
+/**
+ * Generates the Angular routing configuration for the admin UI.
+ */
 export class RoutingGenerator {
-    constructor(private project: Project) { }
+    constructor(private readonly project: Project) { }
 
-    public generate(resource: Resource, adminDir: string) {
-        const routesDir = path.join(adminDir, resource.name);
-        const filePath = path.join(routesDir, `${resource.name}.routes.ts`);
-        const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
+    /**
+     * Generates the master `admin.routes.ts` file.
+     */
+    public generateMaster(resources: Resource[], outDir: string): void {
+        const routesFilePath = `${outDir}/admin.routes.ts`;
+        const sourceFile = this.project.createSourceFile(routesFilePath, undefined, { overwrite: true });
 
-        const hasList = resource.operations.some(op => op.action === 'list');
-        const hasCreate = resource.operations.some(op => op.action === 'create');
-        const hasEdit = resource.operations.some(op => op.action === 'update' || op.action === 'getById'); // Also consider getById for edit pages
+        sourceFile.addImportDeclaration({
+            moduleSpecifier: '@angular/router',
+            namedImports: ['Routes']
+        });
 
-        const listClassName = `${pascalCase(resource.name)}ListComponent`;
-        const formClassName = `${pascalCase(resource.name)}FormComponent`;
+        const routeObjects = resources.map(resource => (
+            `{
+    path: '${resource.name}',
+    loadChildren: () => import('./${resource.name}/${resource.name}.routes').then(m => m.${camelCase(resource.name)}Routes)
+}`
+        ));
 
-        const routes: string[] = [];
-        if (hasList) {
-            routes.push(`{ path: '', loadComponent: () => import('./${kebabCase(resource.name)}-list/${kebabCase(resource.name)}-list.component').then(m => m.${listClassName}) }`);
+        if (resources.length > 0) {
+            routeObjects.unshift(`{ path: '', pathMatch: 'full', redirectTo: '${resources[0].name}' }`);
         }
-        if (hasCreate) {
-            routes.push(`{ path: 'create', loadComponent: () => import('./${kebabCase(resource.name)}-form/${kebabCase(resource.name)}-form.component').then(m => m.${formClassName}) }`);
-        }
-        if (hasEdit) {
-            routes.push(`{ path: 'edit/:id', loadComponent: () => import('./${kebabCase(resource.name)}-form/${kebabCase(resource.name)}-form.component').then(m => m.${formClassName}) }`);
-        }
-
-        sourceFile.addImportDeclaration({ moduleSpecifier: '@angular/router', namedImports: ['Routes'] });
 
         sourceFile.addVariableStatement({
             isExported: true,
+            declarationKind: 'const',
             declarations: [{
-                name: 'routes',
+                name: 'adminRoutes',
+                type: 'Routes',
+                initializer: `[\n  ${routeObjects.join(',\n  ')}\n]`
+            }]
+        });
+    }
+
+    /**
+     * Generates a resource-specific routing file (e.g., `users.routes.ts`).
+     */
+    public generate(resource: Resource, outDir: string): void {
+        const resourceDir = `${outDir}/${resource.name}`;
+        const routesFilePath = `${resourceDir}/${resource.name}.routes.ts`;
+        const sourceFile = this.project.createSourceFile(routesFilePath, undefined, { overwrite: true });
+
+        sourceFile.addImportDeclaration({ moduleSpecifier: '@angular/router', namedImports: ['Routes'] });
+
+        const routes: string[] = [];
+        const hasList = resource.operations.some(op => op.action === 'list');
+        const hasCreate = resource.operations.some(op => op.action === 'create');
+        const hasEdit = resource.operations.some(op => op.action === 'getById' || op.action === 'update');
+
+        if (hasList) {
+            const componentName = `${pascalCase(resource.modelName)}ListComponent`;
+            const componentPath = `./${resource.name}-list/${resource.name}-list.component`;
+            routes.push(`{ path: '', loadComponent: () => import('${componentPath}').then(m => m.${componentName}) }`);
+        }
+
+        if (hasCreate) {
+            const componentName = `${pascalCase(resource.modelName)}FormComponent`;
+            const componentPath = `./${resource.name}-form/${resource.name}-form.component`;
+            routes.push(`{ path: 'new', loadComponent: () => import('${componentPath}').then(m => m.${componentName}) }`);
+        }
+
+        if (hasEdit) {
+            const componentName = `${pascalCase(resource.modelName)}FormComponent`;
+            const componentPath = `./${resource.name}-form/${resource.name}-form.component`;
+            routes.push(`{ path: ':id/edit', loadComponent: () => import('${componentPath}').then(m => m.${componentName}) }`);
+        }
+
+        sourceFile.addVariableStatement({
+            isExported: true,
+            declarationKind: 'const',
+            declarations: [{
+                name: `${camelCase(resource.name)}Routes`,
                 type: 'Routes',
                 initializer: `[\n  ${routes.join(',\n  ')}\n]`
             }]
         });
-        sourceFile.formatText();
-    }
-
-    public generateMaster(resources: Resource[], adminDir: string) {
-        const filePath = path.join(adminDir, `admin.routes.ts`);
-        const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
-
-        sourceFile.addImportDeclaration({ moduleSpecifier: '@angular/router', namedImports: ['Routes'] });
-
-        // ** FIX: Sort resources alphabetically to ensure a predictable default redirect **
-        const sortedResources = [...resources].sort((a,b) => a.name.localeCompare(b.name));
-        const redirectTarget = sortedResources.find(r => r.operations.some(op => op.action === 'list'))?.name || (sortedResources.length > 0 ? sortedResources[0].name : '');
-
-        const defaultRedirect = redirectTarget ? `{ path: '', pathMatch: 'full', redirectTo: '${redirectTarget}' }` : '';
-        // ** FIX: Use the sortedResources array for mapping **
-        const childrenRoutes = sortedResources.map(r => `{
-    path: '${r.name}',
-    loadChildren: () => import('./${r.name}/${r.name}.routes').then(m => m.routes)
-}`).join(',\n  ');
-
-        sourceFile.addVariableStatement({
-            isExported: true,
-            declarations: [{
-                name: 'routes',
-                type: 'Routes',
-                initializer: `[\n  ${defaultRedirect},\n  ${childrenRoutes}\n]`
-            }]
-        });
-        sourceFile.formatText();
     }
 }

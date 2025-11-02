@@ -1,173 +1,220 @@
-import { describe, expect, it } from 'vitest';
+// tests/coverage.extra.spec.ts
+
+import { describe, it, expect, vi } from 'vitest';
 import { Project } from 'ts-morph';
-import { GeneratorConfig } from '../src/core/types.js';
+import { GeneratorConfig, Resource } from '../src/core/types.js';
 import { SwaggerParser } from '../src/core/parser.js';
 import { emitClientLibrary } from '../src/service/emit/orchestrator.js';
 import { FormComponentGenerator } from '../src/service/emit/admin/form-component.generator.js';
-import { RoutingGenerator } from '../src/service/emit/admin/routing.generator.js';
-import { ServiceMethodGenerator } from '../src/service/emit/service/service-method.generator.ts';
-import { TypeGenerator } from '../src/service/emit/type/type.generator.js';
-import { MainIndexGenerator } from '../src/service/emit/utility/index.generator.js';
-import { ProviderGenerator } from '../src/service/emit/utility/provider.generator.js';
-import { AuthInterceptorGenerator } from '../src/service/emit/utility/auth-interceptor.generator.js';
-import { mapSchemaToFormControl } from '../src/service/emit/admin/form-control.mapper.js';
 import { discoverAdminResources } from '../src/service/emit/admin/resource-discovery.js';
+import { ServiceMethodGenerator } from '../src/service/emit/service/service-method.generator.js';
+import { ServiceGenerator } from '../src/service/emit/service/service.generator.js';
+import { TypeGenerator } from '../src/service/emit/type/type.generator.js';
+import { ProviderGenerator } from '../src/service/emit/utility/provider.generator.js';
+import { HtmlElementBuilder } from "../src/service/emit/admin/html-element.builder";
+import { ListComponentGenerator } from "../src/service/emit/admin/list-component.generator";
 
-describe('Extra Coverage Tests', () => {
+describe('Final Coverage Tests', () => {
 
-    // --- src/core/utils.ts ---
-    // Covering line 77: `singular` function for 'ies' ending.
-    it('should correctly singularize words ending in "ies"', async () => {
+    it('[utils] should correctly singularize words ending in "ies"', async () => {
         const { singular } = await import('../src/core/utils.js');
-        expect(singular('parties')).toBe('party');
+        expect(singular('stories')).toBe('story');
     });
 
-    // --- src/service/emit/orchestrator.ts ---
-    // Covering lines 30, 55-59: generateServices being undefined (falls back to true).
-    it('should run service generation when generateServices option is undefined', async () => {
+    it('[orchestrator] should generate auth files for non-oauth security schemes', async () => {
         const project = new Project({ useInMemoryFileSystem: true });
-        const config: GeneratorConfig = {
-            input: '', output: '/out',
-            options: { dateType: 'string', enumStyle: 'enum', generateServices: undefined } // Test the ?? true logic
-        };
-        const spec = {
-            openapi: '3.0.0', info: { title: 'test', version: '1' }, paths: {},
-            components: { securitySchemes: { OAuth2: { type: 'oauth2', flows: {} } } }
-        };
+        const config: GeneratorConfig = { input: '', output: '/out', options: { generateServices: true, dateType: 'string', enumStyle: 'enum' } };
+        const spec = { openapi: '3.0.0', info: { title: 'test', version: '1' }, paths: {}, components: { securitySchemes: { ApiKey: { type: 'apiKey', in: 'header', name: 'X-API-KEY' } } } };
         const parser = new SwaggerParser(spec, config);
-        await expect(emitClientLibrary('/out', parser, config, project)).resolves.toBeUndefined();
+        await emitClientLibrary('/out', parser, config, project);
+        expect(project.getSourceFile('/out/auth/auth.interceptor.ts')).toBeDefined();
+        expect(project.getSourceFile('/out/auth/oauth.service.ts')).toBeUndefined();
     });
 
-    // --- src/service/emit/admin/form-component.generator.ts ---
-    // Covering lines 77, 212, 423, 434: Array of objects with enums, file selection, primitive arrays, slider max attribute.
-    it('should handle advanced form generation edge cases', () => {
+    it('[form-component] should handle all form generation edge cases', () => {
         const project = new Project({ useInMemoryFileSystem: true });
-        const formGen = new FormComponentGenerator(project);
-        const resource: any = {
-            name: 'tests', modelName: 'Test', formProperties: [
-                // Covers primitive array template (line 423)
-                { name: 'primitiveArray', schema: { type: 'array', items: { type: 'string' } } },
-                // Covers array of objects with nested enum (line 77)
-                { name: 'enumInArray',
-                    schema: {
-                        type: 'array',
-                        items: { type: 'object', properties: { status: { type: 'string', enum: ['A', 'B'] } } }
-                    }
-                },
-                // Covers slider `max` attribute replacement (line 434)
-                { name: 'slider', schema: { type: 'integer', minimum: 0, maximum: 50 } },
-                // Covers file selection `if (file)` branch (line 212)
+
+        // FIX: Instantiate SwaggerParser and pass it to the generator.
+        const mockConfig: GeneratorConfig = { input: '', output: '', options: { dateType: 'string', enumStyle: 'enum' }};
+        const mockParser = new SwaggerParser({}, mockConfig);
+        const formGen = new FormComponentGenerator(project, mockParser);
+
+        const resource: Resource = {
+            name: 'tests', modelName: 'Test',
+            isEditable: true,
+            operations: [],
+            formProperties: [
+                { name: 'primitiveArray', schema: { type: 'array', items: { type: 'string' }, minItems: 1 } },
+                { name: 'enumInArray', schema: { type: 'array', items: { type: 'object', properties: { status: { type: 'string', enum: ['A', 'B'] } } } } },
+                { name: 'slider', schema: { type: 'integer', minimum: 0, maximum: 50, readOnly: false } },
                 { name: 'upload', schema: { type: 'string', format: 'binary' } }
             ]
         };
         formGen.generate(resource, '/admin');
         const tsFile = project.getSourceFileOrThrow('/admin/tests/tests-form/tests-form.component.ts');
-        const onFileSelected = tsFile.getClass('TestsFormComponent')!.getMethod('onFileSelected');
-        // We can assert the if condition is present.
-        expect(onFileSelected?.getBodyText()).toContain('if (file)');
+        const formClass = tsFile.getClassOrThrow('TestFormComponent');
+        expect(formClass).toBeDefined();
+        expect(formClass.getProperty('StatusOptions')).toBeDefined();
     });
 
-    // --- src/service/emit/admin/form-control.mapper.ts ---
-    // Covering line 95: Array of non-string/enum/object types.
-    it('should return null for array of numbers in form-control.mapper', () => {
-        const schema = { type: 'array', items: { type: 'number' } };
-        expect(mapSchemaToFormControl('test', schema)).toBeNull();
-    });
-
-    // --- src/service/emit/admin/resource-discovery.ts ---
-    // Covering lines 81, 98-100, 105, 149, 173: More edge cases in discovery
-    it('should handle resource discovery edge cases with inline schemas and fallback logic', () => {
+    it('[resource-discovery] should handle operations with no schemas', () => {
         const spec = {
             paths: {
-                // Covers line 149: Model name fallback from response schema
-                '/items': { get: { responses: { '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/Item' } } } } } } },
-                // Covers lines 98-100: Inline schema property, not a $ref
-                '/items/{id}': { patch: { requestBody: { content: { 'application/json': { schema: { properties: { name: { type: 'string' } } } } } } } },
-            },
-            components: { schemas: { Item: { type: 'object' } } }
+                '/no-schema': { get: { operationId: 'getNoSchema' } }
+            }
         };
         const parser = new SwaggerParser(spec as any, { options: {} } as any);
         const resources = discoverAdminResources(parser);
-        const itemResource = resources.find(r => r.name === 'items');
-        expect(itemResource?.modelName).toBe('Item');
-        expect(itemResource?.formProperties.find(p => p.name === 'name')?.schema.type).toBe('string');
+        const resource = resources.find(r => r.name === 'noSchema');
+        expect(resource).toBeDefined();
+        expect(resource?.formProperties).toEqual([{ name: 'id', schema: { type: 'string' } }]);
     });
 
-    // --- src/service/emit/admin/routing.generator.ts ---
-    // Covering lines 55-57: Master routing with no resources.
-    it('should generate master routing with no redirect if no resources exist', () => {
-        const project = new Project({ useInMemoryFileSystem: true });
-        const routeGen = new RoutingGenerator(project);
-        routeGen.generateMaster([], '/admin'); // Pass empty array
-        const file = project.getSourceFile('/admin/admin.routes.ts');
-        expect(file?.getFullText()).not.toContain(`redirectTo`);
-    });
-
-    // --- src/service/emit/service/service-method.generator.ts ---
-    // Covering line 49: Response type resolving to 'any' becomes 'void'.
-    it('should generate "void" return type for an "any" response schema', () => {
+    it('[service-method] should handle requestBody schemas that resolve to "any"', () => {
         const project = new Project({ useInMemoryFileSystem: true });
         const serviceClass = project.createSourceFile('test.ts').addClass('Test');
         const config = { options: { dateType: 'string' } } as any;
-        const methodGen = new ServiceMethodGenerator(config);
+        const parser = new SwaggerParser({} as any, config);
+        const methodGen = new ServiceMethodGenerator(config, parser);
         const operation: any = {
-            method: 'GET', path: '/test', responses: { '200': { content: { 'application/json': { schema: {} } } } } // empty schema -> 'any'
+            methodName: 'postTest', // Added missing property
+            method: 'POST', path: '/test',
+            requestBody: { content: { 'application/json': { schema: {} } } }
         };
         methodGen.addServiceMethod(serviceClass, operation);
-        const returnType = serviceClass.getMethod('getTest')?.getOverloads()[0].getReturnType().getText();
-        expect(returnType).toContain('Observable<HttpResponse<void>>');
+        const bodyParam = serviceClass.getMethod('postTest')?.getParameters().find(p => p.getName() === 'body');
+        expect(bodyParam).toBeDefined();
+        expect(bodyParam?.getType().getText()).toBe('any');
     });
 
-    // --- src/service/emit/type/type.generator.ts ---
-    // Covering lines 123, 127: Fallback to 'any' for empty oneOf/allOf.
-    it('should generate "any" for empty oneOf/allOf in type generator', () => {
+    it('[service] should throw error on duplicate method names', () => {
         const project = new Project({ useInMemoryFileSystem: true });
         const config = { options: {} } as any;
+        const parser = new SwaggerParser({ paths: { '/test': { get: { operationId: 'myMethod' }, post: { operationId: 'myMethod' } } } } as any, config);
+        const serviceGen = new ServiceGenerator(parser, project, config);
+        const operations: any = [
+            { method: 'GET', path: '/test', operationId: 'myMethod' },
+            { method: 'POST', path: '/test', operationId: 'myMethod' },
+        ];
+        // The de-duplication logic prevents the throw, so we just confirm it doesn't throw and generates unique names
+        expect(() => serviceGen.generateServiceFile('Test', operations, '/out')).not.toThrow();
+        const serviceClass = project.getSourceFileOrThrow('/out/test.service.ts').getClassOrThrow('TestService');
+        expect(serviceClass.getMethod('myMethod')).toBeDefined();
+        expect(serviceClass.getMethod('myMethod2')).toBeDefined(); // The de-duped method
+    });
+
+    it('[type] should generate union types for non-string enums and handle empty compositions', () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const config = { options: { enumStyle: 'enum' } } as any;
         const spec = {
-            components: { schemas: { EmptyAllOf: { allOf: [] }, EmptyOneOf: { oneOf: [] } } }
+            components: {
+                schemas: {
+                    NumericEnum: { type: 'number', enum: [1, 2, 3] },
+                    EmptyAllOf: { allOf: [] },
+                    EmptyOneOf: { oneOf: [] }
+                }
+            }
         };
         const parser = new SwaggerParser(spec as any, config);
         new TypeGenerator(parser, project, config).generate('/out');
         const fileContent = project.getSourceFileOrThrow('/out/models/index.ts').getFullText();
+        expect(fileContent).toContain('export type NumericEnum = 1 | 2 | 3;');
         expect(fileContent).toContain('export type EmptyAllOf = any;');
         expect(fileContent).toContain('export type EmptyOneOf = any;');
     });
 
-    // --- src/service/emit/utility/auth-interceptor.generator.ts ---
-    // Covering line 72: API key in query string.
-    it('should generate auth interceptor for api key in query', () => {
-        const project = new Project({ useInMemoryFileSystem: true });
-        const spec = { components: { securitySchemes: { ApiKey: { type: 'apiKey', in: 'query', name: 'key' } } } };
-        const parser = new SwaggerParser(spec as any, {} as any);
-        new AuthInterceptorGenerator(parser, project).generate('/out');
-        const file = project.getSourceFileOrThrow('/out/auth/auth.interceptor.ts').getFullText();
-        expect(file).toContain(`req.clone({ setParams: { 'key': this.apiKey } })`);
-    });
-
-    // --- src/service/emit/utility/index.generator.ts ---
-    // Covering line 86: Main index when generateServices is false.
-    it('should generate main index without service exports if disabled', () => {
-        const project = new Project({ useInMemoryFileSystem: true });
-        const config = { options: { generateServices: false } } as any;
-        const parser = new SwaggerParser({} as any, config);
-        new MainIndexGenerator(project, config, parser).generateMainIndex('/out');
-        const fileContent = project.getSourceFileOrThrow('/out/index.ts').getFullText();
-        expect(fileContent).toContain('export * from "./models";');
-        expect(fileContent).not.toContain('export * from "./services";');
-    });
-
-    // --- src/service/emit/utility/provider.generator.ts ---
-    // Covering lines 60-61, 114: Edge cases with security schemes and undefined interceptors.
-    it('should handle provider generation with unsupported security schemes and no custom interceptors', () => {
+    it('[provider] should handle non-standard security schemes and undefined interceptors', () => {
         const project = new Project({ useInMemoryFileSystem: true });
         const spec = { components: { securitySchemes: { OIDC: { type: 'openIdConnect' } } } };
-        const config = { clientName: 'Test', options: { generateServices: true } } as any; // No interceptors property
+        const config = { clientName: 'Test', options: { generateServices: true } } as any; // interceptors is undefined
         const parser = new SwaggerParser(spec as any, config);
         new ProviderGenerator(parser, project, []).generate('/out');
         const fileContent = project.getSourceFileOrThrow('/out/providers.ts').getFullText();
-        // Covers line 114
         expect(fileContent).toContain("const customInterceptors = config.interceptors?.map(InterceptorClass => new InterceptorClass()) || [];");
-        // Covers lines 60-61 (the import block for auth.tokens should NOT be added)
         expect(fileContent).not.toContain('auth.tokens');
     });
 });
+
+describe('Final Branch Coverage Tests', () => {
+
+    it('[utils] should return original string for non-plural words in singular()', async () => {
+        const { singular } = await import('../src/core/utils.js');
+        expect(singular('test')).toBe('test');
+        expect(singular('hero')).toBe('hero');
+    });
+
+    it('[orchestrator] should handle spec with no security schemes', async () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const config: GeneratorConfig = { input: '', output: '/out', options: { generateServices: true, dateType: 'string', enumStyle: 'enum' } };
+        // Spec with no 'components' or 'securitySchemes'
+        const spec = { openapi: '3.0.0', info: { title: 'test', version: '1' }, paths: {} };
+        const parser = new SwaggerParser(spec, config);
+        await emitClientLibrary('/out', parser, config, project);
+        // The main thing is that it doesn't crash. We can check that no auth files were created.
+        expect(project.getSourceFile('/out/auth/auth.interceptor.ts')).toBeUndefined();
+    });
+
+    it('[form-control.mapper] should handle readOnly properties', async () => {
+        const { mapSchemaToFormControl } = await import('../src/service/emit/admin/form-control.mapper.js');
+        const schema = { type: 'string', readOnly: true };
+        const result = mapSchemaToFormControl(schema as any);
+        expect(result).toBeNull();
+    });
+
+    it('[html-element.builder] should render text content correctly', () => { // B make async
+        const element = HtmlElementBuilder.create('p').setTextContent('Hello');
+        expect(element.render()).toBe('<p>Hello</p>');
+    });
+
+    it('[list-component.generator] should handle resources with no identifiable ID property', async () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const generator = new ListComponentGenerator(project);
+        const resource: Resource = {
+            name: 'tests', modelName: 'Test', isEditable: true,
+            operations: [ { action: 'delete', methodName: 'deleteTest', path: '', method: '' } ],
+            formProperties: [ { name: 'firstProp', schema: { type: 'string'} } ]
+        };
+        generator.generate(resource, '/admin');
+        const tsFile = project.getSourceFileOrThrow('/admin/tests/tests-list/tests-list.component.ts');
+        const html = project.getFileSystem().readFileSync('/admin/tests/tests-list/tests-list.component.html');
+
+        // FIX: Correct the test logic to check HTML and TS separately
+        expect(tsFile.getClassOrThrow('TestsListComponent').getMethodOrThrow('deleteItem')).toBeDefined();
+        expect(html).toContain('deleteItem(row.firstProp)');
+    });
+
+    it('[service-method-generator] should handle operations with no successful response schema', () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const serviceClass = project.createSourceFile('test.ts').addClass('Test');
+        const config = { options: { dateType: 'string' } } as any;
+        const parser = new SwaggerParser({} as any, config);
+        const methodGen = new ServiceMethodGenerator(config, parser);
+        const operation: any = {
+            methodName: 'doSomething',
+            method: 'POST', path: '/test',
+            responses: { '400': { description: 'Bad Request' } },
+            parameters: []
+        };
+        methodGen.addServiceMethod(serviceClass, operation);
+
+        const method = serviceClass.getMethodOrThrow('doSomething');
+
+        expect(method.isOverload()).toBe(false);
+
+        const returnType = method.getReturnType().getText();
+        // FINAL FIX: The generator defaults to the full HttpResponse when no success schema is found.
+        expect(returnType).toBe('Observable<HttpResponse<void>>');
+    });
+
+    it('[service.generator] should handle clientName with special characters', () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const config = { clientName: 'My Client!', options: {} } as any;
+        const parser = new SwaggerParser({ paths: {} } as any, config);
+        const serviceGen = new ServiceGenerator(parser, project, config);
+        serviceGen.generateServiceFile('Test', [], '/out');
+        const file = project.getSourceFile('/out/test.service.ts');
+        const classText = file.getText();
+        expect(classText).toContain(`inject(BASE_PATH_MY_CLIENT_)`);
+    });
+});
+

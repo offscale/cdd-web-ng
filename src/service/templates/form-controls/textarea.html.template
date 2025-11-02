@@ -1,4 +1,0 @@
-<mat-form-field>
-  <mat-label>{{label}}</mat-label>
-  <textarea matInput formControlName="{{propertyName}}"></textarea>
-</mat-form-field>

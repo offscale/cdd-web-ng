@@ -1,457 +1,500 @@
-import { Project, Scope, ClassDeclaration, SourceFile } from "ts-morph";
-import { posix as path } from "node:path";
-import { Resource, SwaggerDefinition } from "../../../core/types";
-import { camelCase, pascalCase, singular } from "../../../core/utils";
-import { FormControlInfo, mapSchemaToFormControl } from "./form-control.mapper";
+import { ClassDeclaration, Project, SyntaxKind } from 'ts-morph';
+import { FormProperty, Resource, SwaggerDefinition } from '../../../core/types.js';
+import { camelCase, pascalCase, singular } from '../../../core/utils.js';
+import { commonStandaloneImports } from './common-imports.js';
+import { mapSchemaToFormControl } from './form-control.mapper.js';
+import { generateFormComponentHtml } from './html/form-component-html.builder.js';
+import { generateFormComponentScss } from './html/form-component-scss.builder.js';
+import { SwaggerParser } from '../../../core/parser.js';
 
-// Import all templates as strings
-import formTemplate from '../../templates/form.component.html.template';
-import chipsTemplate from '../../templates/form-controls/chips.html.template';
-import datepickerTemplate from '../../templates/form-controls/datepicker.html.template';
-import fileTemplate from '../../templates/form-controls/file.html.template';
-import inputTemplate from '../../templates/form-controls/input.html.template';
-import radioTemplate from '../../templates/form-controls/radio.html.template';
-import selectTemplate from '../../templates/form-controls/select.html.template';
-import sliderTemplate from '../../templates/form-controls/slider.html.template';
-import textareaTemplate from '../../templates/form-controls/textarea.html.template';
-import toggleTemplate from '../../templates/form-controls/toggle.html.template';
-
-// Map control types to their imported templates
-const controlTemplates: Record<string, string> = {
-    chips: chipsTemplate,
-    datepicker: datepickerTemplate,
-    file: fileTemplate,
-    input: inputTemplate,
-    radio: radioTemplate,
-    select: selectTemplate,
-    slider: sliderTemplate,
-    textarea: textareaTemplate,
-    toggle: toggleTemplate,
-};
-
-// Map control types to their required Angular Material modules
-const controlTypeToModuleMap = {
-    select: { name: 'MatSelectModule', path: '@angular/material/select' },
-    radio: { name: 'MatRadioModule', path: '@angular/material/radio' },
-    toggle: { name: 'MatButtonToggleModule', path: '@angular/material/button-toggle' },
-    datepicker: { name: 'MatDatepickerModule', path: '@angular/material/datepicker' },
-    chips: { name: 'MatChipsModule', path: '@angular/material/chips' },
-    slider: { name: 'MatSliderModule', path: '@angular/material/slider' },
-};
-
+/**
+ * Generates the TypeScript, HTML, and SCSS files for an Angular standalone
+ * form component based on an OpenAPI resource definition.
+ */
 export class FormComponentGenerator {
-    constructor(private project: Project) {
-    }
+    /**
+     * @param project The ts-morph Project instance for AST manipulation.
+     * @param parser The SwaggerParser instance to resolve schema references for polymorphism.
+     */
+    constructor(
+        private readonly project: Project,
+        private readonly parser: SwaggerParser
+    ) {}
 
-    public generate(resource: Resource, adminDir: string): { usesCustomValidators: boolean } {
-        const formDir = path.join(adminDir, resource.name, `${resource.name}-form`);
+    /**
+     * Main entry point for generating all files related to a form component.
+     * @param resource The resource definition, including its name, model, and properties.
+     * @param outDir The root directory for admin component generation (e.g., '/generated/admin').
+     * @returns An object indicating if custom validators were used, which informs the AdminGenerator.
+     */
+    public generate(resource: Resource, outDir: string): { usesCustomValidators: boolean } {
+        const formDir = `${outDir}/${resource.name}/${resource.name}-form`;
         this.project.getFileSystem().mkdirSync(formDir, { recursive: true });
 
-        const tsFilePath = path.join(formDir, `${resource.name}-form.component.ts`);
-        const htmlFilePath = path.join(formDir, `${resource.name}-form.component.html`);
-        const scssFilePath = path.join(formDir, `${resource.name}-form.component.scss`);
+        const tsResult = this.generateFormComponentTs(resource, formDir);
+        this.generateFormComponentHtml(resource, formDir);
+        this.generateFormComponentScss(resource, formDir);
+        return { usesCustomValidators: tsResult.usesCustomValidators };
+    }
 
-        const formControls = resource.formProperties
-            .map(prop => mapSchemaToFormControl(prop.name, prop.schema ))
-            .filter((fc): fc is FormControlInfo => !!fc);
+    /**
+     * Generates the `.component.ts` file.
+     */
+    private generateFormComponentTs(resource: Resource, outDir: string): { usesCustomValidators: boolean } {
+        const componentName = `${pascalCase(resource.modelName)}FormComponent`;
+        const serviceName = `${pascalCase(resource.name)}Service`;
+        const formFilePath = `${outDir}/${resource.name}-form.component.ts`;
+        const sourceFile = this.project.createSourceFile(formFilePath, undefined, { overwrite: true });
 
-        const usesCustomValidators = JSON.stringify(formControls).includes('CustomValidators');
+        const hasFormArrays = resource.formProperties.some(p => p.schema.type === 'array' && (p.schema.items as SwaggerDefinition)?.properties);
+        const hasFileUploads = resource.formProperties.some(p => p.schema.format === 'binary');
+        const oneOfProp = resource.formProperties.find(p => p.schema.oneOf && p.schema.discriminator);
 
-        const oneOfProp = resource.formProperties.find(p => p.schema.oneOf);
-        const discriminator = oneOfProp?.schema.discriminator;
-        const oneOfSchemas = oneOfProp?.schema.oneOf as SwaggerDefinition[] ?? [];
+        let usesCustomValidators = false;
 
-        this.generateTypeScript(resource, formControls, discriminator, oneOfSchemas, tsFilePath);
-        this.generateHtml(resource, formControls, discriminator, oneOfSchemas, htmlFilePath);
-        this.generateScss(scssFilePath);
+        const checkValidators = (properties: FormProperty[]) => {
+            for (const prop of properties) {
+                const schema = prop.schema;
+                const itemsSchema = (schema.type === 'array' ? schema.items : schema) as SwaggerDefinition;
+                const info = mapSchemaToFormControl(itemsSchema);
+                if (info?.validators.some(v => v.startsWith('CustomValidators'))) {
+                    usesCustomValidators = true;
+                }
+                if (itemsSchema?.properties) {
+                    checkValidators(Object.entries(itemsSchema.properties).map(([name, schema]) => ({ name, schema })));
+                }
+            }
+        };
+        checkValidators(resource.formProperties);
+
+        const oneOfImports = oneOfProp?.schema.oneOf
+            ?.map(s => s.$ref ? pascalCase(s.$ref.split('/').pop()!) : null)
+            .filter((name): name is string => !!name)
+            .join(', ') || '';
+
+        sourceFile.addStatements([
+            `import { Component, OnInit, OnDestroy, computed, inject, signal, effect } from '@angular/core';`,
+            `import { FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';`,
+            `import { ActivatedRoute, Router } from '@angular/router';`,
+            `import { MatSnackBar } from '@angular/material/snack-bar';`,
+            `import { Subscription } from 'rxjs';`,
+            `import { ${serviceName} } from '../../../../services/${camelCase(resource.name)}.service';`,
+            `import { ${resource.modelName}${oneOfImports ? ', ' + oneOfImports : ''} } from '../../../../models';`,
+            usesCustomValidators ? `import { CustomValidators } from '../../shared/custom-validators';` : '',
+            `import { ${commonStandaloneImports.join(', ')} } from '../../../../utils/common-imports';`
+        ].filter(Boolean));
+
+        const componentClass = sourceFile.addClass({
+            name: componentName, // <-- ADD THIS LINE
+            decorators: [{
+                name: 'Component',
+                arguments: [`{
+                    selector: 'app-${resource.name}-form',
+                    standalone: true,
+                    imports: [
+                        'CommonModule',
+                        'RouterModule',
+                        'ReactiveFormsModule',
+                        'FormGroup', 'FormArray', 'Validators', // Added for clarity
+                        ...commonStandaloneImports
+                    ],
+                    templateUrl: './${resource.name}-form.component.html',
+                    styleUrl: './${resource.name}-form.component.scss'
+                }`]
+            }],
+            implements: ['OnInit', 'OnDestroy']
+        });
+
+        this.addProperties(componentClass, resource, serviceName, oneOfProp);
+
+        this.addNgOnInit(componentClass, resource, serviceName, hasFormArrays || !!oneOfProp);
+        this.addInitForm(componentClass, resource);
+
+        if (oneOfProp) this.addPolymorphismLogic(componentClass, oneOfProp, resource);
+        if (hasFileUploads) this.addFileHandling(componentClass);
+        if (hasFormArrays) this.addFormArrayHelpers(componentClass, resource);
+        if (hasFormArrays || oneOfProp) this.addPatchForm(componentClass, resource, oneOfProp);
+        if (oneOfProp) this.addGetPayload(componentClass, oneOfProp);
+
+        this.addOnSubmit(componentClass, resource, serviceName, !!oneOfProp);
+        this.addOnCancelMethod(componentClass);
+        this.addNgOnDestroy(componentClass);
 
         return { usesCustomValidators };
     }
 
-    // --- MAIN TYPESCRIPT GENERATOR ---
-    private generateTypeScript(resource: Resource, formControls: FormControlInfo[], discriminator: any, oneOfSchemas: SwaggerDefinition[], filePath: string) {
-        const sourceFile = this.project.createSourceFile(filePath, "", { overwrite: true });
-
-        const resourceNamePascal = pascalCase(resource.name);
-        const hasArray = formControls.some(fc => fc.controlType === 'array');
-        const hasCustomValidators = formControls.some(fc => (fc.validators || []).join('').includes('CustomValidators'));
-
-        sourceFile.addImportDeclaration({ moduleSpecifier: '@angular/core', namedImports: ['Component', 'inject', 'input', 'computed', 'effect'] });
-        sourceFile.addImportDeclaration({ moduleSpecifier: '@angular/forms', namedImports: ['FormBuilder', 'FormGroup', 'FormControl', 'Validators', hasArray ? 'FormArray' : undefined].filter(Boolean) as string[] });
-        sourceFile.addImportDeclaration({ moduleSpecifier: '@angular/router', namedImports: ['Router', 'ActivatedRoute'] });
-        sourceFile.addImportDeclaration({ moduleSpecifier: `../../../models`, namespaceImport: 'models' });
-        sourceFile.addImportDeclaration({ moduleSpecifier: `../../../services`, namedImports: [`${resourceNamePascal}Service`] });
-        if (hasCustomValidators) {
-            sourceFile.addImportDeclaration({ moduleSpecifier: `../../shared/custom-validators`, namedImports: ['CustomValidators'] });
-        }
-
-        const componentDecorator = this.getComponentDecorator(sourceFile, resource, formControls);
-
-        const formClass = sourceFile.addClass({
-            name: `${resourceNamePascal}FormComponent`,
-            isExported: true,
-            decorators: [componentDecorator]
-        });
-
-        this.addPropertiesAndConstructor(formClass, resource, formControls, discriminator, oneOfSchemas);
-        this.addLifecycleAndHelpers(formClass, resource, formControls, discriminator, oneOfSchemas);
-        if (discriminator) {
-            this.addPolymorphismTypeGuards(sourceFile, oneOfSchemas, resource.modelName);
-        }
-    }
-
-    private getComponentDecorator(sourceFile: SourceFile, resource: Resource, formControls: FormControlInfo[]): { name: string; arguments: string[] } {
-        const requiredModules = new Map<string, string>([
-            ['CommonModule', '@angular/common'],
-            ['ReactiveFormsModule', '@angular/forms'],
-            ['RouterModule', '@angular/router'],
-            ['MatButtonModule', '@angular/material/button'],
-            ['MatInputModule', '@angular/material/input'],
-            ['MatFormFieldModule', '@angular/material/form-field'],
-            ['MatIconModule', '@angular/material/icon']
-        ]);
-
-        const addModulesRecursively = (controls: FormControlInfo[]) => {
-            for (const control of controls) {
-                const moduleInfo = controlTypeToModuleMap[control.controlType as keyof typeof controlTypeToModuleMap];
-                if (moduleInfo) {
-                    requiredModules.set(moduleInfo.name, moduleInfo.path);
-                }
-                if (control.nestedProperties) addModulesRecursively(control.nestedProperties);
-                if (control.arrayItemInfo?.nestedProperties) addModulesRecursively(control.arrayItemInfo.nestedProperties);
-            }
-        };
-        addModulesRecursively(formControls);
-
-        // Add all required module imports to the TS file
-        for (const [moduleName, modulePath] of requiredModules.entries()) {
-            sourceFile.addImportDeclaration({ moduleSpecifier: modulePath, namedImports: [moduleName] });
-        }
-
-        const decoratorArgs = `{
-            selector: 'app-${resource.name}-form',
-            standalone: true,
-            imports: [${Array.from(requiredModules.keys()).sort().join(', ')}],
-            templateUrl: './${resource.name}-form.component.html',
-            styleUrls: ['./${resource.name}-form.component.scss']
-        }`;
-
-        return { name: 'Component', arguments: [decoratorArgs] };
-    }
-
-    private addPropertiesAndConstructor(formClass: ClassDeclaration, resource: Resource, formControls: FormControlInfo[], discriminator: any, oneOfSchemas: SwaggerDefinition[]) {
-        const resourceNamePascal = pascalCase(resource.name);
-        const serviceName = `${camelCase(resource.name)}Service`;
-        const serviceClassName = `${resourceNamePascal}Service`;
-
-        formClass.addProperties([
+    /**
+     * Adds all necessary properties to the component class, including injected services,
+     * signals for state management, and dynamic properties for enums or discriminators.
+     * @param classDeclaration The ts-morph ClassDeclaration node.
+     * @param resource The resource definition.
+     * @param serviceName The name of the injected service class.
+     * @param oneOfProp The property that contains a `oneOf`/`discriminator` definition, if any.
+     */
+    private addProperties(classDeclaration: ClassDeclaration, resource: Resource, serviceName: string, oneOfProp?: FormProperty): void {
+        classDeclaration.addProperties([
+            { name: 'fb', isReadonly: true, initializer: 'inject(FormBuilder)' },
+            { name: 'route', isReadonly: true, initializer: 'inject(ActivatedRoute)' },
+            { name: 'router', isReadonly: true, initializer: 'inject(Router)' },
+            { name: 'snackBar', isReadonly: true, initializer: 'inject(MatSnackBar)' },
+            { name: `${camelCase(serviceName)}`, isReadonly: true, type: serviceName, initializer: `inject(${serviceName})` },
             { name: 'form!: FormGroup' },
-            { name: 'fb', isReadonly: true, scope: Scope.Private, initializer: 'inject(FormBuilder)' },
-            { name: 'router', isReadonly: true, scope: Scope.Private, initializer: 'inject(Router)' },
-            { name: 'route', isReadonly: true, scope: Scope.Private, initializer: 'inject(ActivatedRoute)' },
-            { name: serviceName, isReadonly: true, scope: Scope.Private, initializer: `inject(${serviceClassName})` },
-            { name: 'id', initializer: 'input<string | null>(null)' },
-            { name: 'isEditMode', initializer: 'computed(() => !!this.id())' },
-            { name: 'formTitle', initializer: `computed(() => this.isEditMode() ? 'Edit ${resource.modelName}' : 'Create ${resource.modelName}')` },
+            { name: 'id = signal<string | null>(null)' },
+            { name: 'isEditMode = computed(() => !!this.id())' },
+            { name: 'formTitle = computed(() => this.isEditMode() ? \`Edit ${resource.modelName}\` : \`Create ${resource.modelName}\`)' },
+            { name: 'subscriptions: Subscription[]', initializer: '[]' },
         ]);
 
-        const addEnumOptions = (controls: FormControlInfo[]) => {
-            controls.forEach(p => {
-                if (p.options?.enumName) {
-                    formClass.addProperty({ name: p.options.enumName, isReadonly: true, initializer: JSON.stringify(p.options.values) });
-                }
-                if(p.nestedProperties) addEnumOptions(p.nestedProperties);
-                if(p.arrayItemInfo?.nestedProperties) addEnumOptions(p.arrayItemInfo.nestedProperties);
-            });
-        };
-        addEnumOptions(formControls);
-
-        if (discriminator) {
-            formClass.addProperty({
-                name: 'discriminatorOptions',
-                isReadonly: true,
-                initializer: `[${oneOfSchemas.map(s => `'${s.properties![discriminator.propertyName].enum![0]}'`).join(', ')}]`
-            });
+        if (oneOfProp) {
+            const dPropName = oneOfProp.schema.discriminator!.propertyName;
+            const dOptions = oneOfProp.schema.oneOf!
+                .map(s => this.parser.resolveReference(s.$ref!)!)
+                .map(def => def.properties![dPropName].enum![0]);
+            classDeclaration.addProperties([
+                { name: 'discriminatorOptions', isReadonly: true, initializer: JSON.stringify(dOptions) },
+                { name: 'discriminatorPropName', isReadonly: true, scope: 'private', initializer: `'${dPropName}'` }
+            ]);
         }
 
-        formClass.addConstructor({
-            statements: `
-                this.initForm();
-                effect((onCleanup) => {
-                    const id = this.id();
-                    // When the id changes, we are in a new state. Reset the form.
-                    this.form.reset();
+        const processedEnums = new Set<string>();
+        const findEnums = (properties: FormProperty[]) => {
+            for (const prop of properties) {
+                const schema = prop.schema;
+                const itemsSchema = (schema.type === 'array' ? schema.items : schema) as SwaggerDefinition | undefined;
 
-                    if (this.isEditMode() && id) {
-                        const sub = this.${serviceName}.${camelCase(`get ${resource.modelName} by id`)}(id).subscribe((entity: any) => {
-                           if (entity) this.patchForm(entity as models.${resource.modelName});
-                        });
-                        onCleanup(() => sub.unsubscribe());
+                // FIX: Add a null check to prevent crash on arrays without item schemas
+                if (!itemsSchema) {
+                    continue;
+                }
+
+                if (itemsSchema.enum) {
+                    const optionsName = `${pascalCase(prop.name)}Options`;
+                    if (!processedEnums.has(optionsName)) {
+                        classDeclaration.addProperty({ name: optionsName, isReadonly: true, initializer: JSON.stringify(itemsSchema.enum) });
+                        processedEnums.add(optionsName);
                     }
+                }
+                if (itemsSchema.properties) {
+                    findEnums(Object.entries(itemsSchema.properties).map(([name, schema]) => ({ name, schema })));
+                }
+            }
+        };
+        findEnums(resource.formProperties);
+    }
 
-                    // For polymorphic forms, set up a subscription to the discriminator field
-                    if (${!!discriminator}) {
-                         const discriminatorCtrl = this.form.get('${discriminator?.propertyName}');
-                         if (discriminatorCtrl) {
-                             const sub = discriminatorCtrl.valueChanges.subscribe(type => {
-                                 this.updateFormForPetType(type);
-                             });
-                             onCleanup(() => sub.unsubscribe());
-                         }
-                    }
-                });
-            `
+    /**
+     * Generates the `ngOnInit` lifecycle hook. This method handles "edit" mode by
+     * fetching the entity data from the server and patching the form.
+     * @param classDeclaration The ts-morph ClassDeclaration node.
+     * @param resource The resource definition.
+     * @param serviceName The name of the injected service class.
+     * @param needsComplexPatch Indicates if the more advanced `patchForm` method should be called.
+     */
+    private addNgOnInit(classDeclaration: ClassDeclaration, resource: Resource, serviceName: string, needsComplexPatch: boolean): void {
+        const getByIdOp = resource.operations.find(op => op.action === 'getById');
+        const patchCall = needsComplexPatch ? 'this.patchForm(entity)' : 'this.form.patchValue(entity)';
+        let body = `this.initForm();\nconst id = this.route.snapshot.paramMap.get('id');\nif (id) {\n  this.id.set(id);`;
+        if (getByIdOp?.methodName) {
+            body += `\n  const sub = this.${camelCase(serviceName)}.${getByIdOp.methodName}(id).subscribe(entity => {\n    ${patchCall};\n  });\n  this.subscriptions.push(sub);`;
+        }
+        body += '\n}';
+        classDeclaration.addMethod({ name: 'ngOnInit', statements: body });
+    }
+
+    /**
+     * Generates the `initForm` method, which constructs the main `FormGroup`.
+     * @param classDeclaration The ts-morph ClassDeclaration node.
+     * @param resource The resource definition.
+     */
+    private addInitForm(classDeclaration: ClassDeclaration, resource: Resource): void {
+        const formControls = resource.formProperties
+            .filter(prop => !prop.schema.readOnly)
+            .map(prop => `'${prop.name}': ${this.getFormControlString(prop.schema)}`)
+            .join(',\n      ');
+        classDeclaration.addMethod({ name: 'initForm', isPrivate: true, statements: `this.form = this.fb.group({\n      ${formControls}\n    });` });
+    }
+
+    /**
+     * Generates the `onSubmit` method to handle form submission.
+     * @param classDeclaration The ts-morph ClassDeclaration node.
+     * @param resource The resource definition.
+     * @param serviceName The name of the injected service class.
+     * @param hasPolymorphism Indicates if the payload needs to be reconstructed via `getPayload`.
+     */
+    private addOnSubmit(classDeclaration: ClassDeclaration, resource: Resource, serviceName: string, hasPolymorphism: boolean): void {
+        const createOp = resource.operations.find(op => op.action === 'create');
+        const updateOp = resource.operations.find(op => op.action === 'update');
+
+        // FIX: Generate onSubmit if at least one of create or update exists.
+        if (!createOp?.methodName && !updateOp?.methodName) { return; }
+
+        const payloadExpr = hasPolymorphism ? 'this.getPayload()' : 'this.form.getRawValue()';
+        let body = `if (!this.form.valid) { return; }\nconst finalPayload = ${payloadExpr};\n`;
+
+        if (createOp?.methodName && updateOp?.methodName) {
+            body += `const action$ = this.isEditMode()\n  ? this.${camelCase(serviceName)}.${updateOp.methodName}(this.id()!, finalPayload)\n  : this.${camelCase(serviceName)}.${createOp.methodName}(finalPayload);\n`;
+        } else if (updateOp?.methodName) {
+            body += `if (!this.isEditMode()) { console.error('Form is not in edit mode, but no create operation is available.'); return; }\n`;
+            body += `const action$ = this.${camelCase(serviceName)}.${updateOp.methodName}(this.id()!, finalPayload);\n`;
+        } else if (createOp?.methodName) {
+            body += `if (this.isEditMode()) { console.error('Form is in edit mode, but no update operation is available.'); return; }\n`;
+            body += `const action$ = this.${camelCase(serviceName)}.${createOp.methodName}(finalPayload);\n`;
+        } else {
+            return; // Should not be reached due to the initial guard
+        }
+
+        body += `const sub = action$.subscribe({\n  next: () => {\n    this.snackBar.open('${resource.modelName} saved successfully!', 'Close', { duration: 3000 });\n    this.router.navigate(['../'], { relativeTo: this.route });\n  },\n  error: (err) => {\n    console.error('Error saving ${resource.modelName}', err);\n    this.snackBar.open('Error saving ${resource.modelName}', 'Close', { duration: 5000, panelClass: 'error-snackbar' });\n  }\n});\nthis.subscriptions.push(sub);`;
+        classDeclaration.addMethod({ name: 'onSubmit', statements: body });
+    }
+
+    /**
+     * Generates the `onCancel` method.
+     * @param classDeclaration The ts-morph ClassDeclaration node.
+     */
+    private addOnCancelMethod(classDeclaration: ClassDeclaration): void {
+        classDeclaration.addMethod({ name: 'onCancel', statements: `this.router.navigate(['../'], { relativeTo: this.route });` });
+    }
+
+    /**
+     * Generates the `ngOnDestroy` lifecycle hook to prevent memory leaks.
+     * @param classDeclaration The ts-morph ClassDeclaration node.
+     */
+    private addNgOnDestroy(classDeclaration: ClassDeclaration): void {
+        classDeclaration.addMethod({ name: 'ngOnDestroy', statements: 'this.subscriptions.forEach(sub => sub.unsubscribe());' });
+    }
+
+    /**
+     * Generates the `.component.html` file using the HtmlElementBuilder.
+     * @param resource The resource definition.
+     * @param outDir The component's output directory.
+     */
+    private generateFormComponentHtml(resource: Resource, outDir: string): void {
+        const htmlFilePath = `${outDir}/${resource.name}-form.component.html`;
+        const content = generateFormComponentHtml(resource, this.parser);
+        this.project.getFileSystem().writeFileSync(htmlFilePath, content);
+    }
+
+    /**
+     * Generates the `.component.scss` file.
+     * @param resource The resource definition.
+     * @param outDir The component's output directory.
+     */
+    private generateFormComponentScss(resource: Resource, outDir: string): void {
+        const scssFilePath = `${outDir}/${resource.name}-form.component.scss`;
+        const content = generateFormComponentScss();
+        this.project.getFileSystem().writeFileSync(scssFilePath, content);
+    }
+
+    /**
+     * Generates the `patchForm` method for handling complex data structures (arrays of objects, polymorphism)
+     * when populating the form in edit mode.
+     * @param classDeclaration The ts-morph ClassDeclaration node.
+     * @param resource The resource definition.
+     * @param oneOfProp The property containing the discriminator, if any.
+     */
+    private addPatchForm(classDeclaration: ClassDeclaration, resource: Resource, oneOfProp?: FormProperty): void {
+        const arrayProps = resource.formProperties.filter(p => p.schema.type === 'array' && (p.schema.items as SwaggerDefinition)?.properties);
+        const allComplexProps = [...arrayProps.map(p => p.name), ...(oneOfProp ? [oneOfProp.name] : [])];
+        if (allComplexProps.length === 0) return;
+
+        let body = `const { ${allComplexProps.join(', ')}, ...rest } = entity;\n`;
+        body += 'this.form.patchValue(rest);\n\n';
+
+        arrayProps.forEach(prop => {
+            const arrayGetterName = `${camelCase(prop.name)}Array`;
+            const createItemMethodName = `create${pascalCase(singular(prop.name))}`;
+            body += `if (Array.isArray(entity.${prop.name})) {\n`;
+            body += `  this.${arrayGetterName}.clear();\n`;
+            body += `  entity.${prop.name}.forEach(item => this.${arrayGetterName}.push(this.${createItemMethodName}(item)));\n`;
+            body += `}\n`;
+        });
+
+        if (oneOfProp) {
+            const dPropName = oneOfProp.schema.discriminator!.propertyName;
+            body += `\nconst petType = (entity as any).${dPropName};\n`;
+            body += `if (petType) {\n`;
+            body += `  this.form.get(this.discriminatorPropName)?.setValue(petType, { emitEvent: true });\n`;
+            for (const subSchameRef of oneOfProp.schema.oneOf!) {
+                const subSchemaName = pascalCase(subSchameRef.$ref!.split('/').pop()!);
+                const typeName = this.parser.resolveReference(subSchameRef.$ref!)!.properties![dPropName].enum![0] as string;
+                body += `  if (this.is${subSchemaName}(entity)) {\n`;
+                body += `    (this.form.get('${typeName}') as FormGroup)?.patchValue(entity);\n  }\n`;
+            }
+            body += `}\n`;
+        }
+
+        classDeclaration.addMethod({
+            name: 'patchForm',
+            isPrivate: true,
+            parameters: [{ name: 'entity', type: resource.modelName }],
+            statements: body
         });
     }
 
-    private addLifecycleAndHelpers(formClass: ClassDeclaration, resource: Resource, formControls: FormControlInfo[], discriminator: any, oneOfSchemas: SwaggerDefinition[]) {
-        const modelName = resource.modelName;
-
-        const buildFormGroupInitializer = (controls: FormControlInfo[]): string => {
-            return controls.map(fc => {
-                const cleanedValidators = (fc.validators || []).filter(v => v);
-                const validators = cleanedValidators.length > 0 ? `, [${cleanedValidators.join(', ')}]` : '';
-                const initialValue = fc.controlType === 'toggle' ? 'false' : 'null';
-
-                if (fc.controlType === 'group' && fc.nestedProperties) {
-                    return `${fc.name}: this.fb.group({ ${buildFormGroupInitializer(fc.nestedProperties)} })`;
-                }
-                if (fc.controlType === 'array') {
-                    return `${fc.name}: this.fb.array([]${validators})`;
-                }
-                if (discriminator && fc.name === discriminator.propertyName) {
-                    return `${fc.name}: this.fb.control<string | null>(null${validators})`;
-                }
-                return `${fc.name}: this.fb.control(${initialValue}${validators})`;
-            }).join(',\n');
-        };
-        formClass.addMethod({ name: 'initForm', scope: Scope.Private, statements: `this.form = this.fb.group({ ${buildFormGroupInitializer(formControls)} });`});
-
-        formControls.filter(fc => fc.controlType === 'array').forEach(fc => {
-            if (fc.arrayItemInfo?.nestedProperties) {
-                const arrayName = camelCase(fc.name);
-                const arrayPascal = pascalCase(fc.name);
-                const itemControls = fc.arrayItemInfo.nestedProperties;
-
-                formClass.addGetAccessor({ name: `${arrayName}Array`, returnType: 'FormArray', statements: `return this.form.get('${fc.name}') as FormArray;` });
-                formClass.addMethod({ name: `create${arrayPascal}ArrayItem`, parameters: [{name: 'item?', type: `any`}], returnType: 'FormGroup', statements: `return this.fb.group({ ${buildFormGroupInitializer(itemControls)} });`});
-                formClass.addMethod({ name: `add${arrayPascal}ArrayItem`, statements: `this.${arrayName}Array.push(this.create${arrayPascal}ArrayItem());` });
-                formClass.addMethod({ name: `remove${arrayPascal}ArrayItem`, parameters: [{ name: 'index', type: 'number' }], statements: `this.${arrayName}Array.removeAt(index);` });
-            }
-        });
-
-        if (discriminator) {
-            this.addPolymorphismTypeGuards(formClass.getSourceFile(), oneOfSchemas, resource.modelName);
+    /**
+     * Recursively generates a TypeScript code string for initializing a form control,
+     * group, or array based on a given schema.
+     *
+     * @param schema The SwaggerDefinition for the property being processed.
+     * @param defaultValueExpr A TypeScript expression string to use as the default value.
+     *                         This is primarily used when patching a form with existing data,
+     *                         where the expression might be `item?.${key} ?? null`.
+     *                         It defaults to the literal string 'null'.
+     * @returns A string of TypeScript code representing a FormBuilder method call
+     *          (e.g., `this.fb.control(null, [Validators.required])`).
+     */
+    private getFormControlString(schema: SwaggerDefinition, defaultValueExpr = 'null'): string {
+        // Properties marked as readOnly should not have a form control.
+        if (schema.readOnly) {
+            return '';
         }
 
-        const buildPatchLogicForArrays = (controls: FormControlInfo[]): string => {
-            return controls.filter(fc => fc.controlType === 'array' && fc.arrayItemInfo?.nestedProperties).map(fc => {
-                const arrayName = camelCase(fc.name);
-                const arrayPascal = pascalCase(fc.name);
-                return `
-            if (entity.${fc.name} && Array.isArray(entity.${fc.name})) {
-                this.${arrayName}Array.clear();
-                entity.${fc.name}.forEach((item: any) => {
-                    const itemGroup = this.create${arrayPascal}ArrayItem(item);
-                    itemGroup.patchValue(item);
-                    this.${arrayName}Array.push(itemGroup);
-                });
-            }`;
-            }).join('\n');
-        };
+        // 1. Map OpenAPI validation rules to Angular validator strings.
+        const info = mapSchemaToFormControl(schema);
+        const validators = info?.validators ?? [];
+        const validatorString = validators.length > 0 ? `, [${validators.join(', ')}]` : '';
 
-        let patchFormBody = `
-        const { ${formControls.filter(fc => fc.controlType === 'array').map(fc => fc.name).join(', ')}, ...rest } = entity;
-        this.form.patchValue(rest);
-        ${buildPatchLogicForArrays(formControls)}
-    `;
-
-        if (discriminator) {
-            patchFormBody += `
-        const petType = (entity as any)?.petType;
-        if (petType) {
-            this.form.get('${discriminator.propertyName}')?.setValue(petType, { emitEvent: true }); // emitEvent will trigger the effect to build sub-form
-
-            if (isCat(entity)) {
-                (this.form.get('cat') as FormGroup)?.patchValue(entity);
-            }
-            if (isDog(entity)) {
-                (this.form.get('dog') as FormGroup)?.patchValue(entity);
-            }
-        }
-        `;
-        }
-        formClass.addMethod({ name: 'patchForm', parameters: [{ name: 'entity', type: `models.${modelName}` }], statements: patchFormBody });
-
-        if (discriminator) {
-            formClass.addMethod({ name: `isPetType`, parameters: [{ name: 'type', type: 'string' }], returnType: 'boolean', statements: `return this.form.get('${discriminator.propertyName}')?.value === type;` });
-
-            const switchCases = oneOfSchemas.map(schema => {
-                const typeName = schema.properties![discriminator.propertyName].enum![0] as string;
-                const subControls = Object.keys(schema.properties!).filter(p => !resource.formProperties.some(fp => fp.name === p))
-                    .map(pName => mapSchemaToFormControl(pName, schema.properties![pName]))
-                    .filter((c): c is FormControlInfo => !!c);
-
-                return `case '${typeName}':
-                this.form.addControl('${typeName}', this.fb.group({ ${buildFormGroupInitializer(subControls)} }));
-                break;`;
-            }).join('\n            ');
-
-            formClass.addMethod({ name: `updateFormForPetType`, parameters: [{ name: 'type', type: 'string | null' }], statements: `
-            ${oneOfSchemas.map(s => `this.form.removeControl('${s.properties![discriminator.propertyName].enum![0]}');`).join('\n            ')}
-            switch(type) {
-            ${switchCases}
-            }
-        `});
-
-            formClass.addMethod({ name: 'getPayload', returnType: `any`, statements: `
-            const petType = this.form.get('${discriminator.propertyName}')!.value;
-            const baseValue = this.form.getRawValue();
-            const subFormValue = this.form.get(petType)?.value ?? {};
-            const payload = { ...baseValue, ...subFormValue };
-            ${oneOfSchemas.map(s => `delete payload.${s.properties![discriminator.propertyName].enum![0]};`).join('\n            ')}
-            return payload;
-        `});
+        // 2. Handle nested objects by creating a FormGroup recursively.
+        if (schema.type === 'object' && schema.properties) {
+            const nestedControls = Object.entries(schema.properties)
+                .filter(([, propSchema]) => !propSchema.readOnly)
+                .map(([propName, propSchema]) => `'${propName}': ${this.getFormControlString(propSchema)}`)
+                .join(',\n      ');
+            return `this.fb.group({\n      ${nestedControls}\n    }${validatorString})`;
         }
 
-        const serviceName = camelCase(resource.name) + 'Service';
-        const createMethod = `create${modelName}`;
-        const updateMethod = `update${modelName}`;
-        const payload = discriminator ? 'this.getPayload()' : 'this.form.value';
-
-        formClass.addMethod({
-            name: 'onSubmit',
-            statements: `
-if (this.form.invalid) { return; }
-const finalPayload = ${payload};
-const action$ = this.isEditMode()
-  ? this.${serviceName}.${updateMethod}(this.id()!, finalPayload)
-  : this.${serviceName}.${createMethod}(finalPayload);
-action$.subscribe(() => this.onCancel());
-    `});
-
-        formClass.addMethod({ name: 'onCancel', statements: `this.router.navigate(['..'], { relativeTo: this.route });` });
-
-        if(formControls.some(fc => fc.controlType === 'file')) {
-            formClass.addMethod({ name: 'onFileSelected', parameters: [{name: 'event', type: 'Event'}, {name: 'formControlName', type: 'string'}], statements: `
-            const file = (event.target as HTMLInputElement).files?.[0];
-            if (file) this.form.patchValue({ [formControlName]: file });
-        `});
+        // 3. Handle arrays by creating an empty FormArray.
+        // The array will be populated dynamically by other helper methods.
+        if (schema.type === 'array') {
+            return `this.fb.array([]${validatorString})`;
         }
+
+        // 4. Handle primitives (string, number, boolean) by creating a FormControl.
+        // Prioritize the schema's 'default' value if it exists.
+        const defaultValue = schema.default !== undefined ? JSON.stringify(schema.default) : defaultValueExpr;
+        return `this.fb.control(${defaultValue}${validatorString})`;
     }
 
-    private addPolymorphismTypeGuards(sourceFile: SourceFile, oneOfSchemas: SwaggerDefinition[], baseModelName: string) {
-        oneOfSchemas.forEach(schema => {
-            const discriminatorValue = (schema.properties?.petType as SwaggerDefinition)?.enum?.[0] as string;
-            // Infer the specific model name from the discriminator value, e.g., 'cat' -> 'Cat'
-            const modelName = pascalCase(discriminatorValue);
-            sourceFile.addFunction({
-                name: `is${modelName}`,
-                isExported: false,
-                parameters: [{ name: 'pet', type: `models.Pet` }],
-                returnType: `pet is models.${modelName}`,
-                statements: `return (pet as models.${modelName}).petType === '${discriminatorValue}';`
+    /**
+     * Generates helper methods (`get <name>Array()`, `add<Name>()`, etc.) for each `FormArray` in the form.
+     * @param classDeclaration The ts-morph ClassDeclaration node.
+     * @param resource The resource definition.
+     */
+    private addFormArrayHelpers(classDeclaration: ClassDeclaration, resource: Resource): void {
+        const formArrayProps = resource.formProperties.filter(p => p.schema.type === 'array' && (p.schema.items as SwaggerDefinition)?.properties);
+        formArrayProps.forEach(prop => {
+            const arrayName = prop.name;
+            const arrayGetterName = `${camelCase(arrayName)}Array`;
+            const singularPascal = pascalCase(singular(arrayName));
+
+            classDeclaration.addGetAccessor({ name: arrayGetterName, returnType: 'FormArray', statements: `return this.form.get('${arrayName}') as FormArray;` });
+
+            const createMethod = classDeclaration.addMethod({
+                name: `create${singularPascal}`,
+                isPrivate: true,
+                parameters: [{ name: 'item?', type: 'any /* Replace with actual item type */', initializer: '{}' }],
+                returnType: 'FormGroup'
             });
+            const itemSchema = (prop.schema.items as SwaggerDefinition).properties!;
+            createMethod.setBodyText(`return this.fb.group({\n` + Object.entries(itemSchema).map(([key, schema]) =>
+                `      '${key}': ${this.getFormControlString(schema, `item?.${key} ?? null`)}`
+            ).join(',\n') + `\n    });`);
+
+            classDeclaration.addMethod({ name: `add${singularPascal}`, statements: `this.${arrayGetterName}.push(this.create${singularPascal}());` });
+            classDeclaration.addMethod({ name: `remove${singularPascal}`, parameters: [{ name: 'index', type: 'number' }], statements: `this.${arrayGetterName}.removeAt(index);` });
         });
     }
 
-    private generateHtml(resource: Resource, formControls: FormControlInfo[], discriminator: any, oneOfSchemas: SwaggerDefinition[], filePath: string) {
-        let template = formTemplate; // Use imported template
+    /**
+     * Generates methods to handle polymorphism (dynamic sub-forms based on a discriminator property).
+     * @param classDeclaration The ts-morph ClassDeclaration node.
+     * @param prop The `FormProperty` that defines the `oneOf`/`discriminator`.
+     */
+    private addPolymorphismLogic(classDeclaration: ClassDeclaration, prop: FormProperty, resource: Resource) {
+        const dPropName = prop.schema.discriminator!.propertyName;
 
-        const controlsHtml = this.buildFormHtml(resource, formControls, discriminator, oneOfSchemas);
-
-        template = template.replace('{{formControlsHtml}}', controlsHtml)
-            .replace('{{modelName}}', resource.modelName)
-            .replace('{{formTitle}}', '{{ formTitle() }}');
-
-        this.project.getFileSystem().writeFileSync(filePath, template);
+        // Use a modern Angular effect to react to changes in the discriminator property.
+        classDeclaration.addConstructor({
+            statements: writer => writer.write(`effect(() => {
+    const type = this.form.get(this.discriminatorPropName)?.value;
+    if (type) {
+        this.updateFormForPetType(type);
     }
+});`)
+        });
 
-    private buildFormHtml(resource: Resource, controls: FormControlInfo[], discriminator: any, oneOfSchemas: SwaggerDefinition[]): string {
-        return controls.map(fc => {
-            if (fc.controlType === 'group' && fc.nestedProperties) {
-                const innerHtml = this.buildFormHtml(resource, fc.nestedProperties, null, []);
-                return `<div formGroupName="${fc.name}" class="admin-form-group"><h3>${fc.label}</h3>${innerHtml}</div>`;
-            }
+        // This method dynamically adds/removes the appropriate sub-form group.
+        const updateMethod = classDeclaration.addMethod({
+            name: 'updateFormForPetType',
+            isPrivate: true,
+            parameters: [{ name: 'type', type: 'string' }]
+        });
 
-            if (fc.controlType === 'array') {
-                if (fc.arrayItemInfo?.nestedProperties) {
-                    const arrayItemHtml = this.buildFormHtml(resource, fc.arrayItemInfo.nestedProperties, null, []);
-                    const arrayName = camelCase(fc.name);
-                    const arrayPascal = pascalCase(fc.name);
-                    return `<div formArrayName="${fc.name}" class="admin-form-array">
-                <h3>${fc.label}</h3>
-                @if (form.get('${fc.name}')?.hasError('minlength')) { <mat-error>Must have at least ${fc.attributes?.minLength} items.</mat-error> }
-                @if (form.get('${fc.name}')?.hasError('uniqueItems')) { <mat-error>All items must be unique.</mat-error> }
-                @for (item of ${arrayName}Array.controls; track $index; let i = $index) {
-                    <div [formGroupName]="i" class="admin-form-array-item">${arrayItemHtml}<button mat-icon-button type="button" (click)="remove${arrayPascal}ArrayItem(i)"><mat-icon>delete</mat-icon></button></div>
-                }
-                <button mat-stroked-button type="button" (click)="add${arrayPascal}ArrayItem()">Add ${singular(fc.label)}</button>
-            </div>`;
-                } else {
-                    return `<div>
-            <div formArrayName="${fc.name}">
-              <!-- Simplified view for primitive arrays; full control would be more complex -->
-            </div>
-            @if (form.get('${fc.name}')?.hasError('uniqueItems')) {
-                <mat-error>All items must be unique.</mat-error>
-            }
-            @if (form.get('${fc.name}')?.hasError('minlength')) {
-                <mat-error>Must have at least ${fc.attributes?.minLength} items.</mat-error>
-            }
-        </div>`;
-                }
-            }
+        // This is the CRITICAL FIX. The switch statement was not being built correctly.
+        let switchBody = `this.discriminatorOptions.forEach(opt => this.form.removeControl(opt));\n\nswitch(type) {\n`;
+        for (const subSchemaRef of prop.schema.oneOf!) {
+            const subSchema = subSchemaRef.$ref ? this.parser.resolveReference(subSchemaRef.$ref)! : subSchemaRef;
+            if (!subSchema) continue;
 
-            if (discriminator && fc.name === discriminator.propertyName) {
-                const polyHtml = oneOfSchemas.map(schema => {
-                    const typeName = schema.properties![discriminator.propertyName].enum![0];
-                    const subControls = Object.keys(schema.properties!).filter(p => !resource.formProperties.some(fp => fp.name === p))
-                        .map(pName => mapSchemaToFormControl(pName, schema.properties![pName]))
-                        .filter(c => c) as FormControlInfo[];
+            const typeName = subSchema.properties![dPropName].enum![0] as string;
 
-                    return `@if (isPetType('${typeName}')) { <div formGroupName="${typeName}">${this.buildFormHtml(resource, subControls, null, [])}</div> }`;
-                }).join('\n');
-                return this.getSimpleControlHtml(fc) + '\n' + polyHtml;
-            }
+            // Filter out the discriminator property itself from the sub-form.
+            const subFormProperties = Object.entries(subSchema.properties!)
+                .filter(([key]) => key !== dPropName)
+                .map(([key, schema]) => `'${key}': ${this.getFormControlString(schema)}`).join(', ');
 
-            return this.getSimpleControlHtml(fc);
-        }).join('\n\n');
-    }
-
-    private getSimpleControlHtml(fc: FormControlInfo): string {
-        let template = controlTemplates[fc.controlType] || inputTemplate;
-
-        template = template.replace(/{{propertyName}}/g, fc.name)
-            .replace(/{{label}}/g, fc.label)
-            .replace(/{{inputType}}/g, fc.inputType ?? 'text');
-
-        if (fc.options) {
-            template = template.replace(/{{enumName}}/g, fc.options.enumName!)
-                .replace(/{{multiple}}/g, fc.options.multiple ? ' multiple' : '');
+            switchBody += `  case '${typeName}':\n`;
+            // Add the sub-form as a nested FormGroup with the type's name (e.g., 'cat', 'dog').
+            switchBody += `    this.form.addControl('${typeName}', this.fb.group({ ${subFormProperties} }));\n`;
+            switchBody += '    break;\n';
         }
+        switchBody += '}';
+        updateMethod.setBodyText(switchBody);
 
-        if (fc.attributes) {
-            template = template.replace(/{{minLength}}/g, String(fc.attributes.minLength))
-                .replace(/{{maxLength}}/g, String(fc.attributes.maxLength))
-                .replace(/{{min}}/g, String(fc.attributes.min))
-                .replace(/{{max}}/g, String(fc.attributes.max));
+        // This helper is used in the HTML template to show/hide the correct sub-form.
+        classDeclaration.addMethod({
+            name: 'isPetType',
+            parameters: [{ name: 'type', type: 'string' }],
+            returnType: 'boolean',
+            statements: `return this.form.get(this.discriminatorPropName)?.value === type;`
+        });
+
+        // These type guards are used in 'patchForm' to safely access sub-schema properties.
+        for (const subSchemaRef of prop.schema.oneOf!) {
+            if (!subSchemaRef.$ref) continue;
+            const subSchemaName = pascalCase(subSchemaRef.$ref!.split('/').pop()!);
+            const typeName = this.parser.resolveReference(subSchemaRef.$ref!)!.properties![dPropName].enum![0] as string;
+            classDeclaration.addMethod({
+                name: `is${subSchemaName}`,
+                isPrivate: true,
+                parameters: [{ name: 'entity', type: resource.modelName }],
+                returnType: `entity is ${subSchemaName}`,
+                statements: `return (entity as any).${dPropName} === '${typeName}';`
+            });
         }
-
-        return template;
     }
 
-    private generateScss(filePath: string) {
-        this.project.getFileSystem().writeFileSync(filePath, `
-:host { display: block; }
-.admin-form-container { max-width: 800px; margin: 24px auto; padding: 24px; }
-.admin-form-fields { display: flex; flex-direction: column; gap: 8px; }
-.admin-form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
-.admin-toggle-group, .admin-radio-group { margin: 16px 0; display: flex; flex-direction: column; gap: 8px; }
-.admin-radio-group .mat-radio-button { margin-right: 16px; }
-.admin-form-group, .admin-form-array { border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px; margin: 16px 0; }
-.admin-form-array-item { display: flex; align-items: flex-start; gap: 8px; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 8px; }
-.admin-form-array-item > *:not(button) { flex-grow: 1; }
-        `);
+    /**
+     * Generates a `getPayload` method that correctly reconstructs the data object for submission
+     * when using polymorphic forms.
+     * @param classDeclaration The ts-morph ClassDeclaration node.
+     * @param prop The `FormProperty` that defines the `oneOf`/`discriminator`.
+     */
+    private addGetPayload(classDeclaration: ClassDeclaration, prop: FormProperty) {
+        const dPropName = prop.schema.discriminator!.propertyName;
+        const body = `const baseValue = this.form.getRawValue();\nconst petType = baseValue.${dPropName};\nif (!petType) return baseValue;\n\nconst subFormValue = this.form.get(petType)?.value || {};\nconst payload = { ...baseValue, ...subFormValue };\nthis.discriminatorOptions.forEach(opt => delete payload[opt]);\nreturn payload;`;
+        classDeclaration.addMethod({ name: 'getPayload', isPrivate: true, statements: body });
+    }
+
+    /**
+     * Generates the `onFileSelected` method for handling file inputs.
+     * @param classDeclaration The ts-morph ClassDeclaration node.
+     */
+    private addFileHandling(classDeclaration: ClassDeclaration) {
+        classDeclaration.addMethod({
+            name: 'onFileSelected',
+            parameters: [{ name: 'event', type: 'Event' }, { name: 'formControlName', type: 'string' }],
+            statements: `const file = (event.target as HTMLInputElement).files?.[0];\nif (file) {\n    this.form.patchValue({ [formControlName]: file });\n    this.form.get(formControlName)?.markAsDirty();\n}`
+        });
     }
 }

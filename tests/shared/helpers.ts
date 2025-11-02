@@ -1,22 +1,13 @@
-/**
- * @fileoverview
- * This file contains shared helper functions for the admin UI integration tests.
- */
-
 import { Project, IndentationText, ScriptTarget, ModuleKind } from 'ts-morph';
 import { generateFromConfig } from '../../src/index.js';
 import { GeneratorConfig } from '../../src/core/types.js';
 
 /**
- * A centralized helper function to run the generator for admin UI tests.
- * It sets up a standard in-memory project, runs the generator with a given spec,
- * and returns the entire `Project` instance for inspection.
- *
- * @param specString The OpenAPI specification as a JSON string.
- * @returns A promise that resolves to the `Project` instance containing all generated files.
+ * Creates a standard ts-morph project instance for use in tests.
+ * @returns A pre-configured Project instance with an in-memory file system.
  */
-export async function generateAdminUI(specString: string): Promise<Project> {
-    const project = new Project({
+export function createTestProject(): Project {
+    return new Project({
         useInMemoryFileSystem: true,
         manipulationSettings: { indentationText: IndentationText.TwoSpaces },
         compilerOptions: {
@@ -30,6 +21,16 @@ export async function generateAdminUI(specString: string): Promise<Project> {
             resolveJsonModule: true
         }
     });
+}
+
+/**
+ * A centralized helper to run the full generator pipeline for tests.
+ * @param spec The OpenAPI specification as a JavaScript object.
+ * @param genConfig Optional overrides for the standard generator config.
+ * @returns A promise that resolves to the `Project` instance containing all generated files.
+ */
+export async function runGenerator(spec: object, genConfig?: Partial<GeneratorConfig>): Promise<Project> {
+    const project = createTestProject();
 
     const config: GeneratorConfig = {
         input: '/spec.json',
@@ -38,13 +39,12 @@ export async function generateAdminUI(specString: string): Promise<Project> {
             dateType: 'string',
             enumStyle: 'enum',
             generateServices: true,
-            admin: true
-        }
+            admin: false
+        },
+        ...genConfig
     };
 
-    const specObject = JSON.parse(specString);
-
-    await generateFromConfig(config, project, { spec: specObject });
+    await generateFromConfig(config, project, { spec });
 
     return project;
 }

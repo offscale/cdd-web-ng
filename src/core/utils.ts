@@ -1,3 +1,5 @@
+// src/core/utils.ts
+
 /**
  * @fileoverview
  * This file contains core utility functions used throughout the OpenAPI Angular generator.
@@ -29,10 +31,17 @@ export function extractPaths(swaggerPaths: { [p: string]: Path } = {}): PathInfo
     const methods = ["get", "post", "put", "patch", "delete", "options", "head"];
 
     for (const [path, pathItem] of Object.entries(swaggerPaths)) {
+        const pathParameters = (pathItem.parameters as SwaggerOfficialParameter[]) || [];
+
         for (const method of methods) {
             const operation = pathItem[method as keyof Path] as Operation;
             if (operation) {
-                const allParams = (operation.parameters as SwaggerOfficialParameter[] || []);
+                // Merge and de-duplicate parameters (operation-level overrides path-level by name and "in")
+                const paramsMap = new Map<string, SwaggerOfficialParameter>();
+                pathParameters.forEach(p => paramsMap.set(`${p.name}:${p.in}`, p));
+                (operation.parameters as SwaggerOfficialParameter[] || []).forEach(p => paramsMap.set(`${p.name}:${p.in}`, p));
+
+                const allParams = Array.from(paramsMap.values());
 
                 const nonBodyParams = allParams.filter(p => p.in !== 'body');
                 const bodyParam = allParams.find(p => p.in === 'body');

@@ -71,10 +71,17 @@ export class ListComponentGenerator {
 
         const idProp = resource.formProperties.find(p => p.name.toLowerCase() === 'id') ?? resource.formProperties[0];
 
+        // **FIX:** Conditionally add 'actions' column
+        const columnNames = resource.formProperties.map(p => `'${p.name}'`);
+        const hasActions = resource.isEditable || customItemOps.length > 0;
+        if (hasActions) {
+            columnNames.push("'actions'");
+        }
+
         component.addProperties([
             { name: 'router', scope: Scope.Private, isReadonly: true, initializer: 'inject(Router)' },
             { name: 'route', scope: Scope.Private, isReadonly: true, initializer: 'inject(ActivatedRoute)' },
-            { name: 'displayedColumns', type: 'string[]', initializer: `[${resource.formProperties.map(p => `'${p.name}'`).join(', ')}, 'actions']` },
+            { name: 'displayedColumns', type: 'string[]', initializer: `[${columnNames.join(', ')}]` },
             { name: `paginator = viewChild.required(MatPaginator)` },
             { name: `sorter = viewChild.required(MatSort)` },
             { name: `isLoading = signal(true)` },
@@ -126,14 +133,12 @@ export class ListComponentGenerator {
         if (resource.isEditable) {
             component.addMethods([
                 { name: 'onCreate', statements: `this.router.navigate(['new'], { relativeTo: this.route });` },
-                // FIX: Pass the correct property 'id' to the method. The 'id' parameter is what the router link uses.
-                { name: 'onEdit', parameters: [{name: 'id', type: 'string | number'}], statements: `this.router.navigate([':id/edit', id], { relativeTo: this.route });` },
+                { name: 'onEdit', parameters: [{name: 'id', type: 'string | number'}], statements: `this.router.navigate([id, 'edit'], { relativeTo: this.route });` },
             ]);
             if (deleteOp?.methodName) {
                 component.addMethod({
                     name: `deleteItem`,
                     parameters: [{ name: 'id', 'type': 'string | number' }],
-                    // FIX: The 'id' parameter is passed directly to the service call.
                     statements: `this.${serviceName}.${deleteOp.methodName}(id).subscribe(() => this.refresh());`
                 });
             }
@@ -158,11 +163,11 @@ export class ListComponentGenerator {
         const idProp = resource.formProperties.find(p => p.name.toLowerCase() === 'id') ?? resource.formProperties[0];
         const customItemOps = resource.operations.filter(op => !CRUD_ACTIONS.has(op.action) && op.path.includes('{'));
         const customCollectionOps = resource.operations.filter(op => !CRUD_ACTIONS.has(op.action) && !op.path.includes('{'));
+        const hasActions = resource.isEditable || customItemOps.length > 0;
 
         const container = _.create('div').addClass('admin-list-container');
         container.appendChild(_.create('h1').setTextContent(pascalCase(resource.name)));
 
-        // Main action buttons container
         const mainActions = _.create('div').addClass('admin-list-actions');
         if (resource.isEditable) {
             mainActions.appendChild(
@@ -185,13 +190,11 @@ export class ListComponentGenerator {
         });
         container.appendChild(mainActions);
 
-        // Progress Bar
         container.appendChild(_.create('div').setInnerHtml('@if (isLoading()) {\n  <mat-progress-bar mode="indeterminate"></mat-progress-bar>\n}'));
 
         const tableContainer = _.create('div').addClass('mat-elevation-z8');
         const table = _.create('table').setAttribute('mat-table', '').setAttribute('[dataSource]', 'dataSource()').setAttribute('matSort', '');
 
-        // Column Definitions
         resource.formProperties.forEach(prop => {
             const colContainer = _.create('ng-container').setAttribute('matColumnDef', prop.name);
             colContainer.appendChild(_.create('th').setAttribute('mat-header-cell', '').setAttribute('*matHeaderCellDef', '').setAttribute('mat-sort-header', '').setTextContent(pascalCase(prop.name)));
@@ -199,30 +202,30 @@ export class ListComponentGenerator {
             table.appendChild(colContainer);
         });
 
-        // Actions Column
-        const actionsCol = _.create('ng-container').setAttribute('matColumnDef', 'actions');
-        actionsCol.appendChild(_.create('th').setAttribute('mat-header-cell', '').setAttribute('*matHeaderCellDef', ''));
-        const actionsCell = _.create('td').setAttribute('mat-cell', '').setAttribute('*matCellDef', 'let row').addClass('admin-table-actions');
+        // **FIX:** Conditionally generate actions column
+        if (hasActions) {
+            const actionsCol = _.create('ng-container').setAttribute('matColumnDef', 'actions');
+            actionsCol.appendChild(_.create('th').setAttribute('mat-header-cell', '').setAttribute('*matHeaderCellDef', ''));
+            const actionsCell = _.create('td').setAttribute('mat-cell', '').setAttribute('*matCellDef', 'let row').addClass('admin-table-actions');
 
-        let actionsContent = '';
-        if (resource.isEditable) {
-            // FIX: Consistently use idProp.name for all row actions
-            actionsContent += `<button mat-icon-button (click)="onEdit(row.${idProp.name})"><mat-icon>edit</mat-icon></button>\n`;
-            if (resource.operations.some(op => op.action === 'delete')) {
-                actionsContent += `<button mat-icon-button color="warn" (click)="deleteItem(row.${idProp.name})"><mat-icon>delete</mat-icon></button>\n`;
+            let actionsContent = '';
+            if (resource.isEditable) {
+                actionsContent += `<button mat-icon-button (click)="onEdit(row.${idProp.name})"><mat-icon>edit</mat-icon></button>\n`;
+                if (resource.operations.some(op => op.action === 'delete')) {
+                    actionsContent += `<button mat-icon-button color="warn" (click)="deleteItem(row.${idProp.name})"><mat-icon>delete</mat-icon></button>\n`;
+                }
             }
+            customItemOps.forEach(op => {
+                if (op.methodName) {
+                    const icon = op.methodName.toLowerCase().includes('reboot') ? 'refresh' : 'play_arrow';
+                    actionsContent += `<button mat-icon-button (click)="${op.methodName}(row.${idProp.name})"><mat-icon>${icon}</mat-icon></button>\n`;
+                }
+            });
+
+            actionsCell.setInnerHtml(`@if (true) { ${actionsContent} }`);
+            actionsCol.appendChild(actionsCell);
+            table.appendChild(actionsCol);
         }
-        customItemOps.forEach(op => {
-            if (op.methodName) {
-                const icon = op.methodName.toLowerCase().includes('reboot') ? 'refresh' : 'play_arrow';
-                // FIX: Consistently use idProp.name here too
-                actionsContent += `<button mat-icon-button (click)="${op.methodName}(row.${idProp.name})"><mat-icon>${icon}</mat-icon></button>\n`;
-            }
-        });
-
-        actionsCell.setInnerHtml(`@if (true) { ${actionsContent} }`);
-        actionsCol.appendChild(actionsCell);
-        table.appendChild(actionsCol);
 
         table.appendChild(_.create('tr').setAttribute('mat-header-row', '').setAttribute('*matHeaderRowDef', 'displayedColumns'));
         table.appendChild(_.create('tr').setAttribute('mat-row', '').setAttribute('*matRowDef', 'let row; columns: displayedColumns;'));

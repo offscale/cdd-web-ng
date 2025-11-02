@@ -4,7 +4,7 @@ import { Project, ClassDeclaration, Scope, SourceFile } from 'ts-morph';
 import * as path from 'path';
 import { SwaggerParser } from '../../../core/parser.js';
 import { GeneratorConfig, PathInfo } from '../../../core/types.js';
-import { camelCase, pascalCase, getBasePathTokenName, getClientContextTokenName, hasDuplicateFunctionNames } from '../../../core/utils.js';
+import { camelCase, pascalCase, getBasePathTokenName, getClientContextTokenName, isDataTypeInterface, getTypeScriptType } from '../../../core/utils.js';
 import { SERVICE_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
 import { ServiceMethodGenerator } from './service-method.generator.js';
 
@@ -32,7 +32,31 @@ export class ServiceGenerator {
         sourceFile.addStatements(SERVICE_GENERATOR_HEADER_COMMENT);
         const className = `${pascalCase(controllerName)}Service`;
 
-        this.addImports(sourceFile);
+        const modelImports = new Set<string>(['RequestOptions']);
+        for (const op of operations) {
+            const resSchema = op.responses?.['200']?.content?.['application/json']?.schema;
+            const responseType = getTypeScriptType(resSchema as any, this.config).replace(/\[\]| \| null/g, '');
+            if (isDataTypeInterface(responseType)) {
+                modelImports.add(responseType);
+            }
+
+            (op.parameters ?? []).forEach(param => {
+                const schemaObject = param.schema ? param.schema : param;
+                const paramType = getTypeScriptType(schemaObject as any, this.config).replace(/\[\]| \| null/g, '');
+                if (isDataTypeInterface(paramType)) {
+                    modelImports.add(paramType);
+                }
+            });
+            const reqBodySchema = op.requestBody?.content?.['application/json']?.schema;
+            if (reqBodySchema) {
+                const bodyType = getTypeScriptType(reqBodySchema as any, this.config).replace(/\[\]| \| null/g, '');
+                if (isDataTypeInterface(bodyType)) {
+                    modelImports.add(bodyType);
+                }
+            }
+        }
+
+        this.addImports(sourceFile, modelImports);
         const serviceClass = this.addClass(sourceFile, className);
 
         this.addPropertiesAndHelpers(serviceClass);
@@ -64,23 +88,14 @@ export class ServiceGenerator {
 
             this.methodGenerator.addServiceMethod(serviceClass, op);
         });
-
-        // REMOVED: This check was likely causing false positives. The `usedMethodNames`
-        // Set is a more reliable mechanism for ensuring uniqueness before generation.
-        // const implementationMethods = serviceClass.getMethods().filter(m => !m.isOverload());
-        // if (hasDuplicateFunctionNames(implementationMethods)) {
-        //     throw new Error(...);
-        // }
-
-        sourceFile.fixMissingImports({ importModuleSpecifierPreference: 'relative' });
     }
 
-    private addImports(sourceFile: SourceFile) {
+    private addImports(sourceFile: SourceFile, modelImports: Set<string>) {
         sourceFile.addImportDeclarations([
             { moduleSpecifier: '@angular/core', namedImports: ['Injectable', 'inject'] },
             { moduleSpecifier: '@angular/common/http', namedImports: ['HttpClient', 'HttpContext', 'HttpParams', 'HttpResponse', 'HttpEvent', 'HttpHeaders', 'HttpContextToken'] },
             { moduleSpecifier: 'rxjs', namedImports: ['Observable'] },
-            { moduleSpecifier: `../models`, namedImports: ['RequestOptions'], isTypeOnly: true },
+            { moduleSpecifier: `../models`, namedImports: Array.from(modelImports) },
             { moduleSpecifier: `../tokens`, namedImports: [getBasePathTokenName(this.config.clientName), getClientContextTokenName(this.config.clientName)] },
             { moduleSpecifier: `../utils/http-params-builder`, namedImports: ['HttpParamsBuilder'] },
         ]);

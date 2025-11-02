@@ -1,50 +1,47 @@
-import { pascalCase, PathInfo, extractPaths } from '../core/utils.js';
+// src/service/parse.ts
+
 import { SwaggerParser } from '../core/parser.js';
+import { pascalCase } from '../core/utils.js';
+import { PathInfo } from '../core/types.js';
+import { extractPaths } from '../core/utils.js';
 
 /**
- * Extracts a controller/group name from a PathInfo object.
- * The logic is:
- * 1. Use the first tag if available.
- * 2. Fall back to the first non-parameter segment of the URL path.
- * 3. Default to "Default" for root paths or paths with no usable segments.
- * @param path The PathInfo object for a single API operation.
- * @returns The determined controller name, in PascalCase.
+ * Derives a controller name from an operation (PathInfo).
+ * This logic prefers the first tag, falls back to the first path segment,
+ * and finally defaults to "Default".
  */
-function getControllerName(path: PathInfo): string {
-    if (path.tags && path.tags.length > 0) {
-        return pascalCase(path.tags[0]);
+function getControllerName(operation: PathInfo): string {
+    if (Array.isArray(operation.tags) && typeof operation.tags[0] === 'string' && operation.tags[0]) {
+        return pascalCase(operation.tags[0]);
     }
 
-    const pathParts = path.path.split('/').filter(p => p && !p.startsWith('{'));
-    if (pathParts.length > 0) {
-        return pascalCase(pathParts[0]);
+    const pathSegment = operation.path.split('/').filter(p => p && !p.startsWith('{'))[0];
+    if (pathSegment) {
+        return pascalCase(pathSegment);
     }
 
     return 'Default';
 }
 
 /**
- * Parses the OpenAPI specification and groups API paths by their controller tag or path structure.
- * This refactored version uses a more efficient and readable `reduce` pattern.
+ * Groups all discovered API operations by their controller name.
+ * The controller name is derived from the operation's tag or path.
+ * This function now uses the centralized `extractPaths` utility.
  *
- * @param parser An instance of the SwaggerParser containing the loaded spec.
- * @returns A record where keys are controller names (e.g., "Users") and values are arrays
- *          of PathInfo objects belonging to that controller.
+ * @param parser The SwaggerParser instance containing the loaded spec.
+ * @returns A record where keys are controller names and values are arrays of operations.
  */
 export function groupPathsByController(parser: SwaggerParser): Record<string, PathInfo[]> {
-    // 1. Use the central extractPaths utility to get a clean, normalized list of all operations.
     const allOperations = extractPaths(parser.getSpec().paths);
+    const groups: Record<string, PathInfo[]> = {};
 
-    // 2. Use `reduce` to efficiently group the operations into a structured record.
-    return allOperations.reduce((groups, operation) => {
+    for (const operation of allOperations) {
         const controllerName = getControllerName(operation);
-
-        // 3. Initialize the group if it doesn't exist, then add the current operation.
         if (!groups[controllerName]) {
             groups[controllerName] = [];
         }
         groups[controllerName].push(operation);
+    }
 
-        return groups;
-    }, {} as Record<string, PathInfo[]>);
+    return groups;
 }

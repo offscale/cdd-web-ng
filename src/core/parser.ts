@@ -1,3 +1,5 @@
+// src/core/parser.ts
+
 /**
  * @fileoverview
  * This file contains the SwaggerParser class, the central component responsible for loading,
@@ -107,6 +109,42 @@ export class SwaggerParser {
      */
     getSecuritySchemes(): Record<string, SecurityScheme> {
         return (this.spec.components?.securitySchemes || this.spec.securityDefinitions || {}) as Record<string, SecurityScheme>;
+    }
+
+    /**
+     * Resolves an object if it's a reference ($ref), otherwise returns the object itself.
+     * This is a generic resolver for any part of the spec that might use $ref.
+     *
+     * @template T The expected type of the resolved object.
+     * @param obj The object to resolve, which could be a direct object or a reference object.
+     * @returns The resolved object, or the original object if it wasn't a reference.
+     *          Returns undefined if the reference is invalid or cannot be resolved.
+     */
+    resolve<T>(obj: T | { $ref: string }): T | undefined {
+        if (obj && typeof obj === 'object' && '$ref' in obj && typeof obj.$ref === 'string') {
+            const ref = obj.$ref;
+            if (!ref.startsWith('#/')) {
+                console.warn(`[Parser] Unsupported external or non-root reference: ${ref}`);
+                return undefined;
+            }
+
+            // Turn '#/components/schemas/User' into ['components', 'schemas', 'User']
+            const parts = ref.substring(2).split('/');
+            let current: any = this.spec;
+
+            for (const part of parts) {
+                // Check if current is a valid object and has the next part as a key
+                if (typeof current === 'object' && current !== null && Object.prototype.hasOwnProperty.call(current, part)) {
+                    current = current[part];
+                } else {
+                    console.warn(`[Parser] Failed to resolve reference part "${part}" in path "${ref}"`);
+                    return undefined; // Path does not exist in the spec
+                }
+            }
+            return current as T;
+        }
+        // Not a reference object, return it as is.
+        return obj as T;
     }
 
     /**

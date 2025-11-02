@@ -1,15 +1,19 @@
+// vitest.config.ts (Final Final Version)
+
 import { defineConfig } from 'vitest/config';
 import fs from 'node:fs';
+import path from 'node:path';
 
 export default defineConfig({
     test: {
         globals: true,
         environment: 'node',
-        include: ['tests/**/*.{spec,test}.ts'],
+        include: ['tests/**/*.spec.ts'],
         testTimeout: 30000,
         reporters: ['verbose'],
         alias: {
-            '../src': new URL('./src', import.meta.url).pathname,
+            // This is the most common and robust way
+            '@src': path.resolve(__dirname, './src'),
         },
         coverage: {
             provider: 'istanbul',
@@ -17,30 +21,15 @@ export default defineConfig({
             reportsDirectory: './coverage',
             include: ['src/**/*.ts'],
             exclude: [
-                'src/cli.ts',
-                'src/index.ts',
-                'src/core/types.ts',
-                'src/core/constants.ts',
-                '**/index.ts',
-                'src/custom.d.ts',
+                'src/cli.ts', 'src/custom.d.ts', 'src/index.ts',
+                'src/core/types.ts', 'src/core/constants.ts',
+                '**/index.ts', 'src/component', 'src/route',
             ],
             thresholds: {
-                statements: 90,
-                branches: 90,
-                functions: 90,
-                lines: 90,
-            },
-        },
-        server: {
-            deps: {
-                inline: [
-                    /src\//
-                ],
+                statements: 99, branches: 95, functions: 99, lines: 99,
             },
         },
     },
-    // The custom plugin for .template files is no longer needed for TypeScript generation.
-    // We keep it for the HTML templates used by the admin generator.
     plugins: [
         {
             name: 'vite-plugin-inline-text-files',

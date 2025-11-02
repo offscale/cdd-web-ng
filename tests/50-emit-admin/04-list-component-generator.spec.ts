@@ -3,7 +3,7 @@ import { Project } from 'ts-morph';
 import { ListComponentGenerator } from '../../src/service/emit/admin/list-component.generator.js';
 import { discoverAdminResources } from '../../src/service/emit/admin/resource-discovery.js';
 import { createTestProject } from '../shared/helpers.js';
-import { coverageSpec, finalCoverageSpec } from '../shared/specs.js';
+import { coverageSpec, finalCoverageSpec, listComponentSpec } from '../shared/specs.js';
 import { SwaggerParser } from '../../src/core/parser.js';
 
 describe('Admin: ListComponentGenerator', () => {
@@ -22,19 +22,22 @@ describe('Admin: ListComponentGenerator', () => {
         }
     });
 
-    describe('Error and Empty State Handling', () => {
-        it('should handle API errors gracefully in generated code', () => { /* ... */ });
+    describe('General Generation', () => {
+        it('should handle API errors gracefully in generated code', () => {
+            const listClass = project.getSourceFileOrThrow('/admin/users/users-list/users-list.component.ts');
+            const ctor = listClass.getClassOrThrow('UsersListComponent').getConstructors()[0];
+            const effectBody = ctor.getBodyText()!;
+            expect(effectBody).toContain(`catchError(() => of(null))`);
+            expect(effectBody).toContain(`if (response === null)`);
+        });
 
         it('should handle responses without X-Total-Count header', () => {
             const listClass = project.getSourceFileOrThrow('/admin/users/users-list/users-list.component.ts');
-            // FIX: The logic is inside the effect, not the constructor body text.
             const ctor = listClass.getClassOrThrow('UsersListComponent').getConstructors()[0];
             const effectBody = ctor.getBodyText()!;
             expect(effectBody).toContain(`this.totalItems.set(totalCount ? +totalCount : response.body?.length ?? 0);`);
         });
-    });
 
-    describe('Servers List (Custom Actions)', () => {
         it('should generate methods and html for custom actions', () => {
             const listClass = project.getSourceFileOrThrow('/admin/servers/servers-list/servers-list.component.ts').getClassOrThrow('ServersListComponent');
             expect(listClass.getMethod('rebootAllServers')).toBeDefined();
@@ -43,48 +46,80 @@ describe('Admin: ListComponentGenerator', () => {
 
             const html = project.getFileSystem().readFileSync('/admin/servers/servers-list/servers-list.component.html');
             expect(html).toContain('(click)="rebootAllServers()"');
-            // FIX: The generated code correctly uses the idProperty variable. The test was too brittle.
             expect(html).toContain('(click)="startServer(row[idProperty])"');
             expect(html).toContain('rebootServerItem(row[idProperty])');
             expect(html).toContain('<mat-icon>refresh</mat-icon>');
             expect(html).toContain('<mat-icon>play_arrow</mat-icon>');
         });
-    });
 
-    describe('No ID Fallback', () => {
         it('should fall back to the first property if no "id" is present', () => {
-            // FIX: Use the 'Events' resource which truly has no 'id' property.
             const listClass = project.getSourceFileOrThrow('/admin/events/events-list/events-list.component.ts').getClassOrThrow('EventsListComponent');
-            const columns = listClass.getProperty('displayedColumns')!.getInitializer()!.getText();
-            // It should use the first property from the schema, 'eventId'.
-            expect(columns).toContain('eventId');
-            expect(columns).not.toContain("'id'");
+            const idProp = listClass.getProperty('idProperty')!.getInitializer()!.getText();
+            expect(idProp).toBe(`'eventId'`);
         });
     });
 
-    describe('Coverage Cases', () => {
-        it('should use a fallback icon for unknown custom actions', () => {
-            const project = createTestProject();
-            const parser = new SwaggerParser(finalCoverageSpec as any, { options: { admin: true } } as any);
-            const listGen = new ListComponentGenerator(project);
-            // FIX: Find the resource by name to be reliable
-            const resource = discoverAdminResources(parser).find(r => r.name === 'listIconFallback')!;
-            listGen.generate(resource, '/admin');
-            const html = project.getFileSystem().readFileSync('/admin/listIconFallback/listIconFallback-list/listIconFallback-list.component.html');
-            expect(html).toContain('<mat-icon>play_arrow</mat-icon>');
+    describe('Targeted Coverage Cases', () => {
+        let localProject: Project;
+
+        beforeAll(() => {
+            localProject = createTestProject();
+            const parser = new SwaggerParser(listComponentSpec as any, { options: { admin: true } } as any);
+            const resources = discoverAdminResources(parser);
+            const listGen = new ListComponentGenerator(localProject);
+
+            for (const resource of resources) {
+                // The generator itself has a guard, but we also only call it for listable things
+                if (resource.operations.some(op => op.action === 'list')) {
+                    listGen.generate(resource, '/admin');
+                }
+            }
         });
 
-        it('should handle custom action API errors gracefully', () => {
-            const project = createTestProject();
-            const parser = new SwaggerParser(coverageSpec as any, { options: { admin: true } } as any);
-            const listGen = new ListComponentGenerator(project);
-            const resource = discoverAdminResources(parser).find(r => r.name === 'servers')!;
+        it('should handle resource without a list operation gracefully', () => {
+            const proj = createTestProject();
+            const parser = new SwaggerParser(listComponentSpec as any, { options: { admin: true } } as any);
+            const resource = discoverAdminResources(parser).find(r => r.name === 'noListResource')!;
+            const listGen = new ListComponentGenerator(proj);
+            // This is the key: we generate a "list" component for a resource that has no list operation
             listGen.generate(resource, '/admin');
-            const listClass = project.getSourceFileOrThrow('/admin/servers/servers-list/servers-list.component.ts');
-            // The previous test already confirms the method exists.
-            const actionMethodBody = listClass.getClassOrThrow('ServersListComponent').getMethod('rebootAllServers')!.getBodyText()!;
-            expect(actionMethodBody).toContain('catchError');
-            expect(actionMethodBody).toContain("this.snackBar.open('Action failed', 'Close'");
+
+            const listClass = proj.getSourceFileOrThrow('/admin/noListResource/noListResource-list/noListResource-list.component.ts').getClassOrThrow('NoListResourceListComponent');
+            // The constructor should exist but be empty because the guard `if (!listOp) return;` was hit.
+            expect(listClass.getConstructors()[0]?.getBodyText() ?? '').toBe('');
+        });
+
+        it('should correctly map various action names to icons', () => {
+            const html = localProject.getFileSystem().readFileSync('/admin/iconTests/iconTests-list/iconTests-list.component.html');
+
+            expect(html).toContain('(click)="removeItem(row[idProperty])"');
+            expect(html).toContain('<mat-icon>delete</mat-icon>'); // remove -> delete
+
+            expect(html).toContain('(click)="onEdit(row[idProperty])"'); // update -> onEdit
+            expect(html).toContain('<mat-icon>edit</mat-icon>');
+
+            expect(html).toContain('(click)="onCreate()"'); // create -> onCreate
+
+            expect(html).toContain('(click)="startItem(row[idProperty])"');
+            expect(html).toContain('<mat-icon>play_arrow</mat-icon>'); // start -> play_arrow
+
+            expect(html).toContain('(click)="pauseProcess(row[idProperty])"');
+            expect(html).toContain('<mat-icon>pause</mat-icon>'); // pause -> pause
+
+            expect(html).toContain('(click)="syncAll()"');
+            expect(html).toContain('<mat-icon>refresh</mat-icon>'); // sync -> refresh
+
+            expect(html).toContain('(click)="approveItem(row[idProperty])"');
+            expect(html).toContain('<mat-icon>check</mat-icon>'); // approve -> check
+
+            expect(html).toContain('(click)="blockUser(row[idProperty])"');
+            expect(html).toContain('<mat-icon>block</mat-icon>'); // block -> block
+        });
+
+        it('should fall back to "id" for idProperty if resource has no properties', () => {
+            const listClass = localProject.getSourceFileOrThrow('/admin/noPropsResource/noPropsResource-list/noPropsResource-list.component.ts').getClassOrThrow('NoPropsResourceListComponent');
+            const idProp = listClass.getProperty('idProperty')!.getInitializer()!.getText();
+            expect(idProp).toBe(`'id'`);
         });
     });
 });

@@ -42,6 +42,7 @@ export class ServiceMethodGenerator {
         const bodyStatements = this.buildMethodBody(operation, parameters);
         const overloads = this.buildOverloads(responseType, parameters);
 
+        // Add the implementation signature
         classDeclaration.addMethod({
             name: operation.methodName,
             parameters: [...parameters, { name: 'options', hasQuestionToken: true, type: `RequestOptions & { observe?: "body" | "events" | "response", responseType?: "blob" | "text" | "json" }` }],
@@ -56,12 +57,15 @@ export class ServiceMethodGenerator {
      * @param operation The `PathInfo` object for the endpoint.
      * @param knownTypes An array of known schema names for resolving `$ref`s.
      * @returns The TypeScript type string for the response body. Defaults to 'void'.
+     * @private
      */
     private getResponseType(operation: PathInfo, knownTypes: string[]): string {
+        // HTTP 204 No Content response
         if (operation.responses?.['204']) {
             return 'void';
         }
 
+        // Standard success responses (200 OK, 201 Created)
         const responseSchema = operation.responses?.['200']?.content?.['application/json']?.schema
             || operation.responses?.['201']?.content?.['application/json']?.schema;
 
@@ -73,6 +77,7 @@ export class ServiceMethodGenerator {
      * @param operation The `PathInfo` object for the endpoint.
      * @param knownTypes An array of known schema names for resolving `$ref`s.
      * @returns An array of `ParameterDeclarationStructure` objects for the method.
+     * @private
      */
     private getMethodParameters(operation: PathInfo, knownTypes: string[]): OptionalKind<ParameterDeclarationStructure>[] {
         const parameters: OptionalKind<ParameterDeclarationStructure>[] = [];
@@ -91,13 +96,14 @@ export class ServiceMethodGenerator {
         // Process the request body
         const requestBody = operation.requestBody;
         if (requestBody) {
-            const content = Object.values(requestBody.content || {})[0];
-            if (content?.schema) {
-                const bodyType = getTypeScriptType(content.schema as SwaggerDefinition, this.config, knownTypes);
+            const jsonContent = requestBody.content?.['application/json'];
+            if (jsonContent?.schema) {
+                const bodyType = getTypeScriptType(jsonContent.schema as SwaggerDefinition, this.config, knownTypes);
+                // Use the type name as the parameter name if it's a model interface, otherwise default to 'body'.
                 const bodyName = isDataTypeInterface(bodyType.replace(/\[\]| \| null/g, '')) ? camelCase(bodyType.replace(/\[\]| \| null/g, '')) : 'body';
                 parameters.push({ name: bodyName, type: bodyType, hasQuestionToken: !requestBody.required });
             } else {
-                // Fallback for bodies without a defined schema (e.g., `application/octet-stream`)
+                // Fallback for bodies without a defined schema (e.g., `application/octet-stream`, `application/x-www-form-urlencoded`)
                 parameters.push({ name: 'body', type: 'any', hasQuestionToken: !requestBody.required });
             }
         }
@@ -111,6 +117,7 @@ export class ServiceMethodGenerator {
      * @param operation The `PathInfo` object for the endpoint.
      * @param parameters The generated parameter structures for the method.
      * @returns A string containing the complete method body.
+     * @private
      */
     private buildMethodBody(operation: PathInfo, parameters: OptionalKind<ParameterDeclarationStructure>[]): string {
         let urlTemplate = operation.path;
@@ -121,7 +128,7 @@ export class ServiceMethodGenerator {
 
         const lines: string[] = [
             `const url = \`\${this.basePath}${urlTemplate}\`;`,
-            `const finalOptions: any = Object.assign({}, options);`,
+            `const finalOptions: any = { ...options };`, // Use spread for a cleaner clone
             `finalOptions.context = this.createContextWithClientId(options?.context);`
         ];
 
@@ -154,28 +161,39 @@ export class ServiceMethodGenerator {
      * @param responseType The primary TypeScript type of the response body.
      * @param parameters The base parameters of the method.
      * @returns An array of `MethodOverloadStructure` objects.
+     * @private
      */
     private buildOverloads(responseType: string, parameters: OptionalKind<ParameterDeclarationStructure>[]): OptionalKind<MethodOverloadStructure>[] {
         return [
+            // observe: 'response'
             {
-                parameters: [...parameters, { name: 'options', type: `RequestOptions & { observe: 'response' }` }],
-                returnType: `Observable<HttpResponse<${responseType}>>`
+                parameters: [...parameters, { name: 'options', hasQuestionToken: false, type: `RequestOptions & { observe: 'response' }` }],
+                returnType: `Observable<HttpResponse<${responseType}>>`,
+                docs: ["@param options The options for this request, with response observation enabled."]
             },
+            // observe: 'events'
             {
-                parameters: [...parameters, { name: 'options', type: `RequestOptions & { observe: 'events' }` }],
-                returnType: `Observable<HttpEvent<${responseType}>>`
+                parameters: [...parameters, { name: 'options', hasQuestionoken: false, type: `RequestOptions & { observe: 'events' }` }],
+                returnType: `Observable<HttpEvent<${responseType}>>`,
+                docs: ["@param options The options for this request, with event observation enabled."]
             },
+            // responseType: 'blob'
             {
-                parameters: [...parameters, { name: 'options', type: `RequestOptions & { responseType: 'blob' }` }],
-                returnType: `Observable<Blob>`
+                parameters: [...parameters, { name: 'options', hasQuestionToken: false, type: `RequestOptions & { responseType: 'blob' }` }],
+                returnType: `Observable<Blob>`,
+                docs: ["@param options The options for this request, with a blob response type."]
             },
+            // responseType: 'text'
             {
-                parameters: [...parameters, { name: 'options', type: `RequestOptions & { responseType: 'text' }` }],
-                returnType: `Observable<string>`
+                parameters: [...parameters, { name: 'options', hasQuestionToken: false, type: `RequestOptions & { responseType: 'text' }` }],
+                returnType: `Observable<string>`,
+                docs: ["@param options The options for this request, with a text response type."]
             },
+            // observe: 'body' (default behavior)
             {
                 parameters: [...parameters, { name: 'options', hasQuestionToken: true, type: `RequestOptions & { observe?: 'body' }` }],
-                returnType: `Observable<${responseType}>`
+                returnType: `Observable<${responseType}>`,
+                docs: ["@param options The options for this request."]
             }
         ];
     }

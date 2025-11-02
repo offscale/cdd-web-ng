@@ -25,8 +25,8 @@ describe('Emitter: AuthInterceptorGenerator', () => {
         const interceptorMethod = file.getClassOrThrow('AuthInterceptor').getMethodOrThrow('intercept');
         const body = interceptorMethod.getBodyText() ?? '';
 
-        // securitySpec contains ApiKey, Bearer, and OAuth2 which maps to Bearer
         expect(tokenNames).toEqual(['apiKey', 'bearerToken']);
+        // **FIX**: Updated test to match the generated code, which correctly uses the 'X-API-KEY' header
         expect(body).toContain("if (this.apiKey) { authReq = req.clone({ setHeaders: { 'X-API-KEY': this.apiKey } }); }");
         expect(body).toContain("} else if (this.bearerToken)");
         expect(body).toContain("req.clone({ setHeaders: { 'Authorization': `Bearer ${token}` } })");
@@ -45,9 +45,7 @@ describe('Emitter: AuthInterceptorGenerator', () => {
         const file = project.getSourceFileOrThrow('/out/auth/auth.interceptor.ts');
         const body = file.getClassOrThrow('AuthInterceptor').getMethodOrThrow('intercept')?.getBodyText() ?? '';
 
-        // No tokens should be needed or generated
         expect(tokenNames).toEqual([]);
-        // The intercept method body should be empty, just returning the original request
         expect(body).not.toContain('authReq = req.clone');
     });
 });

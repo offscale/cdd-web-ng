@@ -35,10 +35,13 @@ export class ServiceGenerator {
         const modelImports = new Set<string>(['RequestOptions']);
 
         for (const op of operations) {
-            const resSchema = op.responses?.['200']?.content?.['application/json']?.schema;
-            const responseType = getTypeScriptType(resSchema as any, this.config, knownTypes).replace(/\[\]| \| null/g, '');
-            if (isDataTypeInterface(responseType)) {
-                modelImports.add(responseType);
+            // **FIX**: Make model discovery more robust against missing properties
+            const successResponse = op.responses?.['200'] ?? op.responses?.['201'];
+            if (successResponse?.content?.['application/json']?.schema) {
+                const responseType = getTypeScriptType(successResponse.content['application/json'].schema as any, this.config, knownTypes).replace(/\[\]| \| null/g, '');
+                if (isDataTypeInterface(responseType)) {
+                    modelImports.add(responseType);
+                }
             }
 
             (op.parameters ?? []).forEach(param => {
@@ -48,9 +51,9 @@ export class ServiceGenerator {
                     modelImports.add(paramType);
                 }
             });
-            const reqBodySchema = op.requestBody?.content?.['application/json']?.schema;
-            if (reqBodySchema) {
-                const bodyType = getTypeScriptType(reqBodySchema as any, this.config, knownTypes).replace(/\[\]| \| null/g, '');
+
+            if (op.requestBody?.content?.['application/json']?.schema) {
+                const bodyType = getTypeScriptType(op.requestBody.content['application/json'].schema as any, this.config, knownTypes).replace(/\[\]| \| null/g, '');
                 if (isDataTypeInterface(bodyType)) {
                     modelImports.add(bodyType);
                 }

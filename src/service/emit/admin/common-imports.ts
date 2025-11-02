@@ -21,4 +21,11 @@ export const commonStandaloneImports = [
     'MatSliderModule',
     'MatButtonToggleModule',
     'MatSnackBarModule',
+    // Added for List Component
+    'MatTableModule',
+    'MatPaginatorModule',
+    'MatSortModule',
+    'MatProgressBarModule',
+    'MatTooltipModule',
+    'MatToolbarModule',
 ];

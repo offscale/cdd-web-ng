@@ -10,7 +10,7 @@
 
 import { MethodDeclaration } from 'ts-morph';
 import { GeneratorConfig, Parameter, PathInfo, RequestBody, SwaggerDefinition, SwaggerResponse } from './types.js';
-import { Path, Operation, Parameter as SwaggerOfficialParameter } from "swagger-schema-official";
+import { Path, Operation, Parameter as SwaggerOfficialParameter, BodyParameter } from "swagger-schema-official";
 
 // --- String Manipulation Utilities ---
 
@@ -93,15 +93,15 @@ export function kebabCase(str: string): string {
  * @param knownTypes An array of all defined schema names, used to validate `$ref`s.
  * @returns A string representing the TypeScript type.
  */
-export function getTypeScriptType(schema: SwaggerDefinition | undefined, config: GeneratorConfig, knownTypes: string[] = []): string {
+export function getTypeScriptType(schema: SwaggerDefinition | undefined | null, config: GeneratorConfig, knownTypes: string[] = []): string {
     if (!schema) {
         return 'any';
     }
 
     if (schema.$ref) {
-        const typeName = pascalCase(schema.$ref.split('/').pop()!);
+        const typeName = pascalCase(schema.$ref.split('/').pop() || '');
         // If the referenced type is a known schema, use its name. Otherwise, it's a broken ref, so use 'any'.
-        return knownTypes.includes(typeName) ? typeName : 'any';
+        return typeName && knownTypes.includes(typeName) ? typeName : 'any';
     }
 
     if (schema.allOf) {
@@ -178,6 +178,8 @@ export function isDataTypeInterface(type: string): boolean {
 
 /**
  * Checks if a string is a valid URL.
+ * @param input The string to check.
+ * @returns True if the string is a valid URL, false otherwise.
  */
 export function isUrl(input: string): boolean {
     try {
@@ -190,11 +192,16 @@ export function isUrl(input: string): boolean {
 
 /**
  * Checks for duplicate method names in an array of ts-morph MethodDeclaration objects.
+ * @param methods An array of MethodDeclaration instances.
+ * @returns True if duplicates are found, false otherwise.
  */
 export function hasDuplicateFunctionNames(methods: MethodDeclaration[]): boolean {
     const names = methods.map(m => m.getName());
     return new Set(names).size !== names.length;
 }
+
+// Helper type to handle union of Swagger 2.0 and OpenAPI 3.x parameter definitions
+type UnifiedParameter = SwaggerOfficialParameter & { schema?: SwaggerDefinition | { $ref: string } };
 
 /**
  * Flattens the nested `paths` object from an OpenAPI spec into a linear array of `PathInfo` objects.
@@ -202,7 +209,7 @@ export function hasDuplicateFunctionNames(methods: MethodDeclaration[]): boolean
  * @param swaggerPaths The `paths` object from the OpenAPI specification.
  * @returns An array of processed `PathInfo` objects.
  */
-export function extractPaths(swaggerPaths: { [p: string]: Path } = {}): PathInfo[] {
+export function extractPaths(swaggerPaths: { [p: string]: Path } | undefined): PathInfo[] {
     if (!swaggerPaths) {
         return [];
     }
@@ -211,27 +218,27 @@ export function extractPaths(swaggerPaths: { [p: string]: Path } = {}): PathInfo
     const methods = ["get", "post", "put", "patch", "delete", "options", "head"];
 
     for (const [path, pathItem] of Object.entries(swaggerPaths)) {
-        const pathParameters = (pathItem.parameters as SwaggerOfficialParameter[]) || [];
+        const pathParameters: UnifiedParameter[] = (pathItem.parameters as UnifiedParameter[]) || [];
         for (const method of methods) {
             const operation = pathItem[method as keyof Path] as Operation;
             if (operation) {
-                const paramsMap = new Map<string, SwaggerOfficialParameter>();
+                const paramsMap = new Map<string, UnifiedParameter>();
                 pathParameters.forEach(p => paramsMap.set(`${p.name}:${p.in}`, p));
-                (operation.parameters as SwaggerOfficialParameter[] || []).forEach(p => paramsMap.set(`${p.name}:${p.in}`, p));
+                ((operation.parameters as UnifiedParameter[]) || []).forEach(p => paramsMap.set(`${p.name}:${p.in}`, p));
 
                 const allParams = Array.from(paramsMap.values());
                 const nonBodyParams = allParams.filter(p => p.in !== 'body');
-                const bodyParam = allParams.find(p => p.in === 'body');
+                const bodyParam = allParams.find((p): p is BodyParameter => p.in === 'body');
 
                 const parameters = nonBodyParams.map((p): Parameter => ({
                     name: p.name,
                     in: p.in as "query" | "path" | "header" | "cookie",
                     required: p.required,
-                    schema: (p as any).schema || p,
+                    schema: p.schema || p, // Fallback for parameters that are schemas themselves
                     description: p.description
                 }));
 
-                const requestBody = (operation as any).requestBody || (bodyParam ? { content: { 'application/json': { schema: (bodyParam as any).schema } } } : undefined);
+                const requestBody = (operation as any).requestBody || (bodyParam ? { content: { 'application/json': { schema: bodyParam.schema } } } : undefined);
 
                 paths.push({
                     path,
@@ -252,6 +259,10 @@ export function extractPaths(swaggerPaths: { [p: string]: Path } = {}): PathInfo
 
 /**
  * Helper to get the TypeScript type for a request body.
+ * @param requestBody The request body object from a PathInfo.
+ * @param config The generator configuration.
+ * @param knownTypes An array of known schema names for type resolution.
+ * @returns A string representing the TypeScript type.
  */
 export function getRequestBodyType(requestBody: RequestBody | undefined, config: GeneratorConfig, knownTypes: string[]): string {
     const schema = requestBody?.content?.['application/json']?.schema;
@@ -260,6 +271,10 @@ export function getRequestBodyType(requestBody: RequestBody | undefined, config:
 
 /**
  * Helper to get the TypeScript type for a response.
+ * @param response The response object from a PathInfo.
+ * @param config The generator configuration.
+ * @param knownTypes An array of known schema names for type resolution.
+ * @returns A string representing the TypeScript type.
  */
 export function getResponseType(response: SwaggerResponse | undefined, config: GeneratorConfig, knownTypes: string[]): string {
     const schema = response?.content?.['application/json']?.schema;
@@ -270,6 +285,8 @@ export function getResponseType(response: SwaggerResponse | undefined, config: G
 
 /**
  * Generates a unique, client-specific name for the base path `InjectionToken`.
+ * @param clientName The name of the API client, used to namespace the token. Defaults to "default".
+ * @returns The generated token name string.
  */
 export function getBasePathTokenName(clientName = "default"): string {
     const clientSuffix = clientName.toUpperCase().replace(/[^A-Z0-9_]/g, "_");
@@ -278,6 +295,8 @@ export function getBasePathTokenName(clientName = "default"): string {
 
 /**
  * Generates a unique, client-specific name for the client context `HttpContextToken`.
+ * @param clientName The name of the API client, used to namespace the token. Defaults to "default".
+ * @returns The generated token name string.
  */
 export function getClientContextTokenName(clientName = "default"): string {
     const clientSuffix = clientName.toUpperCase().replace(/[^A-Z0-9_]/g, "_");
@@ -286,6 +305,8 @@ export function getClientContextTokenName(clientName = "default"): string {
 
 /**
  * Generates a unique, client-specific name for the interceptors `InjectionToken`.
+ * @param clientName The name of the API client, used to namespace the token. Defaults to "default".
+ * @returns The generated token name string.
  */
 export function getInterceptorsTokenName(clientName = "default"): string {
     const clientSuffix = clientName.toUpperCase().replace(/[^A-Z0-9_]/g, "_");

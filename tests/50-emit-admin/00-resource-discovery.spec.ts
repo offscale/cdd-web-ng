@@ -33,7 +33,9 @@ describe('Admin: discoverAdminResources', () => {
 
     it('should fall back to a generic action name if needed', () => {
         const resources = discoverAdminResources(createParser(coverageSpec));
+        // **FIX**: The resource is now discovered correctly
         const resource = resources.find(r => r.name === 'actionTest');
+        expect(resource).toBeDefined();
         const action = resource!.operations[0].action;
         expect(action).toBe('headAction');
     });
@@ -65,7 +67,6 @@ describe('Admin: discoverAdminResources', () => {
     it('should handle polymorphic schemas with discriminator property on base schema', () => {
         const resources = discoverAdminResources(createParser(polymorphismSpec));
         const resource = resources.find(r => r.name === 'pets')!;
-        // The test verifies that the `petType` from the base schema's properties is found and enhanced
         const discriminatorProp = resource.formProperties.find(p => p.name === 'petType');
         expect(discriminatorProp).toBeDefined();
         expect(discriminatorProp?.schema.oneOf).toBeDefined();
@@ -73,6 +74,7 @@ describe('Admin: discoverAdminResources', () => {
 
     it('should skip unresolvable array items schemas but still generate properties', () => {
         const resources = discoverAdminResources(createParser(coverageSpec));
+        // **FIX**: The resource is now discovered correctly
         const resource = resources.find(r => r.name === 'unresolvable');
         expect(resource).toBeDefined();
     });

@@ -23,7 +23,7 @@ export class ListComponentGenerator {
     /**
      * @param project The ts-morph project instance.
      */
-    constructor(private readonly project: Project) {}
+    constructor(private readonly project: Project) { }
 
     /**
      * Generates all necessary files for the list component.
@@ -50,10 +50,10 @@ export class ListComponentGenerator {
         const sourceFile = this.project.createSourceFile(`${outDir}/${resource.name}-list.component.ts`, '', { overwrite: true });
 
         sourceFile.addStatements([
-            `import { Component, OnInit, OnDestroy, ViewChild, AfterViewInit, effect, inject, signal } from '@angular/core';`,
-            `import { MatPaginator } from '@angular/material/paginator';`,
+            `import { Component, OnDestroy, ViewChild, AfterViewInit, effect, inject, signal } from '@angular/core';`,
+            `import { MatPaginator, PageEvent } from '@angular/material/paginator';`,
             `import { MatTableDataSource } from '@angular/material/table';`,
-            `import { Router, ActivatedRoute, RouterModule } from '@angular/router';`,
+            `import { Router, ActivatedRoute } from '@angular/router';`,
             `import { MatSnackBar } from '@angular/material/snack-bar';`,
             `import { Subscription, of, catchError, startWith, switchMap } from 'rxjs';`,
             `import { ${serviceName} } from '../../../../services/${camelCase(resource.name)}.service';`,
@@ -64,15 +64,24 @@ export class ListComponentGenerator {
         const componentClass = sourceFile.addClass({
             name: componentName,
             isExported: true,
-            implements: ['OnInit', 'OnDestroy', 'AfterViewInit'],
-            decorators: [/* ... */],
+            implements: ['AfterViewInit', 'OnDestroy'],
+            decorators: [{
+                name: 'Component',
+                arguments: [`{
+                    selector: 'app-${resource.name}-list',
+                    standalone: true,
+                    imports: [ ...commonStandaloneImports ],
+                    templateUrl: './${resource.name}-list.component.html',
+                    styleUrl: './${resource.name}-list.component.scss'
+                }`]
+            }],
         });
 
         this.addProperties(componentClass, resource, serviceName);
-        this.addConstructorAndEffect(componentClass, resource, serviceName);
-        this.addUtilityMethods(componentClass);
+        this.addConstructorAndDataLoadingEffect(componentClass, resource, serviceName);
+        this.addLifecycleAndUtilityMethods(componentClass);
         this.addCrudActions(componentClass, resource, serviceName);
-        this.addCustomActions(componentClass, resource, serviceName); // This method is correct
+        this.addCustomActions(componentClass, resource, serviceName);
 
         componentClass.addMethod({
             name: 'ngOnDestroy',
@@ -102,15 +111,13 @@ export class ListComponentGenerator {
             { name: 'route', isReadonly: true, initializer: 'inject(ActivatedRoute)' },
             { name: 'snackBar', isReadonly: true, initializer: 'inject(MatSnackBar)' },
             { name: `${camelCase(serviceName)}`, isReadonly: true, type: serviceName, initializer: `inject(${serviceName})` },
-
-            // FIX: This is the correct way to add a decorator to a property with ts-morph.
             {
                 name: `paginator!: MatPaginator`,
                 decorators: [{ name: 'ViewChild', arguments: ['MatPaginator'] }]
             },
-
             { name: 'dataSource', type: `MatTableDataSource<${resource.modelName}>`, initializer: `new MatTableDataSource<${resource.modelName}>()` },
             { name: 'totalItems', initializer: 'signal(0)' },
+            { name: 'isViewInitialized', scope: 'private', initializer: 'signal(false)' },
             { name: 'displayedColumns: string[]', initializer: JSON.stringify(displayedColumns) },
             { name: 'idProperty: string', initializer: `'${idProperty}'` },
             { name: 'subscriptions: Subscription[]', initializer: '[]' },
@@ -120,31 +127,32 @@ export class ListComponentGenerator {
     /**
      * Adds the constructor and the data-loading `effect`.
      * The effect reacts to paginator changes to fetch data from the server.
+     * It is designed to run only after the view is initialized.
      * @param componentClass The class to which the constructor and effect will be added.
      * @param resource The resource metadata object.
      * @param serviceName The name of the resource's service class.
      */
-    private addConstructorAndEffect(componentClass: ClassDeclaration, resource: Resource, serviceName: string): void {
+    private addConstructorAndDataLoadingEffect(componentClass: ClassDeclaration, resource: Resource, serviceName: string): void {
         const listOp = resource.operations.find(op => op.action === 'list');
         if (!listOp) return;
 
         const constructor = componentClass.addConstructor();
         constructor.setBodyText(writer => {
             writer.writeLine('effect(() => {').indent(() => {
-                writer.writeLine(`if (!this.paginator) { return; }`);
+                writer.writeLine(`if (!this.isViewInitialized()) { return; }`);
                 writer.writeLine('const sub = this.paginator.page.pipe(').indent(() => {
-                    writer.writeLine(`startWith({ pageIndex: this.paginator.pageIndex, pageSize: this.paginator.pageSize }),`);
-                    writer.writeLine(`switchMap(page => {`);
+                    writer.writeLine(`startWith({} as PageEvent),`);
+                    writer.writeLine(`switchMap((pageEvent: PageEvent) => {`);
                     writer.indent(() => {
-                        writer.writeLine(`const query = { _page: page.pageIndex + 1, _limit: page.pageSize };`);
+                        writer.writeLine(`const page = pageEvent.pageIndex ?? this.paginator.pageIndex;`);
+                        writer.writeLine(`const limit = pageEvent.pageSize ?? this.paginator.pageSize;`);
+                        writer.writeLine(`const query = { _page: page + 1, _limit: limit };`);
                         writer.writeLine(`return this.${camelCase(serviceName)}.${listOp.methodName}(query, 'response').pipe(`).indent(() => {
                             writer.writeLine(`catchError(() => of(null))`);
                         }).write(');');
                     });
                     writer.writeLine('})');
                 }).write(').subscribe(response => {');
-
-                // THIS IS THE FINAL FIX: REPLACE THE PLACEHOLDER COMMENT WITH THE ACTUAL LOGIC
                 writer.indent(() => {
                     writer.writeLine(`if (response === null) {`);
                     writer.indent(() => {
@@ -160,11 +168,8 @@ export class ListComponentGenerator {
                     });
                     writer.writeLine('}');
                 });
-                // END OF FIX
-
                 writer.write('});');
                 writer.writeLine('this.subscriptions.push(sub);');
-
             }).write('});');
         });
     }
@@ -173,14 +178,13 @@ export class ListComponentGenerator {
      * Adds standard lifecycle and utility methods like ngAfterViewInit and refresh.
      * @param componentClass The class to which methods will be added.
      */
-    private addUtilityMethods(componentClass: ClassDeclaration): void {
-        componentClass.addMethod({
-            name: 'ngOnInit',
-            statements: `// Initial load is handled by the effect after the view initializes.`
-        });
+    private addLifecycleAndUtilityMethods(componentClass: ClassDeclaration): void {
         componentClass.addMethod({
             name: 'ngAfterViewInit',
-            statements: 'this.dataSource.paginator = this.paginator;',
+            statements: [
+                'this.dataSource.paginator = this.paginator;',
+                'this.isViewInitialized.set(true);'
+            ]
         });
         componentClass.addMethod({
             name: 'refresh',
@@ -291,7 +295,10 @@ this.subscriptions.push(sub);`;
         if (allProps.some(p => p.name === 'id')) {
             return 'id';
         }
-        return allProps[0]?.name ?? 'id'; // Fallback to 'id' if no properties exist
+        if (allProps.length === 0) {
+            return 'id';
+        }
+        return allProps[0].name;
     }
 
     /**

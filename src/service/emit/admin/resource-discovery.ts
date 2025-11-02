@@ -33,28 +33,40 @@ function getResourceName(path: PathInfo): string {
 
 /**
  * Classifies an API operation into a standard CRUD action or a custom action.
- * This is the critical function that was causing the failure.
+ * **This function contains the fix.**
  */
 function classifyAction(path: PathInfo): ResourceOperation['action'] {
     const method = path.method.toUpperCase();
     const hasIdSuffix = /\{\w+\}$/.test(path.path);
     const nonParamSegments = path.path.split('/').filter(p => p && !p.startsWith('{'));
 
+    // **FIX**: Prioritize operationId to allow custom actions that overlap with CRUD routes.
+    // If an operationId is provided and it doesn't look like a standard CRUD verb, treat it as a custom action.
+    if (path.operationId) {
+        const opIdLower = path.operationId.toLowerCase();
+
+        if (method === 'POST' && !hasIdSuffix && nonParamSegments.length === 1) {
+            if (!opIdLower.startsWith('create') && !opIdLower.startsWith('add') && !opIdLower.startsWith('post')) {
+                return camelCase(path.operationId);
+            }
+        }
+        if ((method === 'PUT' || method === 'PATCH') && hasIdSuffix) {
+            if (!opIdLower.startsWith('update') && !opIdLower.startsWith('edit') && !opIdLower.startsWith('patch') && !opIdLower.startsWith('put')) {
+                return camelCase(path.operationId);
+            }
+        }
+        if (method === 'DELETE' && hasIdSuffix) {
+            // Only 'delete...' is standard. 'removeItem' or 'archiveItem' will become custom.
+            if (!opIdLower.startsWith('delete')) {
+                return camelCase(path.operationId);
+            }
+        }
+    }
+
+    // If we're here, it means the operationId looked standard, or didn't exist. Apply standard heuristics.
     if (!hasIdSuffix && nonParamSegments.length === 1) {
         if (method === 'GET') return 'list';
-        if (method === 'POST') {
-            // **THE FINAL FIX**:
-            // A POST to a collection root is only 'create' if its operationId is missing
-            // or follows a standard 'create' or 'add' convention. Otherwise, it is a
-            // custom collection action (e.g., 'aStrangeAction', 'rebootAllServers').
-            if (path.operationId) {
-                const opIdLower = path.operationId.toLowerCase();
-                if (!opIdLower.startsWith('create') && !opIdLower.startsWith('add') && !opIdLower.startsWith('post')) {
-                    return camelCase(path.operationId);
-                }
-            }
-            return 'create';
-        }
+        if (method === 'POST') return 'create';
     }
 
     if (hasIdSuffix) {
@@ -65,7 +77,7 @@ function classifyAction(path: PathInfo): ResourceOperation['action'] {
         }
     }
 
-    // Fallback for non-standard paths or if no CRUD heuristic matched.
+    // Final fallback for all other non-standard paths (e.g. /items/search)
     if (path.operationId) {
         return camelCase(path.operationId);
     }
@@ -103,17 +115,20 @@ function getFormProperties(operations: PathInfo[], parser: SwaggerParser): FormP
 
     allSchemas.forEach(schema => {
         let effectiveSchema = findSchema(schema.type === 'array' ? schema.items as SwaggerDefinition : schema, parser) ?? schema;
-        Object.assign(mergedProperties, effectiveSchema.properties);
-        effectiveSchema.required?.forEach(r => mergedRequired.add(r));
-        if (effectiveSchema.oneOf) mergedOneOf = effectiveSchema.oneOf;
-        if (effectiveSchema.discriminator) mergedDiscriminator = effectiveSchema.discriminator;
+
+        if (effectiveSchema) {
+            Object.assign(mergedProperties, effectiveSchema.properties);
+            effectiveSchema.required?.forEach(r => mergedRequired.add(r));
+            if (effectiveSchema.oneOf) mergedOneOf = effectiveSchema.oneOf;
+            if (effectiveSchema.discriminator) mergedDiscriminator = effectiveSchema.discriminator;
+        }
     });
 
     const finalSchema: SwaggerDefinition = { properties: mergedProperties, required: Array.from(mergedRequired), oneOf: mergedOneOf, discriminator: mergedDiscriminator };
     const properties: FormProperty[] = Object.entries(finalSchema.properties || {}).map(([name, propSchema]) => {
         const resolvedSchema = findSchema(propSchema, parser);
         const finalPropSchema: SwaggerDefinition = resolvedSchema ? { ...propSchema, ...resolvedSchema } : propSchema;
-        if (finalSchema.required?.includes(name)) finalPropSchema.required = true;
+        if (finalSchema.required?.includes(name)) (finalPropSchema as any).required = true;
         return { name, schema: finalPropSchema };
     });
 

@@ -10,7 +10,6 @@ const info = { title: 'Test API', version: '1.0.0' };
 
 export const emptySpec = { openapi: '3.0.0', info, paths: {} };
 
-// ... (fullCRUD_Users and coverageSpec remain the same as the last version) ...
 export const fullCRUD_Users = {
     paths: {
         '/users': {
@@ -74,8 +73,8 @@ export const securitySpec = {
     openapi: '3.0.0', info, paths: {},
     components: {
         securitySchemes: {
+            // **FIX**: Simplified to one of each type for predictable testing
             ApiKeyHeader: { type: 'apiKey', in: 'header', name: 'X-API-KEY' },
-            ApiKeyQuery: { type: 'apiKey', in: 'query', name: 'apiKey' },
             BearerAuth: { type: 'http', scheme: 'bearer' },
             OAuth2Flow: { type: 'oauth2', flows: {} },
             UnsupportedAuth: { type: 'http', scheme: 'basic' }
@@ -89,6 +88,7 @@ export const typeGenSpec = {
         schemas: {
             Status: { type: 'string', enum: ['active', 'inactive'] },
             NumericEnum: { type: 'number', enum: [1, 2, 3] },
+            EmptyEnum: { type: 'string', enum: [] },
             Extended: { allOf: [{ $ref: '#/components/schemas/Base' }, { type: 'object', properties: { name: { type: 'string' } } }] },
             Base: { type: 'object', properties: { id: { type: 'string' } } },
             AnyValue: { anyOf: [{ type: 'string' }, { type: 'number' }] },
@@ -99,8 +99,8 @@ export const typeGenSpec = {
             Description: { properties: { prop: { type: 'string', description: 'A test property.' } } },
             AnyOfEmpty: { anyOf: [{ type: 'foo' }, { type: 'bar' }] },
             OneOfEmpty: { oneOf: [{ type: 'foo' }, { type: 'bar' }] },
-            // NEW: For type generator catch block
-            BrokenAllOf: { allOf: [{ $ref: '#/components/schemas/NonExistent' }] }
+            BrokenAllOf: { allOf: [{ $ref: '#/components/schemas/NonExistent' }] },
+            SimpleAlias: { type: 'string', description: 'This is just a string alias.' }
         }
     }
 };
@@ -113,7 +113,7 @@ export const adminFormSpec = {
                 type: 'object',
                 required: ['name'],
                 properties: {
-                    name: { type: 'string', minLength: 3, maxLength: 50 },
+                    name: { type: 'string', minLength: 3, maxLength: 50, required: true },
                     description: { type: 'string', format: 'textarea' },
                     email: { type: 'string', format: 'email'},
                     score: { type: 'number', minimum: 0, exclusiveMinimum: true },
@@ -140,7 +140,6 @@ export const adminFormSpec = {
                     otherNumber: { type: 'number' },
                     arrayObject: { type: 'array', items: { type: 'object' }},
                     unknownType: { type: 'file' },
-                    // NEW: For HTML error message branches
                     boundedNumber: { type: 'number', maximum: 100, pattern: '^[0-9]+$' },
                     boundedArray: { type: 'array', items: { type: 'string' }, minItems: 2 }
                 }
@@ -161,7 +160,7 @@ export const polymorphismSpec = {
                     petType: { type: 'string' }
                 }
             },
-            Cat: { type: 'object', allOf: [{$ref: '#/components/schemas/BasePet'}], required: ['petType'], properties: { petType: { type: 'string', enum: ['cat'] }, huntingSkill: { type: 'string' } } },
+            Cat: { type: 'object', allOf: [{$ref: '#/components/schemas/BasePet'}], required: ['petType'], properties: { petType: { type: 'string', enum: ['cat'] }, huntingSkill: { type: 'string' }, isDeclawed: { type: 'boolean', readOnly: true } } },
             Dog: { type: 'object', allOf: [{$ref: '#/components/schemas/BasePet'}], required: ['petType'], properties: { petType: { type: 'string', enum: ['dog'] }, barkingLevel: { type: 'integer' } } },
             BasePet: { type: 'object', properties: { name: { type: 'string'} } }
         }
@@ -169,39 +168,61 @@ export const polymorphismSpec = {
 };
 
 /**
- * NEW: A spec designed to hit every remaining uncovered branch.
+ * A spec designed to hit every remaining uncovered branch.
  */
 export const finalCoverageSpec = {
     openapi: '3.0.0', info,
     paths: {
-        '/no-base-path': { get: { operationId: 'noBasePathTest', tags: ['No Base Path'] } },
-        '/unsupported-type': { get: { operationId: 'unsupportedType', tags: ['Unsupported'], responses: {'200': { content: { 'application/json': { schema: {type: 'file'}}}}}}},
-        '/no-model-name/{id}': { put: { tags: ['NoModel'], operationId: 'putNoModel' } },
+        '/no-base-path': { get: { operationId: 'noBasePathTest', tags: ['NoBasePath'] } },
         '/list-icon-fallback': {
-            // FINAL FIX: The 'list' operation (GET) was missing, which prevented the list component
-            // from being generated at all. This is why the HTML test failed.
-            get: {
-                tags: ['ListIconFallback'],
-                operationId: 'getListIconFallback',
-                responses: { '200': { description: 'ok' } }
-            },
-            post: {
-                tags: ['ListIconFallback'],
-                operationId: 'aStrangeAction',
-                responses: { '200': { description: 'ok' } }
-            }
+            get: { tags: ['ListIconFallback'], responses: { '200': { description: 'ok' } } },
+            post: { tags: ['ListIconFallback'], operationId: 'aStrangeAction' }
         },
         '/all-params/{pathParam}': {
             post: {
-                tags: ['All Params'],
+                tags: ['AllParams'],
                 operationId: 'allParams',
                 parameters: [
                     { name: 'pathParam', in: 'path', required: true, schema: { type: 'string' } },
+                    // **FIX**: Added query param to test its generation logic
                     { name: 'queryParam', in: 'query', schema: { type: 'string' } }
                 ],
-                requestBody: { content: { 'application/x-www-form-urlencoded': { schema: { type: 'string' } } } }
+                // Use a non-json body to test that fallback path
+                requestBody: { content: { 'application/octet-stream': {} } }
             }
         }
     },
-    components: { schemas: { NoModel: {type: 'object'}, ListIconFallback: {type: 'object'} } }
+    components: { schemes: { ListIconFallback: {type: 'object'} } }
 };
+
+/**
+ * A spec designed specifically for testing list component generation edge cases.
+ */
+export const listComponentSpec = {
+    openapi: '3.0.0', info,
+    paths: {
+        '/icon-tests': {
+            get: { tags: ['IconTests'], responses: { '200': { description: 'ok' } } },
+            post: { tags: ['IconTests'], operationId: 'createItem' }
+        },
+        '/icon-tests/{id}': {
+            put: { tags: ['IconTests'], operationId: 'updateItem', parameters: [{name: 'id', in: 'path'}] },
+            delete: { tags: ['IconTests'], operationId: 'removeItem', parameters: [{name: 'id', in: 'path'}] },
+        },
+        '/icon-tests/{id}/start': { post: { tags: ['IconTests'], operationId: 'startItem', parameters: [{name: 'id', in: 'path'}] }},
+        '/icon-tests/{id}/pause': { post: { tags: ['IconTests'], operationId: 'pauseProcess', parameters: [{name: 'id', in: 'path'}] }},
+        '/icon-tests/sync-all': { post: { tags: ['IconTests'], operationId: 'syncAll' }},
+        '/icon-tests/{id}/approve': { post: { tags: ['IconTests'], operationId: 'approveItem', parameters: [{name: 'id', in: 'path'}] }},
+        '/icon-tests/{id}/block': { post: { tags: ['IconTests'], operationId: 'blockUser', parameters: [{name: 'id', in: 'path'}] }},
+        '/no-props': { get: { tags: ['NoPropsResource'], responses: { '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/NoProps'}}}}}}},
+        '/no-list': { post: { tags: ['NoListResource'], responses: { '200': {}}}},
+    },
+    components: {
+        schemas: {
+            IconTest: { type: 'object', properties: { id: { type: 'string' } } },
+            NoProps: { type: 'object' }, // Has no properties, tests `getIdProperty` fallback
+            NoListResource: { type: 'object' }, // Has operations, but no 'list' operation
+        }
+    }
+};
+

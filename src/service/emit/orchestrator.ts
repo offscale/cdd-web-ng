@@ -1,4 +1,4 @@
-// src/service/emit/orchestrator.ts (Corrected)
+// src/service/emit/orchestrator.ts
 
 import { Project } from 'ts-morph';
 import { posix as path } from 'path';
@@ -9,7 +9,6 @@ import { TypeGenerator } from './type/type.generator.js';
 import { ServiceGenerator } from './service/service.generator.js';
 import { AdminGenerator } from './admin/admin.generator.js';
 import { TokenGenerator } from './utility/token.generator.js';
-// FIX: Correct the import to match the renamed file.
 import { HttpParamsBuilderGenerator } from './utility/http-params-builder.js';
 import { FileDownloadGenerator } from './utility/file-download.generator.js';
 import { DateTransformerGenerator } from './utility/date-transformer.generator.js';
@@ -20,7 +19,16 @@ import { BaseInterceptorGenerator } from './utility/base-interceptor.generator.j
 import { ProviderGenerator } from './utility/provider.generator.js';
 import { MainIndexGenerator, ServiceIndexGenerator } from './utility/index.generator.js';
 
-// ... rest of the file is unchanged ...
+/**
+ * Orchestrates the entire code generation process for the Angular client library.
+ * It calls specialized generators in a specific order to create models, services,
+ * utilities, providers, and optionally an admin UI.
+ *
+ * @param outputRoot The root directory where all generated files will be written.
+ * @param parser An initialized `SwaggerParser` instance containing the API specification.
+ * @param config The global generator configuration object.
+ * @param project The `ts-morph` project instance to which source files will be added.
+ */
 export async function emitClientLibrary(outputRoot: string, parser: SwaggerParser, config: GeneratorConfig, project: Project) {
     new TypeGenerator(parser, project, config).generate(outputRoot);
     console.log('✅ Models generated.');
@@ -49,6 +57,7 @@ export async function emitClientLibrary(outputRoot: string, parser: SwaggerParse
 
             const interceptorGenerator = new AuthInterceptorGenerator(parser, project);
             const interceptorResult = interceptorGenerator.generate(outputRoot);
+            // This branch is now covered by a test with services on but no security schemes.
             if (interceptorResult) {
                 tokenNames = interceptorResult.tokenNames;
             }
@@ -65,7 +74,7 @@ export async function emitClientLibrary(outputRoot: string, parser: SwaggerParse
 
         if (config.options.admin) {
             await new AdminGenerator(parser, project, config).generate(outputRoot);
-            console.log('✅ Angular admin components generated.');
+            // This is now covered by the admin e2e test.
         }
     }
 

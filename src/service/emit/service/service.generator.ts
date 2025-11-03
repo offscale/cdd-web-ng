@@ -41,6 +41,10 @@ export class ServiceGenerator {
 
     /**
      * Generates a complete service file for a given controller and its operations.
+     * This is the main public method of the class. It handles file creation,
+     * import analysis, class scaffolding, and method name de-duplication before
+     * delegating to the `ServiceMethodGenerator` for each operation.
+     *
      * @param controllerName The PascalCase name of the controller (e.g., 'Users').
      * @param operations An array of `PathInfo` objects belonging to this controller.
      * @param outputDir The directory where the service file will be saved.

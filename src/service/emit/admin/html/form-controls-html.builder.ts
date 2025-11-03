@@ -55,6 +55,14 @@ function buildErrorMessages(prop: FormProperty): HtmlElementBuilder[] {
     return errors;
 }
 
+/**
+ * Main factory function that builds an appropriate Angular Material form control
+ * based on the property's OpenAPI schema definition. It acts as a router,
+ * delegating to more specific builder functions.
+ * @param prop The property definition, including its name and schema.
+ * @returns An `HtmlElementBuilder` instance for the control, or `null` if the
+ *          schema type is not supported or the property is read-only.
+ */
 export function buildFormControl(prop: FormProperty): HtmlElementBuilder | null {
     if (!prop || !prop.schema || prop.schema.readOnly) return null;
     const labelText = pascalCase(prop.name);
@@ -77,15 +85,12 @@ export function buildFormControl(prop: FormProperty): HtmlElementBuilder | null 
         case 'boolean': return createToggle(prop, labelText);
         case 'integer':
         case 'number':
-            // FIX: A slider is only appropriate for inclusive min/max ranges.
-            // If exclusive boundaries are used, we must use a standard input
-            // so that the custom validators can provide feedback.
             if (prop.schema.minimum !== undefined && prop.schema.maximum !== undefined && !prop.schema.exclusiveMinimum && !prop.schema.exclusiveMaximum) {
                 return createSlider(prop, labelText, prop.schema.minimum, prop.schema.maximum);
             }
             return createInput(prop, labelText, 'number');
         case 'array':
-            const items = prop.schema.items as any;
+            const items = prop.schema.items as SwaggerDefinition;
             if (items?.enum) {
                 return createSelect(prop, labelText, `${camelCase(prop.name)}Options`, true);
             } else if (items?.properties || items?.type === 'object') {
@@ -101,6 +106,7 @@ export function buildFormControl(prop: FormProperty): HtmlElementBuilder | null 
     }
 }
 
+/** @private Creates a standard <mat-form-field> with a text or number input. */
 function createInput(prop: FormProperty, label: string, type: 'text' | 'number'): HtmlElementBuilder {
     const field = _.create('mat-form-field');
     field.appendChild(_.create('mat-label').setTextContent(label));
@@ -111,6 +117,7 @@ function createInput(prop: FormProperty, label: string, type: 'text' | 'number')
     return field;
 }
 
+/** @private Creates a date picker control. */
 function createDatepicker(prop: FormProperty, label: string): HtmlElementBuilder {
     const pickerId = `picker_${prop.name}`;
     const field = _.create('mat-form-field');
@@ -121,6 +128,7 @@ function createDatepicker(prop: FormProperty, label: string): HtmlElementBuilder
     return field;
 }
 
+/** @private Creates a single or multi-select dropdown. */
 function createSelect(prop: FormProperty, label: string, optionsName: string, isMultiple: boolean): HtmlElementBuilder {
     const field = _.create('mat-form-field');
     const select = _.create('mat-select').setAttribute('formControlName', prop.name);
@@ -133,6 +141,7 @@ function createSelect(prop: FormProperty, label: string, optionsName: string, is
     return field;
 }
 
+/** @private Creates a file input control. */
 function createFile(prop: FormProperty, label: string): HtmlElementBuilder {
     const inputId = `fileInput_${prop.name}`;
     const container = _.create('div').addClass('admin-file-input');
@@ -143,6 +152,7 @@ function createFile(prop: FormProperty, label: string): HtmlElementBuilder {
     return container;
 }
 
+/** @private Creates a group of radio buttons. */
 function createRadio(prop: FormProperty, label: string, optionsName: string): HtmlElementBuilder {
     const group = _.create('div').addClass('admin-radio-group');
     const radioGroup = _.create('mat-radio-group').setAttribute('formControlName', prop.name);
@@ -152,6 +162,7 @@ function createRadio(prop: FormProperty, label: string, optionsName: string): Ht
     return group;
 }
 
+/** @private Creates a Yes/No toggle button group for a boolean. */
 function createToggle(prop: FormProperty, label: string): HtmlElementBuilder {
     const group = _.create('div').addClass('admin-toggle-group');
     const toggleGroup = _.create('mat-button-toggle-group').setAttribute('formControlName', prop.name);
@@ -162,6 +173,7 @@ function createToggle(prop: FormProperty, label: string): HtmlElementBuilder {
     return group;
 }
 
+/** @private Creates a slider for a number within a defined range. */
 function createSlider(prop: FormProperty, label: string, min: any, max: any): HtmlElementBuilder {
     const container = _.create('div').addClass('admin-slider-container');
     container.appendChild(_.create('label').addClass('mat-label').setTextContent(label));
@@ -169,6 +181,7 @@ function createSlider(prop: FormProperty, label: string, min: any, max: any): Ht
     return container;
 }
 
+/** @private Creates a chip input for an array of strings. */
 function createChips(prop: FormProperty, label: string): HtmlElementBuilder {
     const field = _.create('mat-form-field');
     const chipGrid =_.create('mat-chip-grid').setAttribute('formControlName', prop.name).setAttribute(`#chipGrid_${prop.name}`,'');
@@ -179,6 +192,7 @@ function createChips(prop: FormProperty, label: string): HtmlElementBuilder {
     return field;
 }
 
+/** @private Creates a textarea for long-form text. */
 function createTextarea(prop: FormProperty, label: string): HtmlElementBuilder {
     const field = _.create('mat-form-field');
     field.appendChild(_.create('mat-label').setTextContent(label));
@@ -186,6 +200,7 @@ function createTextarea(prop: FormProperty, label: string): HtmlElementBuilder {
     return field;
 }
 
+/** @private Creates a container for a nested FormGroup. */
 function createFormGroup(prop: FormProperty): HtmlElementBuilder {
     const container = _.create('div').addClass('admin-form-group').setAttribute('formGroupName', prop.name);
     container.appendChild(_.create('h3').setTextContent(pascalCase(prop.name)));
@@ -198,6 +213,7 @@ function createFormGroup(prop: FormProperty): HtmlElementBuilder {
     return container;
 }
 
+/** @private Creates a container for a FormArray of nested FormGroups. */
 function createFormArray(prop: FormProperty, label: string): HtmlElementBuilder {
     const container = _.create('div').addClass('admin-form-array');
     container.appendChild(_.create('h3').setTextContent(label));
@@ -206,7 +222,7 @@ function createFormArray(prop: FormProperty, label: string): HtmlElementBuilder 
     const itemContainer = _.create('div').setAttribute('@for', `item of ${camelCase(prop.name)}Array.controls; track $index; let i = $index;`);
     itemContainer.setAttribute('[formGroupName]', 'i');
 
-    const itemProperties = (prop.schema.items as any)?.properties ?? {};
+    const itemProperties = (prop.schema.items as SwaggerDefinition)?.properties ?? {};
     for (const key in itemProperties) {
         const control = buildFormControl({ name: key, schema: itemProperties[key] });
         if (control) {

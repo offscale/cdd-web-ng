@@ -59,6 +59,12 @@ describe('E2E: Full Generation Orchestrator', () => {
         expect(project.getDirectory('/generated/admin')).toBeUndefined();
     });
 
+    it('should run admin generation when option is true', async () => {
+        const project = await run(coverageSpec, { options: { admin: true, generateServices: true, dateType: 'string', enumStyle: 'enum' } });
+        expect(project.getDirectory('/generated/admin')).toBeDefined();
+        expect(project.getSourceFile('/generated/admin/admin.routes.ts')).toBeDefined();
+    });
+
     it('should re-throw errors from the generation process', async () => {
         const invalidSpec = { openapi: '3.0.0', paths: { '/test': { get: { operationId: 123 } } } } as any; // Invalid operationId type
         await expect(run(invalidSpec)).rejects.toThrow();

@@ -30,6 +30,7 @@ describe('Emitter: AuthInterceptorGenerator', () => {
         // Check that it generates logic for both header and query API keys.
         expect(body).toContain("if (this.apiKey) { authReq = req.clone({ setHeaders: { 'X-API-KEY': this.apiKey } }); }");
         expect(body).toContain("} else if (this.apiKey) { authReq = req.clone({ setParams: { 'api_key_query': this.apiKey } }); }");
+        // Check for Bearer logic
         expect(body).toContain("} else if (this.bearerToken)");
         expect(body).toContain("req.clone({ setHeaders: { 'Authorization': `Bearer ${token}` } })");
     });
@@ -47,7 +48,10 @@ describe('Emitter: AuthInterceptorGenerator', () => {
         const file = project.getSourceFileOrThrow('/out/auth/auth.interceptor.ts');
         const body = file.getClassOrThrow('AuthInterceptor').getMethodOrThrow('intercept')?.getBodyText() ?? '';
 
+        // Since only unsupported schemes are present, no tokens should be needed.
         expect(tokenNames).toEqual([]);
+        // The body should be simple, without any auth logic.
+        expect(body).toContain('let authReq = req;');
         expect(body).not.toContain('authReq = req.clone');
     });
 });

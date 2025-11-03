@@ -25,6 +25,13 @@ describe('Core: utils.ts (Coverage)', () => {
         expect(utils.getTypeScriptType(null, config, [])).toBe('any');
     });
 
+    // Covers line 134-135: Unresolvable $ref
+    it('getTypeScriptType should return "any" for unresolvable $ref', () => {
+        const schema: SwaggerDefinition = { $ref: '#/components/schemas/NonExistentType' };
+        const knownTypes = ['SomeOtherType'];
+        expect(utils.getTypeScriptType(schema, config, knownTypes)).toBe('any');
+    });
+
     // Covers line 138 (empty allOf)
     it('getTypeScriptType should handle empty `allOf` by returning `any`', () => {
         const schema: SwaggerDefinition = { allOf: [] };

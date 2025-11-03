@@ -45,6 +45,7 @@ export class TypeGenerator {
 
     /**
      * Generates a TypeScript `enum` or a string literal union `type` for an OpenAPI enum definition.
+     * The choice depends on the `enumStyle` configuration option and whether the enum members are strings.
      * @param sourceFile The `ts-morph` SourceFile to add the enum to.
      * @param name The name of the enum.
      * @param definition The schema definition for the enum.
@@ -52,17 +53,21 @@ export class TypeGenerator {
      */
     private generateEnum(sourceFile: SourceFile, name: string, definition: SwaggerDefinition): void {
         const isStringEnum = (definition.enum?.every(e => typeof e === 'string')) ?? false;
-        // Generate a real 'enum' for string enums if style is 'enum', otherwise use a union type.
-        // This branch is now covered by tests.
-        if (isStringEnum && this.config.options.enumStyle === 'enum') {
+        const hasMembers = definition.enum && definition.enum.length > 0;
+
+        // Generate a real 'enum' only for non-empty string enums if style is 'enum'.
+        if (isStringEnum && hasMembers && this.config.options.enumStyle === 'enum') {
             sourceFile.addEnum({ name, isExported: true, members: definition.enum!.map(val => ({ name: pascalCase(val as string), value: val as string })) });
         } else {
-            sourceFile.addTypeAlias({ name, isExported: true, type: definition.enum?.map(v => typeof v === 'string' ? `'${v.replace(/'/g, "\\'")}'` : v).join(' | ') ?? 'any' });
+            const typeString = hasMembers
+                ? definition.enum!.map(v => typeof v === 'string' ? `'${v.replace(/'/g, "\\'")}'` : v).join(' | ')
+                : 'any';
+            sourceFile.addTypeAlias({ name, isExported: true, type: typeString });
         }
     }
 
     /**
-     * Generates a TypeScript `interface` or `type` alias for an OpenAPI schema.
+     * Generates a TypeScript `interface` for an object schema or a `type` alias for other schema types (e.g., primitives, compositions).
      * @param sourceFile The `ts-morph` SourceFile to add the interface/type to.
      * @param name The name of the interface/type.
      * @param definition The schema definition.
@@ -80,7 +85,7 @@ export class TypeGenerator {
                     name: /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key) ? key : `'${key}'`,
                     type: getTypeScriptType(propDef, this.config, knownTypes),
                     hasQuestionToken: !(definition.required || []).includes(key),
-                    docs: propDef.description ? [propDef.description] : [], // This now correctly adds TSDoc to properties.
+                    docs: propDef.description ? [propDef.description] : [],
                 })),
                 ...(definition.additionalProperties && {
                     indexSignatures: [{
@@ -90,7 +95,7 @@ export class TypeGenerator {
                 })
             });
         } else {
-            // This branch is now covered by a test. It handles non-object schemas (e.g., aliases for primitives).
+            // For schemas without properties (e.g., compositions, aliases to primitives), generate a type alias.
             const typeString = getTypeScriptType(definition, this.config, knownTypes);
             sourceFile.addTypeAlias({ name, isExported: true, type: typeString });
         }

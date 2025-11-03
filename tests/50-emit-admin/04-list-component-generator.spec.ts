@@ -78,20 +78,25 @@ describe('Admin: ListComponentGenerator', () => {
         it('should correctly map various action names to icons', () => {
             const html = localProject.getFileSystem().readFileSync('/admin/iconTests/iconTests-list/iconTests-list.component.html');
 
-            expect(html).toContain('<mat-icon>delete</mat-icon>');     // from the standard delete action and the custom remove action
-            expect(html).toContain('<mat-icon>edit</mat-icon>');       // onEdit (from update) -> edit
-            expect(html).toContain('<mat-icon>play_arrow</mat-icon>'); // start -> play_arrow
-            expect(html).toContain('<mat-icon>pause</mat-icon>');      // pause -> pause
-            expect(html).toContain('<mat-icon>refresh</mat-icon>');    // sync -> refresh
-            expect(html).toContain('<mat-icon>check</mat-icon>');      // approve -> check
-            expect(html).toContain('<mat-icon>block</mat-icon>');      // block -> block
+            expect(html).toContain('<mat-icon>add</mat-icon>');        // From custom action 'addItem' -> 'add' icon
+            expect(html).toContain('<mat-icon>delete</mat-icon>');     // From standard 'delete' and custom 'removeItem'
+            expect(html).toContain('<mat-icon>edit</mat-icon>');       // From standard 'update'
+            expect(html).toContain('<mat-icon>play_arrow</mat-icon>'); // From 'startItem'
+            expect(html).toContain('<mat-icon>pause</mat-icon>');      // From 'pauseProcess'
+            expect(html).toContain('<mat-icon>refresh</mat-icon>');    // From 'syncAll'
+            expect(html).toContain('<mat-icon>check</mat-icon>');      // From 'approveItem'
+            expect(html).toContain('<mat-icon>block</mat-icon>');      // From 'blockUser'
         });
 
-        it('should generate an ID column even if resource has no list properties', () => {
+        it('should generate an "id" column when a resource has no properties at all', () => {
             const html = localProject.getFileSystem().readFileSync('/admin/noPropsResource/noPropsResource-list/noPropsResource-list.component.html');
-            // Check that the ID column is generated as a fallback, but no other property columns exist.
             expect(html).toContain('<ng-container matColumnDef="id">');
-            expect(html).not.toContain('<ng-container matColumnDef="name">');
+        });
+
+        it('should generate a column for idProperty fallback when no other properties are listable', () => {
+            const html = localProject.getFileSystem().readFileSync('/admin/noListablePropsResource/noListablePropsResource-list/noListablePropsResource-list.component.html');
+            expect(html).toContain('<ng-container matColumnDef="config">');
+            expect(html).not.toContain('<ng-container matColumnDef="id">');
         });
     });
 });

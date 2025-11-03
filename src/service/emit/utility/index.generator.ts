@@ -71,7 +71,9 @@ export class ServiceIndexGenerator {
     constructor(private project: Project) {}
 
     /**
-     * Generates the `services/index.ts` file.
+     * Generates the `services/index.ts` file. If the services directory does not
+     * exist (e.g., if no services were generated), it will still create an empty
+     * index file to prevent missing module errors.
      * @param outputRoot The root directory where the generated library is being written.
      */
     public generateIndex(outputRoot: string): void {
@@ -82,7 +84,6 @@ export class ServiceIndexGenerator {
         sourceFile.insertText(0, SERVICE_INDEX_GENERATOR_HEADER_COMMENT);
 
         const servicesDirectory = this.project.getDirectory(servicesDir);
-        // This branch is now covered by a test case where no services are generated.
         if (!servicesDirectory) {
             return;
         }

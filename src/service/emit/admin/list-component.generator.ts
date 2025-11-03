@@ -69,12 +69,12 @@ export class ListComponentGenerator {
             implements: ['AfterViewInit', 'OnDestroy'],
             decorators: [{
                 name: 'Component',
-                arguments: [`{
-                    selector: 'app-${resource.name}-list',
-                    standalone: true,
-                    imports: [ ...commonStandaloneImports ],
-                    templateUrl: './${resource.name}-list.component.html',
-                    styleUrl: './${resource.name}-list.component.scss'
+                arguments: [`{ 
+                    selector: 'app-${resource.name}-list', 
+                    standalone: true, 
+                    imports: [ ...commonStandaloneImports ], 
+                    templateUrl: './${resource.name}-list.component.html', 
+                    styleUrl: './${resource.name}-list.component.scss' 
                 }`]
             }],
         });
@@ -244,18 +244,18 @@ export class ListComponentGenerator {
             const params = op.isCustomItemAction ? [{ name: 'id', type: 'string' }] : [];
             const args = op.isCustomItemAction ? 'id' : '';
 
-            const body = `const sub = this.${camelCase(serviceName)}.${op.methodName}(${args}).pipe(
-    catchError((err: any) => {
-        console.error('Action failed', err);
-        this.snackBar.open('Action failed', 'Close', { duration: 5000, panelClass: 'error-snackbar' });
-        return of(null);
-    })
-).subscribe(response => {
-    if (response !== null) {
-        this.snackBar.open('Action successful!', 'Close', { duration: 3000 });
-        this.refresh();
-    }
-});
+            const body = `const sub = this.${camelCase(serviceName)}.${op.methodName}(${args}).pipe( 
+    catchError((err: any) => { 
+        console.error('Action failed', err); 
+        this.snackBar.open('Action failed', 'Close', { duration: 5000, panelClass: 'error-snackbar' }); 
+        return of(null); 
+    }) 
+).subscribe(response => { 
+    if (response !== null) { 
+        this.snackBar.open('Action successful!', 'Close', { duration: 3000 }); 
+        this.refresh(); 
+    } 
+}); 
 this.subscriptions.push(sub);`;
 
             classDeclaration.addMethod({
@@ -307,7 +307,6 @@ this.subscriptions.push(sub);`;
         if (allProps.some(p => p.name === 'id')) {
             return 'id';
         }
-        // This branch is now covered by a test using a resource with no properties.
         if (allProps.length === 0) {
             return 'id';
         }

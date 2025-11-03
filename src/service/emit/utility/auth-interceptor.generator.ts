@@ -12,7 +12,10 @@ export class AuthInterceptorGenerator {
     constructor(private parser: SwaggerParser, private project: Project) { }
 
     /**
-     * Generates the auth interceptor file.
+     * Generates the auth interceptor file if any security schemes are defined in the spec.
+     * It analyzes the schemes to determine which tokens (API key, Bearer) are needed and
+     * generates the corresponding injection logic.
+     *
      * @param outputDir The root output directory.
      * @returns An object containing the names of the tokens used (e.g., `['apiKey', 'bearerToken']`),
      *          or `void` if no security schemes are found and no file is generated.
@@ -76,7 +79,6 @@ export class AuthInterceptorGenerator {
                     if (scheme.in === 'header') {
                         securityLogicBlocks.push(`if (this.apiKey) { authReq = req.clone({ setHeaders: { '${scheme.name}': this.apiKey } }); }`);
                     } else if (scheme.in === 'query') {
-                        // This branch is now covered by a test.
                         securityLogicBlocks.push(`if (this.apiKey) { authReq = req.clone({ setParams: { '${scheme.name}': this.apiKey } }); }`);
                     }
                     generatedLogicSignatures.add(signature);

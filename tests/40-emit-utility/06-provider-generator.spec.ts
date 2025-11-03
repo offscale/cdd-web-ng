@@ -61,6 +61,15 @@ describe('Emitter: ProviderGenerator', () => {
         expect(fileContent).toContain('providers.push({ provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true });');
     });
 
+    it('should not add token provider if apiKey is not in config', () => {
+        // Spec has apiKey, but we don't provide it in the provider function.
+        const fileContent = runGenerator(securitySpec);
+        // The `if (config.apiKey)` block should be present
+        expect(fileContent).toContain('if (config.apiKey)');
+        // But the code inside won't run if the user doesn't pass it.
+        // This test mostly ensures the guard is generated correctly.
+    });
+
     it('should add DateInterceptor if dateType is "Date"', () => {
         const fileContent = runGenerator(emptySpec, { dateType: 'Date' });
         expect(fileContent).toContain('if (config.enableDateTransform !== false)');
@@ -69,6 +78,7 @@ describe('Emitter: ProviderGenerator', () => {
 
     it('should handle undefined custom interceptors in config without crashing', () => {
         const fileContent = runGenerator(emptySpec);
+        // This line being present confirms the `|| []` fallback exists and was generated.
         expect(fileContent).toContain('const customInterceptors = config.interceptors?.map(InterceptorClass => new InterceptorClass()) || [];');
     });
 });

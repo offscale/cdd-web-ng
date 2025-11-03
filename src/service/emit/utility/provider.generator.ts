@@ -32,11 +32,10 @@ export class ProviderGenerator {
     }
 
     /**
-     * Generates the providers file.
+     * Generates the providers file if service generation is enabled.
      * @param outputDir The root output directory for the generated library.
      */
     public generate(outputDir: string): void {
-        // This branch is now covered by a test.
         if (!this.config.options.generateServices) {
             return;
         }
@@ -103,7 +102,21 @@ export class ProviderGenerator {
             isExported: true,
             parameters: [{ name: "config", type: `${this.capitalizedClientName}Config` }],
             returnType: "EnvironmentProviders",
-            docs: [`Provides the necessary services and configuration for the ${this.capitalizedClientName} API client.\n@param config The client configuration object.\n@returns A set of providers to be included in your application's bootstrap logic.`],
+            docs: [
+                `Provides the necessary services and configuration for the ${this.capitalizedClientName} API client.`,
+                `This function should be used in the \`providers\` array of your application's bootstrap logic or a feature module.`,
+                `\n@example`,
+                `\`\`\`typescript`,
+                `bootstrapApplication(AppComponent, {`,
+                `  providers: [`,
+                `    provideHttpClient(withInterceptorsFromDi()),`,
+                `    provideTestClient({ basePath: 'http://localhost:3000' })`,
+                `  ]`,
+                `});`,
+                `\`\`\``,
+                `@param config The client configuration object.`,
+                `@returns A set of providers to be included in your application's bootstrap logic.`
+            ],
             statements: writer => {
                 writer.writeLine(`const providers: Provider[] = [`);
                 writer.indent(() => {

@@ -6,6 +6,20 @@ import { coverageSpec, polymorphismSpec } from '../shared/specs.js';
 describe('Admin: discoverAdminResources', () => {
     const createParser = (spec: object) => new SwaggerParser(spec as any, { options: { admin: true } } as any);
 
+    it('should fall back to path segment when operation has no tags', () => {
+        const specWithUntagged = {
+            ...coverageSpec,
+            paths: {
+                ...coverageSpec.paths,
+                '/untagged-resource': { get: { operationId: 'getUntagged' } }
+            }
+        };
+        const resources = discoverAdminResources(createParser(specWithUntagged));
+        const resource = resources.find(r => r.name === 'untaggedResource');
+        expect(resource).toBeDefined();
+        expect(resource?.operations[0].operationId).toBe('getUntagged');
+    });
+
     it('should identify a resource as read-only (Logs)', () => {
         const resources = discoverAdminResources(createParser(coverageSpec));
         const resource = resources.find(r => r.name === 'logs');

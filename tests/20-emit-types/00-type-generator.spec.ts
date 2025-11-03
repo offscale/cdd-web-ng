@@ -32,6 +32,11 @@ describe('Emitter: TypeGenerator', () => {
         expect(output).toContain('export type NumericEnum = 1 | 2 | 3;');
     });
 
+    it('should generate `any` for an empty enum', () => {
+        const output = runGenerator(typeGenSpec);
+        expect(output).toContain('export type EmptyEnum = any;');
+    });
+
     it('should generate composite types using `&` for `allOf`', () => {
         const output = runGenerator(typeGenSpec);
         expect(output).toContain('export type Extended = Base & { name?: string };');
@@ -51,6 +56,7 @@ describe('Emitter: TypeGenerator', () => {
     it('should generate an alias for non-object schemas', () => {
         const output = runGenerator(typeGenSpec);
         expect(output).toContain('export type SimpleAlias = string;');
+        expect(output).toContain('export type ComplexAlias = string | Base;');
     });
 
     it('should generate index signatures for `additionalProperties`', () => {

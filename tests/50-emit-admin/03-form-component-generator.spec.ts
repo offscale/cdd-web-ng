@@ -58,5 +58,18 @@ describe('Admin: FormComponentGenerator', () => {
             expect(html).toContain("form.get('boundedNumber')?.hasError('pattern')");
             expect(html).toContain("form.get('boundedArray')?.hasError('minlength')");
         });
+
+        it('should not generate controls for readOnly properties inside nested objects/arrays', () => {
+            // Case 1: Nested object (formGroupName="config")
+            const configGroupHtml = html.match(/<div[^>]*formGroupName="config"[\s\S]*?<\/div>/)?.[0] ?? '';
+            expect(configGroupHtml).toContain('formControlName="key"');
+            expect(configGroupHtml).not.toContain('formControlName="readOnlyKey"');
+
+            // Case 2: Array of objects (formArrayName="items")
+            const itemsArrayHtml = html.match(/<div[^>]*formArrayName="items"[\s\S]*?<\/div>/)?.[0] ?? '';
+            expect(itemsArrayHtml).toContain('formControlName="name"');
+            expect(itemsArrayHtml).toContain('formControlName="value"');
+            expect(itemsArrayHtml).not.toContain('formControlName="readOnlyVal"');
+        });
     });
 });

@@ -33,7 +33,6 @@ export class ServiceMethodGenerator {
      * @param operation The processed `PathInfo` object describing the API endpoint.
      */
     public addServiceMethod(classDeclaration: ClassDeclaration, operation: PathInfo): void {
-        // This guard is now covered by a unit test.
         if (!operation.methodName) {
             console.warn(`[ServiceMethodGenerator] Skipping method generation for operation without a methodName (operationId: ${operation.operationId})`);
             return;
@@ -43,7 +42,7 @@ export class ServiceMethodGenerator {
         const responseType = this.getResponseType(operation, knownTypes);
         const parameters = this.getMethodParameters(operation, knownTypes);
         const bodyStatements = this.buildMethodBody(operation, parameters);
-        const overloads = this.buildOverloads(responseType, parameters);
+        const overloads = this.buildOverloads(operation.methodName, responseType, parameters);
 
         classDeclaration.addMethod({
             name: operation.methodName,
@@ -51,6 +50,10 @@ export class ServiceMethodGenerator {
             returnType: 'Observable<any>',
             statements: bodyStatements,
             overloads: overloads,
+            docs: [
+                (operation.summary || operation.description || `Performs a ${operation.method} request to ${operation.path}.`) +
+                (operation.description && operation.summary ? `\n\n${operation.description}` : '')
+            ]
         });
     }
 
@@ -106,7 +109,7 @@ export class ServiceMethodGenerator {
                 const bodyName = isDataTypeInterface(bodyType.replace(/\[\]| \| null/g, '')) ? camelCase(bodyType.replace(/\[\]| \| null/g, '')) : 'body';
                 parameters.push({ name: bodyName, type: bodyType, hasQuestionToken: !requestBody.required });
             } else {
-                // Fallback for non-JSON bodies (e.g., `application/octet-stream`). This is now covered by a test.
+                // Fallback for non-JSON bodies (e.g., `application/octet-stream`).
                 parameters.push({ name: 'body', type: 'any', hasQuestionToken: !requestBody.required });
             }
         }
@@ -163,42 +166,45 @@ export class ServiceMethodGenerator {
     /**
      * Builds the array of method overloads for different `observe` and `responseType` combinations,
      * providing strong typing for different ways of calling the Angular `HttpClient`.
+     * @param methodName The name of the method.
      * @param responseType The primary TypeScript type of the response body.
      * @param parameters The base parameters of the method.
      * @returns An array of `MethodDeclarationOverloadStructure` objects.
      * @private
      */
-    private buildOverloads(responseType: string, parameters: OptionalKind<ParameterDeclarationStructure>[]): OptionalKind<MethodDeclarationOverloadStructure>[] {
+    private buildOverloads(methodName: string, responseType: string, parameters: OptionalKind<ParameterDeclarationStructure>[]): OptionalKind<MethodDeclarationOverloadStructure>[] {
+        const paramsDocs = parameters.map(p => `@param ${p.name} ${!p.hasQuestionToken ? '' : '(optional) '}`).join('\n');
+
         return [
             // Overload for observe: 'response'
             {
                 parameters: [...parameters, { name: 'options', hasQuestionToken: false, type: `RequestOptions & { observe: 'response' }` }],
                 returnType: `Observable<HttpResponse<${responseType}>>`,
-                docs: ["@param options The options for this request, with response observation enabled."]
+                docs: [`${methodName}. \n${paramsDocs}\n@param options The options for this request, with response observation enabled.`]
             },
             // Overload for observe: 'events'
             {
                 parameters: [...parameters, { name: 'options', hasQuestionToken: false, type: `RequestOptions & { observe: 'events' }` }],
                 returnType: `Observable<HttpEvent<${responseType}>>`,
-                docs: ["@param options The options for this request, with event observation enabled."]
+                docs: [`${methodName}. \n${paramsDocs}\n@param options The options for this request, with event observation enabled.`]
             },
             // Overload for responseType: 'blob'
             {
                 parameters: [...parameters, { name: 'options', hasQuestionToken: false, type: `RequestOptions & { responseType: 'blob' }` }],
                 returnType: `Observable<Blob>`,
-                docs: ["@param options The options for this request, with a blob response type."]
+                docs: [`${methodName}. \n${paramsDocs}\n@param options The options for this request, with a blob response type.`]
             },
             // Overload for responseType: 'text'
             {
                 parameters: [...parameters, { name: 'options', hasQuestionToken: false, type: `RequestOptions & { responseType: 'text' }` }],
                 returnType: `Observable<string>`,
-                docs: ["@param options The options for this request, with a text response type."]
+                docs: [`${methodName}. \n${paramsDocs}\n@param options The options for this request, with a text response type.`]
             },
             // Default overload for observe: 'body'
             {
                 parameters: [...parameters, { name: 'options', hasQuestionToken: true, type: `RequestOptions & { observe?: 'body' }` }],
                 returnType: `Observable<${responseType}>`,
-                docs: ["@param options The options for this request."]
+                docs: [`${methodName}. \n${paramsDocs}\n@param options The options for this request.`]
             }
         ];
     }

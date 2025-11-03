@@ -23,6 +23,9 @@ export class FormComponentGenerator {
 
     /**
      * Main entry point for generating all files related to a form component.
+     * It creates the component's directory and orchestrates the generation of its
+     * TypeScript class, HTML template, and SCSS styles.
+     *
      * @param resource The resource definition, including its name, model, and properties.
      * @param outDir The root directory for admin component generation (e.g., '/generated/admin').
      * @returns An object indicating if custom validators were used, which informs the AdminGenerator.
@@ -55,13 +58,29 @@ export class FormComponentGenerator {
         const checkValidators = (properties: FormProperty[]) => {
             for (const prop of properties) {
                 const schema = prop.schema;
-                const itemsSchema = (schema.type === 'array' ? schema.items : schema) as SwaggerDefinition;
-                const info = mapSchemaToFormControl(itemsSchema);
+
+                // Check top-level property
+                let info = mapSchemaToFormControl(schema);
                 if (info?.validators.some(v => v.startsWith('CustomValidators'))) {
                     usesCustomValidators = true;
                 }
-                if (itemsSchema?.properties) {
-                    checkValidators(Object.entries(itemsSchema.properties).map(([name, schema]) => ({ name, schema })));
+
+                // If it's an array, check the items
+                if (schema.type === 'array' && schema.items) {
+                    const itemsSchema = schema.items as SwaggerDefinition;
+                    info = mapSchemaToFormControl(itemsSchema);
+                    if (info?.validators.some(v => v.startsWith('CustomValidators'))) {
+                        usesCustomValidators = true;
+                    }
+                    // Recursively check properties of objects inside arrays
+                    if (itemsSchema.properties) {
+                        checkValidators(Object.entries(itemsSchema.properties).map(([name, schema]) => ({ name, schema })));
+                    }
+                }
+
+                // Recursively check properties of nested objects
+                if (schema.type === 'object' && schema.properties) {
+                    checkValidators(Object.entries(schema.properties).map(([name, schema]) => ({ name, schema })));
                 }
             }
         };
@@ -88,18 +107,18 @@ export class FormComponentGenerator {
             name: componentName, // <-- ADD THIS LINE
             decorators: [{
                 name: 'Component',
-                arguments: [`{
-                    selector: 'app-${resource.name}-form',
-                    standalone: true,
-                    imports: [
-                        'CommonModule',
-                        'RouterModule',
-                        'ReactiveFormsModule',
+                arguments: [`{ 
+                    selector: 'app-${resource.name}-form', 
+                    standalone: true, 
+                    imports: [ 
+                        'CommonModule', 
+                        'RouterModule', 
+                        'ReactiveFormsModule', 
                         'FormGroup', 'FormArray', 'Validators', // Added for clarity
                         ...commonStandaloneImports
-                    ],
-                    templateUrl: './${resource.name}-form.component.html',
-                    styleUrl: './${resource.name}-form.component.scss'
+                    ], 
+                    templateUrl: './${resource.name}-form.component.html', 
+                    styleUrl: './${resource.name}-form.component.scss' 
                 }`]
             }],
             implements: ['OnInit', 'OnDestroy']
@@ -162,7 +181,6 @@ export class FormComponentGenerator {
                 const schema = prop.schema;
                 const itemsSchema = (schema.type === 'array' ? schema.items : schema) as SwaggerDefinition | undefined;
 
-                // FIX: Add a null check to prevent crash on arrays without item schemas
                 if (!itemsSchema) {
                     continue;
                 }
@@ -225,7 +243,6 @@ export class FormComponentGenerator {
         const createOp = resource.operations.find(op => op.action === 'create');
         const updateOp = resource.operations.find(op => op.action === 'update');
 
-        // FIX: Generate onSubmit if at least one of create or update exists.
         if (!createOp?.methodName && !updateOp?.methodName) { return; }
 
         const payloadExpr = hasPolymorphism ? 'this.getPayload()' : 'this.form.getRawValue()';
@@ -415,11 +432,11 @@ export class FormComponentGenerator {
 
         // Use a modern Angular effect to react to changes in the discriminator property.
         classDeclaration.addConstructor({
-            statements: writer => writer.write(`effect(() => {
-    const type = this.form.get(this.discriminatorPropName)?.value;
-    if (type) {
-        this.updateFormForPetType(type);
-    }
+            statements: writer => writer.write(`effect(() => { 
+    const type = this.form.get(this.discriminatorPropName)?.value; 
+    if (type) { 
+        this.updateFormForPetType(type); 
+    } 
 });`)
         });
 

@@ -18,8 +18,8 @@ function getMethodName(op: PathInfo): string {
         ).join('');
 
     return op.operationId
-        ? camelCase(op.operationId) // Prefer operationId
-        : `${op.method.toLowerCase()}${pathToMethodName(op.path)}`; // Fallback
+        ? camelCase(op.operationId)
+        : `${op.method.toLowerCase()}${pathToMethodName(op.path)}`;
 }
 
 /**
@@ -31,48 +31,53 @@ function getMethodName(op: PathInfo): string {
 function getResourceName(path: PathInfo): string {
     const tag = path.tags?.[0];
     if (tag) return camelCase(tag);
-    // Fallback: use the first non-parameter part of the path
     const firstSegment = path.path.split('/').filter(p => p && !p.startsWith('{'))[0];
     return camelCase(firstSegment ?? 'default');
 }
 
 /**
- * Classifies an API operation into a standard CRUD action (`list`, `create`, `update`, etc.)
- * or a custom action (derived from the `operationId`).
- * Custom `operationId`s are prioritized to correctly identify non-standard actions on standard routes.
+ * Classifies an API operation into a standard CRUD action or a custom action.
+ * It first checks for simple, standard CRUD patterns (e.g., `GET /resource`).
+ * If no standard pattern matches, the operation is considered custom, and the `operationId`
+ * is used for its name.
  * @param path The operation's `PathInfo` object.
  * @returns A string representing the classified action.
  */
 function classifyAction(path: PathInfo): ResourceOperation['action'] {
     const method = path.method.toUpperCase();
-    const hasIdSuffix = /\{\w+\}$/.test(path.path);
     const nonParamSegments = path.path.split('/').filter(p => p && !p.startsWith('{'));
+    const hasIdSuffix = /\{\w+\}$/.test(path.path);
+    const opId = path.operationId;
 
-    // Prioritize operationId to allow custom actions that overlap with CRUD-like routes.
-    // E.g., POST /users with operationId 'searchUsers' should be 'searchUsers', not 'create'.
-    if (path.operationId) {
-        const opIdLower = path.operationId.toLowerCase();
-        const commonCrudPrefixes = ['get', 'list', 'create', 'add', 'post', 'update', 'edit', 'patch', 'put', 'delete', 'remove'];
-        // If the operationId doesn't start with a common CRUD verb, treat it as a custom action.
-        if (!commonCrudPrefixes.some(prefix => opIdLower.startsWith(prefix))) {
-            return camelCase(path.operationId);
-        }
+    // --- RULE 1: If path is non-standard, it's ALWAYS a custom action. ---
+    // A standard path is `/resource` or `/resource/{id}`. Anything else is non-standard.
+    if (nonParamSegments.length > 1) {
+        if (opId) return camelCase(opId);
+        // Fallback name for non-standard path without an operationId
+        return camelCase(`${method} ${nonParamSegments.join(' ')}`);
     }
 
-    // Standard CRUD heuristics based on method and path structure.
+    // --- RULE 2: Path is standard. Check for standard CRUD patterns. ---
     if (method === 'GET' && !hasIdSuffix) return 'list';
-    if (method === 'POST' && !hasIdSuffix) return 'create';
     if (method === 'GET' && hasIdSuffix) return 'getById';
     if ((method === 'PUT' || method === 'PATCH') && hasIdSuffix) return 'update';
     if (method === 'DELETE' && hasIdSuffix) return 'delete';
 
-    // Fallback: if it's not a standard CRUD pattern, use the operationId if it exists.
-    if (path.operationId) {
-        return camelCase(path.operationId);
+    // Special handling for POST on a collection path, as it could be `create` or a custom action like `search`.
+    if (method === 'POST' && !hasIdSuffix) {
+        if (opId && !opId.toLowerCase().includes('create') && !opId.toLowerCase().includes('add') && !opId.toLowerCase().includes('post')) {
+            return camelCase(opId); // This is a custom action like 'searchUsers'.
+        }
+        return 'create'; // This is a standard create action.
     }
 
-    // Final fallback: construct a name from the method and path (e.g., 'postAnalyticsEvents')
-    return camelCase(`${method} ${nonParamSegments.join(' ')}${hasIdSuffix ? ' By Id' : ''}`);
+    // --- RULE 3: Path is standard, but method didn't match CRUD. Treat as custom. ---
+    if (opId) {
+        return camelCase(opId);
+    }
+
+    // --- FINAL FALLBACK ---
+    return camelCase(`${method} ${nonParamSegments.join(' ')} ${hasIdSuffix ? 'ById' : ''}`);
 }
 
 /**

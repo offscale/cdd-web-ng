@@ -192,7 +192,7 @@ export class SwaggerParser {
     /**
      * Checks if the loaded specification is a valid OpenAPI 3.x or Swagger 2.0 file
      * by inspecting the `openapi` or `swagger` version fields.
-     *
+     * This method is lenient and only checks for the presence of a version string starting with '2.' or '3.'.
      * @returns `true` if the spec version is recognized, `false` otherwise.
      */
     public isValidSpec(): boolean {

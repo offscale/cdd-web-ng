@@ -43,8 +43,8 @@ export const coverageSpec = {
         '/string-array': { get: { tags: ['StringArray'], operationId: 'getStringArray', responses: { '200': { content: { 'application/json': { schema: { type: 'array', items: { type: 'string' } } } } } } } },
         '/custom-name': { get: { tags: ['CustomName'], operationId: 'get-custom-name' } },
         '/duplicate-name': { get: { tags: ['DuplicateName'], operationId: 'getName' }, post: { tags: ['DuplicateName'], operationId: 'getName' } },
-        '/action-test/{id}': { head: { tags: ['ActionTest'], parameters: [{name: 'id', in: 'path', schema: {type: 'string'}}] } }, // Test for action name fallback
-        '/users-search': { post: { tags: ['UsersSearch'], operationId: 'searchUsers' } }, // Test for operationId custom action
+        '/action-test/{id}': { head: { tags: ['ActionTest'], parameters: [{name: 'id', in: 'path', schema: {type: 'string'}}] } },
+        '/users-search': { post: { tags: ['UsersSearch'], operationId: 'searchUsers' } },
         '/events': { get: { operationId: 'getEvents', tags: ['Events'], responses: { '200': { 'content': {'application/json': { schema: { type: 'array', items: { '$ref': '#/components/schemas/Event' } } } } } } } },
         '/no-content': { delete: { tags: ['NoContent'], operationId: 'deleteNoContent', responses: { '204': {} } } },
     },
@@ -176,8 +176,11 @@ export const listComponentSpec = {
         },
         '/icon-tests/{id}': {
             put: { tags: ['IconTests'], operationId: 'updateItem', parameters: [{name: 'id', in: 'path'}] },
-            delete: { tags: ['IconTests'], operationId: 'removeItem', parameters: [{name: 'id', in: 'path'}] }
+            // This is now a standard delete action, which gets special handling (`onDelete`)
+            delete: { tags: ['IconTests'], operationId: 'deleteItem', parameters: [{name: 'id', in: 'path'}] }
         },
+        // These are all custom actions
+        '/icon-tests/{id}/remove': { post: { tags: ['IconTests'], operationId: 'removeItem', parameters: [{name: 'id', in: 'path'}] }},
         '/icon-tests/{id}/start': { post: { tags: ['IconTests'], operationId: 'startItem', parameters: [{name: 'id', in: 'path'}] }},
         '/icon-tests/{id}/pause': { post: { tags: ['IconTests'], operationId: 'pauseProcess', parameters: [{name: 'id', in: 'path'}] }},
         '/icon-tests/sync-all': { post: { tags: ['IconTests'], operationId: 'syncAll' }},

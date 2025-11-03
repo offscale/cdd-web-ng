@@ -78,7 +78,7 @@ describe('Admin: ListComponentGenerator', () => {
         it('should correctly map various action names to icons', () => {
             const html = localProject.getFileSystem().readFileSync('/admin/iconTests/iconTests-list/iconTests-list.component.html');
 
-            expect(html).toContain('<mat-icon>delete</mat-icon>');     // from the standard delete action
+            expect(html).toContain('<mat-icon>delete</mat-icon>');     // from the standard delete action and the custom remove action
             expect(html).toContain('<mat-icon>edit</mat-icon>');       // onEdit (from update) -> edit
             expect(html).toContain('<mat-icon>play_arrow</mat-icon>'); // start -> play_arrow
             expect(html).toContain('<mat-icon>pause</mat-icon>');      // pause -> pause

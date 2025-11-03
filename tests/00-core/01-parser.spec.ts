@@ -90,7 +90,7 @@ describe('Core: SwaggerParser', () => {
     });
 
     describe('resolve()', () => {
-        const spec = { components: { schemas: { User: { type: 'string' } } } };
+        const spec = { components: { schemas: { User: { type: 'string' }, Broken: null } } };
         const parser = new SwaggerParser(spec as any, config);
 
         it('should resolve a valid local reference object', () => {
@@ -114,6 +114,12 @@ describe('Core: SwaggerParser', () => {
             const result = parser.resolve({ $ref: '#/components/schemas/NonExistent' });
             expect(result).toBeUndefined();
             expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('Failed to resolve reference part "NonExistent"'));
+        });
+
+        it('should return undefined if an intermediate part of the ref path is null', () => {
+            const result = parser.resolve({ $ref: '#/components/schemas/Broken/property' });
+            expect(result).toBeUndefined();
+            expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('Failed to resolve reference part "property" in path "#/components/schemas/Broken/property"'));
         });
 
         it('should return undefined for a null/undefined object', () => {

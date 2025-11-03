@@ -1,6 +1,6 @@
 // src/service/emit/admin/html/form-controls-html.builder.ts
 
-import { FormProperty } from "../../../../core/types.js";
+import { FormProperty, SwaggerDefinition } from "../../../../core/types.js";
 import { pascalCase, camelCase, singular } from "../../../../core/utils.js";
 import { HtmlElementBuilder, HtmlElementBuilder as _ } from "../html-element.builder.js";
 

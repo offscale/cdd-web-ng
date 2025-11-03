@@ -11,6 +11,7 @@ describe('Emitter: ServiceMethodGenerator Coverage', () => {
 
     const createTestEnvironment = (spec: object = finalCoverageSpec) => {
         const project = new Project({ useInMemoryFileSystem: true });
+        // FIX: Removed the trailing underscore from this line.
         const config: GeneratorConfig = { input: '', output: '/out', options: { dateType: 'string', enumStyle: 'enum' } };
         const parser = new SwaggerParser(spec as any, config);
 
@@ -57,5 +58,19 @@ describe('Emitter: ServiceMethodGenerator Coverage', () => {
 
         // Check that query param logic was not generated
         expect(body).not.toContain('let requestParams = new HttpParams');
+    });
+
+    it('should generate query param logic when query params are present', () => {
+        const { methodGen, serviceClass, parser } = createTestEnvironment();
+        const operation = parser.operations.find(op => op.operationId === 'withQuery')!;
+        operation.methodName = 'withQuery';
+
+        methodGen.addServiceMethod(serviceClass, operation);
+        const method = serviceClass.getMethodOrThrow('withQuery');
+        const body = method.getImplementation()?.getBodyText() ?? '';
+
+        expect(body).toContain(`let requestParams = new HttpParams({ fromObject: options?.params || {} });`);
+        expect(body).toContain(`if (search != null) { requestParams = HttpParamsBuilder.addToHttpParams(requestParams, search, 'search'); }`);
+        expect(body).toContain(`finalOptions.params = requestParams;`);
     });
 });

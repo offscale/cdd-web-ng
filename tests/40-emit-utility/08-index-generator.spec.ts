@@ -68,5 +68,17 @@ describe('Emitter: IndexGenerators', () => {
             expect(content).toContain(`export { UsersService } from "./users.service";`);
             expect(content).toContain(`export { ProductsService } from "./products.service";`);
         });
+
+        it('should ignore files that do not contain an exported class', () => {
+            const project = new Project({ useInMemoryFileSystem: true });
+            const serviceDir = project.createDirectory('/out/services');
+            serviceDir.createSourceFile('users.service.ts', 'export class UsersService {}');
+            serviceDir.createSourceFile('helpers.ts', 'export const helper = 1;'); // Not a service file
+
+            new ServiceIndexGenerator(project).generateIndex('/out');
+            const content = project.getSourceFileOrThrow('/out/services/index.ts').getText();
+            expect(content).toContain(`export { UsersService } from "./users.service";`);
+            expect(content).not.toContain(`helpers`);
+        });
     });
 });

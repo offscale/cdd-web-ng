@@ -7,6 +7,8 @@ import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
  * Generates the `auth.interceptor.ts` file. This interceptor is responsible for
  * attaching API keys and/or Bearer tokens to outgoing HTTP requests based on the
  * security schemes defined in the OpenAPI specification.
+ * It currently supports `apiKey` (in header or query) and `http`/`oauth2` (for Bearer tokens).
+ * Other schemes like `apiKey` in `cookie` are parsed but do not generate interception logic.
  */
 export class AuthInterceptorGenerator {
     constructor(private parser: SwaggerParser, private project: Project) { }
@@ -81,6 +83,7 @@ export class AuthInterceptorGenerator {
                     } else if (scheme.in === 'query') {
                         securityLogicBlocks.push(`if (this.apiKey) { authReq = req.clone({ setParams: { '${scheme.name}': this.apiKey } }); }`);
                     }
+                    // Note: 'cookie' type is intentionally not handled as it requires HttpOnly cookies managed by the browser.
                     generatedLogicSignatures.add(signature);
                 }
             } else if ((scheme.type === 'http' && scheme.scheme === 'bearer') || scheme.type === 'oauth2') {

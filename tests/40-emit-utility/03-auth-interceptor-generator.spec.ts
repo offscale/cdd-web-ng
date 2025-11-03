@@ -32,7 +32,7 @@ describe('Emitter: AuthInterceptorGenerator', () => {
         expect(body).toContain("} else if (this.apiKey) { authReq = req.clone({ setParams: { 'api_key_query': this.apiKey } }); }");
         // Check for Bearer logic
         expect(body).toContain("} else if (this.bearerToken)");
-        expect(body).toContain("req.clone({ setHeaders: { 'Authorization': `Bearer ${token}` } })");
+        expect(body).toContain("req.clone({ setHeaders: { 'Authorization': \`Bearer \${token}\` } })");
     });
 
     it('should handle unsupported security schemes without generating logic for them', () => {
@@ -40,7 +40,8 @@ describe('Emitter: AuthInterceptorGenerator', () => {
             ...emptySpec,
             components: {
                 securitySchemes: {
-                    BasicAuth: { type: 'http', scheme: 'basic' }
+                    BasicAuth: { type: 'http', scheme: 'basic' },
+                    ApiKeyCookie: { type: 'apiKey', in: 'cookie', name: 'SESSION_ID' }
                 }
             }
         };
@@ -48,9 +49,9 @@ describe('Emitter: AuthInterceptorGenerator', () => {
         const file = project.getSourceFileOrThrow('/out/auth/auth.interceptor.ts');
         const body = file.getClassOrThrow('AuthInterceptor').getMethodOrThrow('intercept')?.getBodyText() ?? '';
 
-        // Since only unsupported schemes are present, no tokens should be needed.
-        expect(tokenNames).toEqual([]);
-        // The body should be simple, without any auth logic.
+        // Since only unsupported schemes are present, only the apiKey token is needed, but no logic is generated for 'cookie'.
+        expect(tokenNames).toEqual(['apiKey']);
+        // The body should be simple, without any active auth logic.
         expect(body).toContain('let authReq = req;');
         expect(body).not.toContain('authReq = req.clone');
     });

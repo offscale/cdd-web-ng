@@ -79,7 +79,7 @@ export class ServiceGenerator {
 
             if (op.requestBody?.content?.['application/json']?.schema) {
                 const bodyType = getTypeScriptType(op.requestBody.content['application/json'].schema as any, this.config, knownTypes).replace(/\[\]| \| null/g, '');
-                if (isDataTypeInterface(bodyType)) {
+                if (isDataTypeInterface(bodyType)) { // This branch was previously uncovered
                     modelImports.add(bodyType);
                 }
             }
@@ -114,6 +114,7 @@ export class ServiceGenerator {
         });
     }
 
+    /** @private Adds all necessary import declarations to the service file. */
     private addImports(sourceFile: SourceFile, modelImports: Set<string>): void {
         sourceFile.addImportDeclarations([
             { moduleSpecifier: '@angular/core', namedImports: ['Injectable', 'inject'] },
@@ -125,6 +126,7 @@ export class ServiceGenerator {
         ]);
     }
 
+    /** @private Adds the main class declaration to the service file. */
     private addClass(sourceFile: SourceFile, className: string): ClassDeclaration {
         return sourceFile.addClass({
             name: className,
@@ -133,6 +135,7 @@ export class ServiceGenerator {
         });
     }
 
+    /** @private Adds standard properties and helper methods to the service class. */
     private addPropertiesAndHelpers(serviceClass: ClassDeclaration): void {
         serviceClass.addProperty({ name: 'http', scope: Scope.Private, isReadonly: true, initializer: 'inject(HttpClient)' });
         serviceClass.addProperty({ name: 'basePath', scope: Scope.Private, isReadonly: true, type: 'string', initializer: `inject(${getBasePathTokenName(this.config.clientName)})` });

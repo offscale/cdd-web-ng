@@ -339,6 +339,28 @@ export const finalCoverageSpec = {
                 ],
                 requestBody: { content: { 'application/octet-stream': {} } } // Non-JSON body
             }
+        },
+        '/with-query': {
+            get: {
+                tags: ['WithQuery'],
+                operationId: 'withQuery',
+                parameters: [
+                    { name: 'search', in: 'query', schema: { type: 'string' } }
+                ]
+            }
+        },
+        '/primitive-body': {
+            post: {
+                tags: ['PrimitiveBody'],
+                operationId: 'primitiveBody',
+                requestBody: {
+                    content: {
+                        'application/json': {
+                            schema: { type: 'string' } // This is a primitive, not a data interface
+                        }
+                    }
+                }
+            }
         }
     },
 };

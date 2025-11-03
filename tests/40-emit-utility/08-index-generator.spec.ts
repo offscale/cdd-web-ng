@@ -51,9 +51,11 @@ describe('Emitter: IndexGenerators', () => {
     describe('ServiceIndexGenerator', () => {
         it('should create an empty index if no services directory exists', () => {
             const project = new Project({ useInMemoryFileSystem: true });
+            // Do not create the '/out/services' directory
             new ServiceIndexGenerator(project).generateIndex('/out');
             const file = project.getSourceFile('/out/services/index.ts');
             expect(file).toBeDefined();
+            // The guard clause `if (!servicesDirectory) { return; }` should be hit.
             expect(file?.getExportDeclarations().length).toBe(0);
         });
 

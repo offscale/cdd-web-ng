@@ -40,8 +40,7 @@ describe('E2E: Full Generation Orchestrator', () => {
         const project = await run(emptySpec); // services are on by default
 
         expect(project.getDirectory('/generated/auth')).toBeUndefined();
-        // Check that the provider doesn't contain auth-related tokens. This covers the
-        // `if (interceptorResult)` false branch in the orchestrator.
+        // A provider file is still generated, but should not contain auth logic
         const providerFile = project.getSourceFileOrThrow('/generated/providers.ts');
         expect(providerFile.getText()).not.toContain('AuthInterceptor');
     });

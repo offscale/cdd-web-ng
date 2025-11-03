@@ -59,9 +59,10 @@ export class ServiceMethodGenerator {
 
     /**
      * Determines the primary TypeScript type for the response body of an operation.
+     * Defaults to 'void' for 204 No Content or if no schema is defined.
      * @param operation The `PathInfo` object for the endpoint.
      * @param knownTypes An array of known schema names for resolving `$ref`s.
-     * @returns The TypeScript type string for the response body. Defaults to 'void'.
+     * @returns The TypeScript type string for the response body.
      * @private
      */
     private getResponseType(operation: PathInfo, knownTypes: string[]): string {
@@ -80,6 +81,7 @@ export class ServiceMethodGenerator {
     /**
      * Extracts and builds an array of parameter declaration structures for a method
      * from the operation's `parameters` and `requestBody` definitions.
+     * The parameters are sorted to place required ones first.
      * @param operation The `PathInfo` object for the endpoint.
      * @param knownTypes An array of known schema names for resolving `$ref`s.
      * @returns An array of `ParameterDeclarationStructure` objects for the method.

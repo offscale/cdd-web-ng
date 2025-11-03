@@ -146,6 +146,7 @@ export class SwaggerParser {
      * Resolves a JSON reference (`$ref`) object to its corresponding definition within the specification.
      * This method only supports local references (e.g., '#/components/schemas/User').
      *
+     * @template T The expected type of the resolved object.
      * @param obj The object to resolve. If it's not a `$ref` object, it's returned as is.
      * @returns The resolved definition, or the original object if not a `$ref`. Returns `undefined` if the reference cannot be resolved.
      */

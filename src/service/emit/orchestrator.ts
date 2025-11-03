@@ -56,10 +56,9 @@ export async function emitClientLibrary(outputRoot: string, parser: SwaggerParse
             new AuthTokensGenerator(project).generate(outputRoot);
 
             const interceptorGenerator = new AuthInterceptorGenerator(parser, project);
-            const interceptorResult = interceptorGenerator.generate(outputRoot);
-            if (interceptorResult) {
-                tokenNames = interceptorResult.tokenNames;
-            }
+            // The generator is only called when schemes exist, so the result will always be defined.
+            const interceptorResult = interceptorGenerator.generate(outputRoot)!;
+            tokenNames = interceptorResult.tokenNames;
 
             if (Object.values(securitySchemes).some(s => s.type === 'oauth2')) {
                 new OAuthHelperGenerator(parser, project).generate(outputRoot);

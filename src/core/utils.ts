@@ -210,7 +210,7 @@ type UnifiedParameter = SwaggerOfficialParameter & { schema?: SwaggerDefinition 
  * It merges path-level and operation-level parameters and normalizes Swagger 2.0 `body` parameters
  * into the `requestBody` format of OpenAPI 3.
  *
- * @param swaggerPaths The `paths` object from the OpenAPI specification.
+ * @param swaggerPaths The `paths` object from the OpenAPI specification a.k.a `SwaggerSpec['paths']`.
  * @returns An array of processed `PathInfo` objects, or an empty array if `swaggerPaths` is undefined.
  */
 export function extractPaths(swaggerPaths: { [p: string]: Path } | undefined): PathInfo[] {

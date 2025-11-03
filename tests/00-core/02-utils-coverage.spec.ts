@@ -19,7 +19,7 @@ describe('Core: utils.ts (Coverage)', () => {
         expect(utils.getResponseType(undefined, config, [])).toBe('any');
     });
 
-    // Covers line 130
+    // Covers line 131 in utils.ts
     it('getTypeScriptType should return "any" for null or undefined schema', () => {
         expect(utils.getTypeScriptType(undefined, config, [])).toBe('any');
         expect(utils.getTypeScriptType(null, config, [])).toBe('any');

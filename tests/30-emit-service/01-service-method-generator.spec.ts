@@ -11,7 +11,6 @@ describe('Emitter: ServiceMethodGenerator Coverage', () => {
 
     const createTestEnvironment = (spec: object = finalCoverageSpec) => {
         const project = new Project({ useInMemoryFileSystem: true });
-        // FIX: Removed the trailing underscore from this line.
         const config: GeneratorConfig = { input: '', output: '/out', options: { dateType: 'string', enumStyle: 'enum' } };
         const parser = new SwaggerParser(spec as any, config);
 
@@ -72,5 +71,17 @@ describe('Emitter: ServiceMethodGenerator Coverage', () => {
         expect(body).toContain(`let requestParams = new HttpParams({ fromObject: options?.params || {} });`);
         expect(body).toContain(`if (search != null) { requestParams = HttpParamsBuilder.addToHttpParams(requestParams, search, 'search'); }`);
         expect(body).toContain(`finalOptions.params = requestParams;`);
+    });
+
+    it('should name the body parameter `body` for primitive types', () => {
+        const { methodGen, serviceClass, parser } = createTestEnvironment();
+        const operation = parser.operations.find(op => op.operationId === 'primitiveBody')!;
+        operation.methodName = 'primitiveBody';
+
+        methodGen.addServiceMethod(serviceClass, operation);
+        const method = serviceClass.getMethodOrThrow('primitiveBody');
+        const impl = method.getImplementation()!;
+        const param = impl.getParameters().find(p => p.getType().getText() === 'string');
+        expect(param?.getName()).toBe('body');
     });
 });

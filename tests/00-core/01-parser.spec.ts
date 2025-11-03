@@ -138,6 +138,10 @@ describe('Core: SwaggerParser', () => {
         const parser = new SwaggerParser({} as any, config);
         expect(parser.resolveReference('invalid-ref')).toBeUndefined();
         expect(console.warn).toHaveBeenCalledWith('[Parser] Encountered an unsupported or invalid reference: invalid-ref');
+
+        // Cover the non-string case
+        expect(parser.resolveReference(123 as any)).toBeUndefined();
+        expect(console.warn).toHaveBeenCalledWith('[Parser] Encountered an unsupported or invalid reference: 123');
     });
 
     it('should get definitions from Swagger 2.0 `definitions`', () => {

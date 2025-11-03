@@ -76,7 +76,7 @@ export function pascalCase(str: string): string {
 export function kebabCase(str: string): string {
     if (!str) return '';
     return str
-        .replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2') // Insert hyphen before uppercase letters
+        .replace(/([a-z0-9])([A-Z])/g, '$1-$2') // Insert hyphen before uppercase letters that follow a lowercase letter or digit
         .toLowerCase()
         .replace(/[\s_]+/g, '-')    // Replace spaces and underscores with hyphens
         .replace(/^-+|-+$/g, '');        // Trim leading/trailing hyphens
@@ -89,7 +89,7 @@ export function kebabCase(str: string): string {
  * This is the core of the type generation logic, handling references, compositions,
  * primitives, and object structures.
  *
- * @param schema The OpenAPI schema definition to process. Can be `null` or `undefined`.
+ * @param schema The OpenAPI schema definition to process. If `null` or `undefined`, 'any' is returned.
  * @param config The generator configuration, used to determine date types and other options.
  * @param knownTypes An array of all defined schema names, used to validate `$ref`s.
  * @returns A string representing the corresponding TypeScript type.

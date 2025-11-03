@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import * as utils from '../../src/core/utils.js';
 import { GeneratorConfig, SwaggerDefinition } from '../../src/core/types.js';
@@ -74,5 +74,41 @@ describe('Core: utils.ts (Coverage)', () => {
     it('isDataTypeInterface should return false for inline object definitions', () => {
         const type = '{ foo?: string }';
         expect(utils.isDataTypeInterface(type)).toBe(false);
+    });
+
+    it('should handle string with format: binary', () => {
+        const schema: SwaggerDefinition = { type: 'string', format: 'binary' };
+        expect(utils.getTypeScriptType(schema, config, [])).toBe('Blob');
+    });
+
+    it('should escape single quotes in string enums', () => {
+        const schema: SwaggerDefinition = { type: 'string', enum: ["it's a string"] };
+        expect(utils.getTypeScriptType(schema, config, [])).toBe("'it\\'s a string'");
+    });
+
+    it('should correctly handle OAS3 requestBody in extractPaths', () => {
+        const swaggerPaths = {
+            '/test': { post: { requestBody: { content: { 'application/json': { schema: { type: 'number' } } } } } }
+        };
+        const paths = utils.extractPaths(swaggerPaths as any);
+        expect(paths.length).toBe(1);
+        expect(paths[0].requestBody).toBeDefined();
+        expect(paths[0].requestBody?.content?.['application/json']?.schema).toEqual({ type: 'number' });
+    });
+
+    describe('isUrl', () => {
+        it('should return true for valid URLs', () => {
+            expect(utils.isUrl('http://example.com')).toBe(true);
+            expect(utils.isUrl('https://example.com/path?query=1')).toBe(true);
+        });
+
+        it('should return false for invalid URLs or local paths', () => {
+            expect(utils.isUrl('not a url')).toBe(false);
+            expect(utils.isUrl('/local/path/spec.json')).toBe(false);
+            expect(utils.isUrl('example.com')).toBe(false);
+        });
+    });
+    it('kebabCase should handle strings with spaces', () => {
+        expect(utils.kebabCase('Hello World')).toBe('hello-world');
     });
 });

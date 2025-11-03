@@ -171,4 +171,21 @@ describe('Core: SwaggerParser', () => {
     it('should return null for getSpecVersion on invalid spec', () => {
         expect(new SwaggerParser({} as any, config).getSpecVersion()).toBeNull();
     });
+
+    it('should get spec version for Swagger 2.0', () => {
+        const parser = new SwaggerParser({ swagger: '2.0' } as any, config);
+        expect(parser.getSpecVersion()).toEqual({ type: 'swagger', version: '2.0' });
+    });
+
+    it('should get security schemes from OpenAPI 3.x `components.securitySchemes`', () => {
+        const spec = { openapi: '3.0.0', components: { securitySchemes: { Bearer: { type: 'http' } } } };
+        const parser = new SwaggerParser(spec as any, config);
+        expect(parser.getSecuritySchemes()).toHaveProperty('Bearer');
+    });
+
+    it('should return undefined from getDefinition for a non-existent definition', () => {
+        const spec = { components: { schemas: { User: { type: 'string' } } } };
+        const parser = new SwaggerParser(spec as any, config);
+        expect(parser.getDefinition('NonExistent')).toBeUndefined();
+    });
 });

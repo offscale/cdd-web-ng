@@ -173,10 +173,12 @@ export class SwaggerParser {
     }
 
     /**
-     * A specialized version of `resolve` for resolving a string reference directly.
-     * This is a simplified lookup assuming the reference points to a top-level schema definition.
+     * Resolves a JSON reference string (e.g., '#/components/schemas/User') directly to its definition.
+     * This is a simplified lookup that assumes the reference points to a top-level schema/definition.
+     * It does not traverse complex paths. If the reference is invalid or unsupported
+     * (not a local string starting with '#/'), it logs a warning and returns `undefined`.
      *
-     * @param ref The JSON reference string (e.g., '#/components/schemas/User').
+     * @param ref The JSON reference string.
      * @returns The resolved SwaggerDefinition, or undefined if not found or the reference is invalid.
      */
     public resolveReference(ref: string): SwaggerDefinition | undefined {

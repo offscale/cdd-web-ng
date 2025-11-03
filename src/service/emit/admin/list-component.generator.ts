@@ -60,7 +60,7 @@ export class ListComponentGenerator {
             `import { Subscription, of, catchError, startWith, switchMap } from 'rxjs';`,
             `import { ${serviceName} } from '../../../../services/${camelCase(resource.name)}.service';`,
             `import { ${resource.modelName} } from '../../../../models';`,
-            `import { ${commonStandaloneImports.join(', ')} } from '../../../../utils/common-imports';`,
+            `${commonStandaloneImports.map(a => 'import { ' + a[0] + ' } from "' + a[1] + '";').join("\n")}`,
         ]);
 
         const componentClass = sourceFile.addClass({
@@ -72,7 +72,7 @@ export class ListComponentGenerator {
                 arguments: [`{
                     selector: 'app-${resource.name}-list',
                     standalone: true,
-                    imports: [ ...commonStandaloneImports ],
+                    imports: [ ...${commonStandaloneImports.map(a => a[0]).join(',\n')} ],
                     templateUrl: './${resource.name}-list.component.html',
                     styleUrl: './${resource.name}-list.component.scss'
                 }`]

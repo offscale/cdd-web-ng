@@ -96,12 +96,12 @@ export class FormComponentGenerator {
             `import { Component, OnInit, OnDestroy, computed, inject, signal, effect } from '@angular/core';`,
             `import { FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';`,
             `import { ActivatedRoute, Router } from '@angular/router';`,
+            `${commonStandaloneImports.map(a => 'import { ' + a[0] + ' } from "' + a[1] + '";').join("\n")}`,
             `import { MatSnackBar } from '@angular/material/snack-bar';`,
             `import { Subscription } from 'rxjs';`,
-            `import { ${serviceName} } from '../../../../services/${camelCase(resource.name)}.service';`,
-            `import { ${resource.modelName}${oneOfImports ? ', ' + oneOfImports : ''} } from '../../../../models';`,
-            usesCustomValidators ? `import { CustomValidators } from '../../shared/custom-validators';` : '',
-            `import { ${commonStandaloneImports.join(', ')} } from '../../../../utils/common-imports';`
+            `import { ${serviceName} } from '../../../services/${camelCase(resource.name)}.service';`,
+            `import { ${resource.modelName}${oneOfImports ? ', ' + oneOfImports : ''} } from '../../../models';`,
+            usesCustomValidators ? `import { CustomValidators } from '../../shared/custom-validators';` : ''
         ].filter(Boolean));
 
         const componentClass = sourceFile.addClass({
@@ -112,11 +112,10 @@ export class FormComponentGenerator {
                     selector: 'app-${resource.name}-form',
                     standalone: true,
                     imports: [
-                        'CommonModule',
-                        'RouterModule',
-                        'ReactiveFormsModule',
-                        'FormGroup', 'FormArray', 'Validators', // Added for clarity
-                        ...commonStandaloneImports
+                        CommonModule,
+                        RouterModule,
+                        ReactiveFormsModule,
+                        ${commonStandaloneImports.map(a => a[0]).join(',\n')}
                     ],
                     templateUrl: './${resource.name}-form.component.html',
                     styleUrl: './${resource.name}-form.component.scss'

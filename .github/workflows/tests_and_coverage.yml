@@ -28,7 +28,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
-          path: ./coverage/lcov.info
+          path: ./coverage
 
       - name: Upload coverage reports to Codecov with GitHub Action
         uses: codecov/codecov-action@v5
@@ -36,3 +36,10 @@ jobs:
           files: ./coverage/lcov.info
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/junit.xml

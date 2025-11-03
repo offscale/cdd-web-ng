@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import * as utils from '../../src/core/utils.js';
 import { GeneratorConfig, SwaggerDefinition } from '../../src/core/types.js';
 import { typeGenSpec } from '../shared/specs.js';

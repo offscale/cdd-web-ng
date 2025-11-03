@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { mapSchemaToFormControl } from '../../src/service/emit/admin/form-control.mapper.js';
 import { SwaggerDefinition } from '../../src/core/types.js';
 
@@ -6,6 +6,10 @@ describe('Admin: mapSchemaToFormControl', () => {
 
     it('should return null for readOnly properties', () => {
         expect(mapSchemaToFormControl({ readOnly: true } as any)).toBeNull();
+    });
+
+    it('should return null for a null or undefined schema', () => {
+        expect(mapSchemaToFormControl(null as any)).toBeNull();
     });
 
     it('should map standard validation keywords to Angular Validators', () => {

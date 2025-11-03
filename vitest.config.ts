@@ -10,10 +10,14 @@ export default defineConfig({
         environment: 'node',
         include: ['tests/**/*.spec.ts'],
         testTimeout: 30000,
-        reporters: ['verbose'],
+        reporters: ['verbose', 'junit'],
         alias: {
             // This is the most common and robust way
             '@src': path.resolve(__dirname, './src'),
+        },
+        outputFile: {
+            // Specify the name and location of the JUnit report
+            junit: 'coverage/junit.xml'
         },
         coverage: {
             provider: 'istanbul',

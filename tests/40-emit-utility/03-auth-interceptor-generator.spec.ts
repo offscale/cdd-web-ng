@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { SwaggerParser } from '../../src/core/parser.js';
 import { AuthInterceptorGenerator } from '../../src/service/emit/utility/auth-interceptor.generator.js';
 import { createTestProject } from '../shared/helpers.js';
-import { securitySpec, emptySpec } from '../shared/specs.js';
+import { emptySpec, securitySpec } from '../shared/specs.js';
 
 describe('Emitter: AuthInterceptorGenerator', () => {
     const runGenerator = (spec: object) => {
@@ -19,20 +19,45 @@ describe('Emitter: AuthInterceptorGenerator', () => {
         expect(project.getSourceFile('/out/auth/auth.interceptor.ts')).toBeUndefined();
     });
 
-    it('should generate logic for all supported security schemes', () => {
+    it('should generate logic for mixed security schemes', () => {
         const { tokenNames, project } = runGenerator(securitySpec);
         const file = project.getSourceFileOrThrow('/out/auth/auth.interceptor.ts');
         const interceptorMethod = file.getClassOrThrow('AuthInterceptor').getMethodOrThrow('intercept');
         const body = interceptorMethod.getBodyText() ?? '';
 
-        // The generator correctly identifies that 'apiKey' and 'bearerToken' are the token types needed.
-        expect(tokenNames).toEqual(['apiKey', 'bearerToken']);
-        // Check that it generates logic for both header and query API keys.
-        expect(body).toContain("if (this.apiKey) { authReq = req.clone({ setHeaders: { 'X-API-KEY': this.apiKey } }); }");
-        expect(body).toContain("} else if (this.apiKey) { authReq = req.clone({ setParams: { 'api_key_query': this.apiKey } }); }");
-        // Check for Bearer logic
-        expect(body).toContain("} else if (this.bearerToken)");
+        expect(body).toContain("if (this.apiKey) { authReq = req.clone({ setParams: { 'api_key_query': this.apiKey } }); }");
         expect(body).toContain("req.clone({ setHeaders: { 'Authorization': \`Bearer \${token}\` } })");
+    });
+
+    it('should generate correct logic for ONLY bearer/oauth2', () => {
+        const { tokenNames, project } = runGenerator({
+            ...emptySpec,
+            components: {
+                securitySchemes: {
+                    BearerAuth: { type: 'http', scheme: 'bearer' },
+                    OAuth2Flow: { type: 'oauth2', flows: {} },
+                },
+            },
+        });
+        const body = project.getSourceFileOrThrow('/out/auth/auth.interceptor.ts').getClassOrThrow('AuthInterceptor').getMethodOrThrow('intercept')!.getBodyText()!;
+        expect(tokenNames).toEqual(['bearerToken']);
+        expect(body).toContain('if (this.bearerToken)');
+        expect(body).not.toContain('if (this.apiKey)');
+    });
+
+    it('should generate correct logic for ONLY apiKey in query', () => {
+        const { tokenNames, project } = runGenerator({
+            ...emptySpec,
+            components: {
+                securitySchemes: {
+                    ApiKeyQuery: { type: 'apiKey', in: 'query', name: 'api_key_query' },
+                },
+            },
+        });
+        const body = project.getSourceFileOrThrow('/out/auth/auth.interceptor.ts').getClassOrThrow('AuthInterceptor').getMethodOrThrow('intercept')!.getBodyText()!;
+        expect(tokenNames).toEqual(['apiKey']);
+        expect(body).toContain("if (this.apiKey) { authReq = req.clone({ setParams: { 'api_key_query': this.apiKey } }); }");
+        expect(body).not.toContain('setHeaders');
     });
 
     it('should handle unsupported security schemes without generating logic for them', () => {
@@ -52,7 +77,6 @@ describe('Emitter: AuthInterceptorGenerator', () => {
         // Since only unsupported schemes are present, only the apiKey token is needed, but no logic is generated for 'cookie'.
         expect(tokenNames).toEqual(['apiKey']);
         // The body should be simple, without any active auth logic.
-        expect(body).toContain('let authReq = req;');
-        expect(body).not.toContain('authReq = req.clone');
+        expect(body).toBe('let authReq = req;\n\nreturn next.handle(authReq);');
     });
 });

@@ -1,5 +1,7 @@
+// tests/30-emit-service/00-service-generator.spec.ts
+
 import { describe, it, expect } from 'vitest';
-import { Project } from 'ts-morph';
+import { Project, Scope } from 'ts-morph';
 import { ServiceGenerator } from '@src/service/emit/service/service.generator.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from '@src/core/types.js';
@@ -76,5 +78,14 @@ describe('Emitter: ServiceGenerator', () => {
         const namedImports = importDecl!.getNamedImports().map(ni => ni.getName());
         // Should only have RequestOptions, not 'string' or other primitives.
         expect(namedImports).toEqual(['RequestOptions']);
+    });
+
+    it('should generate a correct create-context method', () => {
+        const project = createTestEnvironment(coverageSpec);
+        const serviceClass = project.getSourceFileOrThrow('/out/services/users.service.ts').getClassOrThrow('UsersService');
+        const method = serviceClass.getMethodOrThrow('createContextWithClientId');
+        expect(method.getScope()).toBe(Scope.Private);
+        const body = method.getBodyText() ?? '';
+        expect(body).toContain(`return context.set(this.clientContextToken, 'default');`);
     });
 });

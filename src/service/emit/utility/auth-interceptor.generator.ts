@@ -95,7 +95,7 @@ export class AuthInterceptorGenerator {
             }
         }
 
-        const chainedSecurityLogic = securityLogicBlocks.join(' else ');
+        const chainedSecurityLogic = securityLogicBlocks.join('\n');
 
         interceptorClass.addMethod({
             name: 'intercept',

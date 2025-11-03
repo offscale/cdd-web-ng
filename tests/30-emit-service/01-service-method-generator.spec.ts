@@ -1,3 +1,4 @@
+// tests/30-emit-service/01-service-method-generator.spec.ts (new file)
 import { describe, it, expect, vi } from 'vitest';
 import { Project } from 'ts-morph';
 import { ServiceMethodGenerator } from '@src/service/emit/service/service-method.generator.js';

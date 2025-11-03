@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
 import { SwaggerParser } from '../../src/core/parser.js';
 import { GeneratorConfig } from '../../src/core/types.js';
@@ -28,7 +28,7 @@ describe('Emitter: ProviderGenerator', () => {
         }
 
         let tokenNames: string[] = [];
-        if(Object.keys(parser.getSecuritySchemes()).length > 0) {
+        if (Object.keys(parser.getSecuritySchemes()).length > 0) {
             new AuthTokensGenerator(project).generate(config.output);
             const authInterceptorResult = new AuthInterceptorGenerator(parser, project).generate(config.output);
             tokenNames = authInterceptorResult?.tokenNames || [];
@@ -80,5 +80,12 @@ describe('Emitter: ProviderGenerator', () => {
         const fileContent = runGenerator(emptySpec);
         // This line being present confirms the `|| []` fallback exists and was generated.
         expect(fileContent).toContain('const customInterceptors = config.interceptors?.map(InterceptorClass => new InterceptorClass()) || [];');
+    });
+
+    it('should handle bearerToken as a function', () => {
+        const fileContent = runGenerator(securitySpec);
+        const functionBody = fileContent!.substring(fileContent!.indexOf('provideTestClient'));
+        expect(functionBody).toContain('if (config.bearerToken)');
+        expect(functionBody).toContain(`providers.push({ provide: BEARER_TOKEN_TOKEN, useValue: config.bearerToken });`);
     });
 });

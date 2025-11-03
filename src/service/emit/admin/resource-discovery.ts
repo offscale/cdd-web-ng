@@ -1,12 +1,13 @@
-// src/service/emit/admin/resource-discovery.ts
-
 import { SwaggerParser } from '../../../core/parser.js';
 import { FormProperty, PathInfo, Resource, ResourceOperation, SwaggerDefinition, DiscriminatorObject } from '../../../core/types.js';
 import { camelCase, extractPaths, pascalCase, singular } from '../../../core/utils.js';
 
 /**
  * Derives a consistent method name for a given API operation.
- * It prefers the `operationId`, otherwise it constructs a name from the HTTP method and path.
+ * It prefers the `operationId` if available, otherwise it constructs a name
+ * from the HTTP method and path segments (e.g., `GET /users/{id}` becomes `getUsersById`).
+ * @param op The operation's `PathInfo` object.
+ * @returns A camelCase string representing the method name.
  */
 function getMethodName(op: PathInfo): string {
     const pathToMethodName = (path: string): string =>
@@ -17,76 +18,68 @@ function getMethodName(op: PathInfo): string {
         ).join('');
 
     return op.operationId
-        ? camelCase(op.operationId)
-        : `${op.method.toLowerCase()}${pathToMethodName(op.path)}`;
+        ? camelCase(op.operationId) // Prefer operationId
+        : `${op.method.toLowerCase()}${pathToMethodName(op.path)}`; // Fallback
 }
 
 /**
- * Derives a resource name from an operation, preferring tags over path segments.
+ * Derives a resource name from an operation, preferring the first tag over path segments.
+ * This groups operations like `GET /users` and `POST /users` under the "users" resource.
+ * @param path The operation's `PathInfo` object.
+ * @returns A camelCase string for the resource name.
  */
 function getResourceName(path: PathInfo): string {
     const tag = path.tags?.[0];
     if (tag) return camelCase(tag);
+    // Fallback: use the first non-parameter part of the path
     const firstSegment = path.path.split('/').filter(p => p && !p.startsWith('{'))[0];
     return camelCase(firstSegment ?? 'default');
 }
 
 /**
- * Classifies an API operation into a standard CRUD action or a custom action.
- * **This function contains the fix.**
+ * Classifies an API operation into a standard CRUD action (`list`, `create`, `update`, etc.)
+ * or a custom action (derived from the `operationId`).
+ * Custom `operationId`s are prioritized to correctly identify non-standard actions on standard routes.
+ * @param path The operation's `PathInfo` object.
+ * @returns A string representing the classified action.
  */
 function classifyAction(path: PathInfo): ResourceOperation['action'] {
     const method = path.method.toUpperCase();
     const hasIdSuffix = /\{\w+\}$/.test(path.path);
     const nonParamSegments = path.path.split('/').filter(p => p && !p.startsWith('{'));
 
-    // **FIX**: Prioritize operationId to allow custom actions that overlap with CRUD routes.
-    // If an operationId is provided and it doesn't look like a standard CRUD verb, treat it as a custom action.
+    // Prioritize operationId to allow custom actions that overlap with CRUD-like routes.
+    // E.g., POST /users with operationId 'searchUsers' should be 'searchUsers', not 'create'.
     if (path.operationId) {
         const opIdLower = path.operationId.toLowerCase();
-
-        if (method === 'POST' && !hasIdSuffix && nonParamSegments.length === 1) {
-            if (!opIdLower.startsWith('create') && !opIdLower.startsWith('add') && !opIdLower.startsWith('post')) {
-                return camelCase(path.operationId);
-            }
-        }
-        if ((method === 'PUT' || method === 'PATCH') && hasIdSuffix) {
-            if (!opIdLower.startsWith('update') && !opIdLower.startsWith('edit') && !opIdLower.startsWith('patch') && !opIdLower.startsWith('put')) {
-                return camelCase(path.operationId);
-            }
-        }
-        if (method === 'DELETE' && hasIdSuffix) {
-            // Only 'delete...' is standard. 'removeItem' or 'archiveItem' will become custom.
-            if (!opIdLower.startsWith('delete')) {
-                return camelCase(path.operationId);
-            }
+        const commonCrudPrefixes = ['get', 'list', 'create', 'add', 'post', 'update', 'edit', 'patch', 'put', 'delete', 'remove'];
+        // If the operationId doesn't start with a common CRUD verb, treat it as a custom action.
+        if (!commonCrudPrefixes.some(prefix => opIdLower.startsWith(prefix))) {
+            return camelCase(path.operationId);
         }
     }
 
-    // If we're here, it means the operationId looked standard, or didn't exist. Apply standard heuristics.
-    if (!hasIdSuffix && nonParamSegments.length === 1) {
-        if (method === 'GET') return 'list';
-        if (method === 'POST') return 'create';
-    }
+    // Standard CRUD heuristics based on method and path structure.
+    if (method === 'GET' && !hasIdSuffix) return 'list';
+    if (method === 'POST' && !hasIdSuffix) return 'create';
+    if (method === 'GET' && hasIdSuffix) return 'getById';
+    if ((method === 'PUT' || method === 'PATCH') && hasIdSuffix) return 'update';
+    if (method === 'DELETE' && hasIdSuffix) return 'delete';
 
-    if (hasIdSuffix) {
-        switch (method) {
-            case 'GET': return 'getById';
-            case 'PUT': case 'PATCH': return 'update';
-            case 'DELETE': return 'delete';
-        }
-    }
-
-    // Final fallback for all other non-standard paths (e.g. /items/search)
+    // Fallback: if it's not a standard CRUD pattern, use the operationId if it exists.
     if (path.operationId) {
         return camelCase(path.operationId);
     }
 
-    return camelCase(`${method} ${nonParamSegments.join(' ')}`);
+    // Final fallback: construct a name from the method and path (e.g., 'postAnalyticsEvents')
+    return camelCase(`${method} ${nonParamSegments.join(' ')}${hasIdSuffix ? ' By Id' : ''}`);
 }
 
 /**
- * A type-safe helper to resolve a potential `$ref` in a schema.
+ * A type-safe helper to resolve a potential `$ref` in a schema to its underlying definition.
+ * @param schema The schema object, which might be a direct definition or a `$ref` object.
+ * @param parser The `SwaggerParser` instance for resolving references.
+ * @returns The resolved `SwaggerDefinition`, or `undefined` if the schema is missing or unresolvable.
  */
 function findSchema(schema: SwaggerDefinition | { $ref: string } | undefined, parser: SwaggerParser): SwaggerDefinition | undefined {
     if (!schema) return undefined;
@@ -95,13 +88,19 @@ function findSchema(schema: SwaggerDefinition | { $ref: string } | undefined, pa
 }
 
 /**
- * Aggregates properties from a resource's operations to build a model for form generation.
+ * Aggregates properties from a resource's various operations (create, update, get) to build a
+ * unified data model for form generation. It merges properties from request bodies and responses.
+ * @param operations All `PathInfo` objects belonging to a single resource.
+ * @param parser The `SwaggerParser` instance for resolving references.
+ * @returns An array of `FormProperty` objects representing the complete model.
  */
 function getFormProperties(operations: PathInfo[], parser: SwaggerParser): FormProperty[] {
     const allSchemas: SwaggerDefinition[] = [];
     operations.forEach(op => {
+        // Look in request body
         const reqSchema = findSchema(op.requestBody?.content?.['application/json']?.schema, parser);
         if (reqSchema) allSchemas.push(reqSchema);
+        // Look in success responses
         const resSchema = findSchema(op.responses?.['200']?.content?.['application/json']?.schema, parser)
             ?? findSchema(op.responses?.['201']?.content?.['application/json']?.schema, parser);
         if (resSchema) allSchemas.push(resSchema);
@@ -114,11 +113,13 @@ function getFormProperties(operations: PathInfo[], parser: SwaggerParser): FormP
     let mergedOneOf: SwaggerDefinition[] | undefined, mergedDiscriminator: DiscriminatorObject | undefined;
 
     allSchemas.forEach(schema => {
+        // If the schema is for an array (e.g., in a 'list' response), get the item schema
         let effectiveSchema = findSchema(schema.type === 'array' ? schema.items as SwaggerDefinition : schema, parser) ?? schema;
 
         if (effectiveSchema) {
             Object.assign(mergedProperties, effectiveSchema.properties);
             effectiveSchema.required?.forEach(r => mergedRequired.add(r));
+            // Capture polymorphism details
             if (effectiveSchema.oneOf) mergedOneOf = effectiveSchema.oneOf;
             if (effectiveSchema.discriminator) mergedDiscriminator = effectiveSchema.discriminator;
         }
@@ -132,6 +133,7 @@ function getFormProperties(operations: PathInfo[], parser: SwaggerParser): FormP
         return { name, schema: finalPropSchema };
     });
 
+    // Special handling for polymorphism: attach oneOf/discriminator info to the discriminator property itself.
     if (finalSchema.oneOf && finalSchema.discriminator) {
         const dPropName = finalSchema.discriminator.propertyName;
         const existingProp = properties.find(p => p.name === dPropName);
@@ -145,7 +147,11 @@ function getFormProperties(operations: PathInfo[], parser: SwaggerParser): FormP
 }
 
 /**
- * Derives a model name for a resource.
+ * Derives a model name for a resource, typically from the schema name used in a POST or GET operation.
+ * @param resourceName The name of the resource (e.g., 'users').
+ * @param operations The operations associated with the resource.
+ * @param parser The `SwaggerParser` instance.
+ * @returns The PascalCase model name (e.g., 'User').
  */
 function getModelName(resourceName: string, operations: PathInfo[], parser: SwaggerParser): string {
     const op = operations.find(o => o.method === 'POST') ?? operations.find(o => o.method === 'GET');
@@ -158,15 +164,22 @@ function getModelName(resourceName: string, operations: PathInfo[], parser: Swag
                 : null;
         if (ref) return pascalCase(ref.split('/').pop()!);
     }
+    // Fallback: singularize the resource name
     return singular(pascalCase(resourceName));
 }
 
 /**
- * The main discovery function.
+ * The main discovery function. It analyzes all paths in an OpenAPI specification,
+ * groups them into logical resources (e.g., "Users", "Products"), and extracts
+ * structured metadata for each resource needed for Admin UI generation.
+ * @param parser The `SwaggerParser` instance containing the loaded specification.
+ * @returns An array of `Resource` objects, each detailing a discovered resource.
  */
 export function discoverAdminResources(parser: SwaggerParser): Resource[] {
     const allPaths = extractPaths(parser.getSpec().paths);
     const resourceMap = new Map<string, PathInfo[]>();
+
+    // Group all paths by their derived resource name
     allPaths.forEach(path => {
         const resourceName = getResourceName(path);
         if (!resourceMap.has(resourceName)) resourceMap.set(resourceName, []);
@@ -176,18 +189,27 @@ export function discoverAdminResources(parser: SwaggerParser): Resource[] {
     const resources: Resource[] = [];
     for (const [name, allOpsForResource] of resourceMap.entries()) {
         if (allOpsForResource.length === 0) continue;
+
         const modelName = getModelName(name, allOpsForResource, parser);
         const formProperties = getFormProperties(allOpsForResource, parser);
         resources.push({
-            name, modelName,
+            name,
+            modelName,
             isEditable: allOpsForResource.some(op => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(op.method)),
             operations: allOpsForResource.map((op): ResourceOperation => {
                 const action = classifyAction(op);
                 const standardActions = ['list', 'create', 'getById', 'update', 'delete'];
                 const isItemOp = op.path.includes('{');
-                return { ...op, action, methodName: getMethodName(op), isCustomItemAction: isItemOp && !standardActions.includes(action), isCustomCollectionAction: !isItemOp && !standardActions.includes(action) };
+                return {
+                    ...op,
+                    action,
+                    methodName: getMethodName(op),
+                    isCustomItemAction: isItemOp && !standardActions.includes(action),
+                    isCustomCollectionAction: !isItemOp && !standardActions.includes(action)
+                };
             }),
             formProperties,
+            // Select up to 5 simple properties for the list view columns
             listProperties: formProperties.filter(p => !p.schema.writeOnly && p.schema.type !== 'object' && p.schema.type !== 'array').slice(0, 5)
         });
     }

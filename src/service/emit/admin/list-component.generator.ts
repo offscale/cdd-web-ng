@@ -21,14 +21,15 @@ import { generateListComponentScss } from './html/list-component-scss.builder.js
  */
 export class ListComponentGenerator {
     /**
-     * @param project The ts-morph project instance.
+     * Initializes a new instance of the ListComponentGenerator.
+     * @param project The ts-morph project instance for AST manipulation.
      */
     constructor(private readonly project: Project) { }
 
     /**
-     * Generates all necessary files for the list component.
+     * Generates all necessary files for the list component (.ts, .html, .scss).
      * @param resource The resource metadata object.
-     * @param outDir The base output directory for the admin module.
+     * @param outDir The base output directory for the admin module (e.g., '/generated/admin').
      */
     public generate(resource: Resource, outDir: string): void {
         const listDir = `${outDir}/${resource.name}/${resource.name}-list`;
@@ -40,9 +41,10 @@ export class ListComponentGenerator {
     }
 
     /**
-     * Generates the main TypeScript file for the list component.
+     * Generates the main TypeScript file (`.component.ts`) for the list component.
      * @param resource The resource metadata object.
      * @param outDir The specific directory for this component's files.
+     * @private
      */
     private generateListComponentTs(resource: Resource, outDir: string): void {
         const componentName = `${pascalCase(resource.name)}ListComponent`;
@@ -90,10 +92,12 @@ export class ListComponentGenerator {
     }
 
     /**
-     * Adds class properties, including DI-injected services and component state.
+     * Adds class properties, including DI-injected services, component state signals,
+     * and configuration for the Material table.
      * @param componentClass The class to which properties will be added.
      * @param resource The resource metadata object.
      * @param serviceName The name of the resource's service class.
+     * @private
      */
     private addProperties(componentClass: ClassDeclaration, resource: Resource, serviceName: string): void {
         const idProperty = this.getIdProperty(resource);
@@ -126,11 +130,12 @@ export class ListComponentGenerator {
 
     /**
      * Adds the constructor and the data-loading `effect`.
-     * The effect reacts to paginator changes to fetch data from the server.
-     * It is designed to run only after the view is initialized.
+     * The effect reacts to paginator changes to fetch data from the server. It is designed to run only
+     * after the view is initialized to ensure the paginator is available.
      * @param componentClass The class to which the constructor and effect will be added.
      * @param resource The resource metadata object.
      * @param serviceName The name of the resource's service class.
+     * @private
      */
     private addConstructorAndDataLoadingEffect(componentClass: ClassDeclaration, resource: Resource, serviceName: string): void {
         const listOp = resource.operations.find(op => op.action === 'list');
@@ -175,8 +180,9 @@ export class ListComponentGenerator {
     }
 
     /**
-     * Adds standard lifecycle and utility methods like ngAfterViewInit and refresh.
+     * Adds standard Angular lifecycle and utility methods like `ngAfterViewInit` and a `refresh` helper.
      * @param componentClass The class to which methods will be added.
+     * @private
      */
     private addLifecycleAndUtilityMethods(componentClass: ClassDeclaration): void {
         componentClass.addMethod({
@@ -193,10 +199,11 @@ export class ListComponentGenerator {
     }
 
     /**
-     * Adds methods for standard CRUD actions (Create, Edit, Delete).
+     * Adds methods for standard CRUD actions (Create, Edit, Delete) if they are defined for the resource.
      * @param componentClass The class to which methods will be added.
      * @param resource The resource metadata object.
      * @param serviceName The name of the resource's service class.
+     * @private
      */
     private addCrudActions(componentClass: ClassDeclaration, resource: Resource, serviceName: string): void {
         if (resource.operations.some(op => op.action === 'create')) {
@@ -224,10 +231,11 @@ export class ListComponentGenerator {
     }
 
     /**
-     * Adds methods for any non-CRUD custom actions defined in the OpenAPI spec.
+     * Adds methods for any non-CRUD custom actions (both item and collection level) defined in the OpenAPI spec.
      * @param componentClass The class to which methods will be added.
      * @param resource The resource metadata object.
      * @param serviceName The name of the resource's service class.
+     * @private
      */
     private addCustomActions(classDeclaration: ClassDeclaration, resource: Resource, serviceName: string): void {
         const customActions = resource.operations.filter(op => op.isCustomCollectionAction || op.isCustomItemAction);
@@ -259,9 +267,10 @@ this.subscriptions.push(sub);`;
     }
 
     /**
-     * Generates the HTML template file for the list component.
+     * Generates the HTML template file (`.component.html`) for the list component.
      * @param resource The resource metadata object.
      * @param outDir The specific directory for this component's files.
+     * @private
      */
     private generateListComponentHtml(resource: Resource, outDir: string): void {
         const iconMap = new Map<string, string>();
@@ -275,9 +284,10 @@ this.subscriptions.push(sub);`;
     }
 
     /**
-     * Generates the SCSS style file for the list component.
+     * Generates the SCSS style file (`.component.scss`) for the list component.
      * @param resource The resource metadata object.
      * @param outDir The specific directory for this component's files.
+     * @private
      */
     private generateListComponentScss(resource: Resource, outDir: string): void {
         const scssContent = generateListComponentScss();
@@ -287,14 +297,17 @@ this.subscriptions.push(sub);`;
     /**
      * Determines the unique identifier property for table rows.
      * It prefers 'id', but falls back to the first available property if 'id' is not found.
+     * If no properties exist at all, it defaults to 'id' as a safe fallback.
      * @param resource The resource metadata object.
      * @returns The name of the ID property.
+     * @private
      */
     private getIdProperty(resource: Resource): string {
         const allProps = resource.formProperties;
         if (allProps.some(p => p.name === 'id')) {
             return 'id';
         }
+        // This branch is now covered by a test using a resource with no properties.
         if (allProps.length === 0) {
             return 'id';
         }
@@ -302,9 +315,10 @@ this.subscriptions.push(sub);`;
     }
 
     /**
-     * Maps an action name to a Material Design icon name.
-     * @param action The camelCase name of the action.
-     * @returns The name of the Material icon.
+     * Maps an action name to a Material Design icon name based on common keywords.
+     * @param action The camelCase name of the action (e.g., 'rebootServer', 'approveItem').
+     * @returns The name of the Material icon (e.g., 'refresh', 'check').
+     * @private
      */
     private getIconForAction(action: string): string {
         const lowerAction = action.toLowerCase();

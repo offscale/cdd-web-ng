@@ -1,5 +1,3 @@
-// src/service/emit/orchestrator.ts
-
 import { Project } from 'ts-morph';
 import { posix as path } from 'path';
 import { groupPathsByController } from '../parse.js';
@@ -28,8 +26,9 @@ import { MainIndexGenerator, ServiceIndexGenerator } from './utility/index.gener
  * @param parser An initialized `SwaggerParser` instance containing the API specification.
  * @param config The global generator configuration object.
  * @param project The `ts-morph` project instance to which source files will be added.
+ * @returns A promise that resolves when generation is complete.
  */
-export async function emitClientLibrary(outputRoot: string, parser: SwaggerParser, config: GeneratorConfig, project: Project) {
+export async function emitClientLibrary(outputRoot: string, parser: SwaggerParser, config: GeneratorConfig, project: Project): Promise<void> {
     new TypeGenerator(parser, project, config).generate(outputRoot);
     console.log('✅ Models generated.');
 
@@ -43,6 +42,7 @@ export async function emitClientLibrary(outputRoot: string, parser: SwaggerParse
         new ServiceIndexGenerator(project).generateIndex(outputRoot);
         console.log('✅ Services generated.');
 
+        // Generate core utilities
         new TokenGenerator(project, config.clientName).generate(outputRoot);
         new HttpParamsBuilderGenerator(project).generate(outputRoot);
         new FileDownloadGenerator(project).generate(outputRoot);
@@ -57,7 +57,7 @@ export async function emitClientLibrary(outputRoot: string, parser: SwaggerParse
 
             const interceptorGenerator = new AuthInterceptorGenerator(parser, project);
             const interceptorResult = interceptorGenerator.generate(outputRoot);
-            // This branch is now covered by a test with services on but no security schemes.
+            // This condition is now covered by a test with services enabled but no security schemes.
             if (interceptorResult) {
                 tokenNames = interceptorResult.tokenNames;
             }
@@ -73,8 +73,8 @@ export async function emitClientLibrary(outputRoot: string, parser: SwaggerParse
         console.log('✅ Utilities and providers generated.');
 
         if (config.options.admin) {
+            // This is covered by the admin e2e test.
             await new AdminGenerator(parser, project, config).generate(outputRoot);
-            // This is now covered by the admin e2e test.
         }
     }
 

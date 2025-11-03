@@ -1,5 +1,3 @@
-// src/core/utils.ts
-
 /**
  * @fileoverview
  * This file contains core utility functions used throughout the OpenAPI Angular generator.
@@ -15,8 +13,8 @@ import { Path, Operation, Parameter as SwaggerOfficialParameter, BodyParameter }
 // --- String Manipulation Utilities ---
 
 /**
- * A simple singularization function for English words.
- * @param str The plural string.
+ * A simple singularization function for English words. Handles common plural endings.
+ * @param str The plural string to singularize.
  * @returns The singular form of the string.
  */
 export function singular(str: string): string {
@@ -30,26 +28,28 @@ export function singular(str: string): string {
 }
 
 /**
- * A private helper to normalize a string for case conversion by removing special characters and standardizing spacing.
+ * Normalizes a string for case conversion by removing special characters,
+ * splitting on camelCase boundaries, and standardizing spacing.
  * @param str The input string.
  * @returns A space-separated, lowercased, and trimmed string.
+ * @private
  */
 function normalizeString(str: string): string {
     if (!str) return '';
     return str
-        .replace(/[^a-zA-Z0-9\s_-]/g, ' ')
-        .replace(/^[_-]+|[-_]+$/g, '')
-        .replace(/([a-z])([A-Z])/g, '$1 $2')
-        .replace(/[_-]+/g, ' ')
-        .replace(/\s+/g, ' ')
+        .replace(/[^a-zA-Z0-9\s_-]/g, ' ') // Remove non-alphanumeric characters
+        .replace(/^[_-]+|[-_]+$/g, '')   // Trim leading/trailing separators
+        .replace(/([a-z])([A-Z])/g, '$1 $2') // Split camelCase
+        .replace(/[_-]+/g, ' ')            // Replace separators with spaces
+        .replace(/\s+/g, ' ')             // Collapse whitespace
         .trim()
         .toLowerCase();
 }
 
 /**
  * Converts a string to camelCase.
- * @param str The input string.
- * @returns The camelCased string.
+ * @param str The input string (e.g., "hello world", "Hello-World").
+ * @returns The camelCased string (e.g., "helloWorld").
  */
 export function camelCase(str: string): string {
     const normalized = normalizeString(str);
@@ -58,9 +58,9 @@ export function camelCase(str: string): string {
 }
 
 /**
- * Converts a string to PascalCase.
- * @param str The input string.
- * @returns The PascalCased string.
+ * Converts a string to PascalCase (UpperCamelCase).
+ * @param str The input string (e.g., "hello world", "hello-world").
+ * @returns The PascalCased string (e.g., "HelloWorld").
  */
 export function pascalCase(str: string): string {
     const normalized = normalizeString(str);
@@ -70,28 +70,29 @@ export function pascalCase(str: string): string {
 
 /**
  * Converts a string to kebab-case.
- * @param str The input string.
- * @returns The kebab-cased string.
+ * @param str The input string (e.g., "helloWorld", "Hello World").
+ * @returns The kebab-cased string (e.g., "hello-world").
  */
 export function kebabCase(str: string): string {
     if (!str) return '';
     return str
-        .replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2')
+        .replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2') // Insert hyphen before uppercase letters
         .toLowerCase()
-        .replace(/[\s_]+/g, '-')
-        .replace(/^-+|-+$/g, '');
+        .replace(/[\s_]+/g, '-')    // Replace spaces and underscores with hyphens
+        .replace(/^-+|-+$/g, '');        // Trim leading/trailing hyphens
 }
 
 // --- TypeScript Type Resolution ---
 
 /**
  * Recursively resolves an OpenAPI schema object into a TypeScript type string.
- * This is the core of the type generation logic.
+ * This is the core of the type generation logic, handling references, compositions,
+ * primitives, and object structures.
  *
- * @param schema The OpenAPI schema definition to process.
- * @param config The generator configuration, used to determine date types.
+ * @param schema The OpenAPI schema definition to process. Can be `null` or `undefined`.
+ * @param config The generator configuration, used to determine date types and other options.
  * @param knownTypes An array of all defined schema names, used to validate `$ref`s.
- * @returns A string representing the TypeScript type.
+ * @returns A string representing the corresponding TypeScript type.
  */
 export function getTypeScriptType(schema: SwaggerDefinition | undefined | null, config: GeneratorConfig, knownTypes: string[] = []): string {
     if (!schema) {
@@ -163,9 +164,10 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined | null, 
 }
 
 /**
- * Checks if a TypeScript type string represents a named interface (a generated model).
+ * Checks if a TypeScript type string represents a named interface (a generated model),
+ * as opposed to a primitive, a built-in type, or a structural type.
  * @param type The TypeScript type string (e.g., "User", "string", "number[]").
- * @returns True if the type is a named interface, false otherwise.
+ * @returns `true` if the type is likely a generated model interface, `false` otherwise.
  */
 export function isDataTypeInterface(type: string): boolean {
     const primitiveOrBuiltIn = /^(any|File|Blob|string|number|boolean|object|unknown|null|undefined|Date|void)$/;
@@ -179,7 +181,7 @@ export function isDataTypeInterface(type: string): boolean {
 /**
  * Checks if a string is a valid URL.
  * @param input The string to check.
- * @returns True if the string is a valid URL, false otherwise.
+ * @returns `true` if the string can be parsed as a URL, `false` otherwise.
  */
 export function isUrl(input: string): boolean {
     try {
@@ -193,7 +195,7 @@ export function isUrl(input: string): boolean {
 /**
  * Checks for duplicate method names in an array of ts-morph MethodDeclaration objects.
  * @param methods An array of MethodDeclaration instances.
- * @returns True if duplicates are found, false otherwise.
+ * @returns `true` if duplicates are found, `false` otherwise.
  */
 export function hasDuplicateFunctionNames(methods: MethodDeclaration[]): boolean {
     const names = methods.map(m => m.getName());
@@ -205,9 +207,11 @@ type UnifiedParameter = SwaggerOfficialParameter & { schema?: SwaggerDefinition 
 
 /**
  * Flattens the nested `paths` object from an OpenAPI spec into a linear array of `PathInfo` objects.
- * It merges path-level and operation-level parameters and normalizes Swagger 2.0 `body` parameters.
+ * It merges path-level and operation-level parameters and normalizes Swagger 2.0 `body` parameters
+ * into the `requestBody` format of OpenAPI 3.
+ *
  * @param swaggerPaths The `paths` object from the OpenAPI specification.
- * @returns An array of processed `PathInfo` objects.
+ * @returns An array of processed `PathInfo` objects, or an empty array if `swaggerPaths` is undefined.
  */
 export function extractPaths(swaggerPaths: { [p: string]: Path } | undefined): PathInfo[] {
     if (!swaggerPaths) {
@@ -228,18 +232,17 @@ export function extractPaths(swaggerPaths: { [p: string]: Path } | undefined): P
 
                 const allParams = Array.from(paramsMap.values());
                 const nonBodyParams = allParams.filter(p => p.in !== 'body');
-                // FIX: Use a standard find with a type assertion instead of a type predicate due to type incompatibilities.
                 const bodyParam = allParams.find(p => p.in === 'body') as BodyParameter | undefined;
 
                 const parameters = nonBodyParams.map((p): Parameter => ({
                     name: p.name,
                     in: p.in as "query" | "path" | "header" | "cookie",
                     required: p.required,
-                    // FIX: Cast to `any` to bridge the gap between `swagger-schema-official`'s `Schema` and our `SwaggerDefinition`.
-                    schema: (p.schema || p) as any, // Fallback for parameters that are schemas themselves
+                    schema: (p.schema || p) as SwaggerDefinition, // Bridge type gap and handle schema-as-parameter case
                     description: p.description
                 }));
 
+                // Normalize Swagger 2.0 body param to OpenAPI 3.0 requestBody
                 const requestBody = (operation as any).requestBody || (bodyParam ? { content: { 'application/json': { schema: bodyParam.schema } } } : undefined);
 
                 paths.push({
@@ -260,11 +263,11 @@ export function extractPaths(swaggerPaths: { [p: string]: Path } | undefined): P
 }
 
 /**
- * Helper to get the TypeScript type for a request body.
+ * Extracts the TypeScript type for a request body from a PathInfo object.
  * @param requestBody The request body object from a PathInfo.
  * @param config The generator configuration.
  * @param knownTypes An array of known schema names for type resolution.
- * @returns A string representing the TypeScript type.
+ * @returns A string representing the TypeScript type for the request body.
  */
 export function getRequestBodyType(requestBody: RequestBody | undefined, config: GeneratorConfig, knownTypes: string[]): string {
     const schema = requestBody?.content?.['application/json']?.schema;
@@ -272,11 +275,11 @@ export function getRequestBodyType(requestBody: RequestBody | undefined, config:
 }
 
 /**
- * Helper to get the TypeScript type for a response.
+ * Extracts the TypeScript type for a successful response from a PathInfo object.
  * @param response The response object from a PathInfo.
  * @param config The generator configuration.
  * @param knownTypes An array of known schema names for type resolution.
- * @returns A string representing the TypeScript type.
+ * @returns A string representing the TypeScript type for the response body.
  */
 export function getResponseType(response: SwaggerResponse | undefined, config: GeneratorConfig, knownTypes: string[]): string {
     const schema = response?.content?.['application/json']?.schema;
@@ -288,7 +291,7 @@ export function getResponseType(response: SwaggerResponse | undefined, config: G
 /**
  * Generates a unique, client-specific name for the base path `InjectionToken`.
  * @param clientName The name of the API client, used to namespace the token. Defaults to "default".
- * @returns The generated token name string.
+ * @returns The generated token name string (e.g., `BASE_PATH_MY_CLIENT`).
  */
 export function getBasePathTokenName(clientName = "default"): string {
     const clientSuffix = clientName.toUpperCase().replace(/[^A-Z0-9_]/g, "_");
@@ -298,7 +301,7 @@ export function getBasePathTokenName(clientName = "default"): string {
 /**
  * Generates a unique, client-specific name for the client context `HttpContextToken`.
  * @param clientName The name of the API client, used to namespace the token. Defaults to "default".
- * @returns The generated token name string.
+ * @returns The generated token name string (e.g., `CLIENT_CONTEXT_TOKEN_MY_CLIENT`).
  */
 export function getClientContextTokenName(clientName = "default"): string {
     const clientSuffix = clientName.toUpperCase().replace(/[^A-Z0-9_]/g, "_");
@@ -308,7 +311,7 @@ export function getClientContextTokenName(clientName = "default"): string {
 /**
  * Generates a unique, client-specific name for the interceptors `InjectionToken`.
  * @param clientName The name of the API client, used to namespace the token. Defaults to "default".
- * @returns The generated token name string.
+ * @returns The generated token name string (e.g., `HTTP_INTERCEPTORS_MY_CLIENT`).
  */
 export function getInterceptorsTokenName(clientName = "default"): string {
     const clientSuffix = clientName.toUpperCase().replace(/[^A-Z0-9_]/g, "_");

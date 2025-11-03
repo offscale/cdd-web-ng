@@ -40,8 +40,8 @@ describe('E2E: Full Generation Orchestrator', () => {
         const project = await run(emptySpec); // services are on by default
 
         expect(project.getDirectory('/generated/auth')).toBeUndefined();
-        // Check that the provider doesn't contain auth-related tokens. This is an indirect check
-        // for the uncovered 'if (interceptorResult)' branch in the orchestrator.
+        // Check that the provider doesn't contain auth-related tokens. This covers the
+        // `if (interceptorResult)` false branch in the orchestrator.
         const providerFile = project.getSourceFileOrThrow('/generated/providers.ts');
         expect(providerFile.getText()).not.toContain('AuthInterceptor');
     });
@@ -60,7 +60,7 @@ describe('E2E: Full Generation Orchestrator', () => {
     });
 
     it('should re-throw errors from the generation process', async () => {
-        const invalidSpec = { openapi: '3.0.0', paths: { '/test': { get: { operationId: 123 } } } } as any;
+        const invalidSpec = { openapi: '3.0.0', paths: { '/test': { get: { operationId: 123 } } } } as any; // Invalid operationId type
         await expect(run(invalidSpec)).rejects.toThrow();
     });
 });

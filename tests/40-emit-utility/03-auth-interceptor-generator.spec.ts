@@ -25,9 +25,11 @@ describe('Emitter: AuthInterceptorGenerator', () => {
         const interceptorMethod = file.getClassOrThrow('AuthInterceptor').getMethodOrThrow('intercept');
         const body = interceptorMethod.getBodyText() ?? '';
 
+        // The generator correctly identifies that 'apiKey' and 'bearerToken' are the token types needed.
         expect(tokenNames).toEqual(['apiKey', 'bearerToken']);
-        // **FIX**: Updated test to match the generated code, which correctly uses the 'X-API-KEY' header
+        // Check that it generates logic for both header and query API keys.
         expect(body).toContain("if (this.apiKey) { authReq = req.clone({ setHeaders: { 'X-API-KEY': this.apiKey } }); }");
+        expect(body).toContain("} else if (this.apiKey) { authReq = req.clone({ setParams: { 'api_key_query': this.apiKey } }); }");
         expect(body).toContain("} else if (this.bearerToken)");
         expect(body).toContain("req.clone({ setHeaders: { 'Authorization': `Bearer ${token}` } })");
     });

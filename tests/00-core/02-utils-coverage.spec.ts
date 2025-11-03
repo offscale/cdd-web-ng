@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as utils from '../../src/core/utils.js';
 import { GeneratorConfig, SwaggerDefinition } from '../../src/core/types.js';
-import { finalCoverageSpec, typeGenSpec } from '../shared/specs.js';
+import { typeGenSpec } from '../shared/specs.js';
 
 describe('Core: utils.ts (Coverage)', () => {
     const config: GeneratorConfig = {
@@ -25,19 +25,19 @@ describe('Core: utils.ts (Coverage)', () => {
         expect(utils.getTypeScriptType(null, config, [])).toBe('any');
     });
 
-    // Covers line 138
+    // Covers line 138 (empty allOf)
     it('getTypeScriptType should handle empty `allOf` by returning `any`', () => {
         const schema: SwaggerDefinition = { allOf: [] };
         expect(utils.getTypeScriptType(schema, config, [])).toBe('any');
     });
 
-    // Covers line 153-154
+    // Covers line 153-154 (additionalProperties: true)
     it('getTypeScriptType should handle `additionalProperties: true`', () => {
         const schema = typeGenSpec.components.schemas.FreeObject;
         expect(utils.getTypeScriptType(schema, config, [])).toBe('Record<string, any>');
     });
 
-    // Covers line 207
+    // Covers line 207 (extractPaths with undefined)
     it('extractPaths should handle undefined swaggerPaths', () => {
         expect(utils.extractPaths(undefined)).toEqual([]);
     });

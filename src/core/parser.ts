@@ -14,7 +14,8 @@ import {
     SecurityScheme,
     PathInfo
 } from './types.js';
-import { extractPaths,
+import {
+    extractPaths,
     isUrl,
     pascalCase
 } from './utils.js';
@@ -25,13 +26,19 @@ import { extractPaths,
  * normalizing differences between Swagger 2.0 and OpenAPI 3.x.
  */
 export class SwaggerParser {
+    /** The raw, parsed OpenAPI/Swagger specification object. */
     public readonly spec: SwaggerSpec;
+    /** The configuration object for the generator. */
     public readonly config: GeneratorConfig;
+    /** A normalized array of all schemas (definitions) found in the specification. */
     public readonly schemas: { name: string; definition: SwaggerDefinition; }[];
+    /** A flattened and processed list of all API operations (paths). */
     public readonly operations: PathInfo[];
+    /** A normalized record of all security schemes defined in the specification. */
     public readonly security: Record<string, SecurityScheme>;
 
     /**
+     * Initializes a new instance of the SwaggerParser.
      * @param spec The raw OpenAPI/Swagger specification object.
      * @param config The generator configuration.
      */
@@ -45,11 +52,13 @@ export class SwaggerParser {
 
     /**
      * Asynchronously creates a SwaggerParser instance from a file path or URL.
+     * This is the recommended factory method for creating a parser instance.
+     *
      * @param inputPath The local path or remote URL of the OpenAPI/Swagger specification.
      * @param config The generator configuration.
      * @returns A promise that resolves to a new SwaggerParser instance.
      */
-    static async create(inputPath: string, config: GeneratorConfig): Promise < SwaggerParser > {
+    static async create(inputPath: string, config: GeneratorConfig): Promise<SwaggerParser> {
         const content = await this.loadContent(inputPath);
         const spec = this.parseSpecContent(content, inputPath);
         return new SwaggerParser(spec, config);
@@ -61,7 +70,7 @@ export class SwaggerParser {
      * @returns A promise that resolves to the string content.
      * @private
      */
-    private static async loadContent(pathOrUrl: string): Promise < string > {
+    private static async loadContent(pathOrUrl: string): Promise<string> {
         if (isUrl(pathOrUrl)) {
             const response = await fetch(pathOrUrl);
             if (!response.ok) throw new Error(`Failed to fetch spec from ${pathOrUrl}: ${response.statusText}`);
@@ -74,15 +83,17 @@ export class SwaggerParser {
 
     /**
      * Parses the string content of a specification into a JavaScript object.
-     * It automatically detects whether the content is JSON or YAML.
+     * It automatically detects whether the content is JSON or YAML based on file extension or content sniffing.
+     *
      * @param content The raw string content.
-     * @param pathOrUrl The original path, used for error messaging.
+     * @param pathOrUrl The original path, used for error messaging and format detection.
      * @returns The parsed SwaggerSpec object.
      * @private
      */
     private static parseSpecContent(content: string, pathOrUrl: string): SwaggerSpec {
         const extension = path.extname(pathOrUrl).toLowerCase();
         try {
+            // Prefer YAML parsing for .yaml/.yml or if it looks like YAML
             if (['.yaml', '.yml'].includes(extension) || (!extension && content.trim().startsWith('openapi:'))) {
                 return yaml.load(content) as SwaggerSpec;
             } else {
@@ -105,39 +116,46 @@ export class SwaggerParser {
     /**
      * Retrieves all schema definitions from the specification, normalizing for
      * both OpenAPI 3.x (`components/schemas`) and Swagger 2.0 (`definitions`).
+     *
      * @returns A record mapping schema names to their definitions.
      */
-    public getDefinitions(): Record < string, SwaggerDefinition > {
+    public getDefinitions(): Record<string, SwaggerDefinition> {
         return this.spec.definitions || this.spec.components?.schemas || {};
     }
 
     /**
      * Retrieves a single schema definition by its name.
      * @param name The name of the schema to retrieve.
-     * @returns The SwaggerDefinition, or undefined if not found.
+     * @returns The SwaggerDefinition, or `undefined` if not found.
      */
     public getDefinition(name: string): SwaggerDefinition | undefined {
         return this.getDefinitions()[name];
     }
 
     /**
-     * Retrieves all security scheme definitions from the specification.
+     * Retrieves all security scheme definitions from the specification, normalizing
+     * for OpenAPI 3.x (`components/securitySchemes`) and Swagger 2.0 (`securityDefinitions`).
+     *
      * @returns A record mapping security scheme names to their definitions.
      */
-    public getSecuritySchemes(): Record < string, SecurityScheme > {
-        return (this.spec.components?.securitySchemes || this.spec.securityDefinitions || {}) as Record < string, SecurityScheme > ;
+    public getSecuritySchemes(): Record<string, SecurityScheme> {
+        return (this.spec.components?.securitySchemes || this.spec.securityDefinitions || {}) as Record<string, SecurityScheme>;
     }
 
     /**
      * Resolves a JSON reference (`$ref`) object to its corresponding definition within the specification.
      * This method only supports local references (e.g., '#/components/schemas/User').
+     *
      * @param obj The object to resolve. If it's not a `$ref` object, it's returned as is.
      * @returns The resolved definition, or the original object if not a `$ref`. Returns `undefined` if the reference cannot be resolved.
      */
     public resolve<T>(obj: T | { $ref: string }): T | undefined {
         if (obj && typeof obj === 'object' && '$ref' in obj && typeof obj.$ref === 'string') {
             const ref = obj.$ref;
-            if (!ref.startsWith('#/')) { console.warn(`[Parser] Unsupported external or non-root reference: ${ref}`); return undefined; }
+            if (!ref.startsWith('#/')) {
+                console.warn(`[Parser] Unsupported external or non-root reference: ${ref}`);
+                return undefined;
+            }
             const parts = ref.substring(2).split('/');
             let current: unknown = this.spec;
             for (const part of parts) {
@@ -155,21 +173,27 @@ export class SwaggerParser {
 
     /**
      * A specialized version of `resolve` for resolving a string reference directly.
+     * This is a simplified lookup assuming the reference points to a top-level schema definition.
+     *
      * @param ref The JSON reference string (e.g., '#/components/schemas/User').
-     * @returns The resolved SwaggerDefinition, or undefined if not found or invalid.
+     * @returns The resolved SwaggerDefinition, or undefined if not found or the reference is invalid.
      */
     public resolveReference(ref: string): SwaggerDefinition | undefined {
-        if (typeof ref !== 'string' || !ref.startsWith('#/')) { console.warn(`[Parser] Encountered an unsupported or invalid reference: ${ref}`); return undefined; }
+        if (typeof ref !== 'string' || !ref.startsWith('#/')) {
+            console.warn(`[Parser] Encountered an unsupported or invalid reference: ${ref}`);
+            return undefined;
+        }
         const parts = ref.split('/');
         const definitionName = parts.pop()!;
-        // This is a simplified lookup assuming refs point to top-level definitions.
-        // A more robust implementation would traverse the path like the `resolve` method.
+        // This is a simplified lookup assuming refs point to top-level schemas or definitions.
         return this.getDefinition(definitionName);
     }
 
     /**
-     * Checks if the loaded specification is a valid OpenAPI 3.x or Swagger 2.0 file.
-     * @returns True if the spec version is recognized, false otherwise.
+     * Checks if the loaded specification is a valid OpenAPI 3.x or Swagger 2.0 file
+     * by inspecting the `openapi` or `swagger` version fields.
+     *
+     * @returns `true` if the spec version is recognized, `false` otherwise.
      */
     public isValidSpec(): boolean {
         return !!((this.spec.swagger && this.spec.swagger.startsWith('2.')) || (this.spec.openapi && this.spec.openapi.startsWith('3.')));
@@ -177,7 +201,7 @@ export class SwaggerParser {
 
     /**
      * Gets the version of the loaded specification.
-     * @returns An object containing the type ('swagger' or 'openapi') and version string, or null if unrecognized.
+     * @returns An object containing the type ('swagger' or 'openapi') and version string, or `null` if unrecognized.
      */
     public getSpecVersion(): { type: 'swagger' | 'openapi'; version: string } | null {
         if (this.spec.swagger) return { type: 'swagger', version: this.spec.swagger };

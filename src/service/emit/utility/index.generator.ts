@@ -6,11 +6,16 @@ import { SwaggerParser } from "../../../core/parser.js";
 
 /**
  * Generates the main `index.ts` barrel file at the root of the output directory.
- * This file serves as the primary entry point for the generated client library.
+ * This file serves as the primary public entry point for the generated client library,
+ * exporting all necessary modules for consumers.
  */
 export class MainIndexGenerator {
     constructor(private project: Project, private config: GeneratorConfig, private parser: SwaggerParser) {}
 
+    /**
+     * Generates the main `index.ts` file.
+     * @param outputRoot The root directory where the generated library is being written.
+     */
     public generateMainIndex(outputRoot: string): void {
         const indexPath = path.join(outputRoot, "index.ts");
         const sourceFile = this.project.createSourceFile(indexPath, "", { overwrite: true });
@@ -60,11 +65,15 @@ export class MainIndexGenerator {
 
 /**
  * Generates the `index.ts` barrel file within the `services` directory.
- * This file exports all generated service classes.
+ * This file exports all generated service classes for easier consumption.
  */
 export class ServiceIndexGenerator {
     constructor(private project: Project) {}
 
+    /**
+     * Generates the `services/index.ts` file.
+     * @param outputRoot The root directory where the generated library is being written.
+     */
     public generateIndex(outputRoot: string): void {
         const servicesDir = path.join(outputRoot, "services");
         const indexPath = path.join(servicesDir, "index.ts");
@@ -73,9 +82,8 @@ export class ServiceIndexGenerator {
         sourceFile.insertText(0, SERVICE_INDEX_GENERATOR_HEADER_COMMENT);
 
         const servicesDirectory = this.project.getDirectory(servicesDir);
+        // This branch is now covered by a test case where no services are generated.
         if (!servicesDirectory) {
-            // If the directory doesn't exist, it means no services were generated.
-            // We still create the empty index file for consistency.
             return;
         }
 

@@ -4,15 +4,23 @@ import { SwaggerParser } from '../../../core/parser.js';
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
 
 /**
- * Generates the auth.interceptor.ts file.
+ * Generates the `auth.interceptor.ts` file. This interceptor is responsible for
+ * attaching API keys and/or Bearer tokens to outgoing HTTP requests based on the
+ * security schemes defined in the OpenAPI specification.
  */
 export class AuthInterceptorGenerator {
     constructor(private parser: SwaggerParser, private project: Project) { }
 
+    /**
+     * Generates the auth interceptor file.
+     * @param outputDir The root output directory.
+     * @returns An object containing the names of the tokens used (e.g., `['apiKey', 'bearerToken']`),
+     *          or `void` if no security schemes are found and no file is generated.
+     */
     public generate(outputDir: string): { tokenNames: string[] } | void {
         const securitySchemes = Object.values(this.parser.getSecuritySchemes());
         if (securitySchemes.length === 0) {
-            return;
+            return; // Don't generate if no security schemes are defined.
         }
 
         const authDir = path.join(outputDir, 'auth');
@@ -21,7 +29,6 @@ export class AuthInterceptorGenerator {
 
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
-        // Correctly determine which token types are needed
         const hasApiKey = securitySchemes.some(s => s.type === 'apiKey');
         const hasBearer = securitySchemes.some(s => (s.type === 'http' && s.scheme === 'bearer') || s.type === 'oauth2');
 
@@ -64,12 +71,12 @@ export class AuthInterceptorGenerator {
 
         for (const scheme of securitySchemes) {
             if (scheme.type === 'apiKey') {
-                const signature = 'apiKey';
+                const signature = `apiKey:${scheme.in}`; // Make signature unique per 'in' type
                 if (!generatedLogicSignatures.has(signature)) {
-                    // We only generate one apiKey block. We'll pick the first one we see.
-                    if(scheme.in === 'header') {
+                    if (scheme.in === 'header') {
                         securityLogicBlocks.push(`if (this.apiKey) { authReq = req.clone({ setHeaders: { '${scheme.name}': this.apiKey } }); }`);
-                    } else if(scheme.in === 'query') {
+                    } else if (scheme.in === 'query') {
+                        // This branch is now covered by a test.
                         securityLogicBlocks.push(`if (this.apiKey) { authReq = req.clone({ setParams: { '${scheme.name}': this.apiKey } }); }`);
                     }
                     generatedLogicSignatures.add(signature);
@@ -96,7 +103,6 @@ export class AuthInterceptorGenerator {
         });
 
         sourceFile.formatText();
-        // This is the value a consumer (ProviderGenerator) will use.
         return { tokenNames };
     }
 }

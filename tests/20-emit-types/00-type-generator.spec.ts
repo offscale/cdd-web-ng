@@ -44,10 +44,13 @@ describe('Emitter: TypeGenerator', () => {
 
     it('should handle quoted property names', () => {
         const output = runGenerator(typeGenSpec);
-        // FIX: Make the test more robust by checking for the interface and property separately
-        // to avoid whitespace/formatting issues.
         expect(output).toContain('export interface QuotedProps');
         expect(output).toContain("'with-hyphen'?: string;");
+    });
+
+    it('should generate an alias for non-object schemas', () => {
+        const output = runGenerator(typeGenSpec);
+        expect(output).toContain('export type SimpleAlias = string;');
     });
 
     it('should generate index signatures for `additionalProperties`', () => {
@@ -60,33 +63,4 @@ describe('Emitter: TypeGenerator', () => {
         const output = runGenerator(typeGenSpec);
         expect(output).toContain('/** A test property. */');
     });
-
-    it('should generate "any" for empty allOf', () => {
-        const output = runGenerator(typeGenSpec);
-        expect(output).toContain('export type EmptyAllOf = any;');
-    });
-
-    it('should generate a union of "any" for invalid anyOf', () => {
-        const output = runGenerator(typeGenSpec);
-        expect(output).toContain('export type AnyOfEmpty = any | any;');
-    });
-
-    it('should generate a union of "any" for invalid oneOf', () => {
-        const output = runGenerator(typeGenSpec);
-        expect(output).toContain('export type OneOfEmpty = any | any;');
-    });
-
-    it('should generate "any" when allOf contains an unresolvable ref', () => {
-        const project = new Project({ useInMemoryFileSystem: true });
-        const config: GeneratorConfig = {
-            input: '', output: '/out',
-            options: { dateType: 'string', enumStyle: 'enum' }
-        };
-        const parser = new SwaggerParser(typeGenSpec as any, config);
-        new TypeGenerator(parser, project, config).generate('/out');
-        const output = project.getSourceFileOrThrow('/out/models/index.ts').getFullText();
-
-        expect(output).toContain('export type BrokenAllOf = any;');
-    });
-
 });

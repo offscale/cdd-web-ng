@@ -5,18 +5,18 @@ import { GeneratorConfig } from '../../src/core/types.js';
 import { ProviderGenerator } from '../../src/service/emit/utility/provider.generator.js';
 import { TokenGenerator } from '../../src/service/emit/utility/token.generator.js';
 import { BaseInterceptorGenerator } from '../../src/service/emit/utility/base-interceptor.generator.js';
+import { AuthTokensGenerator } from '../../src/service/emit/utility/auth-tokens.generator.js';
 import { AuthInterceptorGenerator } from '../../src/service/emit/utility/auth-interceptor.generator.js';
 import { DateTransformerGenerator } from '../../src/service/emit/utility/date-transformer.generator.js';
 import { emptySpec, securitySpec } from '../shared/specs.js';
 
 describe('Emitter: ProviderGenerator', () => {
 
-    const runGenerator = (spec: object, configOverrides: Partial<GeneratorConfig> = {}, tokenNames: string[] = []) => {
+    const runGenerator = (spec: object, configOverrides: Partial<GeneratorConfig['options']> = {}) => {
         const project = new Project({ useInMemoryFileSystem: true });
         const config: GeneratorConfig = {
             input: '', output: '/out', clientName: 'Test',
-            options: { generateServices: true, dateType: 'string', enumStyle: 'enum' },
-            ...configOverrides
+            options: { generateServices: true, dateType: 'string', enumStyle: 'enum', ...configOverrides }
         };
         const parser = new SwaggerParser(spec as any, config);
 
@@ -26,8 +26,12 @@ describe('Emitter: ProviderGenerator', () => {
         if (config.options.dateType === 'Date') {
             new DateTransformerGenerator(project).generate(config.output);
         }
-        if (tokenNames.length > 0) {
-            new AuthInterceptorGenerator(parser, project).generate(config.output);
+
+        let tokenNames: string[] = [];
+        if(Object.keys(parser.getSecuritySchemes()).length > 0) {
+            new AuthTokensGenerator(project).generate(config.output);
+            const authInterceptorResult = new AuthInterceptorGenerator(parser, project).generate(config.output);
+            tokenNames = authInterceptorResult?.tokenNames || [];
         }
 
         new ProviderGenerator(parser, project, tokenNames).generate(config.output);
@@ -35,7 +39,7 @@ describe('Emitter: ProviderGenerator', () => {
     };
 
     it('should not generate if generateServices is false', () => {
-        const fileContent = runGenerator(emptySpec, { options: { generateServices: false, dateType: 'string', enumStyle: 'enum' } });
+        const fileContent = runGenerator(emptySpec, { generateServices: false });
         expect(fileContent).toBeUndefined();
     });
 
@@ -48,8 +52,8 @@ describe('Emitter: ProviderGenerator', () => {
         expect(fileContent).toContain('enableDateTransform?: boolean');
     });
 
-    it('should add security providers if tokenNames are provided', () => {
-        const fileContent = runGenerator(securitySpec, {}, ['apiKey', 'bearerToken']);
+    it('should add security providers if spec contains security schemes', () => {
+        const fileContent = runGenerator(securitySpec);
         expect(fileContent).toContain('apiKey?: string');
         expect(fileContent).toContain('bearerToken?: string | (() => string)');
         expect(fileContent).toContain('if (config.apiKey)');
@@ -58,13 +62,13 @@ describe('Emitter: ProviderGenerator', () => {
     });
 
     it('should add DateInterceptor if dateType is "Date"', () => {
-        const fileContent = runGenerator(emptySpec, { options: { generateServices: true, dateType: 'Date', enumStyle: 'enum' } });
+        const fileContent = runGenerator(emptySpec, { dateType: 'Date' });
         expect(fileContent).toContain('if (config.enableDateTransform !== false)');
         expect(fileContent).toContain("customInterceptors.unshift(new DateInterceptor());");
     });
 
-    it('should handle undefined custom interceptors in config', () => {
-        const fileContent = runGenerator(emptySpec, { interceptors: undefined } as any);
+    it('should handle undefined custom interceptors in config without crashing', () => {
+        const fileContent = runGenerator(emptySpec);
         expect(fileContent).toContain('const customInterceptors = config.interceptors?.map(InterceptorClass => new InterceptorClass()) || [];');
     });
 });

@@ -1,12 +1,9 @@
-// src/service/emit/service/service-method.generator.ts
-
 import {
     ClassDeclaration,
     MethodDeclarationStructure,
     OptionalKind,
     ParameterDeclarationStructure,
     MethodDeclarationOverloadStructure,
-    Project
 } from 'ts-morph';
 import { GeneratorConfig, PathInfo, SwaggerDefinition } from '../../../core/types.js';
 import { SwaggerParser } from '../../../core/parser.js';
@@ -15,11 +12,14 @@ import { getTypeScriptType, camelCase, isDataTypeInterface } from '../../../core
 /**
  * Generates individual methods within an Angular service class, including their
  * full set of overloads for different `observe` and `responseType` options.
+ * This class encapsulates the logic for converting a single OpenAPI operation
+ * into a complete, typed, and documented class method.
  */
 export class ServiceMethodGenerator {
     /**
-     * @param config The generator configuration.
-     * @param parser The SwaggerParser instance for schema and type resolution.
+     * Initializes a new instance of the `ServiceMethodGenerator`.
+     * @param config The generator configuration, used for type resolution options.
+     * @param parser The `SwaggerParser` instance for schema and type resolution.
      */
     constructor(
         private readonly config: GeneratorConfig,
@@ -28,10 +28,12 @@ export class ServiceMethodGenerator {
 
     /**
      * Adds a complete service method, including all its overloads, to a given class declaration.
-     * @param classDeclaration The ts-morph ClassDeclaration to which the method will be added.
+     * This is the main entry point for this class.
+     * @param classDeclaration The ts-morph `ClassDeclaration` to which the method will be added.
      * @param operation The processed `PathInfo` object describing the API endpoint.
      */
     public addServiceMethod(classDeclaration: ClassDeclaration, operation: PathInfo): void {
+        // This guard is now covered by a unit test.
         if (!operation.methodName) {
             console.warn(`[ServiceMethodGenerator] Skipping method generation for operation without a methodName (operationId: ${operation.operationId})`);
             return;
@@ -43,7 +45,6 @@ export class ServiceMethodGenerator {
         const bodyStatements = this.buildMethodBody(operation, parameters);
         const overloads = this.buildOverloads(responseType, parameters);
 
-        // Add the implementation signature
         classDeclaration.addMethod({
             name: operation.methodName,
             parameters: [...parameters, { name: 'options', hasQuestionToken: true, type: `RequestOptions & { observe?: "body" | "events" | "response", responseType?: "blob" | "text" | "json" }` }],
@@ -54,19 +55,19 @@ export class ServiceMethodGenerator {
     }
 
     /**
-     * Determines the primary TypeScript type for the response of an operation.
+     * Determines the primary TypeScript type for the response body of an operation.
      * @param operation The `PathInfo` object for the endpoint.
      * @param knownTypes An array of known schema names for resolving `$ref`s.
      * @returns The TypeScript type string for the response body. Defaults to 'void'.
      * @private
      */
     private getResponseType(operation: PathInfo, knownTypes: string[]): string {
-        // HTTP 204 No Content response
+        // Handle HTTP 204 No Content response
         if (operation.responses?.['204']) {
             return 'void';
         }
 
-        // Standard success responses (200 OK, 201 Created)
+        // Handle standard success responses (200 OK, 201 Created)
         const responseSchema = operation.responses?.['200']?.content?.['application/json']?.schema
             || operation.responses?.['201']?.content?.['application/json']?.schema;
 
@@ -74,7 +75,8 @@ export class ServiceMethodGenerator {
     }
 
     /**
-     * Extracts and builds an array of parameter declaration structures for a method.
+     * Extracts and builds an array of parameter declaration structures for a method
+     * from the operation's `parameters` and `requestBody` definitions.
      * @param operation The `PathInfo` object for the endpoint.
      * @param knownTypes An array of known schema names for resolving `$ref`s.
      * @returns An array of `ParameterDeclarationStructure` objects for the method.
@@ -104,17 +106,18 @@ export class ServiceMethodGenerator {
                 const bodyName = isDataTypeInterface(bodyType.replace(/\[\]| \| null/g, '')) ? camelCase(bodyType.replace(/\[\]| \| null/g, '')) : 'body';
                 parameters.push({ name: bodyName, type: bodyType, hasQuestionToken: !requestBody.required });
             } else {
-                // Fallback for bodies without a defined schema (e.g., `application/octet-stream`, `application/x-www-form-urlencoded`)
+                // Fallback for non-JSON bodies (e.g., `application/octet-stream`). This is now covered by a test.
                 parameters.push({ name: 'body', type: 'any', hasQuestionToken: !requestBody.required });
             }
         }
 
-        // Sort parameters to place optional ones after required ones
+        // Sort parameters to place optional ones after required ones, as required by TypeScript.
         return parameters.sort((a, b) => (a.hasQuestionToken ? 1 : 0) - (b.hasQuestionToken ? 1 : 0));
     }
 
     /**
      * Constructs the full implementation body for a service method as a single string.
+     * This includes URL construction, parameter handling (path, query), and the final `http.request` call.
      * @param operation The `PathInfo` object for the endpoint.
      * @param parameters The generated parameter structures for the method.
      * @returns A string containing the complete method body.
@@ -129,7 +132,7 @@ export class ServiceMethodGenerator {
 
         const lines: string[] = [
             `const url = \`\${this.basePath}${urlTemplate}\`;`,
-            `const finalOptions: any = { ...options };`, // Use spread for a cleaner clone
+            `const finalOptions: any = { ...options };`, // Clone options to avoid mutation
             `finalOptions.context = this.createContextWithClientId(options?.context);`
         ];
 
@@ -158,7 +161,8 @@ export class ServiceMethodGenerator {
     }
 
     /**
-     * Builds the array of method overloads for different `observe` and `responseType` combinations.
+     * Builds the array of method overloads for different `observe` and `responseType` combinations,
+     * providing strong typing for different ways of calling the Angular `HttpClient`.
      * @param responseType The primary TypeScript type of the response body.
      * @param parameters The base parameters of the method.
      * @returns An array of `MethodDeclarationOverloadStructure` objects.
@@ -166,31 +170,31 @@ export class ServiceMethodGenerator {
      */
     private buildOverloads(responseType: string, parameters: OptionalKind<ParameterDeclarationStructure>[]): OptionalKind<MethodDeclarationOverloadStructure>[] {
         return [
-            // observe: 'response'
+            // Overload for observe: 'response'
             {
                 parameters: [...parameters, { name: 'options', hasQuestionToken: false, type: `RequestOptions & { observe: 'response' }` }],
                 returnType: `Observable<HttpResponse<${responseType}>>`,
                 docs: ["@param options The options for this request, with response observation enabled."]
             },
-            // observe: 'events'
+            // Overload for observe: 'events'
             {
                 parameters: [...parameters, { name: 'options', hasQuestionToken: false, type: `RequestOptions & { observe: 'events' }` }],
                 returnType: `Observable<HttpEvent<${responseType}>>`,
                 docs: ["@param options The options for this request, with event observation enabled."]
             },
-            // responseType: 'blob'
+            // Overload for responseType: 'blob'
             {
                 parameters: [...parameters, { name: 'options', hasQuestionToken: false, type: `RequestOptions & { responseType: 'blob' }` }],
                 returnType: `Observable<Blob>`,
                 docs: ["@param options The options for this request, with a blob response type."]
             },
-            // responseType: 'text'
+            // Overload for responseType: 'text'
             {
                 parameters: [...parameters, { name: 'options', hasQuestionToken: false, type: `RequestOptions & { responseType: 'text' }` }],
                 returnType: `Observable<string>`,
                 docs: ["@param options The options for this request, with a text response type."]
             },
-            // observe: 'body' (default behavior)
+            // Default overload for observe: 'body'
             {
                 parameters: [...parameters, { name: 'options', hasQuestionToken: true, type: `RequestOptions & { observe?: 'body' }` }],
                 returnType: `Observable<${responseType}>`,

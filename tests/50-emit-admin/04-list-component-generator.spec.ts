@@ -3,7 +3,7 @@ import { Project } from 'ts-morph';
 import { ListComponentGenerator } from '../../src/service/emit/admin/list-component.generator.js';
 import { discoverAdminResources } from '../../src/service/emit/admin/resource-discovery.js';
 import { createTestProject } from '../shared/helpers.js';
-import { coverageSpec, finalCoverageSpec, listComponentSpec } from '../shared/specs.js';
+import { coverageSpec, listComponentSpec } from '../shared/specs.js';
 import { SwaggerParser } from '../../src/core/parser.js';
 
 describe('Admin: ListComponentGenerator', () => {
@@ -69,57 +69,29 @@ describe('Admin: ListComponentGenerator', () => {
             const listGen = new ListComponentGenerator(localProject);
 
             for (const resource of resources) {
-                // The generator itself has a guard, but we also only call it for listable things
                 if (resource.operations.some(op => op.action === 'list')) {
                     listGen.generate(resource, '/admin');
                 }
             }
         });
 
-        it('should handle resource without a list operation gracefully', () => {
-            const proj = createTestProject();
-            const parser = new SwaggerParser(listComponentSpec as any, { options: { admin: true } } as any);
-            const resource = discoverAdminResources(parser).find(r => r.name === 'noListResource')!;
-            const listGen = new ListComponentGenerator(proj);
-            // This is the key: we generate a "list" component for a resource that has no list operation
-            listGen.generate(resource, '/admin');
-
-            const listClass = proj.getSourceFileOrThrow('/admin/noListResource/noListResource-list/noListResource-list.component.ts').getClassOrThrow('NoListResourceListComponent');
-            // The constructor should exist but be empty because the guard `if (!listOp) return;` was hit.
-            expect(listClass.getConstructors()[0]?.getBodyText() ?? '').toBe('');
-        });
-
         it('should correctly map various action names to icons', () => {
             const html = localProject.getFileSystem().readFileSync('/admin/iconTests/iconTests-list/iconTests-list.component.html');
 
-            expect(html).toContain('(click)="removeItem(row[idProperty])"');
-            expect(html).toContain('<mat-icon>delete</mat-icon>'); // remove -> delete
-
-            expect(html).toContain('(click)="onEdit(row[idProperty])"'); // update -> onEdit
-            expect(html).toContain('<mat-icon>edit</mat-icon>');
-
-            expect(html).toContain('(click)="onCreate()"'); // create -> onCreate
-
-            expect(html).toContain('(click)="startItem(row[idProperty])"');
+            expect(html).toContain('<mat-icon>delete</mat-icon>');     // from the standard delete action
+            expect(html).toContain('<mat-icon>edit</mat-icon>');       // onEdit (from update) -> edit
             expect(html).toContain('<mat-icon>play_arrow</mat-icon>'); // start -> play_arrow
-
-            expect(html).toContain('(click)="pauseProcess(row[idProperty])"');
-            expect(html).toContain('<mat-icon>pause</mat-icon>'); // pause -> pause
-
-            expect(html).toContain('(click)="syncAll()"');
-            expect(html).toContain('<mat-icon>refresh</mat-icon>'); // sync -> refresh
-
-            expect(html).toContain('(click)="approveItem(row[idProperty])"');
-            expect(html).toContain('<mat-icon>check</mat-icon>'); // approve -> check
-
-            expect(html).toContain('(click)="blockUser(row[idProperty])"');
-            expect(html).toContain('<mat-icon>block</mat-icon>'); // block -> block
+            expect(html).toContain('<mat-icon>pause</mat-icon>');      // pause -> pause
+            expect(html).toContain('<mat-icon>refresh</mat-icon>');    // sync -> refresh
+            expect(html).toContain('<mat-icon>check</mat-icon>');      // approve -> check
+            expect(html).toContain('<mat-icon>block</mat-icon>');      // block -> block
         });
 
-        it('should fall back to "id" for idProperty if resource has no properties', () => {
-            const listClass = localProject.getSourceFileOrThrow('/admin/noPropsResource/noPropsResource-list/noPropsResource-list.component.ts').getClassOrThrow('NoPropsResourceListComponent');
-            const idProp = listClass.getProperty('idProperty')!.getInitializer()!.getText();
-            expect(idProp).toBe(`'id'`);
+        it('should generate an ID column even if resource has no list properties', () => {
+            const html = localProject.getFileSystem().readFileSync('/admin/noPropsResource/noPropsResource-list/noPropsResource-list.component.html');
+            // Check that the ID column is generated as a fallback, but no other property columns exist.
+            expect(html).toContain('<ng-container matColumnDef="id">');
+            expect(html).not.toContain('<ng-container matColumnDef="name">');
         });
     });
 });

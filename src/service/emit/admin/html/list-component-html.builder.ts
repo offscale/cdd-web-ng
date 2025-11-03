@@ -13,7 +13,7 @@ import { camelCase, pascalCase, singular } from '../../../../core/utils.js';
  *
  * @param resource The metadata object for the resource.
  * @param idProperty The name of the property to use as the unique identifier for rows.
- * @param iconMap A map of action names to their corresponding Material Design icon names.
+ * @param iconMap A map of custom action names to their corresponding Material Design icon names.
  * @returns A string containing the full HTML template.
  */
 export function generateListComponentHtml(resource: Resource, idProperty: string, iconMap: Map<string, string>): string {
@@ -28,8 +28,12 @@ export function generateListComponentHtml(resource: Resource, idProperty: string
     const customItemActions = resource.operations.filter(op => op.isCustomItemAction);
     const hasActionsColumn = hasEdit || hasDelete || customItemActions.length > 0;
 
-    const generateColumns = () => {
-        // FIX: Add a defensive guard against undefined listProperties.
+    /**
+     * Generates the `<ng-container matColumnDef>` blocks for the table.
+     * @returns A string of HTML column definitions.
+     */
+    const generateColumns = (): string => {
+        // This is now covered by a test with a resource that has no list properties.
         const properties = resource.listProperties || [];
         return properties.map((prop: FormProperty) => `
     <!-- ${pascalCase(prop.name)} Column -->
@@ -40,9 +44,11 @@ export function generateListComponentHtml(resource: Resource, idProperty: string
     `).join('\n');
     };
 
-    const generateActionButtons = () => {
-        if (!hasActionsColumn) return '';
-
+    /**
+     * Generates the action buttons (edit, delete, custom) for the actions column.
+     * @returns A string of HTML button elements.
+     */
+    const generateActionButtons = (): string => {
         let buttons = '';
         if (hasEdit) {
             buttons += `<button mat-icon-button color="primary" (click)="onEdit(row[idProperty])" matTooltip="Edit ${singular(modelName)}"><mat-icon>edit</mat-icon></button>`;

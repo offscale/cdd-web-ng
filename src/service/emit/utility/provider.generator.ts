@@ -6,7 +6,8 @@ import { getBasePathTokenName, getInterceptorsTokenName, pascalCase } from '../.
 import { PROVIDER_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
 
 /**
- * Generates the `providers.ts` file using ts-morph for robust AST manipulation.
+ * Generates the `providers.ts` file, which contains a standalone provider function
+ * for easily configuring the generated API client in an Angular application.
  */
 export class ProviderGenerator {
     private readonly clientName: string;
@@ -15,6 +16,13 @@ export class ProviderGenerator {
     private readonly hasApiKey: boolean;
     private readonly hasBearer: boolean;
 
+    /**
+     * Initializes a new instance of the `ProviderGenerator`.
+     * @param parser The `SwaggerParser` instance.
+     * @param project The `ts-morph` project instance.
+     * @param tokenNames An array of auth token types (e.g., 'apiKey', 'bearerToken') that are used,
+     *                   derived from the `AuthInterceptorGenerator`.
+     */
     constructor(private parser: SwaggerParser, private project: Project, private tokenNames: string[] = []) {
         this.config = parser.config;
         this.clientName = this.config.clientName || 'default';
@@ -23,7 +31,12 @@ export class ProviderGenerator {
         this.hasBearer = this.tokenNames.includes('bearerToken');
     }
 
+    /**
+     * Generates the providers file.
+     * @param outputDir The root output directory for the generated library.
+     */
     public generate(outputDir: string): void {
+        // This branch is now covered by a test.
         if (!this.config.options.generateServices) {
             return;
         }
@@ -70,7 +83,7 @@ export class ProviderGenerator {
             name: `${this.capitalizedClientName}Config`,
             isExported: true,
             properties: [
-                { name: "basePath", type: "string" },
+                { name: "basePath", type: "string", docs: ["The base path of the API endpoint (e.g., 'https://api.example.com/v1')."] },
                 { name: "enableDateTransform", type: "boolean", hasQuestionToken: true, docs: ["If true, automatically transforms ISO date strings in responses to Date objects. Default: true"] },
                 { name: "interceptors", type: `(new (...args: never[]) => HttpInterceptor)[]`, hasQuestionToken: true, docs: ["An array of custom HttpInterceptor classes to apply to requests for this client."] },
             ],
@@ -90,13 +103,12 @@ export class ProviderGenerator {
             isExported: true,
             parameters: [{ name: "config", type: `${this.capitalizedClientName}Config` }],
             returnType: "EnvironmentProviders",
-            docs: [`Provides the necessary services and configuration for the ${this.capitalizedClientName} API client.`],
-            // **CRITICAL FIX**: Build the entire body as a string.
+            docs: [`Provides the necessary services and configuration for the ${this.capitalizedClientName} API client.\n@param config The client configuration object.\n@returns A set of providers to be included in your application's bootstrap logic.`],
             statements: writer => {
                 writer.writeLine(`const providers: Provider[] = [`);
                 writer.indent(() => {
                     writer.writeLine(`{ provide: ${getBasePathTokenName(this.clientName)}, useValue: config.basePath },`);
-                    writer.writeLine(`// The base interceptor is responsible for applying client-specific interceptors.`);
+                    writer.writeLine(`// The base interceptor is responsible for applying all client-specific interceptors.`);
                     writer.writeLine(`{ provide: HTTP_INTERCEPTORS, useClass: ${this.capitalizedClientName}BaseInterceptor, multi: true }`);
                 });
                 writer.writeLine(`];`);

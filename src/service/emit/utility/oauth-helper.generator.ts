@@ -9,8 +9,17 @@ import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
  * security scheme is present in the OpenAPI spec.
  */
 export class OAuthHelperGenerator {
+    /**
+     * @param parser The `SwaggerParser` instance for accessing spec details.
+     * @param project The `ts-morph` project for AST manipulation.
+     */
     constructor(private parser: SwaggerParser, private project: Project) {}
 
+    /**
+     * Main generation method. It checks for OAuth2 schemes and triggers the
+     * generation of the service and component files if found.
+     * @param outputDir The root output directory for the generated library.
+     */
     public generate(outputDir: string): void {
         const securitySchemes = Object.values(this.parser.getSecuritySchemes());
         const hasOAuth2 = securitySchemes.some(s => s.type === 'oauth2');
@@ -24,6 +33,11 @@ export class OAuthHelperGenerator {
         this.generateRedirectComponent(authDir);
     }
 
+    /**
+     * Generates the `oauth.service.ts` file.
+     * @param authDir The directory to place the file in (e.g., /generated/auth).
+     * @private
+     */
     private generateService(authDir: string): void {
         const filePath = path.join(authDir, 'oauth.service.ts');
         const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
@@ -48,10 +62,15 @@ export class OAuthHelperGenerator {
         sourceFile.formatText();
     }
 
+    /**
+     * Generates the `oauth-redirect` component files (.ts, .html).
+     * @param authDir The directory to place the component folder in.
+     * @private
+     */
     private generateRedirectComponent(authDir: string): void {
         const componentDir = path.join(authDir, 'oauth-redirect');
 
-        // FIX: Explicitly create the component's directory before writing files to it.
+        // Explicitly create the component's directory before writing files to it.
         this.project.getFileSystem().mkdirSync(componentDir);
 
         const tsPath = path.join(componentDir, 'oauth-redirect.component.ts');

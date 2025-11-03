@@ -69,12 +69,12 @@ export function generateListComponentHtml(resource: Resource, idProperty: string
   <mat-toolbar class="admin-list-toolbar">
     <span>${pascalCase(resourceName)}</span>
     <span class="toolbar-spacer"></span>
-    ${customCollectionActions.map(action => // <-- THIS IS THE KEY FIX
+    ${customCollectionActions.map(action =>
         `<button mat-stroked-button (click)="${action.action}()">
-          <mat-icon>${iconMap.get(action.action)}</mat-icon> ${pascalCase(action.action)} 
+          <mat-icon>${iconMap.get(action.action)}</mat-icon> ${pascalCase(action.action)}
          </button>`
-    ).join('\n    ')} 
-    ${hasCreate ? `<button mat-flat-button color="primary" (click)="onCreate()">Create ${singular(modelName)}</button>` : ''} 
+    ).join('\n    ')}
+    ${hasCreate ? `<button mat-flat-button color="primary" (click)="onCreate()">Create ${singular(modelName)}</button>` : ''}
   </mat-toolbar>
 
   <div class="mat-elevation-z8 table-container">
@@ -86,10 +86,10 @@ export function generateListComponentHtml(resource: Resource, idProperty: string
       <ng-container matColumnDef="actions">
         <th mat-header-cell *matHeaderCellDef>Actions</th>
         <td mat-cell *matCellDef="let row">
-          ${generateActionButtons()} 
+          ${generateActionButtons()}
         </td>
       </ng-container>
-      ` : ''} 
+      ` : ''}
 
       <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
       <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
@@ -103,8 +103,8 @@ export function generateListComponentHtml(resource: Resource, idProperty: string
     </table>
 
     <mat-paginator
-      [length]="totalItems()" 
-      [pageSizeOptions]="[5, 10, 25, 100]" 
+      [length]="totalItems()"
+      [pageSizeOptions]="[5, 10, 25, 100]"
       aria-label="Select page">
     </mat-paginator>
   </div>

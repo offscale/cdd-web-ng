@@ -3,7 +3,7 @@ import { FormComponentGenerator } from '../../src/service/emit/admin/form-compon
 import { SwaggerParser } from '../../src/core/parser.js';
 import { Project, ClassDeclaration } from 'ts-morph';
 import { createTestProject } from '../shared/helpers.js';
-import { adminFormSpec } from '../shared/specs.js';
+import { adminFormSpec, coverageSpec } from '../shared/specs.js';
 import { discoverAdminResources } from '../../src/service/emit/admin/resource-discovery.js';
 
 describe('Admin: FormComponentGenerator', () => {
@@ -32,6 +32,28 @@ describe('Admin: FormComponentGenerator', () => {
             const resource = discoverAdminResources(parser).find(r => r.name === 'widgets')!;
             formClass = project.getSourceFileOrThrow(`/admin/${resource.name}/${resource.name}-form/${resource.name}-form.component.ts`).getClassOrThrow('WidgetFormComponent');
             html = project.getFileSystem().readFileSync(`/admin/${resource.name}/${resource.name}-form/${resource.name}-form.component.html`);
+        });
+
+        it('should correctly report if custom validators are used', () => {
+            const project = createTestProject();
+            const parser = new SwaggerParser(adminFormSpec as any, { options: { admin: true } } as any);
+            const resource = discoverAdminResources(parser).find(r => r.name === 'widgets')!;
+            const formGen = new FormComponentGenerator(project, parser);
+
+            const result = formGen.generate(resource, '/admin');
+            // The 'widgets' resource in adminFormSpec uses 'exclusiveMinimum', which requires CustomValidators.
+            expect(result.usesCustomValidators).toBe(true);
+        });
+
+        it('should generate update-only logic in onSubmit when no create op exists', async () => {
+            await run(coverageSpec); // Use a spec with a resource that only has update
+            const resource = discoverAdminResources(parser).find(r => r.name === 'configs')!;
+            const configsFormClass = project.getSourceFileOrThrow(`/admin/configs/configs-form/configs-form.component.ts`).getClassOrThrow('ConfigFormComponent');
+            const submitMethod = configsFormClass.getMethod('onSubmit');
+            const body = submitMethod!.getBodyText() ?? '';
+            expect(body).toContain(`if (!this.isEditMode())`);
+            expect(body).toContain('const action$ = this.configsService.updateConfig(this.id()!, finalPayload);');
+            expect(body).not.toContain('const action$ = this.isEditMode()');
         });
 
         it('should generate create-only logic in onSubmit when no update op exists', () => {

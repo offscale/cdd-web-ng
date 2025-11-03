@@ -101,10 +101,20 @@ export class TypeGenerator {
         }
     }
 
+    /**
+     * Adds common Angular HTTP type imports to the models file.
+     * @param sourceFile The source file to modify.
+     * @private
+     */
     private addCommonAngularImports(sourceFile: SourceFile): void {
         sourceFile.addImportDeclaration({ moduleSpecifier: '@angular/common/http', namedImports: ['HttpHeaders', 'HttpContext', 'HttpParams'] });
     }
 
+    /**
+     * Adds the `RequestOptions` interface, a standard type used in all generated service methods.
+     * @param sourceFile The source file to modify.
+     * @private
+     */
     private addRequestOptionsInterface(sourceFile: SourceFile): void {
         sourceFile.addInterface({
             name: 'RequestOptions', isExported: true,

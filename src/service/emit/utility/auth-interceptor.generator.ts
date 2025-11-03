@@ -2,6 +2,7 @@ import * as path from 'path';
 import { Project, Scope } from 'ts-morph';
 import { SwaggerParser } from '../../../core/parser.js';
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
+import { SecurityScheme } from '../../../core/types.js';
 
 /**
  * Generates the `auth.interceptor.ts` file. This interceptor is responsible for
@@ -11,6 +12,10 @@ import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
  * Other schemes like `apiKey` in `cookie` are parsed but do not generate interception logic.
  */
 export class AuthInterceptorGenerator {
+    /**
+     * @param parser The `SwaggerParser` instance for accessing spec details.
+     * @param project The `ts-morph` project for AST manipulation.
+     */
     constructor(private parser: SwaggerParser, private project: Project) { }
 
     /**
@@ -75,7 +80,7 @@ export class AuthInterceptorGenerator {
         const generatedLogicSignatures = new Set<string>();
 
         for (const scheme of securitySchemes) {
-            if (scheme.type === 'apiKey') {
+            if (scheme.type === 'apiKey' && scheme.name) {
                 const signature = `apiKey:${scheme.in}`; // Make signature unique per 'in' type
                 if (!generatedLogicSignatures.has(signature)) {
                     if (scheme.in === 'header') {

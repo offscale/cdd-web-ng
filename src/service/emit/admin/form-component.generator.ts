@@ -42,6 +42,7 @@ export class FormComponentGenerator {
 
     /**
      * Generates the `.component.ts` file.
+     * @private
      */
     private generateFormComponentTs(resource: Resource, outDir: string): { usesCustomValidators: boolean } {
         const componentName = `${pascalCase(resource.modelName)}FormComponent`;
@@ -104,21 +105,21 @@ export class FormComponentGenerator {
         ].filter(Boolean));
 
         const componentClass = sourceFile.addClass({
-            name: componentName, // <-- ADD THIS LINE
+            name: componentName,
             decorators: [{
                 name: 'Component',
-                arguments: [`{ 
-                    selector: 'app-${resource.name}-form', 
-                    standalone: true, 
-                    imports: [ 
-                        'CommonModule', 
-                        'RouterModule', 
-                        'ReactiveFormsModule', 
+                arguments: [`{
+                    selector: 'app-${resource.name}-form',
+                    standalone: true,
+                    imports: [
+                        'CommonModule',
+                        'RouterModule',
+                        'ReactiveFormsModule',
                         'FormGroup', 'FormArray', 'Validators', // Added for clarity
                         ...commonStandaloneImports
-                    ], 
-                    templateUrl: './${resource.name}-form.component.html', 
-                    styleUrl: './${resource.name}-form.component.scss' 
+                    ],
+                    templateUrl: './${resource.name}-form.component.html',
+                    styleUrl: './${resource.name}-form.component.scss'
                 }`]
             }],
             implements: ['OnInit', 'OnDestroy']
@@ -149,6 +150,7 @@ export class FormComponentGenerator {
      * @param resource The resource definition.
      * @param serviceName The name of the injected service class.
      * @param oneOfProp The property that contains a `oneOf`/`discriminator` definition, if any.
+     * @private
      */
     private addProperties(classDeclaration: ClassDeclaration, resource: Resource, serviceName: string, oneOfProp?: FormProperty): void {
         classDeclaration.addProperties([
@@ -207,6 +209,7 @@ export class FormComponentGenerator {
      * @param resource The resource definition.
      * @param serviceName The name of the injected service class.
      * @param needsComplexPatch Indicates if the more advanced `patchForm` method should be called.
+     * @private
      */
     private addNgOnInit(classDeclaration: ClassDeclaration, resource: Resource, serviceName: string, needsComplexPatch: boolean): void {
         const getByIdOp = resource.operations.find(op => op.action === 'getById');
@@ -223,6 +226,7 @@ export class FormComponentGenerator {
      * Generates the `initForm` method, which constructs the main `FormGroup`.
      * @param classDeclaration The ts-morph ClassDeclaration node.
      * @param resource The resource definition.
+     * @private
      */
     private addInitForm(classDeclaration: ClassDeclaration, resource: Resource): void {
         const formControls = resource.formProperties
@@ -238,12 +242,15 @@ export class FormComponentGenerator {
      * @param resource The resource definition.
      * @param serviceName The name of the injected service class.
      * @param hasPolymorphism Indicates if the payload needs to be reconstructed via `getPayload`.
+     * @private
      */
     private addOnSubmit(classDeclaration: ClassDeclaration, resource: Resource, serviceName: string, hasPolymorphism: boolean): void {
         const createOp = resource.operations.find(op => op.action === 'create');
         const updateOp = resource.operations.find(op => op.action === 'update');
 
-        if (!createOp?.methodName && !updateOp?.methodName) { return; }
+        if (!createOp?.methodName && !updateOp?.methodName) {
+            return;
+        }
 
         const payloadExpr = hasPolymorphism ? 'this.getPayload()' : 'this.form.getRawValue()';
         let body = `if (!this.form.valid) { return; }\nconst finalPayload = ${payloadExpr};\n`;
@@ -267,6 +274,7 @@ export class FormComponentGenerator {
     /**
      * Generates the `onCancel` method.
      * @param classDeclaration The ts-morph ClassDeclaration node.
+     * @private
      */
     private addOnCancelMethod(classDeclaration: ClassDeclaration): void {
         classDeclaration.addMethod({ name: 'onCancel', statements: `this.router.navigate(['../'], { relativeTo: this.route });` });
@@ -275,6 +283,7 @@ export class FormComponentGenerator {
     /**
      * Generates the `ngOnDestroy` lifecycle hook to prevent memory leaks.
      * @param classDeclaration The ts-morph ClassDeclaration node.
+     * @private
      */
     private addNgOnDestroy(classDeclaration: ClassDeclaration): void {
         classDeclaration.addMethod({ name: 'ngOnDestroy', statements: 'this.subscriptions.forEach(sub => sub.unsubscribe());' });
@@ -284,6 +293,7 @@ export class FormComponentGenerator {
      * Generates the `.component.html` file using the HtmlElementBuilder.
      * @param resource The resource definition.
      * @param outDir The component's output directory.
+     * @private
      */
     private generateFormComponentHtml(resource: Resource, outDir: string): void {
         const htmlFilePath = `${outDir}/${resource.name}-form.component.html`;
@@ -295,6 +305,7 @@ export class FormComponentGenerator {
      * Generates the `.component.scss` file.
      * @param resource The resource definition.
      * @param outDir The component's output directory.
+     * @private
      */
     private generateFormComponentScss(resource: Resource, outDir: string): void {
         const scssFilePath = `${outDir}/${resource.name}-form.component.scss`;
@@ -308,6 +319,7 @@ export class FormComponentGenerator {
      * @param classDeclaration The ts-morph ClassDeclaration node.
      * @param resource The resource definition.
      * @param oneOfProp The property containing the discriminator, if any.
+     * @private
      */
     private addPatchForm(classDeclaration: ClassDeclaration, resource: Resource, oneOfProp?: FormProperty): void {
         const arrayProps = resource.formProperties.filter(p => p.schema.type === 'array' && (p.schema.items as SwaggerDefinition)?.properties);
@@ -359,6 +371,7 @@ export class FormComponentGenerator {
      *                         It defaults to the literal string 'null'.
      * @returns A string of TypeScript code representing a FormBuilder method call
      *          (e.g., `this.fb.control(null, [Validators.required])`).
+     * @private
      */
     private getFormControlString(schema: SwaggerDefinition, defaultValueExpr = 'null'): string {
         // Properties marked as readOnly should not have a form control.
@@ -396,6 +409,7 @@ export class FormComponentGenerator {
      * Generates helper methods (`get <name>Array()`, `add<Name>()`, etc.) for each `FormArray` in the form.
      * @param classDeclaration The ts-morph ClassDeclaration node.
      * @param resource The resource definition.
+     * @private
      */
     private addFormArrayHelpers(classDeclaration: ClassDeclaration, resource: Resource): void {
         const formArrayProps = resource.formProperties.filter(p => p.schema.type === 'array' && (p.schema.items as SwaggerDefinition)?.properties);
@@ -426,17 +440,18 @@ export class FormComponentGenerator {
      * Generates methods to handle polymorphism (dynamic sub-forms based on a discriminator property).
      * @param classDeclaration The ts-morph ClassDeclaration node.
      * @param prop The `FormProperty` that defines the `oneOf`/`discriminator`.
+     * @private
      */
     private addPolymorphismLogic(classDeclaration: ClassDeclaration, prop: FormProperty, resource: Resource) {
         const dPropName = prop.schema.discriminator!.propertyName;
 
         // Use a modern Angular effect to react to changes in the discriminator property.
         classDeclaration.addConstructor({
-            statements: writer => writer.write(`effect(() => { 
-    const type = this.form.get(this.discriminatorPropName)?.value; 
-    if (type) { 
-        this.updateFormForPetType(type); 
-    } 
+            statements: writer => writer.write(`effect(() => {
+    const type = this.form.get(this.discriminatorPropName)?.value;
+    if (type) {
+        this.updateFormForPetType(type);
+    }
 });`)
         });
 
@@ -496,6 +511,7 @@ export class FormComponentGenerator {
      * when using polymorphic forms.
      * @param classDeclaration The ts-morph ClassDeclaration node.
      * @param prop The `FormProperty` that defines the `oneOf`/`discriminator`.
+     * @private
      */
     private addGetPayload(classDeclaration: ClassDeclaration, prop: FormProperty) {
         const dPropName = prop.schema.discriminator!.propertyName;
@@ -506,6 +522,7 @@ export class FormComponentGenerator {
     /**
      * Generates the `onFileSelected` method for handling file inputs.
      * @param classDeclaration The ts-morph ClassDeclaration node.
+     * @private
      */
     private addFileHandling(classDeclaration: ClassDeclaration) {
         classDeclaration.addMethod({

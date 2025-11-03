@@ -42,4 +42,7 @@ jobs:
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+#          flags: report-type="test_results"
           files: ./coverage/junit.xml
+          disable_search: true
+          verbose: true

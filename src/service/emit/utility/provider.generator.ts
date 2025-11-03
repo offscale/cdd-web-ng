@@ -1,4 +1,4 @@
-import { Project, SourceFile } from 'ts-morph';
+import { Project, SourceFile, InterfaceDeclaration } from 'ts-morph';
 import * as path from 'path';
 import { GeneratorConfig } from '../../../core/types.js';
 import { SwaggerParser } from '../../../core/parser.js';
@@ -36,7 +36,7 @@ export class ProviderGenerator {
      * @param outputDir The root output directory for the generated library.
      */
     public generate(outputDir: string): void {
-        if (!this.config.options.generateServices) {
+        if (this.config.options.generateServices === false) {
             return;
         }
 
@@ -54,6 +54,12 @@ export class ProviderGenerator {
         sourceFile.formatText();
     }
 
+    /**
+     * Adds all necessary import declarations to the source file.
+     * @param sourceFile The ts-morph SourceFile to modify.
+     * @param hasSecurity A boolean indicating if security-related imports are needed.
+     * @private
+     */
     private addImports(sourceFile: SourceFile, hasSecurity: boolean): void {
         sourceFile.addImportDeclarations([
             { namedImports: ["EnvironmentProviders", "Provider", "makeEnvironmentProviders"], moduleSpecifier: "@angular/core" },
@@ -77,6 +83,11 @@ export class ProviderGenerator {
         }
     }
 
+    /**
+     * Adds the client configuration interface to the source file.
+     * @param sourceFile The ts-morph SourceFile to modify.
+     * @private
+     */
     private addConfigInterface(sourceFile: SourceFile): void {
         const configInterface = sourceFile.addInterface({
             name: `${this.capitalizedClientName}Config`,
@@ -84,7 +95,7 @@ export class ProviderGenerator {
             properties: [
                 { name: "basePath", type: "string", docs: ["The base path of the API endpoint (e.g., 'https://api.example.com/v1')."] },
                 { name: "enableDateTransform", type: "boolean", hasQuestionToken: true, docs: ["If true, automatically transforms ISO date strings in responses to Date objects. Default: true"] },
-                { name: "interceptors", type: `(new (...args: never[]) => HttpInterceptor)[]`, hasQuestionToken: true, docs: ["An array of custom HttpInterceptor classes to apply to requests for this client."] },
+                { name: "interceptors", type: `(new (...args: any[]) => HttpInterceptor)[]`, hasQuestionToken: true, docs: ["An array of custom HttpInterceptor classes to apply to requests for this client."] },
             ],
             docs: [`Configuration for the ${this.capitalizedClientName} API client.`]
         });
@@ -96,6 +107,12 @@ export class ProviderGenerator {
         }
     }
 
+    /**
+     * Adds the main `provide...Client` function to the source file.
+     * @param sourceFile The ts-morph SourceFile to modify.
+     * @param hasSecurity A boolean indicating if security-related providers are needed.
+     * @private
+     */
     private addMainProviderFunction(sourceFile: SourceFile, hasSecurity: boolean): void {
         sourceFile.addFunction({
             name: `provide${this.capitalizedClientName}Client`,

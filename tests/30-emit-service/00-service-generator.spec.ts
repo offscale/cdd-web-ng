@@ -5,7 +5,7 @@ import { Project, Scope } from 'ts-morph';
 import { ServiceGenerator } from '@src/service/emit/service/service.generator.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from '@src/core/types.js';
-import { coverageSpec } from '../shared/specs.js';
+import { coverageSpec, fullCRUD_Users } from '../shared/specs.js';
 import { groupPathsByController } from '@src/service/parse.js';
 import { TypeGenerator } from '@src/service/emit/type/type.generator.js';
 import { TokenGenerator } from '@src/service/emit/utility/token.generator.js';
@@ -69,6 +69,14 @@ describe('Emitter: ServiceGenerator', () => {
         const serviceClass = serviceFile.getClassOrThrow('DuplicateNameService');
         expect(serviceClass.getMethod('getName')).toBeDefined();
         expect(serviceClass.getMethod('getName2')).toBeDefined();
+    });
+
+    it('should import a model used in a request body', () => {
+        const project = createTestEnvironment(fullCRUD_Users);
+        const serviceFile = project.getSourceFileOrThrow('/out/services/users.service.ts');
+        const importDecl = serviceFile.getImportDeclaration(d => d.getModuleSpecifierValue() === '../models')!;
+        const namedImports = importDecl.getNamedImports().map(ni => ni.getName());
+        expect(namedImports).toContain('User');
     });
 
     it('should not add primitive array types to model imports', () => {

@@ -10,6 +10,11 @@ import { SwaggerParser } from "../../../core/parser.js";
  * exporting all necessary modules for consumers.
  */
 export class MainIndexGenerator {
+    /**
+     * @param project The ts-morph Project.
+     * @param config The generator configuration.
+     * @param parser The Swagger parser instance.
+     */
     constructor(private project: Project, private config: GeneratorConfig, private parser: SwaggerParser) {}
 
     /**
@@ -68,6 +73,9 @@ export class MainIndexGenerator {
  * This file exports all generated service classes for easier consumption.
  */
 export class ServiceIndexGenerator {
+    /**
+     * @param project The ts-morph Project.
+     */
     constructor(private project: Project) {}
 
     /**
@@ -85,6 +93,8 @@ export class ServiceIndexGenerator {
 
         const servicesDirectory = this.project.getDirectory(servicesDir);
         if (!servicesDirectory) {
+            // If the services directory doesn't exist, we've still created the
+            // empty index file, so we can just exit.
             return;
         }
 

@@ -61,7 +61,6 @@ export class HtmlElementBuilder {
         const openingTagFirstPart = `${indent}<${this.tagName}${attrs ? ' ' + attrs : ''}`;
 
         if (this.isSelfClosing) {
-            // FIX: Correctly close the self-closing tag
             return `${openingTagFirstPart} />`;
         }
 

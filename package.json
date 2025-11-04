@@ -28,8 +28,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist",
-    "src/service/templates"
+    "dist"
   ],
   "scripts": {
     "clean": "rm -rf dist docs coverage .vitest-cache node_modules/.vite",

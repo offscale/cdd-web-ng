@@ -101,19 +101,38 @@ function findSchema(schema: SwaggerDefinition | { $ref: string } | undefined, pa
  */
 function getFormProperties(operations: PathInfo[], parser: SwaggerParser): FormProperty[] {
     const allSchemas: SwaggerDefinition[] = [];
+    const formDataProperties: Record<string, SwaggerDefinition> = {};
+
     operations.forEach(op => {
         // Look in request body
         const reqSchema = findSchema(op.requestBody?.content?.['application/json']?.schema, parser);
         if (reqSchema) allSchemas.push(reqSchema);
+
         // Look in success responses
         const resSchema = findSchema(op.responses?.['200']?.content?.['application/json']?.schema, parser)
             ?? findSchema(op.responses?.['201']?.content?.['application/json']?.schema, parser);
         if (resSchema) allSchemas.push(resSchema);
+
+        // **FIX**: Look for Swagger 2.0 `formData` parameters
+        op.parameters?.forEach(param => {
+            if ((param as any).in === 'formData') {
+                formDataProperties[param.name] = {
+                    type: (param as any).type,
+                    format: (param as any).format,
+                    description: param.description,
+                    // If the original param was not required, it's optional in the form
+                    // This is a simple heuristic; a more complex one might check all operations
+                    ...(param.required === false && { required: [] })
+                };
+            }
+        });
     });
 
-    if (allSchemas.length === 0) return [{ name: 'id', schema: { type: 'string' } }];
+    if (allSchemas.length === 0 && Object.keys(formDataProperties).length === 0) {
+        return [{ name: 'id', schema: { type: 'string' } }];
+    }
 
-    const mergedProperties: Record<string, SwaggerDefinition> = {};
+    const mergedProperties: Record<string, SwaggerDefinition> = { ...formDataProperties };
     const mergedRequired = new Set<string>();
     let mergedOneOf: SwaggerDefinition[] | undefined, mergedDiscriminator: DiscriminatorObject | undefined;
 

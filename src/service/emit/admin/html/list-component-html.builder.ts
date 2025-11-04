@@ -1,12 +1,13 @@
 /**
  * @fileoverview
  * This file contains the builder function for generating the HTML template for a resource's
- * administrative list component. It constructs an Angular Material table with dynamic columns,
- * action buttons, and pagination.
+ * administrative list component. It programmatically constructs an Angular Material table
+ * with dynamic columns, action buttons, and pagination using the HtmlElementBuilder.
  */
 
-import { FormProperty, Resource } from '../../../../core/types.js';
-import { camelCase, pascalCase, singular } from '../../../../core/utils.js';
+import { Resource } from '../../../../core/types.js';
+import { pascalCase, singular } from '../../../../core/utils.js';
+import { HtmlElementBuilder as _ } from '../html-element.builder.js';
 
 /**
  * Generates the complete HTML content for a resource's list component.
@@ -28,86 +29,104 @@ export function generateListComponentHtml(resource: Resource, idProperty: string
     const customItemActions = resource.operations.filter(op => op.isCustomItemAction);
     const hasActionsColumn = hasEdit || hasDelete || customItemActions.length > 0;
 
-    /**
-     * Generates the `<ng-container matColumnDef>` blocks for the table.
-     * This logic mirrors the `displayedColumns` array creation in the TS component.
-     * @returns A string of HTML column definitions.
-     */
-    const generateColumns = (): string => {
-        const listableProps = resource.listProperties || [];
-        const columnNames = [...new Set([idProperty, ...listableProps.map(p => p.name)])].filter(Boolean);
+    const root = _.create('div').addClass('admin-list-container');
 
-        return columnNames.map(colName => `
-    <!-- ${pascalCase(colName)} Column -->
-    <ng-container matColumnDef="${colName}">
-      <th mat-header-cell *matHeaderCellDef>${pascalCase(colName)}</th>
-      <td mat-cell *matCellDef="let row"> {{row.${colName}}} </td>
-    </ng-container>
-    `).join('\n');
-    };
+    // Toolbar
+    const toolbar = _.create('mat-toolbar').addClass('admin-list-toolbar');
+    toolbar.appendChild(_.create('span').setTextContent(pascalCase(resourceName)));
+    toolbar.appendChild(_.create('span').addClass('toolbar-spacer'));
 
-    /**
-     * Generates the action buttons (edit, delete, custom) for the actions column.
-     * @returns A string of HTML button elements.
-     */
-    const generateActionButtons = (): string => {
-        let buttons = '';
+    for (const action of customCollectionActions) {
+        toolbar.appendChild(
+            _.create('button')
+                .setAttribute('mat-stroked-button', '')
+                .setAttribute('(click)', `${action.action}()`)
+                // Note: The builder smartly handles mixed children (builder instances and strings)
+                .appendChild(_.create('mat-icon').setTextContent(iconMap.get(action.action)!))
+                .appendChild(` ${pascalCase(action.action)}`)
+        );
+    }
+    if (hasCreate) {
+        toolbar.appendChild(
+            _.create('button')
+                .setAttribute('mat-flat-button', '')
+                .setAttribute('color', 'primary')
+                .setAttribute('(click)', 'onCreate()')
+                .setTextContent(`Create ${singular(modelName)}`)
+        );
+    }
+    root.appendChild(toolbar);
+
+    // Table Container
+    const tableContainer = _.create('div').addClass('mat-elevation-z8 table-container');
+
+    // Table
+    const table = _.create('table').setAttribute('mat-table', '').setAttribute('[dataSource]', 'dataSource');
+
+    // --- Column Definitions ---
+    const listableProps = resource.listProperties || [];
+    const columnNames = [...new Set([idProperty, ...listableProps.map(p => p.name)])].filter(Boolean);
+
+    for (const colName of columnNames) {
+        table.appendChild(
+            _.create('ng-container').setAttribute('matColumnDef', colName)
+                .appendChild(`<!-- ${pascalCase(colName)} Column -->`)
+                .appendChild(_.create('th').setAttribute('mat-header-cell', '').setAttribute('*matHeaderCellDef', '').setTextContent(pascalCase(colName)))
+                .appendChild(_.create('td').setAttribute('mat-cell', '').setAttribute('*matCellDef', 'let row').setTextContent(`{{row.${colName}}}`))
+        );
+    }
+
+    // --- Actions Column ---
+    if (hasActionsColumn) {
+        const actionsCell = _.create('td').setAttribute('mat-cell', '').setAttribute('*matCellDef', 'let row');
+
         if (hasEdit) {
-            buttons += `<button mat-icon-button color="primary" (click)="onEdit(row[idProperty])" matTooltip="Edit ${singular(modelName)}"><mat-icon>edit</mat-icon></button>`;
+            actionsCell.appendChild(
+                _.create('button').setAttribute('mat-icon-button', '').setAttribute('color', 'primary').setAttribute('(click)', `onEdit(row[idProperty])`).setAttribute('matTooltip', `Edit ${singular(modelName)}`)
+                    .appendChild(_.create('mat-icon').setTextContent('edit'))
+            );
         }
         if (hasDelete) {
-            buttons += `<button mat-icon-button color="warn" (click)="onDelete(row[idProperty])" matTooltip="Delete ${singular(modelName)}"><mat-icon>delete</mat-icon></button>`;
+            actionsCell.appendChild(
+                _.create('button').setAttribute('mat-icon-button', '').setAttribute('color', 'warn').setAttribute('(click)', `onDelete(row[idProperty])`).setAttribute('matTooltip', `Delete ${singular(modelName)}`)
+                    .appendChild(_.create('mat-icon').setTextContent('delete'))
+            );
         }
-        customItemActions.forEach(action => {
-            buttons += `<button mat-icon-button (click)="${action.action}(row[idProperty])" matTooltip="${pascalCase(action.action)}"><mat-icon>${iconMap.get(action.action)}</mat-icon></button>`;
-        });
-        return buttons;
-    };
+        for (const action of customItemActions) {
+            actionsCell.appendChild(
+                _.create('button').setAttribute('mat-icon-button', '').setAttribute('(click)', `${action.action}(row[idProperty])`).setAttribute('matTooltip', pascalCase(action.action))
+                    .appendChild(_.create('mat-icon').setTextContent(iconMap.get(action.action)!))
+            );
+        }
 
-    return `
-<div class="admin-list-container">
-  <mat-toolbar class="admin-list-toolbar">
-    <span>${pascalCase(resourceName)}</span>
-    <span class="toolbar-spacer"></span>
-    ${customCollectionActions.map(action =>
-        `<button mat-stroked-button (click)="${action.action}()">
-          <mat-icon>${iconMap.get(action.action)}</mat-icon> ${pascalCase(action.action)}
-         </button>`
-    ).join('\n    ')}
-    ${hasCreate ? `<button mat-flat-button color="primary" (click)="onCreate()">Create ${singular(modelName)}</button>` : ''}
-  </mat-toolbar>
+        table.appendChild(
+            _.create('ng-container').setAttribute('matColumnDef', 'actions')
+                .appendChild(_.create('th').setAttribute('mat-header-cell', '').setAttribute('*matHeaderCellDef', '').setTextContent('Actions'))
+                .appendChild(actionsCell)
+        );
+    }
 
-  <div class="mat-elevation-z8 table-container">
-    <table mat-table [dataSource]="dataSource">
-      ${generateColumns()}
+    // --- Header and Data Rows ---
+    table.appendChild(_.create('tr').setAttribute('mat-header-row', '').setAttribute('*matHeaderRowDef', 'displayedColumns'));
+    table.appendChild(_.create('tr').setAttribute('mat-row', '').setAttribute('*matRowDef', 'let row; columns: displayedColumns;'));
 
-      <!-- Actions Column -->
-      ${hasActionsColumn ? `
-      <ng-container matColumnDef="actions">
-        <th mat-header-cell *matHeaderCellDef>Actions</th>
-        <td mat-cell *matCellDef="let row">
-          ${generateActionButtons()}
-        </td>
-      </ng-container>
-      ` : ''}
+    // --- No Data Row ---
+    table.appendChild(
+        _.create('tr').addClass('mat-row').setAttribute('*matNoDataRow', '')
+            .appendChild(_.create('td').addClass('mat-cell').setAttribute('[attr.colspan]', 'displayedColumns.length').setTextContent('No data matching the filter'))
+    );
 
-      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+    tableContainer.appendChild(table);
 
-      <!-- Row shown when there is no data. -->
-      <tr class="mat-row" *matNoDataRow>
-        <td class="mat-cell" [attr.colspan]="displayedColumns.length">
-          No data matching the filter
-        </td>
-      </tr>
-    </table>
+    // --- Paginator ---
+    tableContainer.appendChild(
+        _.create('mat-paginator')
+            .setAttribute('[length]', 'totalItems()')
+            .setAttribute('[pageSizeOptions]', '[5, 10, 25, 100]')
+            .setAttribute('aria-label', 'Select page')
+    );
 
-    <mat-paginator
-      [length]="totalItems()"
-      [pageSizeOptions]="[5, 10, 25, 100]"
-      aria-label="Select page">
-    </mat-paginator>
-  </div>
-</div>
-`;
+    root.appendChild(tableContainer);
+
+    return root.render();
 }

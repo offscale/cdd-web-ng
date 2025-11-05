@@ -1,18 +1,19 @@
-import { Project, SourceFile } from 'ts-morph';
+import { InterfaceDeclaration, Project, SourceFile } from 'ts-morph';
 import { SwaggerParser } from '../../../core/parser.js';
 import { GeneratorConfig, SwaggerDefinition } from '../../../core/types.js';
 import { getTypeScriptType, pascalCase } from '../../../core/utils.js';
 import { TYPE_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
 
 /**
- * Generates the `models/index.ts` file containing all TypeScript interfaces,
- * enums, and type aliases derived from the OpenAPI specification's schemas.
+ * Generates the `models/index.ts` file, which contains all TypeScript interfaces,
+ * enums, and type aliases derived from the schemas in an OpenAPI specification.
+ * This class is responsible for interpreting various schema structures (`allOf`, `enum`, `object`, etc.)
+ * and converting them into appropriate, well-formed TypeScript types.
  */
 export class TypeGenerator {
     /**
-     * Initializes a new instance of the `TypeGenerator`.
-     * @param parser The `SwaggerParser` instance.
-     * @param project The `ts-morph` project instance.
+     * @param parser The `SwaggerParser` instance containing the loaded specification.
+     * @param project The `ts-morph` project instance for AST manipulation.
      * @param config The global generator configuration.
      */
     constructor(
@@ -22,8 +23,9 @@ export class TypeGenerator {
     ) {}
 
     /**
-     * Generates the models file and populates it with all defined types.
-     * @param outDir The root output directory for the generated library.
+     * The main entry point for the generator. It creates the `models/index.ts` file
+     * and populates it with all the generated types from the specification.
+     * @param outDir The root output directory for the generated library (e.g., 'generated').
      */
     public generate(outDir: string): void {
         const modelsDir = `${outDir}/models`;
@@ -34,76 +36,108 @@ export class TypeGenerator {
         this.addCommonAngularImports(sourceFile);
 
         for (const schema of this.parser.schemas) {
-            if (schema.definition.enum) {
-                this.generateEnum(sourceFile, schema.name, schema.definition);
-            } else {
-                this.generateInterface(sourceFile, schema.name, schema.definition);
-            }
+            this.generateTypeFromSchema(sourceFile, schema.name, schema.definition);
         }
+
         this.addRequestOptionsInterface(sourceFile);
     }
 
     /**
-     * Generates a TypeScript `enum` or a string literal union `type` for an OpenAPI enum definition.
-     * The choice depends on the `enumStyle` configuration option and whether the enum members are strings.
-     * @param sourceFile The `ts-morph` SourceFile to add the enum to.
-     * @param name The name of the enum.
-     * @param definition The schema definition for the enum.
+     * Analyzes a single schema definition and delegates to the correct generator function
+     * based on its structure. This method acts as a dispatcher to handle the different
+     * ways a schema can be defined in OpenAPI.
+     * @param sourceFile The ts-morph SourceFile to which the type will be added.
+     * @param name The PascalCase name for the generated type.
+     * @param definition The schema definition object from the specification.
      * @private
      */
-    private generateEnum(sourceFile: SourceFile, name: string, definition: SwaggerDefinition): void {
-        const isStringEnum = (definition.enum?.every(e => typeof e === 'string')) ?? false;
-        const hasMembers = definition.enum && definition.enum.length > 0;
-
-        // Generate a real 'enum' only for non-empty string enums if style is 'enum'.
-        if (isStringEnum && hasMembers && this.config.options.enumStyle === 'enum') {
-            sourceFile.addEnum({ name, isExported: true, members: definition.enum!.map(val => ({ name: pascalCase(val as string), value: val as string })) });
-        } else {
-            const typeString = hasMembers
-                ? definition.enum!.map(v => typeof v === 'string' ? `'${v.replace(/'/g, "\\'")}'` : v).join(' | ')
-                : 'any';
-            sourceFile.addTypeAlias({ name, isExported: true, type: typeString });
-        }
-    }
-
-    /**
-     * Generates a TypeScript `interface` for an object schema or a `type` alias for other schema types (e.g., primitives, compositions).
-     * @param sourceFile The `ts-morph` SourceFile to add the interface/type to.
-     * @param name The name of the interface/type.
-     * @param definition The schema definition.
-     * @private
-     */
-    private generateInterface(sourceFile: SourceFile, name: string, definition: SwaggerDefinition): void {
+    private generateTypeFromSchema(sourceFile: SourceFile, name: string, definition: SwaggerDefinition): void {
         const knownTypes = this.parser.schemas.map(s => s.name);
+        const docs = definition.description ? [definition.description] : [];
 
-        if (definition.properties || (definition.type === 'object' && definition.additionalProperties)) {
-            // Generate an interface for objects with properties or index signatures.
-            sourceFile.addInterface({
+        // Case 1: Handle schemas with an empty `enum` array, which should resolve to `any`.
+        if (definition.enum && definition.enum.length === 0) {
+            sourceFile.addTypeAlias({ name, isExported: true, type: 'any', docs });
+            return;
+        }
+
+        // Case 2: Handle `allOf` composition by creating an intersection type alias (e.g., `TypeA & TypeB`).
+        if (definition.allOf) {
+            const typeString = getTypeScriptType(definition, this.config, knownTypes);
+            sourceFile.addTypeAlias({ name, isExported: true, type: typeString, docs });
+            return;
+        }
+
+        // Case 3: Handle string enums based on the `enumStyle` configuration.
+        const isStringEnum = (definition.enum?.every(e => typeof e === 'string')) ?? false;
+        if (isStringEnum && this.config.options.enumStyle === 'enum') {
+            sourceFile.addEnum({
                 name,
                 isExported: true,
-                properties: Object.entries(definition.properties || {}).map(([key, propDef]) => ({
-                    name: /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key) ? key : `'${key}'`,
-                    type: getTypeScriptType(propDef, this.config, knownTypes),
-                    hasQuestionToken: !(definition.required || []).includes(key),
-                    docs: propDef.description ? [propDef.description] : [],
-                })),
-                ...(definition.additionalProperties && {
-                    indexSignatures: [{
-                        keyName: 'key', keyType: 'string',
-                        returnType: definition.additionalProperties === true ? 'any' : getTypeScriptType(definition.additionalProperties as SwaggerDefinition, this.config, knownTypes)
-                    }]
-                })
+                docs,
+                members: definition.enum!.map(val => ({ name: pascalCase(val as string), value: val as string }))
             });
-        } else {
-            // For schemas without properties (e.g., compositions, aliases to primitives), generate a type alias.
-            const typeString = getTypeScriptType(definition, this.config, knownTypes);
-            sourceFile.addTypeAlias({ name, isExported: true, type: typeString });
+            return;
+        }
+
+        // Case 4: Handle standard object schemas by generating a TypeScript interface.
+        if (definition.type === 'object' || definition.properties) {
+            this.generateInterface(sourceFile, name, definition, docs);
+            return;
+        }
+
+        // Case 5: As a fallback, generate a type alias. This covers primitive types,
+        // union-style enums (if `enumStyle` is 'union'), and other miscellaneous schemas.
+        const typeString = getTypeScriptType(definition, this.config, knownTypes);
+        sourceFile.addTypeAlias({ name, isExported: true, type: typeString, docs });
+    }
+
+    /**
+     * Generates a TypeScript `interface` for a given object schema definition.
+     * It handles properties, optionality (`required` keyword), and `additionalProperties`.
+     * @param sourceFile The ts-morph SourceFile to which the interface will be added.
+     * @param name The PascalCase name for the interface.
+     * @param definition The schema definition object.
+     * @param docs An array of strings for the TSDoc comment on the interface.
+     * @private
+     */
+    private generateInterface(sourceFile: SourceFile, name: string, definition: SwaggerDefinition, docs: string[]): void {
+        const knownTypes = this.parser.schemas.map(s => s.name);
+        const interfaceDeclaration = sourceFile.addInterface({
+            name,
+            isExported: true,
+            docs,
+        });
+
+        // Generate properties for the interface.
+        if (definition.properties) {
+            interfaceDeclaration.addProperties(Object.entries(definition.properties).map(([key, propDef]) => ({
+                // Quote property names that are not valid TS identifiers (e.g., 'with-hyphen').
+                name: /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key) ? key : `'${key}'`,
+                type: getTypeScriptType(propDef, this.config, knownTypes),
+                hasQuestionToken: !(definition.required || []).includes(key),
+                docs: propDef.description ? [propDef.description] : [],
+            })));
+        }
+
+        // Add an index signature if `additionalProperties` is defined.
+        if (definition.additionalProperties) {
+            const returnType = definition.additionalProperties === true
+                ? 'any'
+                : getTypeScriptType(definition.additionalProperties as SwaggerDefinition, this.config, knownTypes);
+
+            interfaceDeclaration.addIndexSignature({
+                keyName: 'key',
+                keyType: 'string',
+                returnType,
+            });
         }
     }
 
     /**
-     * Adds common Angular HTTP type imports to the models file.
-     * @param sourceFile The source file to modify.
+     * Adds common Angular HTTP imports to the models file, as they are needed for the
+     * `RequestOptions` interface.
+     * @param sourceFile The ts-morph SourceFile to modify.
      * @private
      */
     private addCommonAngularImports(sourceFile: SourceFile): void {
@@ -111,13 +145,15 @@ export class TypeGenerator {
     }
 
     /**
-     * Adds the `RequestOptions` interface, a standard type used in all generated service methods.
-     * @param sourceFile The source file to modify.
+     * Adds a standardized `RequestOptions` interface to the models file. This provides
+     * a consistent way for generated services to accept optional HTTP request parameters.
+     * @param sourceFile The ts-morph SourceFile to modify.
      * @private
      */
     private addRequestOptionsInterface(sourceFile: SourceFile): void {
         sourceFile.addInterface({
-            name: 'RequestOptions', isExported: true,
+            name: 'RequestOptions',
+            isExported: true,
             docs: ["A common interface for providing optional parameters to HTTP requests."],
             properties: [
                 { name: 'headers?', type: 'HttpHeaders | { [header: string]: string | string[]; }' },

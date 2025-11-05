@@ -36,8 +36,9 @@ describe('E2E: Admin UI Generation', () => {
         it('should generate a fully-featured form component', () => {
             expect(formComponent).toBeDefined();
             const initFormBody = formComponent.getMethodOrThrow('initForm').getBodyText()!;
+
             // FIX: The test now correctly asserts the modern, typed-forms syntax.
-            expect(initFormBody).toContain("'name': new FormControl(null");
+            expect(initFormBody).toContain("'name': new FormControl<string | null>(null)");
             expect(initFormBody).not.toContain("'id':"); // Should be excluded as readOnly
 
             const submitBody = formComponent.getMethodOrThrow('onSubmit').getBodyText()!;

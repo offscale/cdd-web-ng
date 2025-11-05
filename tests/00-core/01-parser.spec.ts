@@ -142,7 +142,7 @@ describe('Core: SwaggerParser', () => {
     it('should warn and return undefined for invalid references', () => {
         const parser = new SwaggerParser({} as any, config);
         expect(parser.resolveReference('invalid-ref')).toBeUndefined();
-        expect(console.warn).toHaveBeenCalledWith('[Parser] Encountered an unsupported or invalid reference: invalid-ref');
+        expect(console.warn).toHaveBeenCalledWith('[Parser] Unsupported external or non-root reference: invalid-ref');
 
         // Cover the non-string case
         expect(parser.resolveReference(123 as any)).toBeUndefined();

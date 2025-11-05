@@ -1,4 +1,4 @@
-import { ClassDeclaration, Project, Scope, InterfaceDeclaration } from 'ts-morph';
+import { ClassDeclaration, Project, Scope, InterfaceDeclaration, SourceFile } from 'ts-morph';
 import { FormProperty, Resource, SwaggerDefinition } from '../../../core/types.js';
 import { camelCase, getTypeScriptType, pascalCase, singular } from '../../../core/utils.js';
 import { commonStandaloneImports } from './common-imports.js';
@@ -301,19 +301,29 @@ export class FormComponentGenerator {
         formArrayProps.forEach(prop => {
             const arrayName = prop.name;
             const singularPascal = pascalCase(singular(arrayName));
-            const arrayGetterName = `${camelCase(singular(arrayName))}Array`;
+            const singularCamel = camelCase(singular(arrayName));
+            const arrayGetterName = `${singularCamel}Array`;
             const arrayItemInterfaceName = `${singularPascal}Form`;
+
             classDeclaration.addGetAccessor({
                 name: arrayGetterName,
                 returnType: `FormArray<FormGroup<${arrayItemInterfaceName}>>`,
-                statements: `return this.form.get('${arrayName}') as FormArray<FormGroup<${arrayItemInterfaceName}>>;`
+                statements: `return this.form.get('${arrayName}') as FormArray<FormGroup<${arrayItemInterfaceName}>>;`,
+                docs: [`Getter for the ${singularCamel} FormArray.`]
             });
+
+            // FIX: Move the `docs` from the parameter to the method itself and format with @param.
             const createMethod = classDeclaration.addMethod({
                 name: `create${singularPascal}`,
                 scope: Scope.Private,
-                parameters: [{ name: 'item?', type: 'any', initializer: '{}', docs: ["(optional) An object to patch the form group with."] }],
+                docs: [
+                    `Creates a FormGroup for a single ${singularCamel} item.`,
+                    `@param item (optional) An object to patch the new form group with.`
+                ],
+                parameters: [{ name: 'item?', type: 'any', initializer: '{}' }],
                 returnType: `FormGroup<${arrayItemInterfaceName}>`
             });
+
             const itemSchema = (prop.schema.items as SwaggerDefinition).properties!;
             const formControls = Object.entries(itemSchema)
                 .map(([key, schema]) => {
@@ -323,9 +333,19 @@ export class FormComponentGenerator {
                     return `'${key}': new FormControl<${this.getFormControlTypeString(schema)}>(item?.${key} ?? null${validatorString})`;
                 })
                 .join(',\n      ');
+
             createMethod.setBodyText(`return new FormGroup<${arrayItemInterfaceName}>({\n      ${formControls}\n    });`);
-            classDeclaration.addMethod({ name: `add${singularPascal}`, statements: `this.${arrayGetterName}.push(this.create${singularPascal}());` });
-            classDeclaration.addMethod({ name: `remove${singularPascal}`, parameters: [{ name: 'index', type: 'number' }], statements: `this.${arrayGetterName}.removeAt(index);` });
+            classDeclaration.addMethod({
+                name: `add${singularPascal}`,
+                statements: `this.${arrayGetterName}.push(this.create${singularPascal}());`,
+                docs: [`Adds a new, empty ${singularCamel} to the form array.`]
+            });
+            classDeclaration.addMethod({
+                name: `remove${singularPascal}`,
+                parameters: [{ name: 'index', type: 'number' }],
+                statements: `this.${arrayGetterName}.removeAt(index);`,
+                docs: [`Removes a ${singularCamel} from the form array at a given index.`, `@param index The index of the item to remove.`]
+            });
         });
     }
 

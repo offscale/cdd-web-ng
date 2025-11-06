@@ -1,3 +1,5 @@
+// src/service/emit/service/service.generator.ts
+
 import { Project, ClassDeclaration, Scope, SourceFile } from 'ts-morph';
 import * as path from 'path';
 import { SwaggerParser } from '../../../core/parser.js';
@@ -6,12 +8,7 @@ import { camelCase, pascalCase, getBasePathTokenName, getClientContextTokenName,
 import { SERVICE_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
 import { ServiceMethodGenerator } from './service-method.generator.js';
 
-/**
- * Derives a suffix for a method name from a URL path.
- * e.g., `/users/{id}/posts` becomes `UsersByIdPosts`.
- * @param path The URL path string.
- * @returns A PascalCase string representing the path structure.
- */
+// ... (keep path_to_method_name_suffix function as is) ...
 function path_to_method_name_suffix(path: string): string {
     return path.split('/').filter(Boolean).map(segment => {
         if (segment.startsWith('{') && segment.endsWith('}')) {
@@ -21,34 +18,13 @@ function path_to_method_name_suffix(path: string): string {
     }).join('');
 }
 
-/**
- * Generates an Angular service class file for a specific controller (group of operations).
- * It orchestrates the creation of the file, its imports, the class structure, and delegates
- * the generation of individual methods to the `ServiceMethodGenerator`.
- */
 export class ServiceGenerator {
     private methodGenerator: ServiceMethodGenerator;
 
-    /**
-     * Initializes a new instance of the `ServiceGenerator`.
-     * @param parser The `SwaggerParser` instance for accessing the spec.
-     * @param project The `ts-morph` project instance.
-     * @param config The global generator configuration.
-     */
     constructor(private parser: SwaggerParser, private project: Project, private config: GeneratorConfig) {
         this.methodGenerator = new ServiceMethodGenerator(this.config, this.parser);
     }
 
-    /**
-     * Generates a complete service file for a given controller and its operations.
-     * This is the main public method of the class. It handles file creation,
-     * import analysis, class scaffolding, and method name de-duplication before
-     * delegating to the `ServiceMethodGenerator` for each operation.
-     *
-     * @param controllerName The PascalCase name of the controller (e.g., 'Users').
-     * @param operations An array of `PathInfo` objects belonging to this controller.
-     * @param outputDir The directory where the service file will be saved.
-     */
     public generateServiceFile(controllerName: string, operations: PathInfo[], outputDir: string): void {
         const fileName = `${camelCase(controllerName)}.service.ts`;
         const filePath = path.join(outputDir, fileName);
@@ -59,9 +35,9 @@ export class ServiceGenerator {
         const knownTypes = this.parser.schemas.map(s => s.name);
         const modelImports = new Set<string>(['RequestOptions']);
 
-        // Discover all model types that need to be imported.
+        // ... (keep model import discovery logic as is) ...
         for (const op of operations) {
-            const successResponse = op.responses?.['200'] ?? op.responses?.['201'];
+            const successResponse = op.responses?.['200'] ?? op.responses?.['201'] ?? op.responses?.['default'];
             if (successResponse?.content?.['application/json']?.schema) {
                 const responseType = getTypeScriptType(successResponse.content['application/json'].schema as any, this.config, knownTypes).replace(/\[\]| \| null/g, '');
                 if (isDataTypeInterface(responseType)) {
@@ -79,7 +55,7 @@ export class ServiceGenerator {
 
             if (op.requestBody?.content?.['application/json']?.schema) {
                 const bodyType = getTypeScriptType(op.requestBody.content['application/json'].schema as any, this.config, knownTypes).replace(/\[\]| \| null/g, '');
-                if (isDataTypeInterface(bodyType)) { // This branch was previously uncovered
+                if (isDataTypeInterface(bodyType)) {
                     modelImports.add(bodyType);
                 }
             }
@@ -101,24 +77,23 @@ export class ServiceGenerator {
                     : `${op.method.toLowerCase()}${path_to_method_name_suffix(op.path)}`;
             }
 
-            // De-duplicate method names to avoid compilation errors
             let uniqueMethodName = methodName;
             let counter = 1;
             while (usedMethodNames.has(uniqueMethodName)) {
                 uniqueMethodName = `${methodName}${++counter}`;
             }
             usedMethodNames.add(uniqueMethodName);
-            op.methodName = uniqueMethodName; // Store the final name for the method generator
+            op.methodName = uniqueMethodName;
 
             this.methodGenerator.addServiceMethod(serviceClass, op);
         });
     }
 
-    /** @private Adds all necessary import declarations to the service file. */
     private addImports(sourceFile: SourceFile, modelImports: Set<string>): void {
         sourceFile.addImportDeclarations([
+            // **FIX**: Added `HttpHeaders` to the imports for use in the method generator.
             { moduleSpecifier: '@angular/core', namedImports: ['Injectable', 'inject'] },
-            { moduleSpecifier: '@angular/common/http', namedImports: ['HttpClient', 'HttpContext', 'HttpParams', 'HttpResponse', 'HttpEvent'] },
+            { moduleSpecifier: '@angular/common/http', namedImports: ['HttpClient', 'HttpContext', 'HttpParams', 'HttpResponse', 'HttpEvent', 'HttpHeaders', 'HttpContextToken'] },
             { moduleSpecifier: 'rxjs', namedImports: ['Observable'] },
             { moduleSpecifier: `../models`, namedImports: Array.from(modelImports) },
             { moduleSpecifier: `../tokens`, namedImports: [getBasePathTokenName(this.config.clientName), getClientContextTokenName(this.config.clientName)] },
@@ -126,7 +101,6 @@ export class ServiceGenerator {
         ]);
     }
 
-    /** @private Adds the main class declaration to the service file. */
     private addClass(sourceFile: SourceFile, className: string): ClassDeclaration {
         return sourceFile.addClass({
             name: className,
@@ -135,12 +109,13 @@ export class ServiceGenerator {
         });
     }
 
-    /** @private Adds standard properties and helper methods to the service class. */
     private addPropertiesAndHelpers(serviceClass: ClassDeclaration): void {
         serviceClass.addProperty({ name: 'http', scope: Scope.Private, isReadonly: true, initializer: 'inject(HttpClient)' });
         serviceClass.addProperty({ name: 'basePath', scope: Scope.Private, isReadonly: true, type: 'string', initializer: `inject(${getBasePathTokenName(this.config.clientName)})` });
         const clientContextTokenName = getClientContextTokenName(this.config.clientName);
-        serviceClass.addProperty({ name: "clientContextToken", type: `import("@angular/common/http").HttpContextToken<string>`, scope: Scope.Private, isReadonly: true, initializer: clientContextTokenName });
+
+        // **FIX**: Correctly type the property without an inline import().
+        serviceClass.addProperty({ name: "clientContextToken", type: `HttpContextToken<string>`, scope: Scope.Private, isReadonly: true, initializer: clientContextTokenName });
 
         serviceClass.addMethod({
             name: "createContextWithClientId",

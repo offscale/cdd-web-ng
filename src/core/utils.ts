@@ -1,3 +1,5 @@
+// src/core/utils.ts
+
 /**
  * @fileoverview
  * This file contains core utility functions used throughout the OpenAPI Angular generator.
@@ -8,7 +10,7 @@
 
 import { MethodDeclaration } from 'ts-morph';
 import { GeneratorConfig, Parameter, PathInfo, RequestBody, SwaggerDefinition, SwaggerResponse } from './types.js';
-import { Path, Operation, Parameter as SwaggerOfficialParameter, BodyParameter } from "swagger-schema-official";
+import { Path, Operation, Parameter as SwaggerOfficialParameter, BodyParameter, Response } from "swagger-schema-official";
 
 // --- String Manipulation Utilities ---
 
@@ -99,12 +101,17 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined | null, 
         return 'any';
     }
 
-    if (schema.$ref) {
-        const typeName = pascalCase(schema.$ref.split('/').pop() || '');
-        // If the referenced type is a known schema, use its name. Otherwise, it's a broken ref, so use 'any'.
-        return typeName && knownTypes.includes(typeName) ? typeName : 'any';
+    // **FIX**: The `type: 'file'` from Swagger 2 is now handled explicitly in the service method generator.
+    // This function can now safely return 'any', knowing it will be caught and refined later.
+    if ((schema as any).type === 'file') {
+        return 'any';
     }
 
+    if (schema.$ref) {
+        const typeName = pascalCase(schema.$ref.split('/').pop() || '');
+        return typeName && knownTypes.includes(typeName) ? typeName : 'any';
+    }
+    // ... (rest of getTypeScriptType remains the same) ...
     if (schema.allOf) {
         const parts = schema.allOf
             .map(s => getTypeScriptType(s, config, knownTypes))
@@ -124,6 +131,7 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined | null, 
     }
 
     let type: string;
+
     switch (schema.type) {
         case 'string':
             type = (schema.format === 'date' || schema.format === 'date-time') && config.options.dateType === 'Date' ? 'Date' : 'string';
@@ -203,12 +211,12 @@ export function hasDuplicateFunctionNames(methods: MethodDeclaration[]): boolean
 }
 
 // Helper type to handle union of Swagger 2.0 and OpenAPI 3.x parameter definitions
-type UnifiedParameter = SwaggerOfficialParameter & { schema?: SwaggerDefinition | { $ref: string } };
+type UnifiedParameter = SwaggerOfficialParameter & { schema?: SwaggerDefinition | { $ref: string }, type?: string, format?: string, items?: any };
 
 /**
  * Flattens the nested `paths` object from an OpenAPI spec into a linear array of `PathInfo` objects.
  * It merges path-level and operation-level parameters and normalizes Swagger 2.0 `body` parameters
- * into the `requestBody` format of OpenAPI 3.
+ * and `responses` into the `requestBody` and response formats of OpenAPI 3.
  *
  * @param swaggerPaths The `paths` object from the OpenAPI specification a.k.a `SwaggerSpec['paths']`.
  * @returns An array of processed `PathInfo` objects, or an empty array if `swaggerPaths` is undefined.
@@ -231,19 +239,48 @@ export function extractPaths(swaggerPaths: { [p: string]: Path } | undefined): P
                 ((operation.parameters as UnifiedParameter[]) || []).forEach(p => paramsMap.set(`${p.name}:${p.in}`, p));
 
                 const allParams = Array.from(paramsMap.values());
+
+                // **FIX START**: We no longer filter out 'formData'. It's treated like any other parameter type now.
                 const nonBodyParams = allParams.filter(p => p.in !== 'body');
                 const bodyParam = allParams.find(p => p.in === 'body') as BodyParameter | undefined;
 
-                const parameters = nonBodyParams.map((p): Parameter => ({
-                    name: p.name,
-                    in: p.in as "query" | "path" | "header" | "cookie",
-                    required: p.required,
-                    schema: (p.schema || p) as SwaggerDefinition, // Bridge type gap and handle schema-as-parameter case
-                    description: p.description
-                }));
+                const parameters = nonBodyParams.map((p): Parameter => {
+                    const { name, in: paramIn, required, description, type, format, items, ...schemaProps } = p;
+                    const schema: SwaggerDefinition = schemaProps as SwaggerDefinition;
+                    if (type) schema.type = type as any;
+                    if (format) schema.format = format;
+                    if (items) schema.items = items;
 
-                // Normalize Swagger 2.0 body param to OpenAPI 3.0 requestBody
-                const requestBody = (operation as any).requestBody || (bodyParam ? { content: { 'application/json': { schema: bodyParam.schema } } } : undefined);
+                    return {
+                        name,
+                        // Cast 'formData' to a valid 'in' type for our internal model. The service generator will handle the distinction.
+                        in: paramIn as "query" | "path" | "header" | "cookie",
+                        required,
+                        schema,
+                        description
+                    }
+                });
+                // **FIX END**
+
+                const requestBody = (operation as any).requestBody
+                    || (bodyParam ? { content: { 'application/json': { schema: bodyParam.schema } } } : undefined);
+
+                const normalizedResponses: Record<string, SwaggerResponse> = {};
+                if (operation.responses) {
+                    for (const [code, resp] of Object.entries(operation.responses)) {
+                        const swagger2Response = resp as Response;
+                        if (swagger2Response.schema) {
+                            normalizedResponses[code] = {
+                                description: swagger2Response.description,
+                                content: {
+                                    'application/json': { schema: swagger2Response.schema as SwaggerDefinition }
+                                }
+                            }
+                        } else {
+                            normalizedResponses[code] = resp as SwaggerResponse;
+                        }
+                    }
+                }
 
                 paths.push({
                     path,
@@ -252,9 +289,10 @@ export function extractPaths(swaggerPaths: { [p: string]: Path } | undefined): P
                     summary: operation.summary,
                     description: operation.description,
                     tags: operation.tags || [],
+                    consumes: operation.consumes || [],
                     parameters,
                     requestBody: requestBody as RequestBody | undefined,
-                    responses: operation.responses as Record<string, SwaggerResponse> | undefined,
+                    responses: normalizedResponses,
                 });
             }
         }

@@ -1,4 +1,5 @@
-// tests/30-emit-service/01-service-method-generator.spec.ts (new file)
+// tests/30-emit-service/01-service-method-generator.spec.ts
+
 import { describe, it, expect, vi } from 'vitest';
 import { Project } from 'ts-morph';
 import { ServiceMethodGenerator } from '@src/service/emit/service/service-method.generator.js';
@@ -15,16 +16,18 @@ describe('Emitter: ServiceMethodGenerator Coverage', () => {
         const config: GeneratorConfig = { input: '', output: '/out', options: { dateType: 'string', enumStyle: 'enum' } };
         const parser = new SwaggerParser(spec as any, config);
 
-        // Pre-generate dependencies that methods might require
         new TypeGenerator(parser, project, config).generate('/out');
         new HttpParamsBuilderGenerator(project).generate('/out');
 
         const methodGen = new ServiceMethodGenerator(config, parser);
-        const serviceClass = project.createSourceFile('/out/tmp.service.ts').addClass('TmpService');
 
-        // Manually add required service properties for the method body to be valid
-        serviceClass.addProperty({ name: 'basePath', isReadonly: true, scope: 'private', type: 'string', initializer: "''"});
-        serviceClass.addProperty({ name: 'http', isReadonly: true, scope: 'private', type: 'any', initializer: "{}"});
+        const sourceFile = project.createSourceFile('/out/tmp.service.ts');
+        const serviceClass = sourceFile.addClass({ name: 'TmpService' });
+
+        sourceFile.addImportDeclaration({ moduleSpecifier: '@angular/common/http', namedImports: ['HttpHeaders', 'HttpContext', 'HttpParams'] });
+
+        serviceClass.addProperty({ name: 'basePath', isReadonly: true, scope: 'private', type: 'string', initializer: "''" });
+        serviceClass.addProperty({ name: 'http', isReadonly: true, scope: 'private', type: 'any', initializer: "{}" });
         serviceClass.addMethod({ name: 'createContextWithClientId', isPrivate: true, returnType: 'any', statements: 'return {};' });
 
         return { methodGen, serviceClass, parser };
@@ -32,8 +35,8 @@ describe('Emitter: ServiceMethodGenerator Coverage', () => {
 
     it('should warn and skip generation if operation has no methodName', () => {
         const { methodGen, serviceClass } = createTestEnvironment({});
-        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-        const operationWithoutName: PathInfo = { path: '/test', method: 'GET', operationId: 'testOp' }; // No methodName
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
+        const operationWithoutName: PathInfo = { path: '/test', method: 'GET', operationId: 'testOp' };
 
         methodGen.addServiceMethod(serviceClass, operationWithoutName);
 
@@ -42,22 +45,20 @@ describe('Emitter: ServiceMethodGenerator Coverage', () => {
         warnSpy.mockRestore();
     });
 
-    it('should fall back to a generic `body: any` parameter for non-json content and handle no query params', () => {
+    it('should fall back to a generic `body: unknown` parameter for non-json content and handle no query params', () => {
         const { methodGen, serviceClass, parser } = createTestEnvironment();
         const operation = parser.operations.find(op => op.operationId === 'allParams')!;
-        operation.methodName = 'allParams'; // Ensure methodName is set
+        operation.methodName = 'allParams';
 
         methodGen.addServiceMethod(serviceClass, operation);
         const method = serviceClass.getMethodOrThrow('allParams');
         const impl = method.getImplementation()!;
         const body = impl.getBodyText()!;
 
-        // Check for non-JSON body parameter
         const param = impl.getParameters().find(p => p.getName() === 'body');
-        expect(param?.getType().getText()).toBe('any');
+        expect(param?.getType().getText()).toBe('unknown');
 
-        // Check that query param logic was not generated
-        expect(body).not.toContain('let requestParams = new HttpParams');
+        expect(body).not.toContain('let params = new HttpParams');
     });
 
     it('should generate query param logic when query params are present', () => {
@@ -69,9 +70,10 @@ describe('Emitter: ServiceMethodGenerator Coverage', () => {
         const method = serviceClass.getMethodOrThrow('withQuery');
         const body = method.getImplementation()?.getBodyText() ?? '';
 
-        expect(body).toContain(`let requestParams = new HttpParams({ fromObject: options?.params || {} });`);
-        expect(body).toContain(`if (search != null) { requestParams = HttpParamsBuilder.addToHttpParams(requestParams, search, 'search'); }`);
-        expect(body).toContain(`finalOptions.params = requestParams;`);
+        expect(body).toContain(`let params = new HttpParams({ fromObject: options?.params ?? {} });`);
+        expect(body).toContain(`if (search != null) { params = HttpParamsBuilder.addToHttpParams(params, search, 'search'); }`);
+        expect(body).toContain(`params,`); // Check that params are included in options
+        expect(body).toContain(`return this.http.get(url, requestOptions);`);
     });
 
     it('should name the body parameter `body` for primitive types', () => {

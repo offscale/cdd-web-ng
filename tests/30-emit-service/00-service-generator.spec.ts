@@ -38,20 +38,22 @@ describe('Emitter: ServiceGenerator', () => {
     it('should handle methods with query, path, and body parameters', () => {
         const project = createTestEnvironment(coverageSpec);
         const serviceClass = project.getSourceFileOrThrow('/out/services/users.service.ts').getClassOrThrow('UsersService');
-        const method = serviceClass.getMethods().find(m => m.getName() === 'updateUser' && !m.isOverload())!;
+        const method = serviceClass.getMethods().find(m => m.getName() === 'updateUser' && m.getParameters().some(p => p.getName() === 'user'))!;
         const body = method.getBodyText() ?? '';
 
         expect(body).toContain("const url = `${this.basePath}/users/${id}`;");
-        expect(body).toContain("finalOptions.body = user;");
-        expect(body).toContain("return this.http.request('put', url, finalOptions);");
+        // Assert the new, correct code generation pattern
+        expect(body).toContain("return this.http.put(url, user, requestOptions);");
+        expect(body).not.toContain("finalOptions.body = user;"); // Ensure old pattern is gone
     });
 
     it('should generate a void return type for 204 responses', () => {
         const project = createTestEnvironment(coverageSpec);
         const serviceClass = project.getSourceFileOrThrow('/out/services/noContent.service.ts').getClassOrThrow('NoContentService');
         const method = serviceClass.getMethodOrThrow('deleteNoContent');
-        const lastOverload = method.getOverloads().pop()!;
-        expect(lastOverload.getReturnType().getText()).toBe('Observable<void>');
+        // The default overload (observe: 'body') is the first one now
+        const firstOverload = method.getOverloads()[0]!;
+        expect(firstOverload.getReturnType().getText()).toBe('Observable<void>');
     });
 
     it('should use a custom method name when provided in config', () => {

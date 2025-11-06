@@ -54,6 +54,8 @@ export interface PathInfo {
     description?: string;
     /** A list of tags for API documentation control. */
     tags?: string[];
+    /** The media types consumed by the operation. */
+    consumes?: string[];
     /** A list of parameters that are applicable for this operation. */
     parameters?: Parameter[];
     /** The request body applicable for this operation. */

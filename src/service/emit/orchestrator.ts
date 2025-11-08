@@ -69,9 +69,18 @@ export async function emitClientLibrary(outputRoot: string, parser: SwaggerParse
         new ProviderGenerator(parser, project, tokenNames).generate(outputRoot);
 
         console.log('✅ Utilities and providers generated.');
+        // Stub for Service Test Generation
+        if (config.options.generateServiceTests ?? true) {
+            console.log('📝 Test generation for services is stubbed.');
+            // Future implementation: new ServiceTestGenerator(parser, project, config).generate(outputRoot);
+        }
 
         if (config.options.admin) {
             await new AdminGenerator(parser, project, config).generate(outputRoot);
+            if (config.options.generateAdminTests ?? true) {
+                console.log('📝 Test generation for admin UI is stubbed.');
+                // Future implementation: new AdminTestGenerator(parser, project, config).generate(outputRoot);
+            }
         }
     }
 

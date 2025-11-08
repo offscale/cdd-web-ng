@@ -154,13 +154,17 @@ export interface SwaggerSpec {
 /** Options that customize the output of the generated code. */
 export interface GeneratorConfigOptions {
     /** The TypeScript type to use for properties with `format: "date"` or `"date-time"`. */
-    dateType: "string" | "Date";
+    dateType: 'string' | 'Date';
     /** How to generate types for schemas with an `enum` list. */
-    enumStyle: "enum" | "union";
+    enumStyle: 'enum' | 'union';
     /** If true, generates Angular services for API operations. */
     generateServices?: boolean;
     /** If true, generates a complete admin UI module. */
     admin?: boolean;
+    /** If true, generates tests for the Angular services. Defaults to true. */
+    generateServiceTests?: boolean;
+    /** If true, generates tests for the admin UI. Defaults to true. */
+    generateAdminTests?: boolean;
     /** A record of static headers to be added to every generated service request. */
     customHeaders?: Record<string, string>;
     /** A callback to provide a custom method name for an operation. */

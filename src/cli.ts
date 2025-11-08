@@ -46,6 +46,10 @@ async function runGeneration(options: any) {
             enumStyle: options.enumStyle,
             generateServices: options.generateServices,
             admin: options.admin,
+            // Commander sets `testsForService` to `false` if the `--no-` flag is used.
+            // If the flag is absent, the property is `undefined`.
+            generateServiceTests: options.testsForService,
+            generateAdminTests: options.testsForAdmin,
         };
 
         Object.keys(cliOptions).forEach(key => (cliOptions as any)[key] === undefined && delete (cliOptions as any)[key]);
@@ -59,6 +63,8 @@ async function runGeneration(options: any) {
                 enumStyle: 'enum',
                 generateServices: true,
                 admin: false,
+                generateServiceTests: true, // Default to true
+                generateAdminTests: true,   // Default to true
                 ...baseConfig.options,
                 ...cliOptions,
             },
@@ -108,6 +114,8 @@ program
     .addOption(new Option('--enumStyle <style>', 'Style for enums').choices(['enum', 'union']))
     .option('--admin', 'Generate an Angular Material admin UI')
     .addOption(new Option('--no-generate-services', 'Disable generation of Angular services'))
+    .option('--no-tests-for-service', 'Disable generation of tests for Angular services')
+    .option('--no-tests-for-admin', 'Disable generation of tests for the Angular admin UI')
     .action(runGeneration);
 
 program

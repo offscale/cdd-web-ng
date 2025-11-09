@@ -117,6 +117,8 @@ export interface SwaggerDefinition {
     writeOnly?: boolean;
     nullable?: boolean;
     required?: string[];
+    /** An example of the schema representation. */
+    example?: unknown; // FIX: Added the 'example' property.
 }
 
 /** Represents a security scheme recognized by the API. */

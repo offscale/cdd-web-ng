@@ -1,7 +1,7 @@
 import * as path from 'path';
 import { Project, SourceFile } from 'ts-morph';
 import { SwaggerParser } from '../../../core/parser.js';
-import { GeneratorConfig, PathInfo } from '../../../core/types.js';
+import { GeneratorConfig, PathInfo, SwaggerDefinition } from '../../../core/types.js';
 import {
     camelCase,
     pascalCase,
@@ -87,10 +87,15 @@ export class ServiceTestGenerator {
             if (!op.methodName) continue;
 
             const { responseModel, responseType, bodyModel } = this.getMethodTypes(op);
-            const params = op.parameters?.map(p => ({
-                name: camelCase(p.name),
-                value: typeof p.schema?.type === 'number' ? '123' : `'test-${p.name}'`,
-            })) ?? [];
+            const params = op.parameters?.map(p => {
+                // FIX: Check the 'type' property safely by casting.
+                const schema = p.schema as SwaggerDefinition;
+                const isNumeric = schema?.type === 'number' || schema?.type === 'integer';
+                return {
+                    name: camelCase(p.name),
+                    value: isNumeric ? '123' : `'test-${p.name}'`,
+                };
+            }) ?? [];
             const bodyParam = op.requestBody?.content?.['application/json']
                 ? { name: bodyModel ? camelCase(bodyModel) : 'body', model: bodyModel }
                 : null;
@@ -106,7 +111,6 @@ export class ServiceTestGenerator {
             tests.push(`    it('should return ${responseType} on success', () => {`);
             if (responseModel) {
                 const singleMock = this.mockDataGenerator.generate(responseModel);
-                // FIX: Check if the full response type is an array and wrap the mock data accordingly.
                 const isArray = responseType.endsWith('[]');
                 const mockResponse = isArray ? `[${singleMock}]` : singleMock;
                 tests.push(`      const mockResponse: ${responseType} = ${mockResponse};`);

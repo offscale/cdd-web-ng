@@ -16,6 +16,7 @@ import { OAuthHelperGenerator } from './utility/oauth-helper.generator.js';
 import { BaseInterceptorGenerator } from './utility/base-interceptor.generator.js';
 import { ProviderGenerator } from './utility/provider.generator.js';
 import { MainIndexGenerator, ServiceIndexGenerator } from './utility/index.generator.js';
+import { ServiceTestGenerator } from "./test/service-test.generator.js";
 
 /**
  * Orchestrates the entire code generation process for the Angular client library.
@@ -71,8 +72,13 @@ export async function emitClientLibrary(outputRoot: string, parser: SwaggerParse
         console.log('✅ Utilities and providers generated.');
         // Stub for Service Test Generation
         if (config.options.generateServiceTests ?? true) {
-            console.log('📝 Test generation for services is stubbed.');
-            // Future implementation: new ServiceTestGenerator(parser, project, config).generate(outputRoot);
+            console.log('📝 Generating tests for services...');
+            const testGenerator = new ServiceTestGenerator(parser, project, config);
+            const controllerGroupsForTest = groupPathsByController(parser);
+            for (const [controllerName, operations] of Object.entries(controllerGroupsForTest)) {
+                testGenerator.generateServiceTestFile(controllerName, operations, servicesDir);
+            }
+            console.log('✅ Service tests generated.');
         }
 
         if (config.options.admin) {

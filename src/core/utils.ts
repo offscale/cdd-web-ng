@@ -39,11 +39,13 @@ export function singular(str: string): string {
 function normalizeString(str: string): string {
     if (!str) return '';
     return str
-        .replace(/[^a-zA-Z0-9\s_-]/g, ' ') // Remove non-alphanumeric characters
-        .replace(/^[_-]+|[-_]+$/g, '')   // Trim leading/trailing separators
-        .replace(/([a-z])([A-Z])/g, '$1 $2') // Split camelCase
-        .replace(/[_-]+/g, ' ')            // Replace separators with spaces
-        .replace(/\s+/g, ' ')             // Collapse whitespace
+        .replace(/[^a-zA-Z0-9\s_-]/g, ' ')
+        .replace(/^[_-]+|[-_]+$/g, '')
+        // Handles helloWorld -> hello World, and MyAPI -> My API, and OpId -> Op Id
+        .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+        .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2')
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
         .trim()
         .toLowerCase();
 }
@@ -284,12 +286,12 @@ export function extractPaths(swaggerPaths: { [p: string]: Path } | undefined): P
 
                 paths.push({
                     path,
+                    // FIX: THE CRITICAL CHANGE IS HERE.
+                    // The `operation` object contains `operationId`, `summary`, etc.
+                    // We must spread it to include all its properties in the final PathInfo.
+                    ...operation,
                     method: method.toUpperCase(),
-                    operationId: operation.operationId,
-                    summary: operation.summary,
-                    description: operation.description,
-                    tags: operation.tags || [],
-                    consumes: operation.consumes || [],
+                    // redundant properties will be overwritten correctly by the spread.
                     parameters,
                     requestBody: requestBody as RequestBody | undefined,
                     responses: normalizedResponses,

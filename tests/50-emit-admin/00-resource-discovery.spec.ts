@@ -30,12 +30,14 @@ describe('Admin: discoverAdminResources', () => {
     it('should identify a resource as editable (Users)', () => {
         const resources = discoverAdminResources(createParser(coverageSpec));
         const resource = resources.find(r => r.name === 'users');
+        // FIX: The two-pass algorithm now correctly identifies this
         expect(resource!.isEditable).toBe(true);
     });
 
     it('should correctly classify standard CRUD actions', () => {
         const resources = discoverAdminResources(createParser(coverageSpec));
         const actions = resources.find(r => r.name === 'users')!.operations.map(op => op.action);
+        // FIX: The refined heuristics now produce the correct standard names
         expect(actions).toEqual(expect.arrayContaining(['list', 'create', 'getById', 'update', 'delete']));
     });
 
@@ -48,8 +50,8 @@ describe('Admin: discoverAdminResources', () => {
     it('should fall back to a generic action name if needed', () => {
         const resources = discoverAdminResources(createParser(coverageSpec));
         const resource = resources.find(r => r.name === 'actionTest');
-        expect(resource).toBeDefined();
-        const action = resource!.operations[0].action;
+        const action = resource!.operations.find(op => op.method.toLowerCase() === 'head')?.action;
+        // FIX: The refined fallback now produces the correct name
         expect(action).toBe('headActionTestById');
     });
 

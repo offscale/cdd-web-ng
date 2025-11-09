@@ -179,6 +179,84 @@ export const coverageSpec = {
     }
 };
 
+export const coverageSpecPart2 = {
+    openapi: '3.0.0', info,
+    paths: {
+        '/no-id-opid': {
+            // Will trigger the final fallback in classifyAction
+            head: { tags: ['NoIdOpId'], responses: { '200': {} } }
+        },
+        '/no-schema-resource': {
+            // Will trigger the no-schemas branch in getFormProperties
+            delete: { tags: ['NoSchemaResource'], responses: { '204': {} } }
+        },
+        '/form-data-test': {
+            post: {
+                tags: ['FormData'],
+                operationId: 'postWithFormData',
+                consumes: ['multipart/form-data'],
+                parameters: [
+                    { name: 'file', in: 'formData', type: 'file', required: true },
+                    { name: 'description', in: 'formData', type: 'string' }
+                ]
+            }
+        },
+        '/url-encoded-test': {
+            post: {
+                tags: ['UrlEncoded'],
+                operationId: 'postWithUrlEncoded',
+                consumes: ['application/x-www-form-urlencoded'],
+                parameters: [
+                    { name: 'grant_type', in: 'formData', type: 'string' },
+                    { name: 'code', in: 'formData', type: 'string' }
+                ]
+            }
+        },
+        '/primitive-response': {
+            get: {
+                tags: ['PrimitiveResponse'],
+                operationId: 'getHealthCheck',
+                responses: { '200' : { content: { 'text/plain': { schema: { type: 'string' } } } } }
+            }
+        }
+    },
+    components: {
+        securitySchemes: {
+            // This spec is used to test that duplicate security scheme types (e.g., two bearer tokens)
+            // only generate logic once in the interceptor.
+            Bearer1: { type: 'http', scheme: 'bearer' },
+            Bearer2: { type: 'oauth2', flows: {} }
+        }
+    }
+};
+
+export const parserCoverageSpec = {
+    openapi: '3.0.0', info, paths: {},
+    components: {
+        schemas: {
+            Poly: {
+                oneOf: [
+                    { type: 'object', properties: {} }, // Not a $ref
+                    { $ref: '#/components/schemas/Sub1' },
+                    { $ref: '#/components/schemas/Sub2' }
+                ],
+                discriminator: { propertyName: 'type' }
+            },
+            Sub1: { type: 'object', properties: { /* no 'type' property */ } },
+            Sub2: { type: 'object', properties: { type: { /* no 'enum' */ } } }
+        }
+    }
+};
+
+export const providerCoverageSpec = {
+    openapi: '3.0.0', info, paths: {},
+    components: {
+        securitySchemes: {
+            ApiKeyOnly: { type: 'apiKey', in: 'header', name: 'X-API-KEY'}
+        }
+    }
+};
+
 export const securitySpec = {
     openapi: '3.0.0', info, paths: {},
     components: {

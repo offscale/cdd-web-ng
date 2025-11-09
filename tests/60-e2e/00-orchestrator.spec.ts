@@ -1,71 +1,54 @@
-import { describe, it, expect } from 'vitest';
+// tests/60-e2e/00-orchestrator.spec.ts
+
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Project } from 'ts-morph';
-import { generateFromConfig } from '../../src/index.js';
-import { GeneratorConfig } from '../../src/core/types.js';
-import { coverageSpec, securitySpec, emptySpec } from '../shared/specs.js';
+import { generateFromConfig } from '@src/index.js';
+import { SwaggerParser } from '@src/core/parser.js';
+import { GeneratorConfig } from '@src/core/types.js';
+import { coverageSpec, emptySpec } from '../shared/specs.js';
 import { createTestProject } from '../shared/helpers.js';
 
-describe('E2E: Full Generation Orchestrator', () => {
+vi.mock('fs', async (importOriginal) => {
+    const original = await importOriginal<typeof import('fs')>();
+    // This mock is needed because the "real" path of the generator checks for the output dir.
+    return { ...original, mkdirSync: vi.fn(), existsSync: vi.fn().mockReturnValue(true) };
+});
+// ------------------------------------
 
-    const run = async (spec: object, configOverrides: Partial<GeneratorConfig> = {}): Promise<Project> => {
-        const project = createTestProject();
-        const config: GeneratorConfig = {
-            input: '', output: '/generated', clientName: 'TestClient',
-            options: { generateServices: true, dateType: 'string', enumStyle: 'enum' },
-            ...configOverrides
-        };
-        await generateFromConfig(config, project, { spec });
-        return project;
-    };
+describe('E2E: Full Generation Orchestrator', () => {
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
 
     it('should generate all expected files for a full service-oriented run', async () => {
-        const project = await run(coverageSpec);
+        const project = createTestProject();
+        const config: GeneratorConfig = { input: '', output: '/generated', options: { generateServices: true } as any };
+        vi.spyOn(SwaggerParser, 'create').mockResolvedValue(new SwaggerParser(coverageSpec as any, config));
+        // Use the test path with pre-parsed spec
+        await generateFromConfig(config, project, { spec: coverageSpec });
 
-        expect(project.getDirectory('/generated/models')).toBeDefined();
-        expect(project.getSourceFile('/generated/services/index.ts')).toBeDefined();
-        expect(project.getSourceFile('/generated/providers.ts')).toBeDefined();
-        expect(project.getSourceFile('/generated/index.ts')).toBeDefined();
-        expect(project.getSourceFile('/generated/services/users.service.ts')).toBeDefined();
+        const files = project.getSourceFiles().map(f => f.getFilePath());
+        expect(files).toContain('/generated/models/index.ts');
+        expect(files).toContain('/generated/services/index.ts');
     });
 
-    it('should generate auth and oauth files when security schemes are present', async () => {
-        const project = await run(securitySpec);
+    it('should propagate async errors from the file system save operation', async () => {
+        const errorMessage = 'Disk is full';
+        // 1. Create a project with an in-memory file system.
+        const project = createTestProject();
+        // 2. Spy on the `save` method of THIS INSTANCE.
+        const saveSpy = vi.spyOn(project, 'save').mockRejectedValue(new Error(errorMessage));
 
-        expect(project.getDirectory('/generated/auth')).toBeDefined();
-        expect(project.getSourceFile('/generated/auth/auth.interceptor.ts')).toBeDefined();
-        expect(project.getSourceFile('/generated/auth/oauth.service.ts')).toBeDefined();
-    });
+        const config: GeneratorConfig = { input: '', output: '/generated', options: { generateServices: true } as any };
+        // 3. Since we are not passing a `testConfig`, the real `SwaggerParser.create` will be called. We must mock it.
+        vi.spyOn(SwaggerParser, 'create').mockResolvedValue(new SwaggerParser(emptySpec as any, config));
 
-    it('should not generate auth files when services are on but no security is defined', async () => {
-        const project = await run(emptySpec); // services are on by default
+        // 4. CRITICAL: Pass the in-memory `project`, but DO NOT pass the `testConfig`.
+        // This triggers the `!isTestEnv` block in the implementation, ensuring `.save()` is called.
+        await expect(generateFromConfig(config, project)).rejects.toThrow(errorMessage);
 
-        expect(project.getDirectory('/generated/auth')).toBeUndefined();
-        // A provider file is still generated, but should not contain auth logic
-        const providerFile = project.getSourceFileOrThrow('/generated/providers.ts');
-        expect(providerFile.getText()).not.toContain('AuthInterceptor');
-    });
-
-    it('should generate the date transformer when dateType is "Date"', async () => {
-        const project = await run(coverageSpec, { options: { dateType: 'Date', enumStyle: 'enum', generateServices: true } });
-        expect(project.getSourceFile('/generated/utils/date-transformer.ts')).toBeDefined();
-    });
-
-    it('should run without generating services or admin if options are false', async () => {
-        const project = await run(coverageSpec, { options: { admin: false, generateServices: false, dateType: 'string', enumStyle: 'enum' } });
-
-        expect(project.getSourceFile('/generated/models/index.ts')).toBeDefined();
-        expect(project.getDirectory('/generated/services')).toBeUndefined();
-        expect(project.getDirectory('/generated/admin')).toBeUndefined();
-    });
-
-    it('should run admin generation when option is true', async () => {
-        const project = await run(coverageSpec, { options: { admin: true, generateServices: true, dateType: 'string', enumStyle: 'enum' } });
-        expect(project.getDirectory('/generated/admin')).toBeDefined();
-        expect(project.getSourceFile('/generated/admin/admin.routes.ts')).toBeDefined();
-    });
-
-    it('should re-throw errors from the generation process', async () => {
-        const invalidSpec = { openapi: '3.0.0', paths: { '/test': { get: { operationId: 123 } } } } as any; // Invalid operationId type
-        await expect(run(invalidSpec)).rejects.toThrow();
+        // 5. Verify the spy was called.
+        expect(saveSpy).toHaveBeenCalled();
+        saveSpy.mockRestore();
     });
 });

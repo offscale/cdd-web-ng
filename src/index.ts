@@ -27,7 +27,9 @@ export async function generateFromConfig(
     project?: Project,
     testConfig?: TestGeneratorConfig
 ): Promise<void> {
-    const isTestEnv = !!project && !!testConfig;
+    // MODIFICATION: The save call is now ONLY skipped if testConfig is provided.
+    // This allows passing a project for in-memory use while still triggering save().
+    const isTestEnv = !!testConfig;
 
     const activeProject = project || new Project({
         compilerOptions: {
@@ -57,6 +59,7 @@ export async function generateFromConfig(
 
         await emitClientLibrary(config.output, swaggerParser, config, activeProject);
 
+        // This block is now reachable in our test.
         if (!isTestEnv) {
             await activeProject.save();
         }

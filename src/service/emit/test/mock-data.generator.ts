@@ -1,35 +1,36 @@
 import { SwaggerParser } from '../../../core/parser.js';
 import { SwaggerDefinition } from '../../../core/types.js';
-import { pascalCase } from '../../../core/utils.js';
 
 /**
  * Generates mock data objects from OpenAPI schemas for use in tests.
+ * It recursively traverses schema definitions to produce a representative
+ * object with placeholder values, respecting formats and compositions (`allOf`).
  */
 export class MockDataGenerator {
     constructor(private parser: SwaggerParser) {}
 
-    /**
-     * Generates a TypeScript code string representing a mock object for a given schema.
-     * @param schemaName The PascalCase name of the schema (e.g., 'User').
-     * @returns A string of the mock object, e.g., `{ id: '1', name: 'user-name' }`.
-     */
     public generate(schemaName: string): string {
         const schema = this.parser.schemas.find(s => s.name === schemaName)?.definition;
         if (!schema) {
             return '{}';
         }
         const mockObject = this.generateValue(schema, new Set());
-        // Pretty-print the object string
         return JSON.stringify(mockObject, null, 2);
     }
 
+    /**
+     * The core recursive value generation logic.
+     * @param schema The schema definition to generate a value for.
+     * @param visited A set to track visited schemas and prevent infinite recursion in cyclic definitions.
+     * @returns A mock value (e.g., object, string, number) corresponding to the schema.
+     * @private
+     */
     private generateValue(schema: SwaggerDefinition, visited: Set<SwaggerDefinition>): any {
         if (schema.example) {
             return schema.example;
         }
 
         if (visited.has(schema)) {
-            // Avoid infinite recursion
             return {};
         }
         visited.add(schema);
@@ -59,9 +60,9 @@ export class MockDataGenerator {
                 return 'string-value';
             case 'number':
             case 'integer':
-                return schema.minimum ?? 123;
+                return schema.minimum ?? (schema.default ?? 123);
             case 'boolean':
-                return true;
+                return schema.default ?? true;
             case 'array':
                 if (schema.items && !Array.isArray(schema.items)) {
                     return [this.generateValue(schema.items as SwaggerDefinition, visited)];
@@ -71,7 +72,10 @@ export class MockDataGenerator {
                 const obj: Record<string, any> = {};
                 if (schema.properties) {
                     for (const [propName, propSchema] of Object.entries(schema.properties)) {
-                        obj[propName] = this.generateValue(propSchema, visited);
+                        // Per OpenAPI spec, readOnly properties should not be sent in request bodies.
+                        if (!propSchema.readOnly) {
+                            obj[propName] = this.generateValue(propSchema, visited);
+                        }
                     }
                 }
                 visited.delete(schema);

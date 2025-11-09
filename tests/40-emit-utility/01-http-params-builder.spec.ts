@@ -1,9 +1,13 @@
-// tests/40-emit-utility/01-http-params-builder.spec.ts
-
 import { describe, it, expect, beforeAll } from 'vitest';
-import { Project, ClassDeclaration, Scope } from 'ts-morph'; // <-- Import Scope
+import { Project, ClassDeclaration, Scope } from 'ts-morph';
 import { HttpParamsBuilderGenerator } from '@src/service/emit/utility/http-params-builder.js';
 
+/**
+ * @fileoverview
+ * This file tests the `HttpParamsBuilderGenerator`. It ensures that the generator
+ * correctly creates the `HttpParamsBuilder` class with its static methods and
+ * correct visibility scopes.
+ */
 describe('Utility: HttpParamsBuilder Generator', () => {
     let project: Project;
     let generatedClass: ClassDeclaration;
@@ -30,8 +34,6 @@ describe('Utility: HttpParamsBuilder Generator', () => {
     it('should generate a private static `addFromObject` method', () => {
         const method = generatedClass.getStaticMethod('addFromObject');
         expect(method).toBeDefined();
-        expect(method!.isStatic()).toBe(true);
-        // FIX: Use getScope() to check visibility.
         expect(method!.getScope()).toBe(Scope.Private);
         const body = method!.getBodyText()!;
         expect(body).toContain("if (Array.isArray(obj))");
@@ -40,7 +42,6 @@ describe('Utility: HttpParamsBuilder Generator', () => {
     it('should generate a private static `formatValue` method', () => {
         const method = generatedClass.getStaticMethod('formatValue');
         expect(method).toBeDefined();
-        // FIX: Use getScope() to check visibility.
         expect(method!.getScope()).toBe(Scope.Private);
         const body = method!.getBodyText()!;
         expect(body).toContain("if (value instanceof Date)");

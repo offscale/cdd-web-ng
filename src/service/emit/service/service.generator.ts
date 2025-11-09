@@ -8,7 +8,6 @@ import { camelCase, pascalCase, getBasePathTokenName, getClientContextTokenName,
 import { SERVICE_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
 import { ServiceMethodGenerator } from './service-method.generator.js';
 
-// ... (keep path_to_method_name_suffix function as is) ...
 function path_to_method_name_suffix(path: string): string {
     return path.split('/').filter(Boolean).map(segment => {
         if (segment.startsWith('{') && segment.endsWith('}')) {
@@ -35,7 +34,6 @@ export class ServiceGenerator {
         const knownTypes = this.parser.schemas.map(s => s.name);
         const modelImports = new Set<string>(['RequestOptions']);
 
-        // ... (keep model import discovery logic as is) ...
         for (const op of operations) {
             const successResponse = op.responses?.['200'] ?? op.responses?.['201'] ?? op.responses?.['default'];
             if (successResponse?.content?.['application/json']?.schema) {
@@ -65,7 +63,6 @@ export class ServiceGenerator {
         const serviceClass = this.addClass(sourceFile, className);
         this.addPropertiesAndHelpers(serviceClass);
 
-        const usedMethodNames = new Set<string>();
         operations.forEach(op => {
             let methodName: string;
             const customizer = this.config.options?.customizeMethodName;
@@ -77,21 +74,13 @@ export class ServiceGenerator {
                     : `${op.method.toLowerCase()}${path_to_method_name_suffix(op.path)}`;
             }
 
-            let uniqueMethodName = methodName;
-            let counter = 1;
-            while (usedMethodNames.has(uniqueMethodName)) {
-                uniqueMethodName = `${methodName}${++counter}`;
-            }
-            usedMethodNames.add(uniqueMethodName);
-            op.methodName = uniqueMethodName;
-
+            // Method name de-duplication is now handled in `groupPathsByController`
             this.methodGenerator.addServiceMethod(serviceClass, op);
         });
     }
 
     private addImports(sourceFile: SourceFile, modelImports: Set<string>): void {
         sourceFile.addImportDeclarations([
-            // **FIX**: Added `HttpHeaders` to the imports for use in the method generator.
             { moduleSpecifier: '@angular/core', namedImports: ['Injectable', 'inject'] },
             { moduleSpecifier: '@angular/common/http', namedImports: ['HttpClient', 'HttpContext', 'HttpParams', 'HttpResponse', 'HttpEvent', 'HttpHeaders', 'HttpContextToken'] },
             { moduleSpecifier: 'rxjs', namedImports: ['Observable'] },
@@ -114,7 +103,6 @@ export class ServiceGenerator {
         serviceClass.addProperty({ name: 'basePath', scope: Scope.Private, isReadonly: true, type: 'string', initializer: `inject(${getBasePathTokenName(this.config.clientName)})` });
         const clientContextTokenName = getClientContextTokenName(this.config.clientName);
 
-        // **FIX**: Correctly type the property without an inline import().
         serviceClass.addProperty({ name: "clientContextToken", type: `HttpContextToken<string>`, scope: Scope.Private, isReadonly: true, initializer: clientContextTokenName });
 
         serviceClass.addMethod({

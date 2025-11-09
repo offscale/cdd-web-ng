@@ -103,8 +103,6 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined | null, 
         return 'any';
     }
 
-    // **FIX**: The `type: 'file'` from Swagger 2 is now handled explicitly in the service method generator.
-    // This function can now safely return 'any', knowing it will be caught and refined later.
     if ((schema as any).type === 'file') {
         return 'any';
     }
@@ -113,7 +111,6 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined | null, 
         const typeName = pascalCase(schema.$ref.split('/').pop() || '');
         return typeName && knownTypes.includes(typeName) ? typeName : 'any';
     }
-    // ... (rest of getTypeScriptType remains the same) ...
     if (schema.allOf) {
         const parts = schema.allOf
             .map(s => getTypeScriptType(s, config, knownTypes))
@@ -242,7 +239,6 @@ export function extractPaths(swaggerPaths: { [p: string]: Path } | undefined): P
 
                 const allParams = Array.from(paramsMap.values());
 
-                // **FIX START**: We no longer filter out 'formData'. It's treated like any other parameter type now.
                 const nonBodyParams = allParams.filter(p => p.in !== 'body');
                 const bodyParam = allParams.find(p => p.in === 'body') as BodyParameter | undefined;
 
@@ -255,14 +251,12 @@ export function extractPaths(swaggerPaths: { [p: string]: Path } | undefined): P
 
                     return {
                         name,
-                        // Cast 'formData' to a valid 'in' type for our internal model. The service generator will handle the distinction.
                         in: paramIn as "query" | "path" | "header" | "cookie",
                         required,
                         schema,
                         description
                     }
                 });
-                // **FIX END**
 
                 const requestBody = (operation as any).requestBody
                     || (bodyParam ? { content: { 'application/json': { schema: bodyParam.schema } } } : undefined);
@@ -286,12 +280,8 @@ export function extractPaths(swaggerPaths: { [p: string]: Path } | undefined): P
 
                 paths.push({
                     path,
-                    // FIX: THE CRITICAL CHANGE IS HERE.
-                    // The `operation` object contains `operationId`, `summary`, etc.
-                    // We must spread it to include all its properties in the final PathInfo.
                     ...operation,
                     method: method.toUpperCase(),
-                    // redundant properties will be overwritten correctly by the spread.
                     parameters,
                     requestBody: requestBody as RequestBody | undefined,
                     responses: normalizedResponses,
@@ -308,6 +298,7 @@ export function extractPaths(swaggerPaths: { [p: string]: Path } | undefined): P
  * @param config The generator configuration.
  * @param knownTypes An array of known schema names for type resolution.
  * @returns A string representing the TypeScript type for the request body.
+ * @internal
  */
 export function getRequestBodyType(requestBody: RequestBody | undefined, config: GeneratorConfig, knownTypes: string[]): string {
     const schema = requestBody?.content?.['application/json']?.schema;
@@ -320,6 +311,7 @@ export function getRequestBodyType(requestBody: RequestBody | undefined, config:
  * @param config The generator configuration.
  * @param knownTypes An array of known schema names for type resolution.
  * @returns A string representing the TypeScript type for the response body.
+ * @internal
  */
 export function getResponseType(response: SwaggerResponse | undefined, config: GeneratorConfig, knownTypes: string[]): string {
     const schema = response?.content?.['application/json']?.schema;

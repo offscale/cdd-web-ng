@@ -4,6 +4,8 @@ import { GeneratorConfig } from '../../src/core/types.js';
 
 /**
  * Creates a standard ts-morph project instance for use in tests.
+ * This sets up an in-memory file system and a consistent compiler configuration
+ * to ensure tests are isolated and reproducible.
  * @returns A pre-configured Project instance with an in-memory file system.
  */
 export function createTestProject(): Project {
@@ -21,6 +23,29 @@ export function createTestProject(): Project {
             resolveJsonModule: true
         }
     });
+}
+
+/**
+ * A specialized version of `runGenerator` that allows passing a full config object.
+ * Useful for E2E tests covering config-dependent features like security and date types.
+ * @param spec The OpenAPI specification as a JavaScript object.
+ * @param config The full generator config options.
+ * @returns A promise that resolves to the `Project` instance containing all generated files.
+ */
+export async function runGeneratorWithConfig(spec: object, config: Partial<GeneratorConfig['options']>): Promise<Project> {
+    const project = createTestProject();
+
+    const fullConfig: GeneratorConfig = {
+        input: '/spec.json',
+        output: '/generated',
+        options: {
+            dateType: 'string',
+            enumStyle: 'enum',
+            ...config,
+        },
+    };
+    await generateFromConfig(fullConfig, project, { spec });
+    return project;
 }
 
 /**

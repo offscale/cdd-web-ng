@@ -1,7 +1,8 @@
 /**
  * @fileoverview
- * This file serves as a data repository for the integration tests. It contains various
+ * This file serves as a data repository for the integration and unit tests. It contains various
  * OpenAPI specification objects, each defined as a constant to be used across multiple test files.
+ * This centralization makes tests easier to read and maintain.
  */
 
 const info = { title: 'Test API', version: '1.0.0' };
@@ -216,7 +217,7 @@ export const coverageSpecPart2 = {
             get: {
                 tags: ['PrimitiveResponse'],
                 operationId: 'getHealthCheck',
-                responses: { '200' : { content: { 'text/plain': { schema: { type: 'string' } } } } }
+                responses: { '200': { content: { 'text/plain': { schema: { type: 'string' } } } } }
             }
         }
     },
@@ -234,16 +235,26 @@ export const parserCoverageSpec = {
     openapi: '3.0.0', info, paths: {},
     components: {
         schemas: {
-            Poly: {
+            PolyWithInline: {
                 oneOf: [
                     { type: 'object', properties: {} }, // Not a $ref
+                    { $ref: '#/components/schemas/Sub3' }
+                ],
+                discriminator: { propertyName: 'type' }
+            },
+            PolyWithInvalidRefs: {
+                oneOf: [
                     { $ref: '#/components/schemas/Sub1' },
                     { $ref: '#/components/schemas/Sub2' }
                 ],
                 discriminator: { propertyName: 'type' }
             },
             Sub1: { type: 'object', properties: { /* no 'type' property */ } },
-            Sub2: { type: 'object', properties: { type: { /* no 'enum' */ } } }
+            Sub2: { type: 'object', properties: { type: { /* no 'enum' */ } } },
+            Sub3: {
+                type: 'object',
+                properties: { type: { type: 'string', enum: ['sub3'] } }
+            }
         }
     }
 };
@@ -252,7 +263,7 @@ export const providerCoverageSpec = {
     openapi: '3.0.0', info, paths: {},
     components: {
         securitySchemes: {
-            ApiKeyOnly: { type: 'apiKey', in: 'header', name: 'X-API-KEY'}
+            ApiKeyOnly: { type: 'apiKey', in: 'header', name: 'X-API-KEY' }
         }
     }
 };
@@ -332,7 +343,7 @@ export const adminFormSpec = {
                     config: {
                         type: 'object',
                         properties: { key: { type: 'string' }, readOnlyKey: { type: 'string', readOnly: true } }
-                    }, // <-- MODIFIED
+                    },
                     items: {
                         type: 'array',
                         items: {
@@ -413,7 +424,6 @@ export const finalCoverageSpec = {
                 operationId: 'allParams',
                 parameters: [
                     { name: 'pathParam', in: 'path', required: true, schema: { type: 'string' } }
-                    // No query params to test that branch
                 ],
                 requestBody: { content: { 'application/octet-stream': {} } } // Non-JSON body
             }
@@ -434,13 +444,37 @@ export const finalCoverageSpec = {
                 requestBody: {
                     content: {
                         'application/json': {
-                            schema: { type: 'string' } // This is a primitive, not a data interface
+                            schema: { type: 'string' }
                         }
                     }
                 }
             }
+        },
+        '/with-header': {
+            get: {
+                tags: ['WithHeader'],
+                operationId: 'withHeader',
+                parameters: [
+                    { name: 'X-Custom-Header', in: 'header', schema: { type: 'string' } }
+                ]
+            }
+        },
+        '/post-and-return': {
+            post: {
+                tags: ['PostAndReturn'],
+                operationId: 'postAndReturn',
+                requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/BodyModel' } } } }
+            }
         }
     },
+    components: {
+        schemas: {
+            BodyModel: {
+                type: 'object',
+                properties: { id: { type: 'string' } }
+            }
+        }
+    }
 };
 
 export const listComponentSpec = {
@@ -452,11 +486,9 @@ export const listComponentSpec = {
         },
         '/icon-tests/{id}': {
             put: { tags: ['IconTests'], operationId: 'updateItem', parameters: [{ name: 'id', in: 'path' }] },
-            // This is now a standard delete action, which gets special handling (`onDelete`)
             delete: { tags: ['IconTests'], operationId: 'deleteItem', parameters: [{ name: 'id', in: 'path' }] }
         },
         '/icon-tests/add': { post: { tags: ['IconTests'], operationId: 'addItem' } },
-        // These are all custom actions
         '/icon-tests/{id}/remove': {
             post: {
                 tags: ['IconTests'],
@@ -511,7 +543,7 @@ export const listComponentSpec = {
         schemas: {
             IconTest: { type: 'object', properties: { id: { type: 'string' } } },
             NoProps: { type: 'object', properties: {} },
-            NoListableProps: { type: 'object', properties: { config: { type: 'object' } } }, // <-- NEW
+            NoListableProps: { type: 'object', properties: { config: { type: 'object' } } },
             NoListResource: { type: 'object' },
         }
     }

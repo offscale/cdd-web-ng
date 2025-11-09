@@ -51,12 +51,15 @@ export async function emitClientLibrary(outputRoot: string, parser: SwaggerParse
             new DateTransformerGenerator(project).generate(outputRoot);
         }
 
+        // Check for security schemes to determine if auth-related utilities are needed.
         const securitySchemes = parser.getSecuritySchemes();
         let tokenNames: string[] = [];
         if (Object.keys(securitySchemes).length > 0) {
             new AuthTokensGenerator(project).generate(outputRoot);
 
             const interceptorGenerator = new AuthInterceptorGenerator(parser, project);
+            // generate() returns the names of the tokens used (e.g., 'apiKey', 'bearerToken'),
+            // which the ProviderGenerator needs to create the correct configuration interface.
             // The generator is only called when schemes exist, so the result will always be defined.
             const interceptorResult = interceptorGenerator.generate(outputRoot)!;
             tokenNames = interceptorResult.tokenNames;
@@ -70,7 +73,6 @@ export async function emitClientLibrary(outputRoot: string, parser: SwaggerParse
         new ProviderGenerator(parser, project, tokenNames).generate(outputRoot);
 
         console.log('✅ Utilities and providers generated.');
-        // Stub for Service Test Generation
         if (config.options.generateServiceTests ?? true) {
             console.log('📝 Generating tests for services...');
             const testGenerator = new ServiceTestGenerator(parser, project, config);
@@ -85,7 +87,6 @@ export async function emitClientLibrary(outputRoot: string, parser: SwaggerParse
             await new AdminGenerator(parser, project, config).generate(outputRoot);
             if (config.options.generateAdminTests ?? true) {
                 console.log('📝 Test generation for admin UI is stubbed.');
-                // Future implementation: new AdminTestGenerator(parser, project, config).generate(outputRoot);
             }
         }
     }

@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { Project, ClassDeclaration, SourceFile } from 'ts-morph';
+import { Project, SourceFile } from 'ts-morph';
 import { SwaggerParser } from '../../../core/parser.js';
 import { GeneratorConfig, PathInfo } from '../../../core/types.js';
 import {
@@ -11,6 +11,12 @@ import {
 } from '../../../core/utils.js';
 import { MockDataGenerator } from './mock-data.generator.js';
 
+/**
+ * Generates Angular service test files (`.spec.ts`) for each generated service.
+ * This class creates a standard Angular testing setup with `TestBed`, mocks for `HttpClient`,
+ * and generates `describe` and `it` blocks for each service method, covering both
+ * success and error scenarios.
+ */
 export class ServiceTestGenerator {
     private mockDataGenerator: MockDataGenerator;
 
@@ -22,6 +28,12 @@ export class ServiceTestGenerator {
         this.mockDataGenerator = new MockDataGenerator(parser);
     }
 
+    /**
+     * Generates a complete test file for a single service (controller).
+     * @param controllerName The PascalCase name of the controller (e.g., 'Users').
+     * @param operations The list of operations belonging to this controller.
+     * @param outputDir The directory where the `services` folder is located.
+     */
     public generateServiceTestFile(controllerName: string, operations: PathInfo[], outputDir: string): void {
         const serviceName = `${pascalCase(controllerName)}Service`;
         const testFileName = `${camelCase(controllerName)}.service.spec.ts`;
@@ -63,6 +75,12 @@ export class ServiceTestGenerator {
         sourceFile.formatText();
     }
 
+    /**
+     * Generates the `describe` and `it` blocks for each method in a service.
+     * @param operations The operations to generate tests for.
+     * @returns An array of strings, each representing a line in the generated test file.
+     * @private
+     */
     private generateMethodTests(operations: PathInfo[]): string[] {
         const tests: string[] = [];
         for (const op of operations) {
@@ -87,8 +105,11 @@ export class ServiceTestGenerator {
             // Happy Path Test
             tests.push(`    it('should return ${responseType} on success', () => {`);
             if (responseModel) {
-                const mockResponse = this.mockDataGenerator.generate(responseModel);
-                tests.push(`      const mockResponse: ${responseModel} = ${mockResponse};`);
+                const singleMock = this.mockDataGenerator.generate(responseModel);
+                // FIX: Check if the full response type is an array and wrap the mock data accordingly.
+                const isArray = responseType.endsWith('[]');
+                const mockResponse = isArray ? `[${singleMock}]` : singleMock;
+                tests.push(`      const mockResponse: ${responseType} = ${mockResponse};`);
             } else {
                 tests.push(`      const mockResponse = null;`);
             }
@@ -96,7 +117,7 @@ export class ServiceTestGenerator {
                 const mockBody = this.mockDataGenerator.generate(bodyParam.model);
                 tests.push(`      const ${bodyParam.name}: ${bodyParam.model} = ${mockBody};`);
             } else if (bodyParam) {
-                tests.push(`      const ${bodyParam.name} = 'test-body';`);
+                tests.push(`      const ${bodyParam.name} = { data: 'test-body' };`);
             }
 
             params.forEach(p => tests.push(`      const ${p.name} = ${p.value};`));
@@ -122,7 +143,7 @@ export class ServiceTestGenerator {
                 const mockBody = this.mockDataGenerator.generate(bodyParam.model);
                 tests.push(`      const ${bodyParam.name}: ${bodyParam.model} = ${mockBody};`);
             } else if (bodyParam) {
-                tests.push(`      const ${bodyParam.name} = 'test-body';`);
+                tests.push(`      const ${bodyParam.name} = { data: 'test-body' };`);
             }
             params.forEach(p => tests.push(`      const ${p.name} = ${p.value};`));
 
@@ -142,6 +163,12 @@ export class ServiceTestGenerator {
         return tests;
     }
 
+    /**
+     * Adds all necessary import statements to the test file.
+     * @param sourceFile The ts-morph SourceFile object.
+     * @param serviceName The name of the service class being tested.
+     * @param modelImports A list of model names that need to be imported.
+     */
     private addImports(sourceFile: SourceFile, serviceName: string, modelImports: string[]): void {
         sourceFile.addImportDeclarations([
             { moduleSpecifier: '@angular/core/testing', namedImports: ['TestBed'] },
@@ -152,19 +179,33 @@ export class ServiceTestGenerator {
         ]);
     }
 
+    /**
+     * Extracts the TypeScript type names for a method's response and request body.
+     * @param op The operation to analyze.
+     * @returns An object containing the model names for the response and body, if they are complex types.
+     * @private
+     */
     private getMethodTypes(op: PathInfo): { responseModel?: string, responseType: string, bodyModel?: string } {
         const knownTypes = this.parser.schemas.map(s => s.name);
         const successResponseSchema = op.responses?.['200']?.content?.['application/json']?.schema;
         const responseType = successResponseSchema ? getTypeScriptType(successResponseSchema as any, this.config, knownTypes) : 'any';
-        const responseModel = isDataTypeInterface(responseType.replace(/\[\]| \| null/g, '')) ? responseType.replace(/\[\]| \| null/g, '') : undefined;
+        const responseModelType = responseType.replace(/\[\]| \| null/g, '');
+        const responseModel = isDataTypeInterface(responseModelType) ? responseModelType : undefined;
 
         const requestBodySchema = op.requestBody?.content?.['application/json']?.schema;
         const bodyType = requestBodySchema ? getTypeScriptType(requestBodySchema as any, this.config, knownTypes) : 'any';
-        const bodyModel = isDataTypeInterface(bodyType.replace(/\[\]| \| null/g, '')) ? bodyType.replace(/\[\]| \| null/g, '') : undefined;
+        const bodyModelType = bodyType.replace(/\[\]| \| null/g, '');
+        const bodyModel = isDataTypeInterface(bodyModelType) ? bodyModelType : undefined;
 
         return { responseModel, responseType, bodyModel };
     }
 
+    /**
+     * Scans all operations for a service to collect a unique set of model names that need to be imported.
+     * @param operations The list of operations for the service.
+     * @returns A Set containing the names of all required model imports.
+     * @private
+     */
     private collectModelImports(operations: PathInfo[]): Set<string> {
         const modelImports = new Set<string>();
         for (const op of operations) {

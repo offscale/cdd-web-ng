@@ -10,6 +10,11 @@ import { AuthInterceptorGenerator } from '../../src/service/emit/utility/auth-in
 import { DateTransformerGenerator } from '../../src/service/emit/utility/date-transformer.generator.js';
 import { emptySpec, securitySpec } from '../shared/specs.js';
 
+/**
+ * @fileoverview
+ * Tests for the `ProviderGenerator` to ensure it correctly creates the standalone
+ * provider function based on various configurations (security, date types, custom interceptors).
+ */
 describe('Emitter: ProviderGenerator', () => {
 
     const runGenerator = (spec: object, configOverrides: Partial<GeneratorConfig['options']> = {}) => {
@@ -20,7 +25,7 @@ describe('Emitter: ProviderGenerator', () => {
         };
         const parser = new SwaggerParser(spec as any, config);
 
-        // Run dependency generators
+        // Run dependency generators to create the files the ProviderGenerator depends on
         new TokenGenerator(project, config.clientName).generate(config.output);
         new BaseInterceptorGenerator(project, config.clientName).generate(config.output);
         if (config.options.dateType === 'Date') {
@@ -47,9 +52,9 @@ describe('Emitter: ProviderGenerator', () => {
         const fileContent = runGenerator(emptySpec);
         expect(fileContent).toContain('export function provideTestClient(config: TestConfig)');
         expect(fileContent).toContain('export interface TestConfig');
+        expect(fileContent).toContain('enableDateTransform?: boolean');
         expect(fileContent).not.toContain('AuthInterceptor');
         expect(fileContent).not.toContain('DateInterceptor');
-        expect(fileContent).toContain('enableDateTransform?: boolean');
     });
 
     it('should add security providers if spec contains security schemes', () => {
@@ -61,31 +66,24 @@ describe('Emitter: ProviderGenerator', () => {
         expect(fileContent).toContain('providers.push({ provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true });');
     });
 
-    it('should not add token provider if apiKey is not in config', () => {
-        // Spec has apiKey, but we don't provide it in the provider function.
-        const fileContent = runGenerator(securitySpec);
-        // The `if (config.apiKey)` block should be present
-        expect(fileContent).toContain('if (config.apiKey)');
-        // But the code inside won't run if the user doesn't pass it.
-        // This test mostly ensures the guard is generated correctly.
-    });
-
     it('should add DateInterceptor if dateType is "Date"', () => {
         const fileContent = runGenerator(emptySpec, { dateType: 'Date' });
         expect(fileContent).toContain('if (config.enableDateTransform !== false)');
         expect(fileContent).toContain("customInterceptors.unshift(new DateInterceptor());");
     });
 
-    it('should handle undefined custom interceptors in config without crashing', () => {
+    it('should generate an empty custom interceptors array if none are provided', () => {
         const fileContent = runGenerator(emptySpec);
-        // This line being present confirms the `|| []` fallback exists and was generated.
         expect(fileContent).toContain('const customInterceptors = config.interceptors?.map(InterceptorClass => new InterceptorClass()) || [];');
+        expect(fileContent).toContain(`provide: HTTP_INTERCEPTORS_TEST, useValue: customInterceptors`);
     });
 
-    it('should handle bearerToken as a function', () => {
-        const fileContent = runGenerator(securitySpec);
-        const functionBody = fileContent!.substring(fileContent!.indexOf('provideTestClient'));
-        expect(functionBody).toContain('if (config.bearerToken)');
-        expect(functionBody).toContain(`providers.push({ provide: BEARER_TOKEN_TOKEN, useValue: config.bearerToken });`);
+    it('should not include apiKey provider when only bearer is present', () => {
+        const spec = { ...emptySpec, components: { securitySchemes: { Bearer: { type: 'http', scheme: 'bearer' } } } };
+        const fileContent = runGenerator(spec);
+        expect(fileContent).toContain('bearerToken?: string');
+        expect(fileContent).not.toContain('apiKey?: string');
+        expect(fileContent).toContain('if (config.bearerToken)');
+        expect(fileContent).not.toContain('if (config.apiKey)');
     });
 });

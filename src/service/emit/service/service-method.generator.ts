@@ -1,8 +1,5 @@
-// src/service/emit/service/service-method.generator.ts
-
 import {
     ClassDeclaration,
-    MethodDeclarationStructure,
     OptionalKind,
     ParameterDeclarationStructure,
     MethodDeclarationOverloadStructure,
@@ -11,6 +8,11 @@ import { GeneratorConfig, PathInfo, SwaggerDefinition } from '../../../core/type
 import { SwaggerParser } from '../../../core/parser.js';
 import { getTypeScriptType, camelCase, isDataTypeInterface } from '../../../core/utils.js';
 
+/**
+ * Generates individual methods within a generated Angular service class.
+ * This class handles parameter mapping, response type resolution, method body construction,
+ * and the creation of observable-based method overloads for different response types.
+ */
 export class ServiceMethodGenerator {
     constructor(
         private readonly config: GeneratorConfig,

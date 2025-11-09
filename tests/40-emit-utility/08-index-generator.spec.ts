@@ -5,6 +5,12 @@ import { GeneratorConfig } from '../../src/core/types.js';
 import { MainIndexGenerator, ServiceIndexGenerator } from '../../src/service/emit/utility/index.generator.js';
 import { emptySpec, securitySpec } from '../shared/specs.js';
 
+/**
+ * @fileoverview
+ * This file tests the `MainIndexGenerator` and `ServiceIndexGenerator`, which are
+ * responsible for creating the "barrel" files (`index.ts`) that export the public
+ * API of the generated library.
+ */
 describe('Emitter: IndexGenerators', () => {
 
     describe('MainIndexGenerator', () => {
@@ -71,16 +77,18 @@ describe('Emitter: IndexGenerators', () => {
             expect(content).toContain(`export { ProductsService } from "./products.service";`);
         });
 
-        it('should ignore files that do not contain an exported class', () => {
+        it('should ignore non-service files or files with non-exported classes', () => {
             const project = new Project({ useInMemoryFileSystem: true });
             const serviceDir = project.createDirectory('/out/services');
             serviceDir.createSourceFile('users.service.ts', 'export class UsersService {}');
             serviceDir.createSourceFile('helpers.ts', 'export const helper = 1;'); // Not a service file
+            serviceDir.createSourceFile('internal.service.ts', 'class InternalService {}'); // Not exported
 
             new ServiceIndexGenerator(project).generateIndex('/out');
             const content = project.getSourceFileOrThrow('/out/services/index.ts').getText();
             expect(content).toContain(`export { UsersService } from "./users.service";`);
             expect(content).not.toContain(`helpers`);
+            expect(content).not.toContain(`InternalService`);
         });
     });
 });

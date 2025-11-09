@@ -58,6 +58,7 @@ describe('Emitter: ServiceGenerator', () => {
 
     it('should use a custom method name when provided in config', () => {
         const project = createTestEnvironment(coverageSpec, {
+            // FIX: The operationId contains dashes which need to be replaced.
             customizeMethodName: (opId) => `custom_${opId.replace(/-/g, '_')}`
         });
         const serviceFile = project.getSourceFileOrThrow('/out/services/customName.service.ts');

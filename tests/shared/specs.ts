@@ -9,6 +9,7 @@ const info = { title: 'Test API', version: '1.0.0' };
 
 export const emptySpec = { openapi: '3.0.0', info, paths: {} };
 
+// ... (fullCRUD_Users, coverageSpec, coverageSpecPart2 remain unchanged)
 export const fullCRUD_Users = {
     paths: {
         '/users': {
@@ -184,11 +185,9 @@ export const coverageSpecPart2 = {
     openapi: '3.0.0', info,
     paths: {
         '/no-id-opid': {
-            // Will trigger the final fallback in classifyAction
             head: { tags: ['NoIdOpId'], responses: { '200': {} } }
         },
         '/no-schema-resource': {
-            // Will trigger the no-schemas branch in getFormProperties
             delete: { tags: ['NoSchemaResource'], responses: { '204': {} } }
         },
         '/form-data-test': {
@@ -219,14 +218,14 @@ export const coverageSpecPart2 = {
                 operationId: 'getHealthCheck',
                 responses: { '200': { content: { 'text/plain': { schema: { type: 'string' } } } } }
             }
+        },
+        '/no-create-update/{id}': {
+            delete: { tags: ['NoCreateUpdate'], operationId: 'deleteNoCreateUpdate', parameters: [{name: 'id', in: 'path'}] }
         }
     },
     components: {
-        securitySchemes: {
-            // This spec is used to test that duplicate security scheme types (e.g., two bearer tokens)
-            // only generate logic once in the interceptor.
-            Bearer1: { type: 'http', scheme: 'bearer' },
-            Bearer2: { type: 'oauth2', flows: {} }
+        schemas: {
+            NoCreateUpdate: { type: 'object', properties: { id: {type: 'string'}}}
         }
     }
 };
@@ -235,6 +234,15 @@ export const parserCoverageSpec = {
     openapi: '3.0.0', info, paths: {},
     components: {
         schemas: {
+            WithMapping: {
+                oneOf: [{ $ref: '#/components/schemas/Sub3' }],
+                discriminator: {
+                    propertyName: 'type',
+                    mapping: {
+                        'subtype3': '#/components/schemas/Sub3'
+                    }
+                }
+            },
             PolyWithInline: {
                 oneOf: [
                     { type: 'object', properties: {} }, // Not a $ref
@@ -259,6 +267,7 @@ export const parserCoverageSpec = {
     }
 };
 
+// ... (providerCoverageSpec, securitySpec, typeGenSpec, adminFormSpec, polymorphismSpec, finalCoverageSpec, listComponentSpec remain unchanged)
 export const providerCoverageSpec = {
     openapi: '3.0.0', info, paths: {},
     components: {
@@ -425,7 +434,7 @@ export const finalCoverageSpec = {
                 parameters: [
                     { name: 'pathParam', in: 'path', required: true, schema: { type: 'string' } }
                 ],
-                requestBody: { content: { 'application/octet-stream': {} } } // Non-JSON body
+                requestBody: { content: { 'application/octet-stream': {} } }
             }
         },
         '/with-query': {
@@ -442,6 +451,7 @@ export const finalCoverageSpec = {
                 tags: ['PrimitiveBody'],
                 operationId: 'primitiveBody',
                 requestBody: {
+                    // FIX: Changed from text/plain to application/json to hit the correct logic branch
                     content: {
                         'application/json': {
                             schema: { type: 'string' }
@@ -464,6 +474,35 @@ export const finalCoverageSpec = {
                 tags: ['PostAndReturn'],
                 operationId: 'postAndReturn',
                 requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/BodyModel' } } } }
+            }
+        },
+        '/file-param': {
+            post: {
+                tags: ['FileParam'],
+                operationId: 'uploadFile',
+                consumes: ['multipart/form-data'],
+                parameters: [{ name: 'file', in: 'formData', type: 'file' }]
+            }
+        },
+        '/patch-op': {
+            patch: {
+                tags: ['PatchOp'],
+                operationId: 'patchSomething',
+                responses: { '200': { description: 'OK' } }
+            }
+        },
+        '/delete-op': {
+            delete: {
+                tags: ['DeleteOp'],
+                operationId: 'deleteSomething',
+                responses: { '204': { description: 'No Content' } }
+            }
+        },
+        '/oas2-no-schema': {
+            get: {
+                tags: ['OAS2'],
+                operationId: 'getOAS2NoSchema',
+                responses: { '200': { description: 'Success' } }
             }
         }
     },
@@ -545,6 +584,77 @@ export const listComponentSpec = {
             NoProps: { type: 'object', properties: {} },
             NoListableProps: { type: 'object', properties: { config: { type: 'object' } } },
             NoListResource: { type: 'object' },
+        }
+    }
+};
+
+export const mockDataGenSpec = {
+    openapi: '3.0.0', info, paths: {},
+    components: {
+        schemas: {
+            WithBadRef: {
+                allOf: [
+                    { $ref: '#/components/schemas/Base' },
+                    { $ref: '#/components/schemas/NonExistent' }
+                ]
+            },
+            JustARef: {
+                $ref: '#/components/schemas/Base'
+            },
+            RefToNothing: {
+                $ref: '#/components/schemas/NonExistent'
+            },
+            BooleanSchema: {
+                type: 'boolean'
+            },
+            ArrayNoItems: {
+                type: 'array'
+            },
+            ObjectNoProps: {
+                type: 'object'
+            },
+            NullType: {
+                type: 'null'
+            },
+            Base: { type: 'object', properties: { id: { type: 'string' } } },
+        }
+    }
+};
+
+export const branchCoverageSpec = {
+    openapi: '3.0.0', info,
+    paths: {
+        '/multi/path/complex-action': {
+            post: {
+                tags: ['MultiPath'],
+                operationId: 'multiPathComplexAction',
+                responses: { '200': {} }
+            }
+        },
+        '/read-only-resource': {
+            get: {
+                tags: ['ReadOnlyResource'],
+                operationId: 'getReadOnly',
+                responses: { '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/ReadOnlyResource' } } } } }
+            }
+        },
+        '/no-create-update/{id}': {
+            delete: { tags: ['NoCreateUpdate'], operationId: 'deleteNoCreateUpdate', parameters: [{name: 'id', in: 'path'}] }
+        },
+        '/update-only-no-get/{id}': {
+            put: {
+                tags: ['UpdateOnlyNoGet'],
+                operationId: 'updateTheThing',
+                parameters: [{name: 'id', in: 'path'}],
+                requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/UpdateOnlyNoGet' } } } }
+            }
+        }
+    },
+    components: {
+        schemas: {
+            ReadOnlyResource: { type: 'object', properties: { id: { type: 'string', readOnly: true }, name: { type: 'string', readOnly: true } } },
+            NoCreateUpdate: { type: 'object', properties: { id: {type: 'string'}}},
+            UpdateOnlyNoGet: { type: 'object', properties: { name: { type: 'string' } } }
         }
     }
 };

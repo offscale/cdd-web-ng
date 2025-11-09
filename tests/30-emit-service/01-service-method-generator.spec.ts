@@ -15,28 +15,23 @@ import { HttpParamsBuilderGenerator } from '@src/service/emit/utility/http-param
 describe('Emitter: ServiceMethodGenerator', () => {
 
     const createTestEnvironment = (spec: object = finalCoverageSpec) => {
+        // ... (constructor remains the same)
         const project = new Project({ useInMemoryFileSystem: true });
         const config: GeneratorConfig = { input: '', output: '/out', options: { dateType: 'Date', enumStyle: 'enum' } };
         const parser = new SwaggerParser(spec as any, config);
-
-        // Pre-generate dependencies needed by the service methods
         new TypeGenerator(parser, project, config).generate('/out');
         new HttpParamsBuilderGenerator(project).generate('/out');
-
         const methodGen = new ServiceMethodGenerator(config, parser);
-
         const sourceFile = project.createSourceFile('/out/tmp.service.ts');
         const serviceClass = sourceFile.addClass({ name: 'TmpService' });
-
-        // Add mock dependencies that the generated methods rely on
         sourceFile.addImportDeclaration({ moduleSpecifier: '@angular/common/http', namedImports: ['HttpHeaders', 'HttpContext', 'HttpParams'] });
         serviceClass.addProperty({ name: 'basePath', isReadonly: true, scope: 'private', type: 'string', initializer: "''" });
         serviceClass.addProperty({ name: 'http', isReadonly: true, scope: 'private', type: 'any', initializer: "{}" });
         serviceClass.addMethod({ name: 'createContextWithClientId', isPrivate: true, returnType: 'any', statements: 'return {};' });
-
         return { methodGen, serviceClass, parser };
     };
 
+    // ... (existing tests remain the same)
     it('should warn and skip generation if operation has no methodName', () => {
         const { methodGen, serviceClass } = createTestEnvironment({});
         const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -110,5 +105,42 @@ describe('Emitter: ServiceMethodGenerator', () => {
         const impl = method.getImplementation()!;
         const param = impl.getParameters().find(p => p.getType().getText() === 'string');
         expect(param?.getName()).toBe('body');
+    });
+
+    it('should handle PATCH verb correctly', () => {
+        const { methodGen, serviceClass, parser } = createTestEnvironment();
+        const operation = parser.operations.find(op => op.operationId === 'patchSomething')!;
+        operation.methodName = 'patchSomething';
+        methodGen.addServiceMethod(serviceClass, operation);
+        const body = serviceClass.getMethodOrThrow('patchSomething').getBodyText();
+        expect(body).toContain(`return this.http.patch(url, null, requestOptions);`);
+    });
+
+    it('should handle DELETE verb correctly', () => {
+        const { methodGen, serviceClass, parser } = createTestEnvironment();
+        const operation = parser.operations.find(op => op.operationId === 'deleteSomething')!;
+        operation.methodName = 'deleteSomething';
+        methodGen.addServiceMethod(serviceClass, operation);
+        const body = serviceClass.getMethodOrThrow('deleteSomething').getBodyText();
+        expect(body).toContain(`return this.http.delete(url, requestOptions);`);
+    });
+
+    it("should handle OAS2 `type: 'file'` by creating an 'any' type parameter", () => {
+        const { methodGen, serviceClass, parser } = createTestEnvironment();
+        const operation = parser.operations.find(op => op.operationId === 'uploadFile')!;
+        operation.methodName = 'uploadFile';
+        methodGen.addServiceMethod(serviceClass, operation);
+        const param = serviceClass.getMethodOrThrow('uploadFile').getParameters().find(p => p.getName() === 'file');
+        expect(param?.getType().getText()).toBe('any');
+    });
+
+    it("should handle operations with no response schema", () => {
+        const { methodGen, serviceClass, parser } = createTestEnvironment();
+        const operation = parser.operations.find(op => op.operationId === 'getOAS2NoSchema')!;
+        operation.methodName = 'getOAS2NoSchema';
+        methodGen.addServiceMethod(serviceClass, operation);
+        const overload = serviceClass.getMethodOrThrow('getOAS2NoSchema').getOverloads()[0];
+        // Falls back to 'any'
+        expect(overload.getReturnType().getText()).toBe('Observable<any>');
     });
 });

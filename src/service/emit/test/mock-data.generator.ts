@@ -72,7 +72,6 @@ export class MockDataGenerator {
                 const obj: Record<string, any> = {};
                 if (schema.properties) {
                     for (const [propName, propSchema] of Object.entries(schema.properties)) {
-                        // Per OpenAPI spec, readOnly properties should not be sent in request bodies.
                         if (!propSchema.readOnly) {
                             obj[propName] = this.generateValue(propSchema, visited);
                         }

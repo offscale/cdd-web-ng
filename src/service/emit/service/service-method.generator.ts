@@ -84,9 +84,10 @@ export class ServiceMethodGenerator {
 
         const requestBody = operation.requestBody;
         if (requestBody) {
-            const jsonContent = requestBody.content?.['application/json'];
-            if (jsonContent?.schema) {
-                let bodyType = getTypeScriptType(jsonContent.schema as SwaggerDefinition, this.config, knownTypes);
+            // FIX: Look at the first available content type's schema, not just application/json.
+            const content = requestBody.content?.[Object.keys(requestBody.content)[0]];
+            if (content?.schema) {
+                let bodyType = getTypeScriptType(content.schema as SwaggerDefinition, this.config, knownTypes);
                 const bodyName = isDataTypeInterface(bodyType.replace(/\[\]| \| null/g, '')) ? camelCase(bodyType.replace(/\[\]| \| null/g, '')) : 'body';
                 parameters.push({ name: bodyName, type: bodyType, hasQuestionToken: !requestBody.required });
             } else {

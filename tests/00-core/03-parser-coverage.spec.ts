@@ -11,19 +11,26 @@ import { GeneratorConfig } from '@src/core/types.js';
  */
 describe('Core: SwaggerParser (Coverage)', () => {
     beforeEach(() => {
-        // Suppress console.warn for these specific tests to keep test output clean.
-        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        vi.spyOn(console, 'warn').mockImplementation(() => { });
     });
 
     afterEach(() => {
         vi.restoreAllMocks();
     });
 
+    it('should correctly use explicit discriminator mapping', () => {
+        const parser = new SwaggerParser(parserCoverageSpec as any, { options: {} } as GeneratorConfig);
+        const schema = parser.getDefinition('WithMapping');
+        const options = parser.getPolymorphicSchemaOptions(schema!);
+        expect(options).toHaveLength(1);
+        expect(options[0].name).toBe('subtype3');
+        expect(options[0].schema.properties).toHaveProperty('type');
+    });
+
     it('getPolymorphicSchemaOptions should handle oneOf items that are not refs', () => {
         const parser = new SwaggerParser(parserCoverageSpec as any, { options: {} } as GeneratorConfig);
         const schema = parser.getDefinition('PolyWithInline');
         const options = parser.getPolymorphicSchemaOptions(schema!);
-        // The generator should gracefully ignore the non-$ref item and return only valid ones.
         expect(options.length).toBe(1);
         expect(options[0].name).toBe('sub3');
     });
@@ -32,13 +39,11 @@ describe('Core: SwaggerParser (Coverage)', () => {
         const parser = new SwaggerParser(parserCoverageSpec as any, { options: {} } as GeneratorConfig);
         const schema = parser.getDefinition('PolyWithInvalidRefs');
         const options = parser.getPolymorphicSchemaOptions(schema!);
-        // The generator should gracefully ignore Sub1 (no 'type' prop) and Sub2 (no 'enum' on 'type' prop).
         expect(options.length).toBe(0);
     });
 
     it('loadContent should handle non-Error exceptions from fetch', async () => {
         global.fetch = vi.fn().mockImplementation(() => {
-            // Simulate a network error throwing a string, which can happen in some environments.
             // eslint-disable-next-line @typescript-eslint/no-throw-literal
             throw 'Network failure';
         });

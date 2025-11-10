@@ -7,16 +7,10 @@ import { ListComponentGenerator } from '@src/service/emit/admin/list-component.g
 import { createTestProject } from '../shared/helpers.js';
 import { AdminGenerator } from '@src/service/emit/admin/admin.generator.js';
 
-/**
- * @fileoverview
- * This file contains highly specific tests designed to hit the final branch coverage
- * gaps identified in the istanbul report, aiming for 100% in all categories.
- */
 describe('Final Branch Coverage Tests', () => {
     it('resource-discovery should use "Default" for root path', () => {
         const parser = new SwaggerParser(branchCoverageSpec as any, { options: { admin: true } } as any);
         const resources = discoverAdminResources(parser);
-        // This hits the `?? 'default'` in getResourceName
         const resource = resources.find(r => r.name === 'default');
         expect(resource).toBeDefined();
         expect(resource!.operations[0].operationId).toBe('getRoot');
@@ -27,7 +21,6 @@ describe('Final Branch Coverage Tests', () => {
         const resources = discoverAdminResources(parser);
         const resource = resources.find(r => r.name === 'noSchemaResource');
         expect(resource).toBeDefined();
-        // Hits the `return singular(pascalCase(resourceName));` fallback
         expect(resource!.modelName).toBe('NoSchemaResource');
     });
 
@@ -37,6 +30,16 @@ describe('Final Branch Coverage Tests', () => {
         const resource = resources.find(r => r.name === 'multiPath');
         expect(resource).toBeDefined();
         expect(resource!.operations[0].action).toBe('multiPathComplexAction');
+    });
+
+    it('resource-discovery should not classify a custom action "addItem" as "create"', () => {
+        const parser = new SwaggerParser(branchCoverageSpec as any, { options: { admin: true } } as any);
+        const resources = discoverAdminResources(parser);
+        const widgetResource = resources.find(r => r.name === 'widgets')!;
+        const addItemOp = widgetResource.operations.find(op => op.operationId === 'addItemToWidget')!;
+        // This is a crucial test to ensure the "create" heuristic is not too greedy.
+        expect(addItemOp.action).not.toBe('create');
+        expect(addItemOp.action).toBe('addItemToWidget');
     });
 
     it('list-component-generator should handle a resource with only read-only properties', () => {
@@ -70,7 +73,7 @@ describe('Final Branch Coverage Tests', () => {
             .getMethod('ngOnInit')
             ?.getBodyText();
         expect(ngOnInitBody).not.toContain('subscribe(entity =>');
-        expect(ngOnInitBody).toContain("this.id.set(id);");
+        expect(ngOnInitBody).toContain('this.id.set(id);');
     });
 
     it('html builders should handle readonly discriminator properties', async () => {

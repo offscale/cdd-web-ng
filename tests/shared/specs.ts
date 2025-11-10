@@ -637,6 +637,7 @@ export const branchCoverageSpec = {
             delete: {
                 tags: ['NoSchemaResource'],
                 parameters: [{ name: 'id', in: 'path', required: true }],
+                // Deliberately no requestBody or success response with a schema
             },
         },
         '/multi/path/complex-action': {
@@ -699,7 +700,6 @@ export const branchCoverageSpec = {
                 },
             },
         },
-        // For service-method-generator: only required params
         '/all-required/{id}': {
             get: {
                 tags: ['AllRequired'],
@@ -707,7 +707,6 @@ export const branchCoverageSpec = {
                 parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
             },
         },
-        // For service-method-generator: requestBody without schema
         '/body-no-schema': {
             post: {
                 tags: ['BodyNoSchema'],
@@ -715,7 +714,6 @@ export const branchCoverageSpec = {
                 requestBody: { content: { 'application/json': {} } },
             },
         },
-        // For service-generator/utils: non-json response & no body
         '/no-body-at-all': {
             get: {
                 tags: ['NoBody'],
@@ -723,7 +721,6 @@ export const branchCoverageSpec = {
                 responses: { '200': { description: 'OK', content: { 'text/plain': { schema: { type: 'string' } } } } },
             },
         },
-        // For service-method-generator: GET with no 2xx response schema
         '/no-success-response': {
             get: {
                 tags: ['NoSuccessResponse'],
@@ -731,19 +728,26 @@ export const branchCoverageSpec = {
                 responses: { '404': { description: 'not found' } },
             },
         },
-        // For service-test-generator: operation with parameters: undefined
         '/no-params-key': {
             get: {
                 tags: ['NoParamsKey'],
                 operationId: 'getNoParamsKey',
-                // The 'parameters' property is omitted intentionally
+            },
+        },
+        // For final resource-discovery coverage (custom collection action classification)
+        '/widgets/add-item': {
+            post: {
+                tags: ['Widgets'],
+                operationId: 'addItemToWidget',
+                responses: { '200': {} },
             },
         },
     },
     components: {
         securitySchemes: {
-            // For auth-interceptor: apiKey in cookie (unsupported branch)
             CookieAuth: { type: 'apiKey', in: 'cookie', name: 'session_id' },
+            // For auth-interceptor: Bearer with non-function value
+            BearerTokenSimple: { type: 'http', scheme: 'bearer' },
         },
         schemas: {
             ReadOnlyResource: {
@@ -770,7 +774,6 @@ export const branchCoverageSpec = {
                 type: 'object',
                 properties: { name: { type: 'string' }, petType: { type: 'string', enum: ['cat'] } },
             },
-            // For mock-data-generator coverage
             OneOfNoType: {
                 oneOf: [{ type: 'string' }, { type: 'number' }],
             },
@@ -781,6 +784,10 @@ export const branchCoverageSpec = {
             NumberWithDefault: {
                 type: 'number',
                 default: 42,
+            },
+            // For mock data coverage of `allOf` with primitives
+            AllOfWithPrimitive: {
+                allOf: [{ type: 'string' }],
             },
         },
     },

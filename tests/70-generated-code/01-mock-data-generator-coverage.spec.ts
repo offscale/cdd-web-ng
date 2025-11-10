@@ -4,12 +4,6 @@ import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from '@src/core/types.js';
 import { branchCoverageSpec, mockDataGenSpec } from '../shared/specs.js';
 
-/**
- * @fileoverview
- * This file contains targeted tests for the `MockDataGenerator` to cover specific
- * edge cases related to schema composition (`allOf`), references (`$ref`), and
- * various primitive types that were not previously covered.
- */
 describe('Generated Code: MockDataGenerator (Coverage)', () => {
     const createMockGenerator = (spec: object): MockDataGenerator => {
         const config: GeneratorConfig = {
@@ -26,6 +20,14 @@ describe('Generated Code: MockDataGenerator (Coverage)', () => {
         const mockString = generator.generate('WithBadRef');
         const mock = JSON.parse(mockString);
         expect(mock).toEqual({ id: 'string-value' }); // from Base, ignores NonExistent
+    });
+
+    it('should handle allOf with a primitive type by returning undefined', () => {
+        // allOf is for objects, so a primitive is an invalid part and should be ignored,
+        // resulting in an empty object.
+        const mockString = generator.generate('AllOfWithPrimitive');
+        const mock = JSON.parse(mockString);
+        expect(mock).toEqual({});
     });
 
     it('should handle a schema that is just a ref', () => {

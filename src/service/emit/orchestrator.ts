@@ -16,7 +16,7 @@ import { OAuthHelperGenerator } from './utility/oauth-helper.generator.js';
 import { BaseInterceptorGenerator } from './utility/base-interceptor.generator.js';
 import { ProviderGenerator } from './utility/provider.generator.js';
 import { MainIndexGenerator, ServiceIndexGenerator } from './utility/index.generator.js';
-import { ServiceTestGenerator } from "./test/service-test.generator.js";
+import { ServiceTestGenerator } from "./test/service-test-generator.js";
 
 /**
  * Orchestrates the entire code generation process for the Angular client library.

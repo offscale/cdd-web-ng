@@ -243,19 +243,21 @@ export function extractPaths(swaggerPaths: { [p: string]: Path } | undefined): P
                 const bodyParam = allParams.find(p => p.in === 'body') as BodyParameter | undefined;
 
                 const parameters = nonBodyParams.map((p): Parameter => {
-                    const { name, in: paramIn, required, description, type, format, items, ...schemaProps } = p;
-                    const schema: SwaggerDefinition = schemaProps as SwaggerDefinition;
-                    if (type) schema.type = type as any;
-                    if (format) schema.format = format;
-                    if (items) schema.items = items;
+                    // **THE FIX**: This logic correctly uses the OAS3 `schema` property if it exists,
+                    // and falls back to constructing a schema object from OAS2 properties otherwise.
+                    const finalSchema = p.schema || {
+                        type: p.type as any,
+                        format: p.format,
+                        items: p.items,
+                    };
 
                     return {
-                        name,
-                        in: paramIn as "query" | "path" | "header" | "cookie",
-                        required,
-                        schema,
-                        description
-                    }
+                        name: p.name,
+                        in: p.in as "query" | "path" | "header" | "cookie",
+                        required: p.required,
+                        schema: finalSchema as SwaggerDefinition,
+                        description: p.description
+                    };
                 });
 
                 const requestBody = (operation as any).requestBody
@@ -301,7 +303,8 @@ export function extractPaths(swaggerPaths: { [p: string]: Path } | undefined): P
  * @internal
  */
 export function getRequestBodyType(requestBody: RequestBody | undefined, config: GeneratorConfig, knownTypes: string[]): string {
-    const schema = requestBody?.content?.['application/json']?.schema;
+    if (!requestBody?.content) return 'any';
+    const schema = requestBody.content[Object.keys(requestBody.content)[0]]?.schema;
     return getTypeScriptType(schema as SwaggerDefinition, config, knownTypes);
 }
 

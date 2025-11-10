@@ -80,8 +80,6 @@ function getResourceName(path: PathInfo): string {
  * @returns A string representing the classified action.
  */
 function classifyAction(path: PathInfo, method: string): ResourceOperation['action'] {
-    if (typeof method !== 'string') { return 'unknown'; }
-
     const nonParamSegments = path.path.split('/').filter(s => s && !s.startsWith('{'));
     const hasIdSuffix = path.path.endsWith('}');
     const m = method.toLowerCase();

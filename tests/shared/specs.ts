@@ -648,13 +648,54 @@ export const branchCoverageSpec = {
                 parameters: [{name: 'id', in: 'path'}],
                 requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/UpdateOnlyNoGet' } } } }
             }
+        },
+        '/op-with-default-response': {
+            get: {
+                tags: ['DefaultResponse'],
+                responses: { 'default': { content: { 'application/json': { schema: { $ref: '#/components/schemas/Base' } } } } }
+            }
+        },
+        '/param-is-ref': {
+            get: {
+                tags: ['ParamIsRef'],
+                parameters: [{ name: 'user', in: 'query', schema: { $ref: '#/components/schemas/User' }}]
+            }
+        },
+        '/collection-action': {
+            post: {
+                tags: ['CollectionAction'],
+                operationId: 'triggerGlobalAction',
+                responses: {'200': {}}
+            }
+        },
+        '/poly-readonly-discriminator': {
+            post: {
+                tags: ['PolyReadonlyDiscriminator'],
+                requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/PolyReadonly' } } } }
+            }
         }
     },
     components: {
         schemas: {
+            // For resource-discovery
             ReadOnlyResource: { type: 'object', properties: { id: { type: 'string', readOnly: true }, name: { type: 'string', readOnly: true } } },
             NoCreateUpdate: { type: 'object', properties: { id: {type: 'string'}}},
-            UpdateOnlyNoGet: { type: 'object', properties: { name: { type: 'string' } } }
+            UpdateOnlyNoGet: { type: 'object', properties: { name: { type: 'string' } } },
+            // For mocking circular refs and examples
+            CircularA: { properties: { b: { $ref: '#/components/schemas/CircularB' } } },
+            CircularB: { properties: { a: { $ref: '#/components/schemas/CircularA' } } },
+            WithExample: { type: 'string', example: 'hello from example' },
+            // For service-test-generator
+            User: { type: 'object', properties: { name: { type: 'string' } } },
+            Base: { type: 'object', properties: { id: { type: 'string' }}},
+            // For form-component-html.builder
+            PolyReadonly: {
+                type: 'object',
+                properties: { petType: { type: 'string', readOnly: true } },
+                oneOf: [{ $ref: '#/components/schemas/Cat' }],
+                discriminator: { propertyName: 'petType'}
+            },
+            Cat: { type: 'object', properties: { name: { type: 'string' }, petType: { type: 'string', enum: ['cat']} }}
         }
     }
 };

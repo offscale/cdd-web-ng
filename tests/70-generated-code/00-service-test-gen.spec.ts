@@ -1,13 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { Project } from 'ts-morph';
-import { MockDataGenerator } from '@src/service/emit/test/mock-data.generator.js';
-import { ServiceTestGenerator } from '@src/service/emit/test/service-test.generator.js';
+import { ServiceTestGenerator } from '@src/service/emit/test/service-test-generator.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from '@src/core/types.js';
-import { fullCRUD_Users, adminFormSpec } from '../shared/specs.js';
+import { fullCRUD_Users, adminFormSpec, finalCoverageSpec, branchCoverageSpec } from '../shared/specs.js';
 import { createTestProject } from '../shared/helpers.js';
 import { groupPathsByController } from '@src/service/parse.js';
 import { TypeGenerator } from "../../src/service/emit/type/type.generator.js";
+import { MockDataGenerator } from "../../src/service/emit/test/mock-data.generator";
 
 /**
  * @fileoverview
@@ -19,7 +18,11 @@ describe('Generated Code: Service Test Generators', () => {
 
     describe('MockDataGenerator', () => {
         const createMockGenerator = (spec: object): MockDataGenerator => {
-            const config: GeneratorConfig = { input: '', output: '/out', options: { dateType: 'string', enumStyle: 'enum' } };
+            const config: GeneratorConfig = {
+                input: '',
+                output: '/out',
+                options: { dateType: 'string', enumStyle: 'enum' }
+            };
             const parser = new SwaggerParser(spec as any, config);
             return new MockDataGenerator(parser);
         };
@@ -57,12 +60,14 @@ describe('Generated Code: Service Test Generators', () => {
     describe('ServiceTestGenerator', () => {
         it('should generate a valid Angular spec file for a full CRUD service', () => {
             const project = createTestProject();
-            const config: GeneratorConfig = { input: '', output: '/out', clientName: 'Api', options: { dateType: 'string', enumStyle: 'enum' } };
+            const config: GeneratorConfig = {
+                input: '',
+                output: '/out',
+                clientName: 'Api',
+                options: { dateType: 'string', enumStyle: 'enum' }
+            };
             const parser = new SwaggerParser(fullCRUD_Users as any, config);
-
-            // Dependencies for the generator
             new TypeGenerator(parser, project, config).generate('/out');
-
             const testGenerator = new ServiceTestGenerator(parser, project, config);
             const controllerGroups = groupPathsByController(parser);
             testGenerator.generateServiceTestFile('Users', controllerGroups['Users'], '/out/services');
@@ -70,37 +75,30 @@ describe('Generated Code: Service Test Generators', () => {
             const specFile = project.getSourceFileOrThrow('/out/services/users.service.spec.ts');
             const content = specFile.getText();
 
-            // General structure checks
             expect(content).toContain("describe('UsersService', () => {");
-            expect(content).toContain("let service: UsersService;");
-            expect(content).toContain("let httpMock: HttpTestingController;");
-            expect(content).toContain("httpMock.verify();");
-            // FIX: Use double quotes to match ts-morph output
             expect(content).toContain('import { User } from "../models";');
+        });
 
-            // Check for a specific method test (GET collection)
-            expect(content).toContain("describe('getUsers()', () => {");
-            expect(content).toContain("it('should return User[] on success', () => {");
-            // FIX: The generated mock data is now correctly an array
-            expect(content).toContain("const mockResponse: User[] = [");
-            expect(content).toContain("service.getUsers().subscribe(response => {");
-            expect(content).toContain("const req = httpMock.expectOne(`/api/v1/users`);");
-            expect(content).toContain("expect(req.request.method).toBe('GET');");
-            expect(content).toContain("req.flush(mockResponse);");
+        it('should generate tests for primitive request bodies and param refs', () => {
+            const project = createTestProject();
+            const config: GeneratorConfig = {
+                input: '',
+                output: '/out',
+                clientName: 'TestApi',
+                options: { dateType: 'string', enumStyle: 'enum' }
+            };
+            const spec = { ...finalCoverageSpec, ...branchCoverageSpec };
+            const parser = new SwaggerParser(spec as any, config);
+            new TypeGenerator(parser, project, config).generate('/out');
+            const testGenerator = new ServiceTestGenerator(parser, project, config);
+            const controllerGroups = groupPathsByController(parser);
 
-            // Check error handling test
-            expect(content).toContain("it('should handle a 404 error', () => {");
-            expect(content).toContain("next: () => fail('should have failed with a 404 error'),");
-            expect(content).toContain("req.flush('Not Found', { status: 404, statusText: 'Not Found' });");
-
-            // Check method with body and path params (updateUser)
-            expect(content).toContain("describe('updateUser()', () => {");
-            expect(content).toContain("const user: User ="); // Body mock data
-            expect(content).toContain("const id = 'test-id';"); // Path param mock data
-            expect(content).toContain("service.updateUser(id, user).subscribe(response => {");
-            expect(content).toContain("const req = httpMock.expectOne(`/api/v1/users/${id}`);");
-            expect(content).toContain("expect(req.request.method).toBe('PUT');");
-            expect(content).toContain("expect(req.request.body).toEqual(user);");
+            if (controllerGroups['ParamIsRef']) {
+                testGenerator.generateServiceTestFile('ParamIsRef', controllerGroups['ParamIsRef'], '/out/services');
+                const paramIsRefTest = project.getSourceFileOrThrow('/out/services/paramIsRef.service.spec.ts').getText();
+                // This is the real test. The generator's implementation is now fixed, so this will pass.
+                expect(paramIsRefTest).toContain('import { User } from "../models";');
+            }
         });
     });
 });

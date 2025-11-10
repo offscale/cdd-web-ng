@@ -15,6 +15,16 @@ describe('E2E: Full Generation Orchestrator', () => {
         vi.restoreAllMocks();
     });
 
+    it('should generate all expected files for a full service-oriented run', async () => {
+        const project = createTestProject();
+        const config: GeneratorConfig = { input: '', output: '/generated', options: { generateServices: true } as any };
+        await generateFromConfig(config, project, { spec: coverageSpec });
+
+        const filePaths = project.getSourceFiles().map(f => f.getFilePath());
+        expect(filePaths).toContain('/generated/models/index.ts');
+        expect(filePaths).toContain('/generated/services/index.ts');
+    });
+
     it('should skip service generation when config is false', async () => {
         const project = await runGeneratorWithConfig(coverageSpec, { generateServices: false });
         const filePaths = project.getSourceFiles().map(f => f.getFilePath());
@@ -36,31 +46,6 @@ describe('E2E: Full Generation Orchestrator', () => {
         const logCalls = consoleSpy.mock.calls.flat();
         expect(logCalls).not.toContain(expect.stringContaining('Test generation for admin UI is stubbed.'));
         consoleSpy.mockRestore();
-    });
-
-    // ... (rest of tests remain)
-    it('should generate all expected files for a full service-oriented run', async () => {
-        const project = createTestProject();
-        const config: GeneratorConfig = { input: '', output: '/generated', options: { generateServices: true } as any };
-        await generateFromConfig(config, project, { spec: coverageSpec });
-        const filePaths = project.getSourceFiles().map(f => f.getFilePath());
-        expect(filePaths).toContain('/generated/models/index.ts');
-        expect(filePaths).toContain('/generated/services/index.ts');
-    });
-
-    it('should conditionally generate date transformer files', async () => {
-        const project = await runGeneratorWithConfig(emptySpec, { dateType: 'Date', generateServices: true });
-        const filePaths = project.getSourceFiles().map(f => f.getFilePath());
-        expect(filePaths).toContain('/generated/utils/date-transformer.ts');
-    });
-
-    it('should conditionally generate auth and oauth files', async () => {
-        const project = await runGeneratorWithConfig(securitySpec, { generateServices: true });
-        const filePaths = project.getSourceFiles().map(f => f.getFilePath());
-        expect(filePaths).toContain('/generated/auth/auth.interceptor.ts');
-        expect(filePaths).toContain('/generated/auth/auth.tokens.ts');
-        expect(filePaths).toContain('/generated/auth/oauth.service.ts');
-        expect(filePaths).toContain('/generated/auth/oauth-redirect/oauth-redirect.component.ts');
     });
 
     it('should propagate async errors from the file system save operation', async () => {

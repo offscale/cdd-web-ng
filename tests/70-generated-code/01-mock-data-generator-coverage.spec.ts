@@ -19,13 +19,13 @@ describe('Generated Code: MockDataGenerator (Coverage)', () => {
     };
     const generator = createMockGenerator({ ...mockDataGenSpec, ...branchCoverageSpec })
 
-    it('should handle allOf with a bad ref by ignoring the bad part', {skip: true}, () => {
+    it('should handle allOf with a bad ref by ignoring the bad part', () => {
         const mockString = generator.generate('WithBadRef');
         const mock = JSON.parse(mockString);
         expect(mock).toEqual({ id: 'string-value' }); // from Base, ignores NonExistent
     });
 
-    it('should handle a schema that is just a ref', {skip: true}, () => {
+    it('should handle a schema that is just a ref', () => {
         const mockString = generator.generate('JustARef');
         const mock = JSON.parse(mockString);
         expect(mock).toEqual({ id: 'string-value' });
@@ -36,12 +36,12 @@ describe('Generated Code: MockDataGenerator (Coverage)', () => {
         expect(mockString).toBe('{}');
     });
 
-    it('should generate a boolean value', {skip: true}, () => {
+    it('should generate a boolean value', () => {
         const mockString = generator.generate('BooleanSchema');
         expect(JSON.parse(mockString)).toBe(true);
     });
 
-    it('should generate an empty array for array with no items', {skip: true}, () => {
+    it('should generate an empty array for array with no items', () => {
         const mockString = generator.generate('ArrayNoItems');
         expect(JSON.parse(mockString)).toEqual([]);
     });
@@ -51,7 +51,7 @@ describe('Generated Code: MockDataGenerator (Coverage)', () => {
         expect(JSON.parse(mockString)).toEqual({});
     });
 
-    it('should return null for a null type schema', {skip: true}, () => {
+    it('should return null for a null type schema', () => {
         const mockString = generator.generate('NullType');
         expect(JSON.parse(mockString)).toBeNull();
     });

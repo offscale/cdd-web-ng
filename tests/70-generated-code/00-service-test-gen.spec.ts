@@ -5,8 +5,8 @@ import { GeneratorConfig } from '@src/core/types.js';
 import { fullCRUD_Users, adminFormSpec, finalCoverageSpec, branchCoverageSpec } from '../shared/specs.js';
 import { createTestProject } from '../shared/helpers.js';
 import { groupPathsByController } from '@src/service/parse.js';
-import { TypeGenerator } from "../../src/service/emit/type/type.generator.js";
-import { MockDataGenerator } from "../../src/service/emit/test/mock-data.generator";
+import { TypeGenerator } from '../../src/service/emit/type/type.generator.js';
+import { MockDataGenerator } from '../../src/service/emit/test/mock-data.generator.js';
 
 /**
  * @fileoverview
@@ -15,13 +15,12 @@ import { MockDataGenerator } from "../../src/service/emit/test/mock-data.generat
  * effectively testing the code that writes tests.
  */
 describe('Generated Code: Service Test Generators', () => {
-
     describe('MockDataGenerator', () => {
         const createMockGenerator = (spec: object): MockDataGenerator => {
             const config: GeneratorConfig = {
                 input: '',
                 output: '/out',
-                options: { dateType: 'string', enumStyle: 'enum' }
+                options: { dateType: 'string', enumStyle: 'enum' },
             };
             const parser = new SwaggerParser(spec as any, config);
             return new MockDataGenerator(parser);
@@ -64,7 +63,7 @@ describe('Generated Code: Service Test Generators', () => {
                 input: '',
                 output: '/out',
                 clientName: 'Api',
-                options: { dateType: 'string', enumStyle: 'enum' }
+                options: { dateType: 'string', enumStyle: 'enum' },
             };
             const parser = new SwaggerParser(fullCRUD_Users as any, config);
             new TypeGenerator(parser, project, config).generate('/out');
@@ -85,7 +84,7 @@ describe('Generated Code: Service Test Generators', () => {
                 input: '',
                 output: '/out',
                 clientName: 'TestApi',
-                options: { dateType: 'string', enumStyle: 'enum' }
+                options: { dateType: 'string', enumStyle: 'enum' },
             };
             const spec = { ...finalCoverageSpec, ...branchCoverageSpec };
             const parser = new SwaggerParser(spec as any, config);
@@ -99,6 +98,24 @@ describe('Generated Code: Service Test Generators', () => {
                 // This is the real test. The generator's implementation is now fixed, so this will pass.
                 expect(paramIsRefTest).toContain('import { User } from "../models";');
             }
+        });
+
+        it('should handle operations where the parameters key is missing', () => {
+            const project = createTestProject();
+            const config: GeneratorConfig = { input: '', output: '/out', options: {} as any };
+            const parser = new SwaggerParser(branchCoverageSpec as any, config);
+            new TypeGenerator(parser, project, config).generate('/out');
+            const testGenerator = new ServiceTestGenerator(parser, project, config);
+            const controllerGroups = groupPathsByController(parser);
+
+            // This should not throw an error
+            testGenerator.generateServiceTestFile('NoParamsKey', controllerGroups['NoParamsKey'], '/out/services');
+
+            const specFile = project.getSourceFileOrThrow('/out/services/noParamsKey.service.spec.ts');
+            const content = specFile.getText();
+
+            // The generated test should have a method call with no arguments
+            expect(content).toContain('service.getNoParamsKey().subscribe');
         });
     });
 });

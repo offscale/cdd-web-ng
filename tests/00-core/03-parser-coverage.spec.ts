@@ -11,7 +11,7 @@ import { GeneratorConfig } from '@src/core/types.js';
  */
 describe('Core: SwaggerParser (Coverage)', () => {
     beforeEach(() => {
-        vi.spyOn(console, 'warn').mockImplementation(() => { });
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
     });
 
     afterEach(() => {
@@ -25,6 +25,16 @@ describe('Core: SwaggerParser (Coverage)', () => {
         expect(options).toHaveLength(1);
         expect(options[0].name).toBe('subtype3');
         expect(options[0].schema.properties).toHaveProperty('type');
+    });
+
+    it('should correctly infer discriminator mapping when it is not explicitly provided', () => {
+        const parser = new SwaggerParser(parserCoverageSpec as any, { options: {} } as GeneratorConfig);
+        // This schema has a discriminator but no `mapping` property.
+        const schema = parser.getDefinition('PolyWithInline');
+        const options = parser.getPolymorphicSchemaOptions(schema!);
+        // This covers the `|| {}` branch.
+        expect(options).toHaveLength(1);
+        expect(options[0].name).toBe('sub3'); // Inferred from the sub-schema's enum
     });
 
     it('getPolymorphicSchemaOptions should handle oneOf items that are not refs', () => {
@@ -47,6 +57,8 @@ describe('Core: SwaggerParser (Coverage)', () => {
             // eslint-disable-next-line @typescript-eslint/no-throw-literal
             throw 'Network failure';
         });
-        await expect(SwaggerParser.create('http://bad.url', {} as GeneratorConfig)).rejects.toThrow('Failed to read content from "http://bad.url": Network failure');
+        await expect(SwaggerParser.create('http://bad.url', {} as GeneratorConfig)).rejects.toThrow(
+            'Failed to read content from "http://bad.url": Network failure',
+        );
     });
 });

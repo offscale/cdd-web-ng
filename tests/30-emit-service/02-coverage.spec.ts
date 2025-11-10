@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { ServiceGenerator } from '@src/service/emit/service/service.generator.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from '@src/core/types.js';
-import { coverageSpecPart2 } from '../shared/specs.js';
+import { coverageSpecPart2, branchCoverageSpec } from '../shared/specs.js';
 import { groupPathsByController } from '@src/service/parse.js';
 import { createTestProject } from '../shared/helpers.js';
 
@@ -13,10 +13,13 @@ import { createTestProject } from '../shared/helpers.js';
  * primitive return types, ensuring correct method body generation and import handling.
  */
 describe('Emitter: Service Generators (Coverage)', () => {
-
     const run = (spec: object): Project => {
         const project = createTestProject();
-        const config: GeneratorConfig = { input: '', output: '/out', options: { dateType: 'string', enumStyle: 'enum' } };
+        const config: GeneratorConfig = {
+            input: '',
+            output: '/out',
+            options: { dateType: 'string', enumStyle: 'enum' },
+        };
         const parser = new SwaggerParser(spec as any, config);
         const serviceGen = new ServiceGenerator(parser, project, config);
         const controllerGroups = groupPathsByController(parser);
@@ -51,5 +54,31 @@ describe('Emitter: Service Generators (Coverage)', () => {
         // The import should exist (for RequestOptions), but it should not import any models beyond that.
         expect(modelImport).toBeDefined();
         expect(modelImport!.getNamedImports().map(i => i.getName())).toEqual(['RequestOptions']);
+    });
+
+    it('should handle request body without a schema', () => {
+        const project = run(branchCoverageSpec);
+        const serviceFile = project.getSourceFileOrThrow('/out/services/bodyNoSchema.service.ts');
+        const method = serviceFile.getClassOrThrow('BodyNoSchemaService').getMethodOrThrow('postBodyNoSchema');
+        const param = method.getParameters().find(p => p.getName() === 'body');
+        expect(param?.getType().getText()).toBe('unknown');
+    });
+
+    it('should handle operations with only required parameters', () => {
+        const project = run(branchCoverageSpec);
+        const serviceFile = project.getSourceFileOrThrow('/out/services/allRequired.service.ts');
+        const method = serviceFile.getClassOrThrow('AllRequiredService').getMethodOrThrow('getAllRequired');
+        const overloads = method.getOverloads();
+        // The 'options' parameter should NOT be optional in the overloads that require it
+        const responseOverload = overloads.find(o => o.getReturnType().getText().includes('HttpResponse'))!;
+        const optionsParam = responseOverload.getParameters().find(p => p.getName() === 'options')!;
+        expect(optionsParam.hasQuestionToken()).toBe(false);
+    });
+
+    it('should fall back to "any" for responseType when no success response is defined', () => {
+        const project = run(branchCoverageSpec);
+        const serviceFile = project.getSourceFileOrThrow('/out/services/noSuccessResponse.service.ts');
+        const method = serviceFile.getClassOrThrow('NoSuccessResponseService').getMethodOrThrow('getNoSuccess');
+        expect(method.getOverloads()[0].getReturnType().getText()).toBe('Observable<any>');
     });
 });

@@ -16,12 +16,13 @@ import { emptySpec, securitySpec } from '../shared/specs.js';
  * provider function based on various configurations (security, date types, custom interceptors).
  */
 describe('Emitter: ProviderGenerator', () => {
-
     const runGenerator = (spec: object, configOverrides: Partial<GeneratorConfig['options']> = {}) => {
         const project = new Project({ useInMemoryFileSystem: true });
         const config: GeneratorConfig = {
-            input: '', output: '/out', clientName: 'Test',
-            options: { generateServices: true, dateType: 'string', enumStyle: 'enum', ...configOverrides }
+            input: '',
+            output: '/out',
+            clientName: 'Test',
+            options: { generateServices: true, dateType: 'string', enumStyle: 'enum', ...configOverrides },
         };
         const parser = new SwaggerParser(spec as any, config);
 
@@ -33,6 +34,7 @@ describe('Emitter: ProviderGenerator', () => {
         }
 
         let tokenNames: string[] = [];
+        // FIX: Use the same logic as the orchestrator to correctly handle void return
         if (Object.keys(parser.getSecuritySchemes()).length > 0) {
             new AuthTokensGenerator(project).generate(config.output);
             const authInterceptorResult = new AuthInterceptorGenerator(parser, project).generate(config.output);
@@ -63,27 +65,37 @@ describe('Emitter: ProviderGenerator', () => {
         expect(fileContent).toContain('bearerToken?: string | (() => string)');
         expect(fileContent).toContain('if (config.apiKey)');
         expect(fileContent).toContain('if (config.bearerToken)');
-        expect(fileContent).toContain('providers.push({ provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true });');
+        expect(fileContent).toContain(
+            'providers.push({ provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true });',
+        );
     });
 
     it('should add DateInterceptor if dateType is "Date"', () => {
         const fileContent = runGenerator(emptySpec, { dateType: 'Date' });
         expect(fileContent).toContain('if (config.enableDateTransform !== false)');
-        expect(fileContent).toContain("customInterceptors.unshift(new DateInterceptor());");
+        expect(fileContent).toContain('customInterceptors.unshift(new DateInterceptor());');
     });
 
     it('should generate an empty custom interceptors array if none are provided', () => {
         const fileContent = runGenerator(emptySpec);
-        expect(fileContent).toContain('const customInterceptors = config.interceptors?.map(InterceptorClass => new InterceptorClass()) || [];');
+        expect(fileContent).toContain(
+            'const customInterceptors = config.interceptors?.map(InterceptorClass => new InterceptorClass()) || [];',
+        );
         expect(fileContent).toContain(`provide: HTTP_INTERCEPTORS_TEST, useValue: customInterceptors`);
     });
 
-    it('should not include apiKey provider when only bearer is present', () => {
-        const spec = { ...emptySpec, components: { securitySchemes: { Bearer: { type: 'http', scheme: 'bearer' } } } };
+    it('should not include token providers for unsupported security schemes (e.g., cookie)', () => {
+        const spec = {
+            ...emptySpec,
+            components: { securitySchemes: { Cookie: { type: 'apiKey', in: 'cookie', name: 'sid' } } },
+        };
         const fileContent = runGenerator(spec);
-        expect(fileContent).toContain('bearerToken?: string');
-        expect(fileContent).not.toContain('apiKey?: string');
-        expect(fileContent).toContain('if (config.bearerToken)');
-        expect(fileContent).not.toContain('if (config.apiKey)');
+
+        // FIX: With the corrected logic, the AuthInterceptor shouldn't be generated or provided at all.
+        expect(fileContent).not.toContain(
+            'providers.push({ provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true });',
+        );
+        expect(fileContent).not.toContain('API_KEY_TOKEN');
+        expect(fileContent).not.toContain('BEARER_TOKEN_TOKEN');
     });
 });

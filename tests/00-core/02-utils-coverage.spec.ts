@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import * as utils from '../../src/core/utils.js';
 import { GeneratorConfig, SwaggerDefinition } from '../../src/core/types.js';
-import { typeGenSpec } from '../shared/specs.js';
+import { branchCoverageSpec, typeGenSpec } from '../shared/specs.js';
 
 /**
  * @fileoverview
@@ -49,6 +49,22 @@ describe('Core: utils.ts (Coverage)', () => {
 
     it('extractPaths should handle undefined swaggerPaths', () => {
         expect(utils.extractPaths(undefined)).toEqual([]);
+    });
+
+    it('extractPaths should handle operations with no request body or body param', () => {
+        const paths = utils.extractPaths(branchCoverageSpec.paths);
+        const op = paths.find(p => p.operationId === 'getNoBody');
+        expect(op).toBeDefined();
+        // This covers the `... : undefined` branch for `requestBody`
+        expect(op!.requestBody).toBeUndefined();
+    });
+
+    it('extractPaths should handle responses with non-json content', () => {
+        const paths = utils.extractPaths(branchCoverageSpec.paths);
+        const op = paths.find(p => p.operationId === 'getNoBody');
+        expect(op).toBeDefined();
+        // The response should be normalized even if it's not JSON
+        expect(op!.responses!['200'].content!['text/plain'].schema).toEqual({ type: 'string' });
     });
 
     it('getTypeScriptType should handle array with no items', () => {

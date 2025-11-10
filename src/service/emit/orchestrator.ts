@@ -1,3 +1,5 @@
+// src/service/emit/orchestrator.ts
+
 import { Project } from 'ts-morph';
 import { posix as path } from 'path';
 import { groupPathsByController } from '../parse.js';
@@ -53,16 +55,16 @@ export async function emitClientLibrary(outputRoot: string, parser: SwaggerParse
 
         // Check for security schemes to determine if auth-related utilities are needed.
         const securitySchemes = parser.getSecuritySchemes();
-        let tokenNames: string[] = [];
+        let tokenNames: string[] = []; // Default to an empty array
         if (Object.keys(securitySchemes).length > 0) {
             new AuthTokensGenerator(project).generate(outputRoot);
 
             const interceptorGenerator = new AuthInterceptorGenerator(parser, project);
             // generate() returns the names of the tokens used (e.g., 'apiKey', 'bearerToken'),
             // which the ProviderGenerator needs to create the correct configuration interface.
-            // The generator is only called when schemes exist, so the result will always be defined.
-            const interceptorResult = interceptorGenerator.generate(outputRoot)!;
-            tokenNames = interceptorResult.tokenNames;
+            const interceptorResult = interceptorGenerator.generate(outputRoot);
+            // FIX: Ensure tokenNames is always an array, even if the interceptor isn't generated.
+            tokenNames = interceptorResult?.tokenNames || [];
 
             if (Object.values(securitySchemes).some(s => s.type === 'oauth2')) {
                 new OAuthHelperGenerator(parser, project).generate(outputRoot);

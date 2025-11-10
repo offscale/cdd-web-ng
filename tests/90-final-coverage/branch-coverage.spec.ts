@@ -1,10 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
-import { SwaggerParser } from "@src/core/parser.js";
-import { runGeneratorWithConfig } from "../shared/helpers.js";
-import { branchCoverageSpec, coverageSpec } from "../shared/specs.js";
+import { SwaggerParser } from '@src/core/parser.js';
+import { runGeneratorWithConfig } from '../shared/helpers.js';
+import { branchCoverageSpec, coverageSpec } from '../shared/specs.js';
 import { discoverAdminResources } from '@src/service/emit/admin/resource-discovery.js';
 import { ListComponentGenerator } from '@src/service/emit/admin/list-component.generator.js';
-import { FormComponentGenerator } from '@src/service/emit/admin/form-component.generator.js';
 import { createTestProject } from '../shared/helpers.js';
 import { AdminGenerator } from '@src/service/emit/admin/admin.generator.js';
 
@@ -14,6 +13,23 @@ import { AdminGenerator } from '@src/service/emit/admin/admin.generator.js';
  * gaps identified in the istanbul report, aiming for 100% in all categories.
  */
 describe('Final Branch Coverage Tests', () => {
+    it('resource-discovery should use "Default" for root path', () => {
+        const parser = new SwaggerParser(branchCoverageSpec as any, { options: { admin: true } } as any);
+        const resources = discoverAdminResources(parser);
+        // This hits the `?? 'default'` in getResourceName
+        const resource = resources.find(r => r.name === 'default');
+        expect(resource).toBeDefined();
+        expect(resource!.operations[0].operationId).toBe('getRoot');
+    });
+
+    it('resource-discovery getModelName should use fallback when no schema is present', () => {
+        const parser = new SwaggerParser(branchCoverageSpec as any, { options: { admin: true } } as any);
+        const resources = discoverAdminResources(parser);
+        const resource = resources.find(r => r.name === 'noSchemaResource');
+        expect(resource).toBeDefined();
+        // Hits the `return singular(pascalCase(resourceName));` fallback
+        expect(resource!.modelName).toBe('NoSchemaResource');
+    });
 
     it('resource-discovery should correctly classify complex custom action names', () => {
         const parser = new SwaggerParser(branchCoverageSpec as any, { options: { admin: true } } as any);
@@ -29,41 +45,51 @@ describe('Final Branch Coverage Tests', () => {
         const resource = discoverAdminResources(parser).find(r => r.name === 'readOnlyResource')!;
         const generator = new ListComponentGenerator(project);
         generator.generate(resource, '/admin');
-        const listClass = project.getSourceFileOrThrow('/admin/readOnlyResource/readOnlyResource-list/readOnlyResource-list.component.ts')
+        const listClass = project
+            .getSourceFileOrThrow('/admin/readOnlyResource/readOnlyResource-list/readOnlyResource-list.component.ts')
             .getClassOrThrow('ReadOnlyResourceListComponent');
         expect(listClass.getProperty('idProperty')?.getInitializer()?.getText()).toBe(`'id'`);
     });
 
     it('form-component-generator should not generate onSubmit if no create/update ops exist', async () => {
         const project = await runGeneratorWithConfig(branchCoverageSpec, { admin: true, generateServices: true });
-        const formFile = project.getSourceFile('/generated/admin/noCreateUpdate/noCreateUpdate-form/noCreateUpdate-form.component.ts');
+        const formFile = project.getSourceFile(
+            '/generated/admin/noCreateUpdate/noCreateUpdate-form/noCreateUpdate-form.component.ts',
+        );
         const onSubmitMethod = formFile?.getClass('NoCreateUpdateFormComponent')?.getMethod('onSubmit');
         expect(onSubmitMethod).toBeUndefined();
     });
 
     it('form-component-generator should handle ngOnInit for update-only forms without getById', async () => {
         const project = await runGeneratorWithConfig(branchCoverageSpec, { admin: true, generateServices: true });
-        const formFile = project.getSourceFileOrThrow('/generated/admin/updateOnlyNoGet/updateOnlyNoGet-form/updateOnlyNoGet-form.component.ts');
-        const ngOnInitBody = formFile.getClassOrThrow('UpdateOnlyNoGetFormComponent').getMethod('ngOnInit')?.getBodyText();
+        const formFile = project.getSourceFileOrThrow(
+            '/generated/admin/updateOnlyNoGet/updateOnlyNoGet-form/updateOnlyNoGet-form.component.ts',
+        );
+        const ngOnInitBody = formFile
+            .getClassOrThrow('UpdateOnlyNoGetFormComponent')
+            .getMethod('ngOnInit')
+            ?.getBodyText();
         expect(ngOnInitBody).not.toContain('subscribe(entity =>');
         expect(ngOnInitBody).toContain("this.id.set(id);");
     });
 
     it('html builders should handle readonly discriminator properties', async () => {
         const project = await runGeneratorWithConfig(branchCoverageSpec, { admin: true, generateServices: true });
-        const html = project.getFileSystem().readFileSync('/generated/admin/polyReadonlyDiscriminator/polyReadonlyDiscriminator-form/polyReadonlyDiscriminator-form.component.html');
+        const html = project
+            .getFileSystem()
+            .readFileSync(
+                '/generated/admin/polyReadonlyDiscriminator/polyReadonlyDiscriminator-form/polyReadonlyDiscriminator-form.component.html',
+            );
         expect(html).not.toContain('formControlName="petType"');
         expect(html).toContain('formControlName="name"');
     });
 
     it('orchestrator should call admin test generator when enabled', async () => {
-        // Spy directly on the AdminGenerator's generate method
         const generateSpy = vi.spyOn(AdminGenerator.prototype, 'generate');
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
         await runGeneratorWithConfig(coverageSpec, { admin: true, generateAdminTests: true });
 
-        // Assert that the generator was called and that the specific log message was printed
         expect(generateSpy).toHaveBeenCalled();
         expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Test generation for admin UI is stubbed.'));
 

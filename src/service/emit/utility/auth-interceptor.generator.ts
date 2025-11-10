@@ -15,21 +15,26 @@ export class AuthInterceptorGenerator {
      * @param parser The `SwaggerParser` instance for accessing spec details.
      * @param project The `ts-morph` project for AST manipulation.
      */
-    constructor(private parser: SwaggerParser, private project: Project) { }
+    constructor(private parser: SwaggerParser, private project: Project) {}
 
     /**
-     * Generates the auth interceptor file if any security schemes are defined in the spec.
-     * It analyzes the schemes to determine which tokens (API key, Bearer) are needed and
-     * generates the corresponding injection logic.
+     * Generates the auth interceptor file if any **supported** security schemes are defined in the spec.
+     * A scheme is supported if it's an `apiKey` in the header/query or an `http`/`oauth2` bearer token.
      *
      * @param outputDir The root output directory.
-     * @returns An object containing the names of the tokens used (e.g., `['apiKey', 'bearerToken']`),
-     *          or `void` if no security schemes are found and no file is generated.
+     * @returns An object containing the names of the tokens for supported schemes (e.g., `['apiKey', 'bearerToken']`),
+     *          or `void` if no supported security schemes are found and no file is generated.
      */
     public generate(outputDir: string): { tokenNames: string[] } | void {
         const securitySchemes = Object.values(this.parser.getSecuritySchemes());
-        if (securitySchemes.length === 0) {
-            return; // Don't generate if no security schemes are defined.
+
+        // FIX: Determine which types of authentication are SUPPORTED by this interceptor.
+        const hasSupportedApiKey = securitySchemes.some(s => s.type === 'apiKey' && (s.in === 'header' || s.in === 'query'));
+        const hasBearer = securitySchemes.some(s => (s.type === 'http' && s.scheme === 'bearer') || s.type === 'oauth2');
+
+        // If no supported schemes are found, do not generate the file at all.
+        if (!hasSupportedApiKey && !hasBearer) {
+            return;
         }
 
         const authDir = path.join(outputDir, 'auth');
@@ -38,13 +43,10 @@ export class AuthInterceptorGenerator {
 
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
-        const hasApiKey = securitySchemes.some(s => s.type === 'apiKey');
-        const hasBearer = securitySchemes.some(s => (s.type === 'http' && s.scheme === 'bearer') || s.type === 'oauth2');
-
         const tokenImports: string[] = [];
         const tokenNames: string[] = []; // This will be the return value
 
-        if (hasApiKey) {
+        if (hasSupportedApiKey) {
             tokenImports.push('API_KEY_TOKEN');
             tokenNames.push('apiKey');
         }
@@ -54,10 +56,13 @@ export class AuthInterceptorGenerator {
         }
 
         sourceFile.addImportDeclarations([
-            { moduleSpecifier: '@angular/common/http', namedImports: ['HttpEvent', 'HttpHandler', 'HttpInterceptor', 'HttpRequest'] },
+            {
+                moduleSpecifier: '@angular/common/http',
+                namedImports: ['HttpEvent', 'HttpHandler', 'HttpInterceptor', 'HttpRequest'],
+            },
             { moduleSpecifier: '@angular/core', namedImports: ['inject', 'Injectable'] },
             { moduleSpecifier: 'rxjs', namedImports: ['Observable'] },
-            { moduleSpecifier: './auth.tokens', namedImports: tokenImports }
+            { moduleSpecifier: './auth.tokens', namedImports: tokenImports },
         ]);
 
         const interceptorClass = sourceFile.addClass({
@@ -65,17 +70,28 @@ export class AuthInterceptorGenerator {
             isExported: true,
             decorators: [{ name: 'Injectable', arguments: [`{ providedIn: 'root' }`] }],
             implements: ['HttpInterceptor'],
-            docs: ["Intercepts HTTP requests to apply authentication credentials based on OpenAPI security schemes."]
+            docs: ['Intercepts HTTP requests to apply authentication credentials based on OpenAPI security schemes.'],
         });
 
-        if (hasApiKey) {
-            interceptorClass.addProperty({ name: 'apiKey', isReadonly: true, scope: Scope.Private, type: 'string | null', initializer: `inject(API_KEY_TOKEN, { optional: true })` });
+        if (hasSupportedApiKey) {
+            interceptorClass.addProperty({
+                name: 'apiKey',
+                isReadonly: true,
+                scope: Scope.Private,
+                type: 'string | null',
+                initializer: `inject(API_KEY_TOKEN, { optional: true })`,
+            });
         }
         if (hasBearer) {
-            interceptorClass.addProperty({ name: 'bearerToken', isReadonly: true, scope: Scope.Private, type: '(string | (() => string)) | null', initializer: `inject(BEARER_TOKEN_TOKEN, { optional: true })` });
+            interceptorClass.addProperty({
+                name: 'bearerToken',
+                isReadonly: true,
+                scope: Scope.Private,
+                type: '(string | (() => string)) | null',
+                initializer: `inject(BEARER_TOKEN_TOKEN, { optional: true })`,
+            });
         }
 
-        // FIX: The logic is refactored to chain clones correctly, preventing overwrites.
         let statementsBody = 'let authReq = req;';
 
         const uniqueSchemes = Array.from(new Set(securitySchemes.map(s => JSON.stringify(s)))).map(s => JSON.parse(s));
@@ -88,7 +104,6 @@ export class AuthInterceptorGenerator {
                     statementsBody += `\nif (this.apiKey) { authReq = authReq.clone({ setParams: { ...authReq.params.keys().reduce((acc, key) => ({ ...acc, [key]: authReq.params.getAll(key) }), {}), '${scheme.name}': this.apiKey } }); }`;
                 }
             } else if ((scheme.type === 'http' && scheme.scheme === 'bearer') || scheme.type === 'oauth2') {
-                // De-duplication check for bearer tokens
                 if (!statementsBody.includes('this.bearerToken')) {
                     statementsBody += `\nif (this.bearerToken) { const token = typeof this.bearerToken === 'function' ? this.bearerToken() : this.bearerToken; if (token) { authReq = authReq.clone({ setHeaders: { ...authReq.headers.keys().reduce((acc, key) => ({ ...acc, [key]: authReq.headers.getAll(key) }), {}), 'Authorization': \`Bearer \${token}\` } }); } }`;
                 }

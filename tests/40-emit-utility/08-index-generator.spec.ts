@@ -12,11 +12,14 @@ import { emptySpec, securitySpec } from '../shared/specs.js';
  * API of the generated library.
  */
 describe('Emitter: IndexGenerators', () => {
-
     describe('MainIndexGenerator', () => {
         const runGenerator = (spec: object, options: Partial<GeneratorConfig['options']>) => {
             const project = new Project({ useInMemoryFileSystem: true });
-            const config: GeneratorConfig = { input: '', output: '/out', options: { dateType: 'string', enumStyle: 'enum', ...options } };
+            const config: GeneratorConfig = {
+                input: '',
+                output: '/out',
+                options: { dateType: 'string', enumStyle: 'enum', ...options },
+            };
             const parser = new SwaggerParser(spec as any, config);
             new MainIndexGenerator(project, config, parser).generateMainIndex('/out');
             return project.getSourceFileOrThrow('/out/index.ts').getText();
@@ -65,30 +68,22 @@ describe('Emitter: IndexGenerators', () => {
             expect(file?.getExportDeclarations().length).toBe(0);
         });
 
-        it('should export all found services', () => {
+        it('should export all found services and ignore others', () => {
             const project = new Project({ useInMemoryFileSystem: true });
             const serviceDir = project.createDirectory('/out/services');
             serviceDir.createSourceFile('users.service.ts', 'export class UsersService {}');
             serviceDir.createSourceFile('products.service.ts', 'export class ProductsService {}');
+            serviceDir.createSourceFile('helpers.ts', 'export const helper = 1;'); // Not a service file
+            serviceDir.createSourceFile('internal.service.ts', 'class InternalService {}'); // Not exported
+            serviceDir.createSourceFile('empty.service.ts', ''); // Empty service file
 
             new ServiceIndexGenerator(project).generateIndex('/out');
             const content = project.getSourceFileOrThrow('/out/services/index.ts').getText();
             expect(content).toContain(`export { UsersService } from "./users.service";`);
             expect(content).toContain(`export { ProductsService } from "./products.service";`);
-        });
-
-        it('should ignore non-service files or files with non-exported classes', () => {
-            const project = new Project({ useInMemoryFileSystem: true });
-            const serviceDir = project.createDirectory('/out/services');
-            serviceDir.createSourceFile('users.service.ts', 'export class UsersService {}');
-            serviceDir.createSourceFile('helpers.ts', 'export const helper = 1;'); // Not a service file
-            serviceDir.createSourceFile('internal.service.ts', 'class InternalService {}'); // Not exported
-
-            new ServiceIndexGenerator(project).generateIndex('/out');
-            const content = project.getSourceFileOrThrow('/out/services/index.ts').getText();
-            expect(content).toContain(`export { UsersService } from "./users.service";`);
             expect(content).not.toContain(`helpers`);
             expect(content).not.toContain(`InternalService`);
+            expect(content).not.toContain(`empty.service`);
         });
     });
 });

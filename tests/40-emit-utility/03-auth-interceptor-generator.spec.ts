@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SwaggerParser } from '../../src/core/parser.js';
 import { AuthInterceptorGenerator } from '../../src/service/emit/utility/auth-interceptor.generator.js';
 import { createTestProject } from '../shared/helpers.js';
-import { emptySpec, securitySpec, providerCoverageSpec } from '../shared/specs.js';
+import { emptySpec, securitySpec, branchCoverageSpec } from '../shared/specs.js';
 import { GeneratorConfig } from '@src/core/types.js';
 
 /**
@@ -36,12 +36,11 @@ describe('Emitter: AuthInterceptorGenerator', () => {
         expect(tokenNames).toEqual(['apiKey', 'bearerToken']);
 
         // Two apiKey schemes (header, query) should generate two distinct logic blocks
-        expect(body).toContain("if (this.apiKey) { authReq = authReq.clone({ setParams");
-        expect(body).toContain("if (this.apiKey) { authReq = authReq.clone({ setHeaders");
+        expect(body).toContain('if (this.apiKey) { authReq = authReq.clone({ setParams');
+        expect(body).toContain('if (this.apiKey) { authReq = authReq.clone({ setHeaders');
 
         // Two bearer types (http, oauth2) should generate only ONE logic block
         expect(body).toContain("if (this.bearerToken) { const token");
-        // FIX: The logic was flawed. Now we check that only one bearer block exists.
         const bearerMatches = body.match(/if \(this.bearerToken\)/g);
         expect(bearerMatches).not.toBeNull();
         expect(bearerMatches!.length).toBe(1);
@@ -57,9 +56,29 @@ describe('Emitter: AuthInterceptorGenerator', () => {
                 },
             },
         });
-        const body = project.getSourceFileOrThrow('/out/auth/auth.interceptor.ts').getClassOrThrow('AuthInterceptor').getMethodOrThrow('intercept')!.getBodyText()!;
+        const body = project
+            .getSourceFileOrThrow('/out/auth/auth.interceptor.ts')
+            .getClassOrThrow('AuthInterceptor')
+            .getMethodOrThrow('intercept')!
+            .getBodyText()!;
         expect(tokenNames).toEqual(['bearerToken']);
         expect(body).toContain('if (this.bearerToken)');
         expect(body).not.toContain('if (this.apiKey)');
+    });
+
+    it('should ignore apiKey in cookie', () => {
+        // FIX: The correct behavior is for the generator to return `void`
+        // and not create the file, because the only scheme is unsupported.
+        const { tokenNames, project } = runGenerator({
+            ...emptySpec,
+            components: {
+                securitySchemes: {
+                    CookieAuth: { type: 'apiKey', in: 'cookie', name: 'session_id' },
+                },
+            },
+        });
+
+        expect(tokenNames).toBeUndefined();
+        expect(project.getSourceFile('/out/auth/auth.interceptor.ts')).toBeUndefined();
     });
 });

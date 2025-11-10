@@ -5,7 +5,7 @@ import { GeneratorConfig } from '@src/core/types.js';
 import { coverageSpec, emptySpec, securitySpec } from '../shared/specs.js';
 import { createTestProject, runGeneratorWithConfig } from '../shared/helpers.js';
 
-vi.mock('fs', async (importOriginal) => {
+vi.mock('fs', async importOriginal => {
     const original = await importOriginal<typeof import('fs')>();
     return { ...original, mkdirSync: vi.fn(), existsSync: vi.fn().mockReturnValue(true) };
 });
@@ -25,6 +25,20 @@ describe('E2E: Full Generation Orchestrator', () => {
         expect(filePaths).toContain('/generated/services/index.ts');
     });
 
+    it('should generate auth-related files when security spec is provided', async () => {
+        const project = createTestProject();
+        const config: GeneratorConfig = { input: '', output: '/generated', options: { generateServices: true } as any };
+        // Use the spec with security schemes
+        await generateFromConfig(config, project, { spec: securitySpec });
+
+        const filePaths = project.getSourceFiles().map(f => f.getFilePath());
+
+        // This covers the entire `if (Object.keys(securitySchemes).length > 0)` block in orchestrator.ts
+        expect(filePaths).toContain('/generated/auth/auth.interceptor.ts');
+        expect(filePaths).toContain('/generated/auth/auth.tokens.ts');
+        expect(filePaths).toContain('/generated/auth/oauth.service.ts'); // because oauth2 is in securitySpec
+    });
+
     it('should skip service generation when config is false', async () => {
         const project = await runGeneratorWithConfig(coverageSpec, { generateServices: false });
         const filePaths = project.getSourceFiles().map(f => f.getFilePath());
@@ -34,7 +48,10 @@ describe('E2E: Full Generation Orchestrator', () => {
     });
 
     it('should skip service test generation when config is false', async () => {
-        const project = await runGeneratorWithConfig(coverageSpec, { generateServices: true, generateServiceTests: false });
+        const project = await runGeneratorWithConfig(coverageSpec, {
+            generateServices: true,
+            generateServiceTests: false,
+        });
         const filePaths = project.getSourceFiles().map(f => f.getFilePath());
         expect(filePaths).toContain('/generated/services/users.service.ts');
         expect(filePaths).not.toContain('/generated/services/users.service.spec.ts');

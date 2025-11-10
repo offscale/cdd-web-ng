@@ -622,80 +622,166 @@ export const mockDataGenSpec = {
 };
 
 export const branchCoverageSpec = {
-    openapi: '3.0.0', info,
+    openapi: '3.0.0',
+    info,
     paths: {
+        // For resource-discovery: getResourceName fallback
+        '/': {
+            get: {
+                tags: ['Default'],
+                operationId: 'getRoot',
+            },
+        },
+        // For resource-discovery: getFormProperties & getModelName fallbacks
+        '/no-schema-resource/{id}': {
+            delete: {
+                tags: ['NoSchemaResource'],
+                parameters: [{ name: 'id', in: 'path', required: true }],
+            },
+        },
         '/multi/path/complex-action': {
             post: {
                 tags: ['MultiPath'],
                 operationId: 'multiPathComplexAction',
-                responses: { '200': {} }
-            }
+                responses: { '200': {} },
+            },
         },
         '/read-only-resource': {
             get: {
                 tags: ['ReadOnlyResource'],
                 operationId: 'getReadOnly',
-                responses: { '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/ReadOnlyResource' } } } } }
-            }
+                responses: {
+                    '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/ReadOnlyResource' } } } },
+                },
+            },
         },
         '/no-create-update/{id}': {
-            delete: { tags: ['NoCreateUpdate'], operationId: 'deleteNoCreateUpdate', parameters: [{name: 'id', in: 'path'}] }
+            delete: {
+                tags: ['NoCreateUpdate'],
+                operationId: 'deleteNoCreateUpdate',
+                parameters: [{ name: 'id', in: 'path' }],
+            },
         },
         '/update-only-no-get/{id}': {
             put: {
                 tags: ['UpdateOnlyNoGet'],
                 operationId: 'updateTheThing',
-                parameters: [{name: 'id', in: 'path'}],
-                requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/UpdateOnlyNoGet' } } } }
-            }
+                parameters: [{ name: 'id', in: 'path' }],
+                requestBody: {
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/UpdateOnlyNoGet' } } },
+                },
+            },
         },
         '/op-with-default-response': {
             get: {
                 tags: ['DefaultResponse'],
-                responses: { 'default': { content: { 'application/json': { schema: { $ref: '#/components/schemas/Base' } } } } }
-            }
+                responses: { default: { content: { 'application/json': { schema: { $ref: '#/components/schemas/Base' } } } } },
+            },
         },
         '/param-is-ref': {
             get: {
                 tags: ['ParamIsRef'],
-                parameters: [{ name: 'user', in: 'query', schema: { $ref: '#/components/schemas/User' }}]
-            }
+                parameters: [{ name: 'user', in: 'query', schema: { $ref: '#/components/schemas/User' } }],
+            },
         },
         '/collection-action': {
             post: {
                 tags: ['CollectionAction'],
                 operationId: 'triggerGlobalAction',
-                responses: {'200': {}}
-            }
+                responses: { '200': {} },
+            },
         },
         '/poly-readonly-discriminator': {
             post: {
                 tags: ['PolyReadonlyDiscriminator'],
-                requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/PolyReadonly' } } } }
-            }
-        }
+                requestBody: {
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/PolyReadonly' } } },
+                },
+            },
+        },
+        // For service-method-generator: only required params
+        '/all-required/{id}': {
+            get: {
+                tags: ['AllRequired'],
+                operationId: 'getAllRequired',
+                parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+            },
+        },
+        // For service-method-generator: requestBody without schema
+        '/body-no-schema': {
+            post: {
+                tags: ['BodyNoSchema'],
+                operationId: 'postBodyNoSchema',
+                requestBody: { content: { 'application/json': {} } },
+            },
+        },
+        // For service-generator/utils: non-json response & no body
+        '/no-body-at-all': {
+            get: {
+                tags: ['NoBody'],
+                operationId: 'getNoBody',
+                responses: { '200': { description: 'OK', content: { 'text/plain': { schema: { type: 'string' } } } } },
+            },
+        },
+        // For service-method-generator: GET with no 2xx response schema
+        '/no-success-response': {
+            get: {
+                tags: ['NoSuccessResponse'],
+                operationId: 'getNoSuccess',
+                responses: { '404': { description: 'not found' } },
+            },
+        },
+        // For service-test-generator: operation with parameters: undefined
+        '/no-params-key': {
+            get: {
+                tags: ['NoParamsKey'],
+                operationId: 'getNoParamsKey',
+                // The 'parameters' property is omitted intentionally
+            },
+        },
     },
     components: {
+        securitySchemes: {
+            // For auth-interceptor: apiKey in cookie (unsupported branch)
+            CookieAuth: { type: 'apiKey', in: 'cookie', name: 'session_id' },
+        },
         schemas: {
-            // For resource-discovery
-            ReadOnlyResource: { type: 'object', properties: { id: { type: 'string', readOnly: true }, name: { type: 'string', readOnly: true } } },
-            NoCreateUpdate: { type: 'object', properties: { id: {type: 'string'}}},
+            ReadOnlyResource: {
+                type: 'object',
+                properties: {
+                    id: { type: 'string', readOnly: true },
+                    name: { type: 'string', readOnly: true },
+                },
+            },
+            NoCreateUpdate: { type: 'object', properties: { id: { type: 'string' } } },
             UpdateOnlyNoGet: { type: 'object', properties: { name: { type: 'string' } } },
-            // For mocking circular refs and examples
             CircularA: { properties: { b: { $ref: '#/components/schemas/CircularB' } } },
             CircularB: { properties: { a: { $ref: '#/components/schemas/CircularA' } } },
             WithExample: { type: 'string', example: 'hello from example' },
-            // For service-test-generator
             User: { type: 'object', properties: { name: { type: 'string' } } },
-            Base: { type: 'object', properties: { id: { type: 'string' }}},
-            // For form-component-html.builder
+            Base: { type: 'object', properties: { id: { type: 'string' } } },
             PolyReadonly: {
                 type: 'object',
                 properties: { petType: { type: 'string', readOnly: true } },
                 oneOf: [{ $ref: '#/components/schemas/Cat' }],
-                discriminator: { propertyName: 'petType'}
+                discriminator: { propertyName: 'petType' },
             },
-            Cat: { type: 'object', properties: { name: { type: 'string' }, petType: { type: 'string', enum: ['cat']} }}
-        }
-    }
+            Cat: {
+                type: 'object',
+                properties: { name: { type: 'string' }, petType: { type: 'string', enum: ['cat'] } },
+            },
+            // For mock-data-generator coverage
+            OneOfNoType: {
+                oneOf: [{ type: 'string' }, { type: 'number' }],
+            },
+            TupleArray: {
+                type: 'array',
+                items: [{ type: 'string' }, { type: 'number' }],
+            },
+            NumberWithDefault: {
+                type: 'number',
+                default: 42,
+            },
+        },
+    },
 };

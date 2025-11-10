@@ -11,13 +11,16 @@ import { branchCoverageSpec, mockDataGenSpec } from '../shared/specs.js';
  * various primitive types that were not previously covered.
  */
 describe('Generated Code: MockDataGenerator (Coverage)', () => {
-
     const createMockGenerator = (spec: object): MockDataGenerator => {
-        const config: GeneratorConfig = { input: '', output: '/out', options: { dateType: 'string', enumStyle: 'enum' } };
+        const config: GeneratorConfig = {
+            input: '',
+            output: '/out',
+            options: { dateType: 'string', enumStyle: 'enum' },
+        };
         const parser = new SwaggerParser(spec as any, config);
         return new MockDataGenerator(parser);
     };
-    const generator = createMockGenerator({ ...mockDataGenSpec, ...branchCoverageSpec })
+    const generator = createMockGenerator({ ...mockDataGenSpec, ...branchCoverageSpec });
 
     it('should handle allOf with a bad ref by ignoring the bad part', () => {
         const mockString = generator.generate('WithBadRef');
@@ -66,5 +69,22 @@ describe('Generated Code: MockDataGenerator (Coverage)', () => {
         const mock = JSON.parse(mockString);
         // Traverses A -> B -> A (stops)
         expect(mock).toEqual({ b: { a: {} } });
+    });
+
+    it('should handle oneOf without an explicit type', () => {
+        const mockString = generator.generate('OneOfNoType');
+        // It should pick the first one, which is 'string'
+        expect(JSON.parse(mockString)).toBe('string-value');
+    });
+
+    it('should handle tuple arrays by returning an empty array', () => {
+        const mockString = generator.generate('TupleArray');
+        // The generator doesn't support tuples, so it should fall back to an empty array
+        expect(JSON.parse(mockString)).toEqual([]);
+    });
+
+    it('should use the default value for a number', () => {
+        const mockString = generator.generate('NumberWithDefault');
+        expect(JSON.parse(mockString)).toBe(42);
     });
 });

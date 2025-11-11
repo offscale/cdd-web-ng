@@ -11,6 +11,8 @@ import { DateTransformerGenerator } from '../../src/service/emit/utility/date-tr
 import { emptySpec, securitySpec } from '../shared/specs.js';
 
 describe('Emitter: ProviderGenerator', () => {
+    // This helper function is the key. It simulates the entire generation process
+    // for the provider file and its dependencies.
     const runGenerator = (spec: object, configOverrides: Partial<GeneratorConfig['options']> = {}) => {
         const project = new Project({ useInMemoryFileSystem: true });
         const config: GeneratorConfig = {
@@ -21,19 +23,24 @@ describe('Emitter: ProviderGenerator', () => {
         };
         const parser = new SwaggerParser(spec as any, config);
 
+        // Generate dependencies that the ProviderGenerator needs to import from.
         new TokenGenerator(project, config.clientName).generate(config.output);
         new BaseInterceptorGenerator(project, config.clientName).generate(config.output);
+
         if (config.options.dateType === 'Date') {
             new DateTransformerGenerator(project).generate(config.output);
         }
 
         let tokenNames: string[] = [];
+        // This logic mimics the orchestrator to decide if auth files are needed
+        // and to get the `tokenNames` which is crucial for the ProviderGenerator's constructor.
         if (Object.keys(parser.getSecuritySchemes()).length > 0) {
             new AuthTokensGenerator(project).generate(config.output);
             const authInterceptorResult = new AuthInterceptorGenerator(parser, project).generate(config.output);
             tokenNames = authInterceptorResult?.tokenNames || [];
         }
 
+        // The actual generator under test.
         new ProviderGenerator(parser, project, tokenNames).generate(config.output);
         return project.getSourceFile('/out/providers.ts')?.getText();
     };
@@ -45,14 +52,20 @@ describe('Emitter: ProviderGenerator', () => {
 
     it('should generate a basic provider without security or date transform', () => {
         const fileContent = runGenerator(emptySpec);
+        expect(fileContent).toBeDefined();
         expect(fileContent).toContain('export function provideTestClient(config: TestConfig)');
         expect(fileContent).toContain('export interface TestConfig');
+        // Check interface props
+        expect(fileContent).toContain('basePath: string');
         expect(fileContent).toContain('enableDateTransform?: boolean');
+        expect(fileContent).not.toContain('apiKey?: string');
+        expect(fileContent).not.toContain('bearerToken?:');
+        // Check provider logic
         expect(fileContent).not.toContain('AuthInterceptor');
         expect(fileContent).not.toContain('DateInterceptor');
     });
 
-    it('should add security providers if spec contains security schemes', () => {
+    it('should add providers for both API key and Bearer token when spec contains both', () => {
         const fileContent = runGenerator(securitySpec);
         expect(fileContent).toContain('apiKey?: string');
         expect(fileContent).toContain('bearerToken?: string | (() => string)');
@@ -61,6 +74,30 @@ describe('Emitter: ProviderGenerator', () => {
         expect(fileContent).toContain(
             'providers.push({ provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true });',
         );
+    });
+
+    it('should add providers for ONLY API key when spec contains only that', () => {
+        const apiKeySpec = { ...emptySpec, components: { securitySchemes: { ApiKeyAuth: {type: 'apiKey', in: 'header', name: 'X-API-KEY'} } } };
+        const fileContent = runGenerator(apiKeySpec);
+        // Check interface
+        expect(fileContent).toContain('apiKey?: string');
+        expect(fileContent).not.toContain('bearerToken?:');
+        // Check provider function
+        expect(fileContent).toContain('if (config.apiKey)');
+        expect(fileContent).not.toContain('if (config.bearerToken)');
+        expect(fileContent).toContain('AuthInterceptor'); // Auth interceptor is still needed
+    });
+
+    it('should add providers for ONLY Bearer token when spec contains only that', () => {
+        const bearerSpec = { ...emptySpec, components: { securitySchemes: { BearerAuth: {type: 'http', scheme: 'bearer'} } } };
+        const fileContent = runGenerator(bearerSpec);
+        // Check interface
+        expect(fileContent).not.toContain('apiKey?: string');
+        expect(fileContent).toContain('bearerToken?: string | (() => string)');
+        // Check provider function
+        expect(fileContent).not.toContain('if (config.apiKey)');
+        expect(fileContent).toContain('if (config.bearerToken)');
+        expect(fileContent).toContain('AuthInterceptor');
     });
 
     it('should add DateInterceptor if dateType is "Date"', () => {
@@ -79,7 +116,7 @@ describe('Emitter: ProviderGenerator', () => {
 
     it('should handle config.interceptors being an empty array', () => {
         // This covers the `?.map` chain where `interceptors` exists but is empty
-        const fileContent = runGenerator(emptySpec); // The logic is the same
+        const fileContent = runGenerator(emptySpec); // The logic is the same as the above test
         expect(fileContent).toContain('const customInterceptors = config.interceptors?.map');
     });
 
@@ -90,6 +127,7 @@ describe('Emitter: ProviderGenerator', () => {
         };
         const fileContent = runGenerator(spec);
 
+        // AuthInterceptorGenerator returns undefined, so ProviderGenerator gets an empty tokenNames array
         expect(fileContent).not.toContain(
             'providers.push({ provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true });',
         );

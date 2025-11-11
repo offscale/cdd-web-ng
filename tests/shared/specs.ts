@@ -9,7 +9,6 @@ const info = { title: 'Test API', version: '1.0.0' };
 
 export const emptySpec = { openapi: '3.0.0', info, paths: {} };
 
-// ... (fullCRUD_Users, coverageSpec, coverageSpecPart2 remain unchanged)
 export const fullCRUD_Users = {
     paths: {
         '/users': {

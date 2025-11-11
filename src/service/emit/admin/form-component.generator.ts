@@ -418,8 +418,10 @@ export class FormComponentGenerator {
         const arrayProps = resource.formProperties.filter(p => p.schema.type === 'array' && (p.schema.items as SwaggerDefinition)?.properties);
         const allComplexProps = [...arrayProps.map(p => p.name), ...(oneOfProp ? [oneOfProp.name] : [])];
         if (allComplexProps.length === 0) return;
+
         let body = `const { ${allComplexProps.join(', ')}, ...rest } = entity;\n`;
         body += 'this.form.patchValue(rest as any);\n\n';
+
         arrayProps.forEach(prop => {
             const arrayGetterName = `${camelCase(singular(prop.name))}Array`;
             const createItemMethodName = `create${pascalCase(singular(prop.name))}`;
@@ -428,16 +430,24 @@ export class FormComponentGenerator {
             body += `  entity.${prop.name}.forEach((item: any) => this.${arrayGetterName}.push(this.${createItemMethodName}(item)));\n`;
             body += `}\n`;
         });
+
         if (oneOfProp) {
             const dPropName = oneOfProp.schema.discriminator!.propertyName;
             body += `\nconst petType = (entity as any).${dPropName};\n`;
             body += `if (petType) {\n`;
             body += `  this.form.get(this.discriminatorPropName)?.setValue(petType, { emitEvent: true });\n`;
-            for (const subSchameRef of oneOfProp.schema.oneOf!) {
-                const subSchemaName = pascalCase(subSchameRef.$ref!.split('/').pop()!);
-                const typeName = this.parser.resolveReference(subSchameRef.$ref!)!.properties![dPropName].enum![0] as string;
-                body += `  if (this.is${subSchemaName}(entity)) {\n`;
-                body += `    (this.form.get('${typeName}') as FormGroup)?.patchValue(entity as any);\n  }\n`;
+            for (const subSchemaRef of oneOfProp.schema.oneOf!) {
+                // THE DEFINITIVE FIX: Guard against inline schemas that are not refs.
+                if (!subSchemaRef.$ref) {
+                    continue; // Skip primitives like { type: 'string' }
+                }
+                const subSchemaName = pascalCase(subSchemaRef.$ref.split('/').pop()!);
+                const subSchema = this.parser.resolveReference(subSchemaRef.$ref)!;
+                if (subSchema.properties && subSchema.properties[dPropName]?.enum) {
+                    const typeName = subSchema.properties[dPropName].enum![0] as string;
+                    body += `  if (this.is${subSchemaName}(entity)) {\n`;
+                    body += `    (this.form.get('${typeName}') as FormGroup)?.patchValue(entity as any);\n  }\n`;
+                }
             }
             body += `}\n`;
         }
@@ -452,18 +462,33 @@ export class FormComponentGenerator {
     private addPolymorphismLogic(classDeclaration: ClassDeclaration, prop: FormProperty, resource: Resource) {
         const dPropName = prop.schema.discriminator!.propertyName;
         const updateMethod = classDeclaration.addMethod({ name: 'updateFormForPetType', scope: Scope.Private, parameters: [{ name: 'type', type: 'string' }] });
-        let switchBody = `this.discriminatorOptions.forEach(opt => this.form.removeControl(opt as any));\n\nswitch(type) {\n`;
-        for (const subSchemaRef of prop.schema.oneOf!) {
-            const subSchema = this.parser.resolve(subSchemaRef);
-            if (!subSchema || !subSchema.properties) continue;
-            const typeName = subSchema.properties[dPropName].enum![0] as string;
-            const subFormProperties = Object.entries(subSchema.properties).filter(([key]) => key !== dPropName && !subSchema.properties![key].readOnly).map(([key, schema]) => `'${key}': ${this.getFormControlInitializerString(schema as SwaggerDefinition)}`).join(', ');
-            switchBody += `  case '${typeName}':\n`;
-            switchBody += `    this.form.addControl('${typeName}' as any, this.fb.group({ ${subFormProperties} }));\n`;
-            switchBody += '    break;\n';
+
+        // THE DEFINITIVE FIX: Check if any of the `oneOf` options are objects.
+        const oneOfHasObjects = prop.schema.oneOf!.some(s => this.parser.resolve(s)?.properties);
+
+        // If none of the `oneOf` options are objects (i.e., they are all primitives like string/number),
+        // generate an empty method body. Otherwise, generate the dynamic form logic.
+        if (oneOfHasObjects) {
+            let switchBody = `this.discriminatorOptions.forEach(opt => this.form.removeControl(opt as any));\n\nswitch(type) {\n`;
+            for (const subSchemaRef of prop.schema.oneOf!) {
+                const subSchema = this.parser.resolve(subSchemaRef);
+                // This check is now correct because we only enter this block if there ARE objects.
+                if (!subSchema || !subSchema.properties) continue;
+                const typeName = subSchema.properties[dPropName].enum![0] as string;
+                const subFormProperties = Object.entries(subSchema.properties).filter(([key]) => key !== dPropName && !subSchema.properties![key].readOnly).map(([key, schema]) => `'${key}': ${this.getFormControlInitializerString(schema as SwaggerDefinition)}`).join(', ');
+                switchBody += `  case '${typeName}':\n`;
+                switchBody += `    this.form.addControl('${typeName}' as any, this.fb.group({ ${subFormProperties} }));\n`;
+                switchBody += '    break;\n';
+            }
+            switchBody += '}';
+            updateMethod.setBodyText(switchBody);
+        } else {
+            // This is the branch that will be hit for the failing test.
+            // We generate the method, but its body is empty because there are no sub-forms to manage.
+            updateMethod.setBodyText(`// No sub-forms to add for primitive oneOf types`);
         }
-        switchBody += '}';
-        updateMethod.setBodyText(switchBody);
+
+        // The rest of this method is correct.
         classDeclaration.addMethod({ name: 'isPetType', parameters: [{ name: 'type', type: 'string' }], returnType: 'boolean', statements: `return this.form.get(this.discriminatorPropName)?.value === type;` });
         for (const subSchemaRef of prop.schema.oneOf!) {
             if (!subSchemaRef.$ref) continue;

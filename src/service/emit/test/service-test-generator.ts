@@ -1,3 +1,5 @@
+// src/service/emit/test/service-test-generator.ts
+
 import * as path from 'path';
 import { Project, SourceFile } from 'ts-morph';
 import { SwaggerParser } from '../../../core/parser.js';
@@ -64,13 +66,13 @@ export class ServiceTestGenerator {
 
     private generateMethodTests(operations: PathInfo[]): string[] {
         const tests: string[] = [];
-        const knownTypes = this.parser.schemas.map(s => s.name);
+        const knownTypes = this.parser.schemas.map(s => s.name); // FIX 3: Correct scoping
 
         for (const op of operations) {
             if (!op.methodName) continue;
-            const { responseModel, responseType, bodyModel } = this.getMethodTypes(op);
+            const { responseModel, responseType, bodyModel, isPrimitiveBody } = this.getMethodTypes(op); // FIX 2.1: Get isPrimitiveBody
 
-            // Correctly determine param type and generate mock data if it's a model
+            // FIX 1: Add null check before map
             const params = (op.parameters ?? []).map(p => {
                 const name = camelCase(p.name);
                 const type = getTypeScriptType(p.schema, this.config, knownTypes);
@@ -85,13 +87,23 @@ export class ServiceTestGenerator {
                 return { name, value, type, modelName };
             });
 
-            const bodyParam = op.requestBody?.content?.['application/json'] ? { name: bodyModel ? camelCase(bodyModel) : 'body', model: bodyModel } : null;
+            // FIX 2.2: Use isPrimitiveBody
+            const bodyParam = op.requestBody?.content?.['application/json']
+                ? { name: isPrimitiveBody ? 'body' : (bodyModel ? camelCase(bodyModel) : 'body'), model: bodyModel, isPrimitive: isPrimitiveBody }
+                : null;
+
             const allArgs = [...params.map(p => p.name), ...(bodyParam ? [bodyParam.name] : [])];
 
             const declareParams = (): string[] => {
                 const lines: string[] = [];
-                if (bodyParam?.model) lines.push(`      const ${bodyParam.name}: ${bodyParam.model} = ${this.mockDataGenerator.generate(bodyParam.model)};`);
-                else if (bodyParam) lines.push(`      const ${bodyParam.name} = { data: 'test-body' };`);
+                // FIX 2.3: Re-add correct logic for primitive body
+                if (bodyParam?.model) {
+                    lines.push(`      const ${bodyParam.name}: ${bodyParam.model} = ${this.mockDataGenerator.generate(bodyParam.model)};`);
+                } else if (bodyParam?.isPrimitive) {
+                    lines.push(`      const ${bodyParam.name} = 'test-body';`);
+                } else if (bodyParam) {
+                    lines.push(`      const ${bodyParam.name} = { data: 'test-body' };`);
+                }
 
                 params.forEach(p => {
                     if (p.modelName) {
@@ -151,7 +163,8 @@ export class ServiceTestGenerator {
         });
     }
 
-    private getMethodTypes(op: PathInfo): { responseModel?: string, responseType: string, bodyModel?: string } {
+    // FIX 2.4: Ensure getMethodTypes includes isPrimitiveBody logic and return type
+    private getMethodTypes(op: PathInfo): { responseModel?: string; responseType: string; bodyModel?: string; isPrimitiveBody: boolean } {
         const knownTypes = this.parser.schemas.map(s => s.name);
         const successResponseSchema = op.responses?.['200']?.content?.['application/json']?.schema;
         const responseType = successResponseSchema ? getTypeScriptType(successResponseSchema, this.config, knownTypes) : 'any';
@@ -159,11 +172,13 @@ export class ServiceTestGenerator {
         const responseModel = isDataTypeInterface(responseModelType) ? responseModelType : undefined;
 
         const requestBodySchema = op.requestBody?.content?.['application/json']?.schema;
+        const resolvedBodySchema = this.parser.resolve(requestBodySchema);
         const bodyType = requestBodySchema ? getTypeScriptType(requestBodySchema, this.config, knownTypes) : 'any';
         const bodyModelType = bodyType.replace(/\[\]| \| null/g, '');
         const bodyModel = isDataTypeInterface(bodyModelType) ? bodyModelType : undefined;
+        const isPrimitiveBody = !!resolvedBodySchema && !resolvedBodySchema.properties && ['string', 'number', 'boolean'].includes(resolvedBodySchema.type as string);
 
-        return { responseModel, responseType, bodyModel };
+        return { responseModel, responseType, bodyModel, isPrimitiveBody };
     }
 
     private collectModelImports(operations: PathInfo[]): Set<string> {

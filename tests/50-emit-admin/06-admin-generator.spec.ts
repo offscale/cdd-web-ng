@@ -12,7 +12,7 @@ describe('Admin: AdminGenerator (Orchestrator)', () => {
     it('should call specialist generators for each suitable resource', async () => {
         const project = createTestProject();
         const parser = new SwaggerParser(coverageSpec as any, { options: { admin: true } } as any);
-        const adminGen = new AdminGenerator(parser, project, { options: {} } as any);
+        const adminGen = new AdminGenerator(parser, project);
 
         await adminGen.generate('/out');
 
@@ -33,7 +33,7 @@ describe('Admin: AdminGenerator (Orchestrator)', () => {
     it('should generate a master routing file', async () => {
         const project = createTestProject();
         const parser = new SwaggerParser(coverageSpec as any, { options: { admin: true } } as any);
-        const adminGen = new AdminGenerator(parser, project, { options: {} } as any);
+        const adminGen = new AdminGenerator(parser, project);
 
         await adminGen.generate('/out');
         expect(project.getSourceFile('/out/admin/admin.routes.ts')).toBeDefined();
@@ -42,7 +42,7 @@ describe('Admin: AdminGenerator (Orchestrator)', () => {
     it('should NOT generate custom validators file if not needed', async () => {
         const project = createTestProject();
         const parser = new SwaggerParser(coverageSpec as any, { options: { admin: true } } as any);
-        const adminGen = new AdminGenerator(parser, project, { options: {} } as any);
+        const adminGen = new AdminGenerator(parser, project);
 
         const validatorSpy = vi.spyOn(CustomValidatorsGenerator.prototype, 'generate');
         await adminGen.generate('/out');
@@ -54,7 +54,7 @@ describe('Admin: AdminGenerator (Orchestrator)', () => {
         const project = createTestProject();
         // adminFormSpec uses exclusiveMinimum, which requires the custom validator
         const parser = new SwaggerParser(adminFormSpec as any, { options: { admin: true } } as any);
-        const adminGen = new AdminGenerator(parser, project, { options: {} } as any);
+        const adminGen = new AdminGenerator(parser, project);
 
         const validatorSpy = vi.spyOn(CustomValidatorsGenerator.prototype, 'generate');
         await adminGen.generate('/out');
@@ -68,7 +68,7 @@ describe('Admin: AdminGenerator (Orchestrator)', () => {
 
         const project = createTestProject();
         const parser = new SwaggerParser({} as any, { options: {} } as any);
-        const adminGen = new AdminGenerator(parser, project, { options: {} } as any);
+        const adminGen = new AdminGenerator(parser, project);
 
         await adminGen.generate('/out');
         expect(consoleWarnSpy).toHaveBeenCalledWith("⚠️ No resources suitable for admin UI generation were found. Skipping.");

@@ -742,6 +742,19 @@ export const branchCoverageSpec = {
                 responses: { '200': {} },
             },
         },
+        '/inline-schema-property': {
+            get: {
+                tags: ['InlineSchemaProperty'],
+                operationId: 'getInlineSchemaProperty',
+                responses: {
+                    '200': {
+                        content: {
+                            'application/json': { schema: { $ref: '#/components/schemas/InlineSchemaProperty' } },
+                        },
+                    },
+                },
+            },
+        },
     },
     components: {
         securitySchemes: {
@@ -788,6 +801,17 @@ export const branchCoverageSpec = {
             // For mock data coverage of `allOf` with primitives
             AllOfWithPrimitive: {
                 allOf: [{ type: 'string' }],
+            },
+            InlineSchemaProperty: {
+                type: 'object',
+                properties: {
+                    inline: {
+                        type: 'object',
+                        properties: {
+                            prop: { type: 'string' },
+                        },
+                    },
+                },
             },
         },
     },

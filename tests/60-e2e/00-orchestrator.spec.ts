@@ -28,15 +28,58 @@ describe('E2E: Full Generation Orchestrator', () => {
     it('should generate auth-related files when security spec is provided', async () => {
         const project = createTestProject();
         const config: GeneratorConfig = { input: '', output: '/generated', options: { generateServices: true } as any };
-        // Use the spec with security schemes
         await generateFromConfig(config, project, { spec: securitySpec });
 
         const filePaths = project.getSourceFiles().map(f => f.getFilePath());
-
-        // This covers the entire `if (Object.keys(securitySchemes).length > 0)` block in orchestrator.ts
         expect(filePaths).toContain('/generated/auth/auth.interceptor.ts');
         expect(filePaths).toContain('/generated/auth/auth.tokens.ts');
-        expect(filePaths).toContain('/generated/auth/oauth.service.ts'); // because oauth2 is in securitySpec
+        expect(filePaths).toContain('/generated/auth/oauth.service.ts');
+    });
+
+    it('should handle specs with only unsupported security schemes', async () => {
+        const project = createTestProject();
+        const config: GeneratorConfig = { input: '', output: '/generated', options: { generateServices: true } as any };
+        const unsupportedSecuritySpec = {
+            openapi: '3.0.0', info: { title: 'Test API', version: '1.0.0' }, paths: {},
+            components: {
+                securitySchemes: {
+                    CookieAuth: { type: 'apiKey', in: 'cookie', name: 'session_id' },
+                },
+            },
+        };
+
+        await generateFromConfig(config, project, { spec: unsupportedSecuritySpec });
+
+        const filePaths = project.getSourceFiles().map(f => f.getFilePath());
+        expect(filePaths).toContain('/generated/auth/auth.tokens.ts');
+        expect(filePaths).not.toContain('/generated/auth/auth.interceptor.ts');
+        expect(filePaths).not.toContain('/generated/auth/oauth.service.ts');
+        expect(filePaths).toContain('/generated/providers.ts');
+        const providerContent = project.getSourceFileOrThrow('/generated/providers.ts').getText();
+        expect(providerContent).not.toContain('apiKey');
+        expect(providerContent).not.toContain('bearerToken');
+    });
+
+    it('should default to generating services and tests when options are absent', async () => {
+        const project = await runGeneratorWithConfig(coverageSpec, {});
+        const filePaths = project.getSourceFiles().map(f => f.getFilePath());
+
+        expect(filePaths).toContain('/generated/services/users.service.ts');
+        expect(filePaths).toContain('/generated/services/users.service.spec.ts');
+    });
+
+    it('should default to generating admin tests when admin option is present but test option is absent', async () => {
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+        await runGeneratorWithConfig(coverageSpec, { admin: true });
+
+        const logCalls = consoleSpy.mock.calls.flat();
+
+        // ** THE FIX **: Use the correct assertion syntax for checking array contents.
+        expect(logCalls).toEqual(expect.arrayContaining(['🚀 Generating Admin UI...']));
+        expect(logCalls).toEqual(expect.arrayContaining([expect.stringContaining('Test generation for admin UI is stubbed.')]));
+
+        consoleSpy.mockRestore();
     });
 
     it('should skip service generation when config is false', async () => {
@@ -61,7 +104,11 @@ describe('E2E: Full Generation Orchestrator', () => {
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
         await runGeneratorWithConfig(coverageSpec, { admin: true, generateAdminTests: false });
         const logCalls = consoleSpy.mock.calls.flat();
-        expect(logCalls).not.toContain(expect.stringContaining('Test generation for admin UI is stubbed.'));
+
+        // ** THE FIX **: Use a robust check for the absence of a substring.
+        const hasAdminTestLog = logCalls.some(log => log.includes('Test generation for admin UI is stubbed.'));
+        expect(hasAdminTestLog).toBe(false);
+
         consoleSpy.mockRestore();
     });
 

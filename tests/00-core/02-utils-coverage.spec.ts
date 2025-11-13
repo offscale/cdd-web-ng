@@ -55,8 +55,13 @@ describe('Core: utils.ts (Coverage)', () => {
             expect(utils.getTypeScriptType(schema, config, [])).toBe('any');
         });
 
-        it('should return "any" for default switch case', () => {
-            const schema: SwaggerDefinition = { type: 'null' };
+        it('should return "any" for default switch case with unknown type', () => {
+            const schema: SwaggerDefinition = { type: 'unknown' as any };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('any');
+        });
+
+        it('should return "any" for default switch case with array type', () => {
+            const schema: SwaggerDefinition = { type: ['string', 'null'] };
             expect(utils.getTypeScriptType(schema, config, [])).toBe('any');
         });
 

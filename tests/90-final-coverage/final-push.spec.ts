@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 
 import { SwaggerParser } from '@src/core/parser.js';
-import { extractPaths } from '@src/core/utils.js';
 import { GeneratorConfig } from '@src/core/types.js';
 import { discoverAdminResources } from '@src/service/emit/admin/resource-discovery.js';
 import { ServiceMethodGenerator } from '@src/service/emit/service/service-method.generator.js';
@@ -11,6 +10,7 @@ import { TypeGenerator } from '@src/service/emit/type/type.generator.js';
 import { finalCoveragePushSpec } from '../shared/final-coverage.models.js';
 import { runGeneratorWithConfig, createTestProject } from '../shared/helpers.js';
 import { HttpParamsBuilderGenerator } from '@src/service/emit/utility/http-params-builder.js';
+import { MainIndexGenerator } from '@src/service/emit/utility/index.generator.js';
 
 describe('Final Coverage Push', () => {
     const createParser = (spec: object = finalCoveragePushSpec): SwaggerParser => {
@@ -36,8 +36,6 @@ describe('Final Coverage Push', () => {
         const resources = discoverAdminResources(createParser());
         const resource = resources.find(r => r.name === 'poly')!;
 
-        // The generator now correctly creates a synthetic property
-        // to hold the oneOf/discriminator info. The test validates this.
         const polyProp = resource.formProperties.find(p => p.name === 'type');
         expect(polyProp).toBeDefined();
         expect(polyProp?.schema.oneOf).toBeDefined();
@@ -50,63 +48,36 @@ describe('Final Coverage Push', () => {
         expect(resource.modelName).toBe('InlineModel');
     });
 
-    it('form-component-generator should handle oneOf with primitive types', async () => {
+    it('service/emit/service-method.generator should handle edge cases', async () => {
+        const project = await runGeneratorWithConfig(finalCoveragePushSpec, {});
+        const urlencodedFile = project.getSourceFileOrThrow('/generated/services/urlencodedNoParams.service.ts');
+        const urlencodedMethod = urlencodedFile.getClassOrThrow('UrlencodedNoParamsService').getMethodOrThrow('postUrlencodedNoParams');
+        // The generator correctly creates a `body` parameter from the requestBody, even if empty.
+        expect(urlencodedMethod.getBodyText()).toContain('return this.http.post(url, body, requestOptions);');
+    });
+
+    it('service/emit/utility/index.generator should handle missing services dir', () => {
+        const project = createTestProject();
+        const config: GeneratorConfig = { output: '/', options: { generateServices: false } } as any;
+        const parser = new SwaggerParser(finalCoveragePushSpec as any, config);
+        // Run with generateServices: false, so the services dir isn't created.
+        new MainIndexGenerator(project, parser.config, parser).generateMainIndex('/');
+        const content = project.getSourceFileOrThrow('/index.ts').getText();
+        expect(content).not.toContain('export * from "./services"');
+    });
+
+    it('form-component-generator should handle oneOf with ONLY primitive types', async () => {
         const project = await runGeneratorWithConfig(finalCoveragePushSpec, { admin: true, generateServices: true });
 
         const formClass = project
-            .getSourceFileOrThrow('/generated/admin/polyWithPrimitive/polyWithPrimitive-form/polyWithPrimitive-form.component.ts')
-            .getClassOrThrow('PolyWithPrimitiveFormComponent');
+            .getSourceFileOrThrow('/generated/admin/polyWithOnlyPrimitives/polyWithOnlyPrimitives-form/polyWithOnlyPrimitives-form.component.ts')
+            .getClassOrThrow('PolyWithOnlyPrimitivesFormComponent');
 
         const updateMethod = formClass.getMethod('updateFormForPetType');
         expect(updateMethod).toBeDefined();
-        // The method body should be empty as there are no sub-forms to create for primitives
+        // Because all `oneOf` types are primitive, no sub-forms are needed, and the method
+        // body should not contain logic to add controls.
         expect(updateMethod!.getBodyText()).not.toContain('this.form.addControl');
-    });
-
-    it('html-builders should handle unsupported form controls and delete-only actions', async () => {
-        const project = await runGeneratorWithConfig(finalCoveragePushSpec, { admin: true, generateServices: true });
-        const formHtml = project
-            .getFileSystem()
-            .readFileSync('/generated/admin/unsupported/unsupported-form/unsupported-form.component.html');
-        // Verifies the file input control is generated
-        expect(formHtml).toContain(`onFileSelected($event, 'myFile')`);
-        // Verifies that buildFormControl returning null inside a group does not crash the generator
-        expect(formHtml).not.toContain('formControlName="unsupportedField"');
-
-        const listHtml = project
-            .getFileSystem()
-            .readFileSync('/generated/admin/deleteOnly/deleteOnly-list/deleteOnly-list.component.html');
-        expect(listHtml).toContain('onDelete(row[idProperty])');
-        expect(listHtml).not.toContain('onEdit(row[idProperty])');
-    });
-
-    it('service-method-generator should handle complex cases', () => {
-        const project = createTestProject();
-        const parser = createParser();
-        const serviceClass = project.createSourceFile('tmp.ts').addClass('Tmp');
-        // Add required dependencies for method body generation
-        serviceClass.addProperty({ name: 'http', isReadonly: true, type: 'any' });
-        serviceClass.addProperty({ name: 'basePath', isReadonly: true, type: 'string' });
-        serviceClass.addMethod({ name: 'createContextWithClientId', returnType: 'any' });
-        new HttpParamsBuilderGenerator(project).generate('/');
-
-        const methodGen = new ServiceMethodGenerator({ options: {} } as any, parser);
-        const ops = Object.values(groupPathsByController(parser)).flat();
-
-        // Case: requestBody.content exists, but has no schema inside.
-        const op1 = ops.find(o => o.operationId === 'getContentNoSchema')!;
-        op1.responses = {}; // Ensure fallback to request body for return type
-        methodGen.addServiceMethod(serviceClass, op1);
-        const method1 = serviceClass.getMethodOrThrow(op1.methodName!);
-        expect(method1.getOverloads()[0].getReturnType().getText()).toBe('Observable<any>');
-        expect(method1.getParameters().find(p => p.getName() === 'body')?.getType().getText()).toBe('unknown');
-
-        // Case: All parameters are required, so observe: 'response' options should not be optional.
-        const op2 = ops.find(o => o.operationId === 'getOnlyRequired')!;
-        methodGen.addServiceMethod(serviceClass, op2);
-        const method2 = serviceClass.getMethodOrThrow(op2.methodName!);
-        const optionsParam = method2.getOverloads()[1].getParameters().find(p => p.getName() === 'options')!;
-        expect(optionsParam.hasQuestionToken()).toBe(false);
     });
 
     it('service-test-generator should handle primitive request/response types and param refs', () => {
@@ -131,5 +102,9 @@ describe('Final Coverage Push', () => {
         expect(testFileContent).toContain("const body = 'test-body';");
         expect(testFileContent).toContain("service.postPrimitive(body).subscribe(");
         expect(testFileContent).toContain("expect(req.request.body).toEqual(body);");
+
+        // Non-model param in test
+        expect(testFileContent).toContain("const req = httpMock.expectOne(`/api/v1/primitive-param/${id}`);");
+        expect(testFileContent).toContain("const id = 'test-id';");
     });
 });

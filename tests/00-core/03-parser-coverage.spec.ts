@@ -20,9 +20,7 @@ describe('Core: SwaggerParser (Coverage)', () => {
 
     it('getPolymorphicSchemaOptions should return empty array for non-polymorphic schema', () => {
         const parser = new SwaggerParser({} as any, { options: {} } as GeneratorConfig);
-        // Case 1: No oneOf or discriminator
         expect(parser.getPolymorphicSchemaOptions({ type: 'object' })).toEqual([]);
-        // Case 2: Has discriminator but no oneOf
         expect(parser.getPolymorphicSchemaOptions({ discriminator: { propertyName: 'type' } })).toEqual([]);
     });
 
@@ -43,6 +41,7 @@ describe('Core: SwaggerParser (Coverage)', () => {
                 schemas: {
                     ...parserCoverageSpec.components.schemas,
                     BadMap: {
+                        oneOf: [],
                         discriminator: {
                             propertyName: 'type',
                             mapping: { 'bad': '#/non/existent' }
@@ -59,12 +58,10 @@ describe('Core: SwaggerParser (Coverage)', () => {
 
     it('should correctly infer discriminator mapping when it is not explicitly provided', () => {
         const parser = new SwaggerParser(parserCoverageSpec as any, { options: {} } as GeneratorConfig);
-        // This schema has a discriminator but no `mapping` property.
         const schema = parser.getDefinition('PolyWithInline');
         const options = parser.getPolymorphicSchemaOptions(schema!);
-        // This covers the `|| {}` branch.
         expect(options).toHaveLength(1);
-        expect(options[0].name).toBe('sub3'); // Inferred from the sub-schema's enum
+        expect(options[0].name).toBe('sub3');
     });
 
     it('getPolymorphicSchemaOptions should handle oneOf items that are not refs', () => {
@@ -84,7 +81,6 @@ describe('Core: SwaggerParser (Coverage)', () => {
 
     it('loadContent should handle non-Error exceptions from fetch', async () => {
         global.fetch = vi.fn().mockImplementation(() => {
-            // eslint-disable-next-line @typescript-eslint/no-throw-literal
             throw 'Network failure';
         });
         await expect(SwaggerParser.create('http://bad.url', {} as GeneratorConfig)).rejects.toThrow(

@@ -53,6 +53,14 @@ export const finalCoveragePushSpec = {
                 responses: { '200': {} },
             },
         },
+        '/primitive-param/{id}': {
+            get: {
+                tags: ['ServiceTests'],
+                operationId: 'getWithPrimitiveParam',
+                parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+                responses: { '200': {} }
+            }
+        },
         '/delete-only': {
             get: {
                 tags: ['DeleteOnly'],
@@ -113,6 +121,23 @@ export const finalCoveragePushSpec = {
                 responses: { '200': {} }
             },
         },
+        '/form-urlencoded-no-params': {
+            post: {
+                tags: ['UrlencodedNoParams'],
+                operationId: 'postUrlencodedNoParams',
+                consumes: ['application/x-www-form-urlencoded'],
+                requestBody: { content: { 'application/x-www-form-urlencoded': {} } }
+            }
+        },
+        '/poly-with-only-primitives': {
+            post: {
+                tags: ['PolyWithOnlyPrimitives'],
+                operationId: 'postPolyWithOnlyPrimitives',
+                requestBody: {
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/PolyWithOnlyPrimitives' }}}
+                }
+            }
+        }
     },
     components: {
         schemas: {
@@ -124,7 +149,6 @@ export const finalCoveragePushSpec = {
                 }
             },
             DeleteOnly: { type: 'object', properties: { id: { type: 'string' } } },
-            NumberPlain: { type: 'number' },
             PolyNoProp: {
                 oneOf: [{ $ref: '#/components/schemas/Sub' }],
                 discriminator: { propertyName: 'type' },
@@ -135,11 +159,16 @@ export const finalCoveragePushSpec = {
                     type: { type: 'string', enum: ['sub'] },
                     name: { type: 'string' },
                 },
+                required: ['type']
             },
             PolyWithPrimitive: {
-                oneOf: [{ type: 'string' }, { type: 'number' }],
+                oneOf: [{ type: 'string' }, { $ref: '#/components/schemas/Sub' }],
                 discriminator: { propertyName: 'type' },
             },
+            PolyWithOnlyPrimitives: {
+                oneOf: [{ type: 'string' }, { type: 'number' }],
+                discriminator: { propertyName: 'type' }
+            }
         },
     },
 };

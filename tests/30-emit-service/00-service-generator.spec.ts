@@ -5,7 +5,7 @@ import { Project, Scope } from 'ts-morph';
 import { ServiceGenerator } from '@src/service/emit/service/service.generator.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from '@src/core/types.js';
-import { coverageSpec, fullCRUD_Users } from '../shared/specs.js';
+import { coverageSpec, fullCRUD_Users, branchCoverageSpec } from '../shared/specs.js';
 import { groupPathsByController } from '@src/service/parse.js';
 import { TypeGenerator } from '@src/service/emit/type/type.generator.js';
 import { TokenGenerator } from '@src/service/emit/utility/token.generator.js';
@@ -58,12 +58,23 @@ describe('Emitter: ServiceGenerator', () => {
 
     it('should use a custom method name when provided in config', () => {
         const project = createTestEnvironment(coverageSpec, {
-            // FIX: The operationId contains dashes which need to be replaced.
             customizeMethodName: (opId) => `custom_${opId.replace(/-/g, '_')}`
         });
         const serviceFile = project.getSourceFileOrThrow('/out/services/customName.service.ts');
         const serviceClass = serviceFile.getClassOrThrow('CustomNameService');
         expect(serviceClass.getMethod('custom_get_custom_name')).toBeDefined();
+    });
+
+    it('should fall back to path-based name if customizer exists but op has no ID', () => {
+        const project = createTestEnvironment(branchCoverageSpec, {
+            customizeMethodName: (opId) => `custom_${opId}`
+        });
+        // The tag was changed to 'NoOperationId' which creates 'noOperationId.service.ts'
+        const serviceFile = project.getSourceFileOrThrow('/out/services/noOperationId.service.ts');
+        // The generator should ignore the customizer and create a name from the path.
+        // head /no-operation-id -> headNoOperationId
+        const serviceClass = serviceFile.getClassOrThrow('NoOperationIdService');
+        expect(serviceClass.getMethod('headNoOperationId')).toBeDefined();
     });
 
     it('should de-duplicate method names from conflicting operationIds', () => {

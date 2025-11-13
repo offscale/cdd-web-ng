@@ -450,7 +450,6 @@ export const finalCoverageSpec = {
                 tags: ['PrimitiveBody'],
                 operationId: 'primitiveBody',
                 requestBody: {
-                    // FIX: Changed from text/plain to application/json to hit the correct logic branch
                     content: {
                         'application/json': {
                             schema: { type: 'string' }
@@ -732,6 +731,13 @@ export const branchCoverageSpec = {
                 tags: ['NoParamsKey'],
                 operationId: 'getNoParamsKey',
             },
+        },
+        // For service generator fallback test
+        '/no-operation-id': {
+            head: {
+                tags: ['NoOperationId'],
+                responses: { '200': {} }
+            }
         },
         // For final resource-discovery coverage (custom collection action classification)
         '/widgets/add-item': {

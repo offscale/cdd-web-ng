@@ -25,6 +25,12 @@ describe('E2E: Full Generation Orchestrator', () => {
         expect(filePaths).toContain('/generated/services/index.ts');
     });
 
+    it('should generate date transformer when dateType is Date', async () => {
+        const project = await runGeneratorWithConfig(coverageSpec, { dateType: 'Date' });
+        const filePaths = project.getSourceFiles().map(f => f.getFilePath());
+        expect(filePaths).toContain('/generated/utils/date-transformer.ts');
+    });
+
     it('should generate auth-related files when security spec is provided', async () => {
         const project = createTestProject();
         const config: GeneratorConfig = { input: '', output: '/generated', options: { generateServices: true } as any };

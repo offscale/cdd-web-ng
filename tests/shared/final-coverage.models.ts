@@ -23,18 +23,12 @@ export const finalCoveragePushSpec = {
                 responses: { '200': { content: { 'application/json': { schema: { $ref: 'external.json#/User' } } } } },
             },
         },
-        '/swagger2-no-schema': {
-            get: {
-                tags: ['Utils'],
-                operationId: 'swagger2NoSchema',
-                responses: { '200': { description: 'An old-style response without a schema key.' } },
-            },
-        },
         '/content-no-schema': {
-            get: {
+            post: {
                 tags: ['ServiceMethods'],
                 operationId: 'getContentNoSchema',
-                responses: { '200': { content: { 'application/json': {} } } },
+                requestBody: { content: { 'application/json': {} } }, // Body exists but has no schema property inside
+                responses: { '200': {} },
             },
         },
         '/only-required-params/{id}': {
@@ -56,20 +50,21 @@ export const finalCoveragePushSpec = {
                 tags: ['ServiceTests'],
                 operationId: 'postPrimitive',
                 requestBody: { content: { 'application/json': { schema: { type: 'string' } } } },
+                responses: { '200': {} },
             },
         },
-        '/delete-only': { // FIX: Path changed from '/delete-only/{id}' to '/delete-only' for the GET
+        '/delete-only': {
             get: {
                 tags: ['DeleteOnly'],
-                operationId: 'getDeleteOnlyList', // Renamed for clarity
+                operationId: 'getDeleteOnlyList',
                 responses: { '200': { content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/DeleteOnly' } } } } } },
             },
         },
-        '/delete-only/{id}': { // This path now only contains DELETE
+        '/delete-only/{id}': {
             delete: {
                 tags: ['DeleteOnly'],
                 operationId: 'deleteTheItem',
-                parameters: [{ name: 'id', in: 'path', required: true }],
+                parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
                 responses: { '204': {} },
             },
         },
@@ -78,14 +73,14 @@ export const finalCoveragePushSpec = {
                 tags: ['Unsupported'],
                 operationId: 'postUnsupportedControl',
                 requestBody: {
-                    content: { 'application/json': { schema: { $ref: '#/components/schemas/WithFile' } } },
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/WithUnsupported' } } },
                 },
                 responses: {'200': {}}
             },
         },
         '/poly-no-prop': {
             post: {
-                tags: ['Poly'], // This remains as the 'Poly' resource
+                tags: ['Poly'],
                 operationId: 'postPolyNoProp',
                 requestBody: {
                     content: { 'application/json': { schema: { $ref: '#/components/schemas/PolyNoProp' } } },
@@ -121,9 +116,14 @@ export const finalCoveragePushSpec = {
     },
     components: {
         schemas: {
-            WithFile: { type: 'object', properties: { myFile: { type: 'string', format: 'binary' } } },
+            WithUnsupported: {
+                type: 'object',
+                properties: {
+                    myFile: { type: 'string', format: 'binary' },
+                    unsupportedField: { type: 'object' } // An object with no properties is not a valid form control
+                }
+            },
             DeleteOnly: { type: 'object', properties: { id: { type: 'string' } } },
-            BooleanWithFalseDefault: { type: 'boolean', default: false },
             NumberPlain: { type: 'number' },
             PolyNoProp: {
                 oneOf: [{ $ref: '#/components/schemas/Sub' }],

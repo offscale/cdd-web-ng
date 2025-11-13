@@ -51,9 +51,13 @@ describe('E2E: Full Generation Orchestrator', () => {
         await generateFromConfig(config, project, { spec: unsupportedSecuritySpec });
 
         const filePaths = project.getSourceFiles().map(f => f.getFilePath());
+        // The tokens file is always generated if any security schemes exist.
         expect(filePaths).toContain('/generated/auth/auth.tokens.ts');
+        // The interceptor is NOT generated because 'cookie' is unsupported.
         expect(filePaths).not.toContain('/generated/auth/auth.interceptor.ts');
+        // The OAuth helper is NOT generated.
         expect(filePaths).not.toContain('/generated/auth/oauth.service.ts');
+        // The provider should be generated but without any auth-related logic.
         expect(filePaths).toContain('/generated/providers.ts');
         const providerContent = project.getSourceFileOrThrow('/generated/providers.ts').getText();
         expect(providerContent).not.toContain('apiKey');
@@ -75,7 +79,6 @@ describe('E2E: Full Generation Orchestrator', () => {
 
         const logCalls = consoleSpy.mock.calls.flat();
 
-        // ** THE FIX **: Use the correct assertion syntax for checking array contents.
         expect(logCalls).toEqual(expect.arrayContaining(['🚀 Generating Admin UI...']));
         expect(logCalls).toEqual(expect.arrayContaining([expect.stringContaining('Test generation for admin UI is stubbed.')]));
 
@@ -105,7 +108,6 @@ describe('E2E: Full Generation Orchestrator', () => {
         await runGeneratorWithConfig(coverageSpec, { admin: true, generateAdminTests: false });
         const logCalls = consoleSpy.mock.calls.flat();
 
-        // ** THE FIX **: Use a robust check for the absence of a substring.
         const hasAdminTestLog = logCalls.some(log => log.includes('Test generation for admin UI is stubbed.'));
         expect(hasAdminTestLog).toBe(false);
 

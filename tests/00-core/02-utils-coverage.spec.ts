@@ -50,6 +50,16 @@ describe('Core: utils.ts (Coverage)', () => {
             expect(utils.getTypeScriptType(null, config, [])).toBe('any');
         });
 
+        it('should return "any" for file type', () => {
+            const schema: SwaggerDefinition = { type: 'file' };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('any');
+        });
+
+        it('should return "any" for default switch case', () => {
+            const schema: SwaggerDefinition = { type: 'null' };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('any');
+        });
+
         it('should handle $ref ending in a slash resulting in an empty pop', () => {
             const schema: SwaggerDefinition = { $ref: '#/definitions/users/' };
             expect(utils.getTypeScriptType(schema, config, ['User'])).toBe('any');
@@ -137,6 +147,18 @@ describe('Core: utils.ts (Coverage)', () => {
                 'application/json': { schema: { type: 'string' } },
             });
             expect(pathInfo.responses?.['200'].description).toBe('A successful response');
+        });
+
+        it('should handle swagger 2.0 response without a schema', () => {
+            const swaggerPaths = {
+                '/test': {
+                    get: {
+                        responses: { '200': { description: 'ok' } }
+                    }
+                }
+            };
+            const [pathInfo] = utils.extractPaths(swaggerPaths as any);
+            expect(pathInfo.responses!['200'].content).toBeUndefined();
         });
 
         it('should handle responses with non-json content', () => {

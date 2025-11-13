@@ -64,7 +64,7 @@ export function generateListComponentHtml(resource: Resource, idProperty: string
     const table = _.create('table').setAttribute('mat-table', '').setAttribute('[dataSource]', 'dataSource');
 
     // --- Column Definitions ---
-    const listableProps = resource.listProperties || [];
+    const listableProps = resource.listProperties;
     const columnNames = [...new Set([idProperty, ...listableProps.map(p => p.name)])].filter(Boolean);
 
     for (const colName of columnNames) {

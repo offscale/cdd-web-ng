@@ -89,6 +89,9 @@ describe('Admin: ListComponentGenerator', () => {
         });
 
         it('should generate an "id" column when a resource has no properties at all', () => {
+            const listClass = localProject.getSourceFileOrThrow('/admin/noPropsResource/noPropsResource-list/noPropsResource-list.component.ts').getClassOrThrow('NoPropsResourceListComponent');
+            const idProp = listClass.getPropertyOrThrow('idProperty').getInitializer()!.getText();
+            expect(idProp).toBe(`'id'`); // Covers the `allProps.length === 0` case
             const html = localProject.getFileSystem().readFileSync('/admin/noPropsResource/noPropsResource-list/noPropsResource-list.component.html');
             expect(html).toContain('<ng-container matColumnDef="id">');
         });

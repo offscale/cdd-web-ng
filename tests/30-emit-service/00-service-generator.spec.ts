@@ -91,6 +91,17 @@ describe('Emitter: ServiceGenerator', () => {
         expect(namedImports).toEqual(['RequestOptions']);
     });
 
+    it('should not add primitive parameter types to model imports', () => {
+        const project = createTestEnvironment(coverageSpec);
+        const serviceFile = project.getSourceFileOrThrow('/out/services/users.service.ts');
+        const importDecl = serviceFile.getImportDeclaration('../models')!;
+        const namedImports = importDecl.getNamedImports().map(i => i.getName());
+        // The `/users/{id}` path parameter is a string, so 'string' should not be imported.
+        // It should still import `User` for other methods in that service.
+        expect(namedImports).not.toContain('string');
+        expect(namedImports).toContain('User');
+    });
+
     it('should generate a correct create-context method', () => {
         const project = createTestEnvironment(coverageSpec);
         const serviceClass = project.getSourceFileOrThrow('/out/services/users.service.ts').getClassOrThrow('UsersService');

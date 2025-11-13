@@ -77,9 +77,7 @@ export class ProviderGenerator {
             const tokenImports: string[] = [];
             if (this.hasApiKey) tokenImports.push("API_KEY_TOKEN");
             if (this.hasBearer) tokenImports.push("BEARER_TOKEN_TOKEN");
-            if (tokenImports.length > 0) {
-                sourceFile.addImportDeclaration({ namedImports: tokenImports, moduleSpecifier: "./auth/auth.tokens" });
-            }
+            sourceFile.addImportDeclaration({ namedImports: tokenImports, moduleSpecifier: "./auth/auth.tokens" });
         }
     }
 

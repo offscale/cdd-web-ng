@@ -18,6 +18,14 @@ describe('Core: SwaggerParser (Coverage)', () => {
         vi.restoreAllMocks();
     });
 
+    it('getPolymorphicSchemaOptions should return empty array for non-polymorphic schema', () => {
+        const parser = new SwaggerParser({} as any, { options: {} } as GeneratorConfig);
+        // Case 1: No oneOf or discriminator
+        expect(parser.getPolymorphicSchemaOptions({ type: 'object' })).toEqual([]);
+        // Case 2: Has discriminator but no oneOf
+        expect(parser.getPolymorphicSchemaOptions({ discriminator: { propertyName: 'type' } })).toEqual([]);
+    });
+
     it('should correctly use explicit discriminator mapping', () => {
         const parser = new SwaggerParser(parserCoverageSpec as any, { options: {} } as GeneratorConfig);
         const schema = parser.getDefinition('WithMapping');
@@ -25,6 +33,28 @@ describe('Core: SwaggerParser (Coverage)', () => {
         expect(options).toHaveLength(1);
         expect(options[0].name).toBe('subtype3');
         expect(options[0].schema.properties).toHaveProperty('type');
+    });
+
+    it('should filter out unresolvable schemas from discriminator mapping', () => {
+        const specWithBadMapping = {
+            ...parserCoverageSpec,
+            components: {
+                ...parserCoverageSpec.components,
+                schemas: {
+                    ...parserCoverageSpec.components.schemas,
+                    BadMap: {
+                        discriminator: {
+                            propertyName: 'type',
+                            mapping: { 'bad': '#/non/existent' }
+                        }
+                    }
+                }
+            }
+        };
+        const parser = new SwaggerParser(specWithBadMapping as any, { options: {} } as GeneratorConfig);
+        const schema = parser.getDefinition('BadMap');
+        const options = parser.getPolymorphicSchemaOptions(schema!);
+        expect(options).toEqual([]);
     });
 
     it('should correctly infer discriminator mapping when it is not explicitly provided', () => {

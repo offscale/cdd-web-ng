@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as utils from '../../src/core/utils.js';
-import { GeneratorConfig } from '../../src/core/types.js';
+import { GeneratorConfig, SwaggerDefinition } from '../../src/core/types.js';
 import { MethodDeclaration } from 'ts-morph';
 
 describe('Core: utils.ts', () => {
@@ -42,10 +42,9 @@ describe('Core: utils.ts', () => {
     });
 
     describe('Type Resolution', () => {
-        it('should return "Record<string, any>" for object without properties', () => {
-            const schema = { type: 'object' };
-            const type = utils.getTypeScriptType(schema as any, config);
-            expect(type).toBe('Record<string, any>');
+        it('should return `Record<string, any>` for an object schema with no properties', () => {
+            const schema: SwaggerDefinition = { type: 'object' };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('Record<string, any>');
         });
 
         it('should return "any" for unknown schema types', () => {

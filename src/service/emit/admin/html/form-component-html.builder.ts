@@ -64,6 +64,26 @@ export function generateFormComponentHtml(resource: Resource, parser: SwaggerPar
             const typeName = option.name; // e.g., 'cat' or 'dog'
             const subSchema = option.schema;
 
+            // ====================================================================
+            // THE FIX: Create a helper function to recursively merge properties from `allOf`.
+            // This ensures inherited properties (like `name` from `BasePet`) are included.
+            // ====================================================================
+            const getAllProperties = (schema: SwaggerDefinition): Record<string, SwaggerDefinition> => {
+                let allProperties: Record<string, SwaggerDefinition> = { ...schema.properties };
+                if (schema.allOf) {
+                    for (const sub of schema.allOf) {
+                        const resolvedSub = parser.resolve<SwaggerDefinition>(sub);
+                        if (resolvedSub) {
+                            const subProps = getAllProperties(resolvedSub); // Recurse
+                            // Merge base properties first, so subtype properties take precedence
+                            allProperties = { ...subProps, ...allProperties };
+                        }
+                    }
+                }
+                return allProperties;
+            };
+
+
             // Create a container that will be controlled by an Angular `@if` block.
             // This relies on the `isPetType(type: string)` method existing in the component class.
             const ifContainer = _.create('div');
@@ -71,9 +91,12 @@ export function generateFormComponentHtml(resource: Resource, parser: SwaggerPar
             // Create the sub-form container with the `formGroupName` directive.
             const formGroupContainer = _.create('div').setAttribute('formGroupName', typeName);
 
+            // Use the helper to get all properties, including inherited ones.
+            const allSubSchemaProperties = getAllProperties(subSchema);
+
             // Generate controls for all properties of this specific subtype.
             // It is crucial to filter out the discriminator property itself to avoid rendering it twice.
-            Object.entries(subSchema.properties!)
+            Object.entries(allSubSchemaProperties)
                 .filter(([key, schema]) => key !== dPropName && !schema.readOnly)
                 .forEach(([key, schema]) => {
                     const control = buildFormControl({ name: key, schema: schema as SwaggerDefinition });
@@ -106,9 +129,9 @@ export function generateFormComponentHtml(resource: Resource, parser: SwaggerPar
         .setAttribute('[disabled]', 'form.invalid || form.pristine');
 
     // Dynamically change the save button's text based on whether we are creating or editing.
-    const saveButtonContent = `\n@if (isEditMode()) {
+    const saveButtonContent = `\n@if (isEditMode()) { 
   <span>Save Changes</span>
-} @else {
+} @else { 
   <span>Create ${resource.modelName}</span>
 }\n`;
     saveButton.setInnerHtml(saveButtonContent);

@@ -1,3 +1,4 @@
+// src/service/emit/utility/index.generator.ts
 import { Project, SourceFile } from "ts-morph";
 import * as path from "node:path";
 import { GeneratorConfig } from '../../../core/types.js';
@@ -103,11 +104,11 @@ export class ServiceIndexGenerator {
 
         for (const serviceFile of serviceFiles) {
             const serviceClass = serviceFile.getClasses()[0];
-            if (serviceClass && serviceClass.isExported()) {
-                const className = serviceClass.getName();
+            const className = serviceClass?.getName();
+            if (serviceClass && serviceClass.isExported() && className) {
                 const moduleSpecifier = `./${path.basename(serviceFile.getFilePath(), '.ts')}`;
                 sourceFile.addExportDeclaration({
-                    namedExports: [className!],
+                    namedExports: [className],
                     moduleSpecifier,
                 });
             }

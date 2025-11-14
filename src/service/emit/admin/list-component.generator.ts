@@ -307,9 +307,8 @@ this.subscriptions.push(sub);`;
         if (allProps.some(p => p.name === 'id')) {
             return 'id';
         }
-        if (allProps.length === 0) {
-            return 'id';
-        }
+        // `resource.formProperties` is guaranteed by the discovery phase
+        // to have at least one property (falling back to a default 'id').
         return allProps[0].name;
     }
 

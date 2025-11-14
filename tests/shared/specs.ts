@@ -396,7 +396,7 @@ export const polymorphismSpec = {
         schemas: {
             Pet: {
                 type: 'object', required: ['petType'],
-                oneOf: [{ $ref: '#/components/schemas/Cat' }, { $ref: '#/components/schemas/Dog' }],
+                oneOf: [{ $ref: '#/components/schemas/Cat' }, { $ref: '#/components/schemas/Dog' }, { $ref: '#/components/schemas/Lizard' }],
                 discriminator: { propertyName: 'petType' },
                 properties: {
                     petType: { type: 'string' }
@@ -418,7 +418,16 @@ export const polymorphismSpec = {
                 required: ['petType'],
                 properties: { petType: { type: 'string', enum: ['dog'] }, barkingLevel: { type: 'integer' } }
             },
-            BasePet: { type: 'object', properties: { name: { type: 'string' } } }
+            BasePet: { type: 'object', properties: { name: { type: 'string' } } },
+            Lizard: {
+                type: 'object',
+                allOf: [{ $ref: '#/components/schemas/BasePet' }],
+                required: ['petType'],
+                properties: {
+                    petType: { type: 'string', enum: ['lizard'] },
+                    unsupportedField: { type: 'object' } // This will not generate a control
+                }
+            }
         }
     }
 };
@@ -502,7 +511,14 @@ export const finalCoverageSpec = {
                 operationId: 'getOAS2NoSchema',
                 responses: { '200': { description: 'Success' } }
             }
-        }
+        },
+        '/patch-resource/{id}': {
+            patch: {
+                tags: ['PatchResource'],
+                parameters: [{ name: 'id', in: 'path' }],
+                requestBody: { content: { 'application/json': { schema: { type: 'object' } } } }
+            }
+        },
     },
     components: {
         schemas: {

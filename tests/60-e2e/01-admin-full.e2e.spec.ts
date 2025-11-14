@@ -77,6 +77,11 @@ describe('E2E: Admin UI Generation', () => {
             expect(html).toContain("@if (isPetType('dog'))");
             expect(html).toContain('formGroupName="dog"');
             expect(html).toContain('formControlName="barkingLevel"');
+
+            expect(html).toContain("@if (isPetType('lizard'))");
+            expect(html).toContain('formGroupName="lizard"');
+            expect(html).toContain('formControlName="name"'); // from BasePet
+            expect(html).not.toContain('formControlName="unsupportedField"');
         });
     });
 });

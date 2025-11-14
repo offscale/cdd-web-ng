@@ -1,3 +1,4 @@
+// src/service/emit/utility/auth-interceptor.generator.ts
 import * as path from 'path';
 import { Project, Scope } from 'ts-morph';
 import { SwaggerParser } from '../../../core/parser.js';
@@ -93,6 +94,7 @@ export class AuthInterceptorGenerator {
         }
 
         let statementsBody = 'let authReq = req;';
+        let bearerLogicAdded = false;
 
         const uniqueSchemes = Array.from(new Set(securitySchemes.map(s => JSON.stringify(s)))).map(s => JSON.parse(s));
 
@@ -104,8 +106,9 @@ export class AuthInterceptorGenerator {
                     statementsBody += `\nif (this.apiKey) { authReq = authReq.clone({ setParams: { ...authReq.params.keys().reduce((acc, key) => ({ ...acc, [key]: authReq.params.getAll(key) }), {}), '${scheme.name}': this.apiKey } }); }`;
                 }
             } else if ((scheme.type === 'http' && scheme.scheme === 'bearer') || scheme.type === 'oauth2') {
-                if (!statementsBody.includes('this.bearerToken')) {
+                if (!bearerLogicAdded) {
                     statementsBody += `\nif (this.bearerToken) { const token = typeof this.bearerToken === 'function' ? this.bearerToken() : this.bearerToken; if (token) { authReq = authReq.clone({ setHeaders: { ...authReq.headers.keys().reduce((acc, key) => ({ ...acc, [key]: authReq.headers.getAll(key) }), {}), 'Authorization': \`Bearer \${token}\` } }); } }`;
+                    bearerLogicAdded = true;
                 }
             }
         }

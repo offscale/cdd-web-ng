@@ -1,3 +1,4 @@
+// src/service/emit/utility/provider.generator.ts
 import { Project, SourceFile, InterfaceDeclaration } from 'ts-morph';
 import * as path from 'path';
 import { GeneratorConfig } from '../../../core/types.js';
@@ -25,7 +26,7 @@ export class ProviderGenerator {
      */
     constructor(private parser: SwaggerParser, private project: Project, private tokenNames: string[] = []) {
         this.config = parser.config;
-        this.clientName = this.config.clientName || 'default';
+        this.clientName = this.config.clientName ? this.config.clientName : 'default';
         this.capitalizedClientName = pascalCase(this.clientName);
         this.hasApiKey = this.tokenNames.includes('apiKey');
         this.hasBearer = this.tokenNames.includes('bearerToken');

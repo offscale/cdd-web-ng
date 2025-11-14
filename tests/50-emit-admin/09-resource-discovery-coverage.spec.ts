@@ -31,7 +31,6 @@ describe('Admin: resource-discovery (Coverage)', () => {
         expect(prop?.schema.properties).toHaveProperty('prop');
     });
 
-
     it('should not classify custom actions like "addItem" as a standard "create"', () => {
         const resources = runDiscovery(branchCoverageSpec);
         const resource = resources.find(r => r.name === 'widgets')!;
@@ -56,5 +55,54 @@ describe('Admin: resource-discovery (Coverage)', () => {
         // This covers the `if (resSchema)` false branch in getFormProperties
         expect(resource.formProperties.length).toBeGreaterThan(0);
         expect(resource.formProperties[0].name).toBe('name');
+    });
+
+    it('should collect properties from swagger 2.0 formData parameters', () => {
+        const spec = {
+            swagger: '2.0',
+            paths: {
+                '/form-data': {
+                    post: {
+                        tags: ['FormData'],
+                        consumes: ['multipart/form-data'],
+                        parameters: [
+                            { name: 'file', in: 'formData', type: 'file' },
+                            { name: 'metadata', in: 'formData', type: 'string' }
+                        ]
+                    }
+                }
+            }
+        };
+        const resources = runDiscovery(spec);
+        const resource = resources.find(r => r.name === 'formData');
+        expect(resource).toBeDefined();
+        // formDataProperties are merged into the final list.
+        expect(resource!.formProperties.some(p => p.name === 'file')).toBe(true);
+        expect(resource!.formProperties.some(p => p.name === 'metadata')).toBe(true);
+    });
+
+    it('should handle unresolvable schemas gracefully', () => {
+        const spec = {
+            paths: {
+                '/bad-ref': {
+                    get: {
+                        tags: ['BadRef'],
+                        responses: { '200': { content: { 'application/json': { schema: { $ref: '#/non/existent' } } } } }
+                    }
+                }
+            }
+        };
+        const resources = runDiscovery(spec);
+        const resource = resources.find(r => r.name === 'badRef');
+        expect(resource).toBeDefined();
+        // The discovery should not crash and should produce a resource with fallback properties.
+        expect(resource!.formProperties).toEqual([{ name: 'id', schema: { type: 'string' } }]);
+    });
+
+    it('should correctly identify a resource with PATCH as editable', () => {
+        const resources = runDiscovery(branchCoverageSpec);
+        const resource = resources.find(r => r.name === 'patchResource');
+        expect(resource).toBeDefined();
+        expect(resource!.isEditable).toBe(true);
     });
 });

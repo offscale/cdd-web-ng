@@ -41,7 +41,6 @@ const serviceMethodGenSpec = {
                 parameters: [{ name: 'limit', in: 'query', type: 'integer' }] // No 'schema' key
             }
         },
-
         '/post-no-req-schema': {
             post: {
                 operationId: 'postNoReqSchema',
@@ -50,6 +49,26 @@ const serviceMethodGenSpec = {
                 responses: { '204': {} }
             }
         },
+        // NEW paths for coverage
+        '/all-required/{id}': {
+            post: {
+                tags: ['RequiredParams'],
+                operationId: 'postAllRequired',
+                parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+                requestBody: {
+                    required: true,
+                    content: { 'application/json': { schema: { type: 'string' } } }
+                }
+            }
+        },
+        '/form-data-no-consumes': {
+            post: {
+                tags: ['FormData'],
+                operationId: 'postFormDataNoConsumes',
+                // No 'consumes' array here
+                parameters: [{ name: 'file', in: 'formData', type: 'file' }]
+            }
+        }
     }
 };
 
@@ -121,6 +140,37 @@ describe('Emitter: ServiceMethodGenerator', () => {
         });
     });
 
+    describe('Overload Generation', () => {
+        it('should make options optional if other parameters are optional', () => {
+            const { methodGen, serviceClass, parser } = createTestEnvironment();
+            // This operation has an optional query param
+            const op = parser.operations.find(o => o.operationId === 'getWithSwagger2Param')!;
+            op.methodName = 'getWithSwagger2Param';
+            methodGen.addServiceMethod(serviceClass, op);
+
+            const method = serviceClass.getMethodOrThrow('getWithSwagger2Param');
+            const responseOverload = method.getOverloads().find(o => o.getReturnType().getText().includes('HttpResponse'))!;
+            const optionsParam = responseOverload.getParameters().find(p => p.getName() === 'options')!;
+
+            // because 'limit' is optional, 'options' must also be optional.
+            expect(optionsParam.hasQuestionToken()).toBe(true);
+        });
+
+        it('should keep options required if all other parameters are required', () => {
+            const { methodGen, serviceClass, parser } = createTestEnvironment();
+            const op = parser.operations.find(o => o.operationId === 'postAllRequired')!;
+            op.methodName = 'postAllRequired';
+            methodGen.addServiceMethod(serviceClass, op);
+
+            const method = serviceClass.getMethodOrThrow('postAllRequired');
+            const responseOverload = method.getOverloads().find(o => o.getReturnType().getText().includes('HttpResponse'))!;
+            const optionsParam = responseOverload.getParameters().find(p => p.getName() === 'options')!;
+
+            // because 'id' and 'body' are required, 'options' for observe:'response' remains required.
+            expect(optionsParam.hasQuestionToken()).toBe(false);
+        });
+    });
+
     describe('Parameter and Body Generation', () => {
         const { methodGen, serviceClass, parser } = createTestEnvironment();
 
@@ -171,6 +221,30 @@ describe('Emitter: ServiceMethodGenerator', () => {
             const param = impl.getParameters().find(p => p.getType().getText() === 'string');
             expect(param?.getName()).toBe('body');
         });
+
+        it('should handle request body without a schema', () => {
+            const { methodGen, serviceClass, parser } = createTestEnvironment();
+            const op = parser.operations.find(o => o.operationId === 'postNoReqSchema')!;
+            op.methodName = 'postNoReqSchema';
+            methodGen.addServiceMethod(serviceClass, op);
+
+            const method = serviceClass.getMethodOrThrow('postNoReqSchema');
+            const bodyParam = method.getParameters().find(p => p.getName() === 'body')!;
+            expect(bodyParam).toBeDefined();
+            expect(bodyParam.getType().getText()).toBe('unknown');
+        });
+
+        it('should handle formData params when consumes array is missing', () => {
+            const { methodGen, serviceClass, parser } = createTestEnvironment();
+            const op = parser.operations.find(o => o.operationId === 'postFormDataNoConsumes')!;
+            op.methodName = 'postFormDataNoConsumes';
+            methodGen.addServiceMethod(serviceClass, op);
+
+            const body = serviceClass.getMethodOrThrow('postFormDataNoConsumes').getBodyText()!;
+            // isMultipartForm will be false, so it falls through. Since there's no other body, 'null' is used.
+            expect(body).toContain('return this.http.post(url, null, requestOptions);');
+            expect(body).not.toContain('new FormData()');
+        });
     });
 
     describe('Response Type Resolution', () => {
@@ -204,7 +278,6 @@ describe('Emitter: ServiceMethodGenerator', () => {
         });
     });
 
-    // --- Existing Tests from original file for regression ---
     it('should fall back to a generic `body: unknown` parameter for non-json content', () => {
         const { methodGen, serviceClass, parser } = createTestEnvironment();
         const operation = parser.operations.find(op => op.operationId === 'allParams')!;

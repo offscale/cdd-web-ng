@@ -776,10 +776,18 @@ export const branchCoverageSpec = {
                 },
             },
         },
+        // FIX: Add the new PATCH resource path here
+        '/patch-resource/{id}': {
+            patch: {
+                tags: ['PatchResource'],
+                parameters: [{ name: 'id', in: 'path' }],
+                requestBody: { content: { 'application/json': { schema: { type: 'object' } } } }
+            }
+        },
     },
     components: {
         securitySchemes: {
-            CookieAuth: { type: 'apiKey', in: 'cookie', name: 'session_id' },
+            CookieAuth: { type: 'apiKey', in: 'cookie', name: 'sid' },
             // For auth-interceptor: Bearer with non-function value
             BearerTokenSimple: { type: 'http', scheme: 'bearer' },
         },

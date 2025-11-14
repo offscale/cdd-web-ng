@@ -84,7 +84,6 @@ export class ServiceMethodGenerator {
 
         const requestBody = operation.requestBody;
         if (requestBody) {
-            // FIX: Look at the first available content type's schema, not just application/json.
             const content = requestBody.content?.[Object.keys(requestBody.content)[0]];
             if (content?.schema) {
                 let bodyType = getTypeScriptType(content.schema as SwaggerDefinition, this.config, knownTypes);
@@ -193,10 +192,8 @@ export class ServiceMethodGenerator {
         ].map(overload => {
             const hasOptionalParam = parameters.some(p => p.hasQuestionToken);
             if (hasOptionalParam) {
-                const optionsParam = overload.parameters.find(p => p.name === 'options');
-                if (optionsParam) {
-                    optionsParam.hasQuestionToken = true;
-                }
+                // This is guaranteed to exist in our templates.
+                overload.parameters.find(p => p.name === 'options')!.hasQuestionToken = true;
             }
             return overload;
         });

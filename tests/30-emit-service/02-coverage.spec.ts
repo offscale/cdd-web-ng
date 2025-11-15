@@ -38,6 +38,27 @@ describe('Emitter: Service Generators (Coverage)', () => {
         expect(modelImport!.getNamedImports().map((i: any) => i.getName())).toContain('User');
     });
 
+    it('should not import any models if only primitive parameters are used', () => {
+        const spec = {
+            paths: {
+                '/primitives/{id}': {
+                    get: {
+                        tags: ['Primitives'],
+                        parameters: [
+                            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+                            { name: 'limit', in: 'query', schema: { type: 'number' } },
+                        ],
+                        responses: { '204': {} },
+                    },
+                },
+            },
+        };
+        const project = run(spec);
+        const serviceFile = project.getSourceFileOrThrow('/out/services/primitives.service.ts');
+        const modelImport = serviceFile.getImportDeclaration((imp) => imp.getModuleSpecifierValue() === '../models');
+        expect(modelImport!.getNamedImports().map((i) => i.getName())).toEqual(['RequestOptions']);
+    });
+
     it('should generate methods for multipart/form-data', () => {
         const project = run(coverageSpecPart2);
         const serviceFile = project.getSourceFileOrThrow('/out/services/formData.service.ts');

@@ -183,6 +183,37 @@ describe('Core: utils.ts (Coverage)', () => {
             expect(op).toBeDefined();
             expect(op!.responses!['200'].content!['text/plain'].schema).toEqual({ type: 'string' });
         });
+
+        it('should process operations with Swagger 2.0 params and no responses object', () => {
+            const swaggerPaths = {
+                '/test': {
+                    get: {
+                        operationId: 'getTest',
+                        tags: ['Test'],
+                        parameters: [
+                            // Swagger 2.0 style param without 'schema' key
+                            { name: 'limit', in: 'query', type: 'integer', format: 'int32' },
+                            // Param without 'required' or 'description'
+                            { name: 'offset', in: 'query', type: 'integer' },
+                        ],
+                        // No 'responses' object at all
+                    },
+                },
+            };
+            const [pathInfo] = utils.extractPaths(swaggerPaths as any);
+            expect(pathInfo).toBeDefined();
+            expect(pathInfo.operationId).toBe('getTest');
+            expect(pathInfo.responses).toEqual({});
+            expect(pathInfo.parameters).toHaveLength(2);
+
+            const limitParam = pathInfo.parameters.find(p => p.name === 'limit')!;
+            expect(limitParam.schema).toEqual({ type: 'integer', format: 'int32', items: undefined });
+            expect(limitParam).not.toHaveProperty('required');
+            expect(limitParam).not.toHaveProperty('description');
+
+            const offsetParam = pathInfo.parameters.find(p => p.name === 'offset')!;
+            expect(offsetParam.schema).toEqual({ type: 'integer', format: undefined, items: undefined });
+        });
     });
 
     it('isDataTypeInterface should return false for union types', () => {

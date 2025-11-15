@@ -108,7 +108,7 @@ export class FormComponentGenerator {
                         ${commonStandaloneImports.map(a => a[0]).join(',\n    ')} 
                     ], 
                     templateUrl: './${resource.name}-form.component.html', 
-                    styleUrl: './${resource.name}-form.component.scss',
+                    styleUrl: './${resource.name}-form.component.scss', 
                     changeDetection: ChangeDetectionStrategy.OnPush
                 }`]
             }],
@@ -553,8 +553,8 @@ export class FormComponentGenerator {
             updateMethod.setBodyText(switchBody);
         } else {
             // This is the branch that will be hit for the failing test.
-            // We generate the method, but its body is empty because there are no sub-forms to manage.
-            updateMethod.setBodyText(`// No sub-forms to add for primitive oneOf types`);
+            // We generate the method with an empty block body `{}` because there are no sub-forms to manage.
+            updateMethod.setBodyText(`{}`);
         }
 
         // The rest of this method is correct.

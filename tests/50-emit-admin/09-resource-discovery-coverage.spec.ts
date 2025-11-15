@@ -12,6 +12,50 @@ describe('Admin: resource-discovery (Coverage)', () => {
         return discoverAdminResources(parser);
     };
 
+    it('should infer form properties from a 201 response when 200 is missing', () => {
+        const spec = {
+            paths: {
+                '/items-201': {
+                    post: {
+                        tags: ['Items201'],
+                        responses: { '201': { content: { 'application/json': { schema: { $ref: '#/components/schemas/Item' } } } } },
+                    },
+                },
+            },
+            components: { schemas: { Item: { type: 'object', properties: { name: { type: 'string' } } } } },
+        };
+        const resources = runDiscovery(spec);
+        const resource = resources.find((r: Resource) => r.name === 'items201');
+        expect(resource).toBeDefined();
+        expect(resource!.formProperties.some((p: FormProperty) => p.name === 'name')).toBe(true);
+    });
+
+    it('should ignore formData parameters that are refs', () => {
+        const spec = {
+            swagger: '2.0',
+            paths: {
+                '/form-ref': {
+                    post: {
+                        tags: ['FormRef'],
+                        consumes: ['multipart/form-data'],
+                        parameters: [
+                            { name: 'good', in: 'formData', type: 'string' },
+                            { name: 'bad', in: 'formData', schema: { $ref: '#/definitions/Item' } },
+                        ],
+                    },
+                },
+            },
+            definitions: { Item: { type: 'object', properties: { name: { type: 'string' } } } },
+        };
+        const resources = runDiscovery(spec);
+        const resource = resources.find((r: Resource) => r.name === 'formRef');
+        expect(resource).toBeDefined();
+        // `good` is processed because it's a primitive.
+        expect(resource!.formProperties.some((p: FormProperty) => p.name === 'good')).toBe(true);
+        // `bad` is skipped by the `!('$ref' in param.schema)` check.
+        expect(resource!.formProperties.some((p: FormProperty) => p.name === 'bad')).toBe(false);
+    });
+
     it('should correctly classify a POST with a custom keyword opId as a custom action', () => {
         const spec = {
             paths: {

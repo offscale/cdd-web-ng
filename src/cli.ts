@@ -1,6 +1,8 @@
+#!/usr/bin/env node
+
 import { Command, Option } from 'commander';
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import yaml from 'js-yaml';
 import { generateFromConfig } from './index.js';
 import { GeneratorConfig, GeneratorConfigOptions } from './core/types.js';
@@ -8,6 +10,26 @@ import { isUrl } from './core/utils.js';
 
 const packageJsonPath = new URL('../package.json', import.meta.url);
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+
+/** Defines the shape of the options object from the 'from_openapi' command. */
+interface CliOptions {
+    config?: string;
+    input?: string;
+    output?: string;
+    clientName?: string;
+    dateType?: 'string' | 'Date';
+    enumStyle?: 'enum' | 'union';
+    admin?: boolean;
+    generateServices?: boolean;
+    testsForService?: boolean;
+    testsForAdmin?: boolean;
+}
+
+/** Defines the shape of the options object from the 'to_openapi' command. */
+interface ToActionOptions {
+    file: string;
+    format: 'json' | 'yaml';
+}
 
 async function loadConfigFile(configPath: string): Promise<Partial<GeneratorConfig>> {
     const resolvedPath = path.resolve(process.cwd(), configPath);
@@ -32,7 +54,7 @@ async function loadConfigFile(configPath: string): Promise<Partial<GeneratorConf
     }
 }
 
-async function runGeneration(options: any) {
+async function runGeneration(options: CliOptions) {
     const startTime = Date.now();
     try {
         let baseConfig: Partial<GeneratorConfig> = {};
@@ -41,55 +63,68 @@ async function runGeneration(options: any) {
             baseConfig = await loadConfigFile(options.config);
         }
 
-        const cliOptions: Partial<GeneratorConfigOptions> = {
-            dateType: options.dateType,
-            enumStyle: options.enumStyle,
-            generateServices: options.generateServices,
-            admin: options.admin,
-            // Commander sets `testsForService` to `false` if the `--no-` flag is used.
-            // If the flag is absent, the property is `undefined`.
-            generateServiceTests: options.testsForService,
-            generateAdminTests: options.testsForAdmin,
+        const cliOptions: Partial<GeneratorConfigOptions> = {};
+        if (options.dateType) cliOptions.dateType = options.dateType;
+        if (options.enumStyle) cliOptions.enumStyle = options.enumStyle;
+        if (options.generateServices !== undefined) cliOptions.generateServices = options.generateServices;
+        if (options.admin !== undefined) cliOptions.admin = options.admin;
+        if (options.testsForService !== undefined) cliOptions.generateServiceTests = options.testsForService;
+        if (options.testsForAdmin !== undefined) cliOptions.generateAdminTests = options.testsForAdmin;
+
+        const defaults: GeneratorConfigOptions = {
+            dateType: 'Date',
+            enumStyle: 'enum',
+            generateServices: true,
+            admin: false,
+            generateServiceTests: true,
+            generateAdminTests: true,
         };
 
-        Object.keys(cliOptions).forEach(key => (cliOptions as any)[key] === undefined && delete (cliOptions as any)[key]);
-
-        const finalConfig: GeneratorConfig = {
-            input: options.input ?? baseConfig.input,
-            output: options.output ?? baseConfig.output,
-            clientName: options.clientName ?? baseConfig.clientName,
+        const finalConfigInProgress: Partial<GeneratorConfig> = {
             options: {
-                dateType: 'Date',
-                enumStyle: 'enum',
-                generateServices: true,
-                admin: false,
-                generateServiceTests: true, // Default to true
-                generateAdminTests: true,   // Default to true
+                ...defaults,
                 ...baseConfig.options,
                 ...cliOptions,
             },
-            ...baseConfig.compilerOptions,
+            compilerOptions: {
+                ...baseConfig.compilerOptions,
+            },
         };
 
-        if (!finalConfig.input) {
-            throw new Error('Input path or URL is required. Provide it via --input or a config file.');
-        }
-        if (!finalConfig.output) {
-            finalConfig.output = './generated';
-            console.warn(`Output path not specified, defaulting to '${finalConfig.output}'.`);
+        const input = options.input ?? baseConfig.input;
+        if (input) {
+            finalConfigInProgress.input = input;
         }
 
-        if (!path.isAbsolute(finalConfig.output)) {
-            finalConfig.output = path.resolve(process.cwd(), finalConfig.output);
+        const output = options.output ?? baseConfig.output;
+        if (output) {
+            finalConfigInProgress.output = output;
+        }
+
+        const clientName = options.clientName ?? baseConfig.clientName;
+        if (clientName) {
+            finalConfigInProgress.clientName = clientName;
+        }
+
+        if (!finalConfigInProgress.input) {
+            throw new Error('Input path or URL is required. Provide it via --input or a config file.');
+        }
+        if (!finalConfigInProgress.output) {
+            finalConfigInProgress.output = './generated';
+            console.warn(`Output path not specified, defaulting to '${finalConfigInProgress.output}'.`);
+        }
+
+        if (!path.isAbsolute(finalConfigInProgress.output)) {
+            finalConfigInProgress.output = path.resolve(process.cwd(), finalConfigInProgress.output);
         }
 
         console.log('🚀 Starting code generation with the following configuration:');
-        console.log(yaml.dump({ ...finalConfig, options: { ...finalConfig.options } }, {
+        console.log(yaml.dump({ ...finalConfigInProgress }, {
             indent: 2,
             skipInvalid: true
         }));
 
-        await generateFromConfig(finalConfig);
+        await generateFromConfig(finalConfigInProgress as GeneratorConfig);
 
     } catch (error) {
         console.error("❌ Generation failed:", error instanceof Error ? error.message : String(error));
@@ -128,7 +163,7 @@ program
     .addOption(new Option('--format <format>', 'Output format for the OpenAPI spec')
         .choices(['json', 'yaml'])
         .default('yaml'))
-    .action((options) => {
+    .action((options: ToActionOptions) => {
         console.log('\n`to_openapi` command is a stub and is not yet implemented.');
         console.log('Provided Options:');
         console.log(`  - Input file: ${options.file}`);

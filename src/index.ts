@@ -1,11 +1,11 @@
 // src/index.ts
 
+import * as fs from 'node:fs';
 import { ModuleKind, Project, ScriptTarget } from 'ts-morph';
 import { GeneratorConfig } from './core/types.js';
-import { isUrl } from './core/utils.js';
 import { SwaggerParser } from './core/parser.js';
-import { emitClientLibrary } from './service/emit/index.js';
-import * as fs from 'fs';
+import { emitClientLibrary } from "@src/service/emit/index.js";
+import { isUrl } from "@src/core/utils.js";
 
 /**
  * For test environments, allows passing a pre-parsed OpenAPI specification object.

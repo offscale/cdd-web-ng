@@ -37,7 +37,7 @@ export default defineConfig({
     plugins: [
         {
             name: 'vite-plugin-inline-text-files',
-            transform(code, id) {
+            transform(_code, id) {
                 if (id.endsWith('.template')) {
                     const fileContent = fs.readFileSync(id, 'utf-8');
                     return {
@@ -45,6 +45,7 @@ export default defineConfig({
                         map: null
                     };
                 }
+                return;
             }
         }
     ]

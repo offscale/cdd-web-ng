@@ -41,6 +41,9 @@ export async function runGeneratorWithConfig(spec: object, config: Partial<Gener
         options: {
             dateType: 'string',
             enumStyle: 'enum',
+            generateServices: true,
+            generateServiceTests: true,
+            admin: false,
             ...config,
         },
     };
@@ -64,7 +67,8 @@ export async function runGenerator(spec: object, genConfig?: Partial<GeneratorCo
             dateType: 'string',
             enumStyle: 'enum',
             generateServices: true,
-            admin: false
+            admin: false,
+            generateServiceTests: true
         },
         ...genConfig
     };

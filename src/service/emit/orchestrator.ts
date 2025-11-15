@@ -1,7 +1,7 @@
 // src/service/emit/orchestrator.ts
 
 import { Project } from 'ts-morph';
-import { posix as path } from 'path';
+import { posix as path } from 'node:path';
 import { groupPathsByController } from '../parse.js';
 import { SwaggerParser } from '../../core/parser.js';
 import { GeneratorConfig } from '../../core/types.js';
@@ -86,7 +86,7 @@ export async function emitClientLibrary(outputRoot: string, parser: SwaggerParse
         }
 
         if (config.options.admin) {
-            await new AdminGenerator(parser, project, config).generate(outputRoot);
+            await new AdminGenerator(parser, project).generate(outputRoot);
             if (config.options.generateAdminTests ?? true) {
                 console.log('📝 Test generation for admin UI is stubbed.');
             }

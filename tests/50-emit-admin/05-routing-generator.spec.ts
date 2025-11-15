@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { Project } from 'ts-morph';
 import { RoutingGenerator } from '../../src/service/emit/admin/routing.generator.js';
 import { discoverAdminResources } from '../../src/service/emit/admin/resource-discovery.js';

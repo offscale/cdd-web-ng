@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SwaggerParser } from '../../src/core/parser.js';
 import { AuthInterceptorGenerator } from '../../src/service/emit/utility/auth-interceptor.generator.js';
 import { createTestProject } from '../shared/helpers.js';
-import { emptySpec, securitySpec, branchCoverageSpec } from '../shared/specs.js';
+import { emptySpec, securitySpec } from '../shared/specs.js';
 import { GeneratorConfig } from '@src/core/types.js';
 
 describe('Emitter: AuthInterceptorGenerator', () => {
@@ -50,7 +50,7 @@ describe('Emitter: AuthInterceptorGenerator', () => {
         });
         const body = project
             .getSourceFileOrThrow('/out/auth/auth.interceptor.ts')
-            .getClassOrThrow('AuthInterceptor')
+            .getClassOrThrow('AuthInterceptor')!
             .getMethodOrThrow('intercept')!
             .getBodyText()!;
         expect(tokenNames).toEqual(['bearerToken']);
@@ -96,7 +96,7 @@ describe('Emitter: AuthInterceptorGenerator', () => {
         };
         const { project } = runGenerator(mixedSpec);
         const body = project.getSourceFileOrThrow('/out/auth/auth.interceptor.ts')
-            .getClassOrThrow('AuthInterceptor')
+            .getClassOrThrow('AuthInterceptor')!
             .getMethodOrThrow('intercept')!
             .getBodyText()!;
 

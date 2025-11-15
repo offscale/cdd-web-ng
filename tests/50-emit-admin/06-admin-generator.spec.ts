@@ -1,5 +1,4 @@
 import { describe, it, expect, vi } from 'vitest';
-import { Project } from 'ts-morph';
 import { AdminGenerator } from '../../src/service/emit/admin/admin.generator.js';
 import * as resourceDiscovery from '../../src/service/emit/admin/resource-discovery.js';
 import { createTestProject } from '../shared/helpers.js';

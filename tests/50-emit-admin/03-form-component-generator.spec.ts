@@ -47,7 +47,6 @@ describe('Admin: FormComponentGenerator', () => {
 
         it('should generate update-only logic in onSubmit when no create op exists', async () => {
             await run(coverageSpec); // Use a spec with a resource that only has update
-            const resource = discoverAdminResources(parser).find(r => r.name === 'configs')!;
             const configsFormClass = project.getSourceFileOrThrow(`/admin/configs/configs-form/configs-form.component.ts`).getClassOrThrow('ConfigFormComponent');
             const submitMethod = configsFormClass.getMethod('onSubmit');
             const body = submitMethod!.getBodyText() ?? '';

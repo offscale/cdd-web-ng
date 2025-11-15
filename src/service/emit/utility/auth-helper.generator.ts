@@ -1,4 +1,4 @@
-import * as path from 'path';
+import * as path from 'node:path';
 import { ClassDeclaration, Project, Scope } from 'ts-morph';
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
 

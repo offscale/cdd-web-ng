@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import * as fs from 'fs';
-import { SwaggerParser } from '../../src/core/parser.js';
-import { GeneratorConfig } from '../../src/core/types.js';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import * as fs from 'node:fs';
+import { SwaggerParser } from '@src/core/parser.js';
+import { GeneratorConfig } from '@src/core/types.js';
 import * as yaml from 'js-yaml';
 
 vi.mock('fs', async (importOriginal) => {
@@ -19,7 +19,7 @@ describe('Core: SwaggerParser', () => {
         config = {
             input: 'spec.json',
             output: './out',
-            options: { dateType: 'string', enumStyle: 'enum' },
+            options: {},
         };
         vi.spyOn(console, 'warn').mockImplementation(() => {
         });
@@ -31,31 +31,31 @@ describe('Core: SwaggerParser', () => {
     });
 
     it('should create parser from local JSON file', async () => {
-        (fs.existsSync as vi.Mock).mockReturnValue(true);
-        (fs.readFileSync as vi.Mock).mockReturnValue('{ "openapi": "3.0.0" }');
+        (fs.existsSync as Mock).mockReturnValue(true);
+        (fs.readFileSync as Mock).mockReturnValue('{ "openapi": "3.0.0" }');
         const parser = await SwaggerParser.create('spec.json', config);
         expect(parser.getSpec().openapi).toBe('3.0.0');
     });
 
     it('should create parser from local YAML file (by extension)', async () => {
-        (fs.existsSync as vi.Mock).mockReturnValue(true);
-        (fs.readFileSync as vi.Mock).mockReturnValue('openapi: 3.0.1');
-        (yaml.load as vi.Mock).mockReturnValue({ openapi: '3.0.1' });
+        (fs.existsSync as Mock).mockReturnValue(true);
+        (fs.readFileSync as Mock).mockReturnValue('openapi: 3.0.1');
+        (yaml.load as Mock).mockReturnValue({ openapi: '3.0.1' });
         const parser = await SwaggerParser.create('spec.yaml', config);
         expect(parser.getSpec().openapi).toBe('3.0.1');
         expect(parser.getSpecVersion()).toEqual({ type: 'openapi', version: '3.0.1' });
     });
 
     it('should create parser from local YAML file (by content)', async () => {
-        (fs.existsSync as vi.Mock).mockReturnValue(true);
-        (fs.readFileSync as vi.Mock).mockReturnValue('openapi: 3.0.1');
-        (yaml.load as vi.Mock).mockReturnValue({ openapi: '3.0.1' });
+        (fs.existsSync as Mock).mockReturnValue(true);
+        (fs.readFileSync as Mock).mockReturnValue('openapi: 3.0.1');
+        (yaml.load as Mock).mockReturnValue({ openapi: '3.0.1' });
         const parser = await SwaggerParser.create('spec-no-ext', config);
         expect(parser.getSpec().openapi).toBe('3.0.1');
     });
 
     it('should throw if local file does not exist', async () => {
-        (fs.existsSync as vi.Mock).mockReturnValue(false);
+        (fs.existsSync as Mock).mockReturnValue(false);
         await expect(SwaggerParser.create('nonexistent.json', config)).rejects.toThrow('Input file not found');
     });
 
@@ -71,23 +71,23 @@ describe('Core: SwaggerParser', () => {
     });
 
     it('should throw on invalid JSON', async () => {
-        (fs.existsSync as vi.Mock).mockReturnValue(true);
-        (fs.readFileSync as vi.Mock).mockReturnValue('invalid');
+        (fs.existsSync as Mock).mockReturnValue(true);
+        (fs.readFileSync as Mock).mockReturnValue('invalid');
         await expect(SwaggerParser.create('spec.json', config)).rejects.toThrow(/Failed to parse content/);
     });
 
     it('should throw on invalid YAML', async () => {
-        (fs.existsSync as vi.Mock).mockReturnValue(true);
-        (fs.readFileSync as vi.Mock).mockReturnValue('key: value:\n  - invalid');
-        (yaml.load as vi.Mock).mockImplementation(() => {
+        (fs.existsSync as Mock).mockReturnValue(true);
+        (fs.readFileSync as Mock).mockReturnValue('key: value:\n  - invalid');
+        (yaml.load as Mock).mockImplementation(() => {
             throw new Error('YAML error');
         });
         await expect(SwaggerParser.create('spec.yaml', config)).rejects.toThrow(/Failed to parse content/);
     });
 
     it('should throw with non-Error object during parsing', async () => {
-        (fs.existsSync as vi.Mock).mockReturnValue(true);
-        (fs.readFileSync as vi.Mock).mockReturnValue('invalid json');
+        (fs.existsSync as Mock).mockReturnValue(true);
+        (fs.readFileSync as Mock).mockReturnValue('invalid json');
         JSON.parse = vi.fn().mockImplementation(() => {
             throw 'a string error';
         });

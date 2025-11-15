@@ -43,7 +43,7 @@ describe('Emitter: ServiceGenerator', () => {
 
         expect(body).toContain("const url = `${this.basePath}/users/${id}`;");
         // Assert the new, correct code generation pattern
-        expect(body).toContain("return this.http.put(url, user, requestOptions);");
+        expect(body).toContain("return this.http.put(url, user, requestOptions as any);");
         expect(body).not.toContain("finalOptions.body = user;"); // Ensure old pattern is gone
     });
 
@@ -58,7 +58,7 @@ describe('Emitter: ServiceGenerator', () => {
 
     it('should use a custom method name when provided in config', () => {
         const project = createTestEnvironment(coverageSpec, {
-            customizeMethodName: (opId) => `custom_${opId.replace(/-/g, '_')}`
+            customizeMethodName: (opId: string) => `custom_${opId.replace(/-/g, '_')}`
         });
         const serviceFile = project.getSourceFileOrThrow('/out/services/customName.service.ts');
         const serviceClass = serviceFile.getClassOrThrow('CustomNameService');
@@ -67,7 +67,7 @@ describe('Emitter: ServiceGenerator', () => {
 
     it('should fall back to path-based name if customizer exists but op has no ID', () => {
         const project = createTestEnvironment(branchCoverageSpec, {
-            customizeMethodName: (opId) => `custom_${opId}`
+            customizeMethodName: (opId: string) => `custom_${opId}`
         });
         // The tag was changed to 'NoOperationId' which creates 'noOperationId.service.ts'
         const serviceFile = project.getSourceFileOrThrow('/out/services/noOperationId.service.ts');

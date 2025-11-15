@@ -1,9 +1,9 @@
 import { Project } from 'ts-morph';
 
-import { posix as path } from 'path';
+import { posix as path } from 'node:path';
 
 import { SwaggerParser } from '../../../core/parser.js';
-import { GeneratorConfig, Resource } from '../../../core/types.js';
+import { Resource } from '../../../core/types.js';
 import { discoverAdminResources } from './resource-discovery.js';
 import { FormComponentGenerator } from './form-component.generator.js';
 import { ListComponentGenerator } from './list-component.generator.js';
@@ -15,8 +15,7 @@ export class AdminGenerator {
 
     constructor(
         private parser: SwaggerParser,
-        private project: Project,
-        private config: GeneratorConfig
+        private project: Project
     ) {
     }
 

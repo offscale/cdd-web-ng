@@ -1,4 +1,4 @@
-import * as path from 'path';
+import * as path from 'node:path';
 import { Project, Scope } from 'ts-morph';
 import { SwaggerParser } from '../../../core/parser.js';
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';

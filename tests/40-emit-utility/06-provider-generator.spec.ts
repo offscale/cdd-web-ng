@@ -125,19 +125,19 @@ describe('Emitter: ProviderGenerator', () => {
         expect(fileContent).not.toContain('API_KEY_TOKEN');
     });
 
-        it('should return early if generateServices is explicitly false', () => {
-                const project = createTestProject();
-                const config: GeneratorConfig = {
-                        input: '',
-                        output: '/out',
-                        options: { generateServices: false, dateType: 'string', enumStyle: 'enum' },
-                };
-                const parser = new SwaggerParser(emptySpec as any, config);
-                const generator = new ProviderGenerator(parser, project, []);
-        
-                    generator.generate('/out');
-        
-                    // If the 'return' statement was hit, the file should not have been created.
-                        expect(project.getSourceFile('/out/providers.ts')).toBeUndefined();
-            });
+    it('should return early if generateServices is explicitly false', () => {
+        const project = createTestProject();
+        const config: GeneratorConfig = {
+            input: '',
+            output: '/out',
+            options: { generateServices: false, dateType: 'string', enumStyle: 'enum' },
+        };
+        const parser = new SwaggerParser(emptySpec as any, config);
+        const generator = new ProviderGenerator(parser, project, []);
+
+        generator.generate('/out');
+
+        // If the 'return' statement was hit, the file should not have been created.
+        expect(project.getSourceFile('/out/providers.ts')).toBeUndefined();
+    });
 });

@@ -31,8 +31,9 @@
     "dist"
   ],
   "scripts": {
+    "check:types": "type-coverage --project ./tsconfig.json --detail",
     "clean": "rm -rf dist docs coverage .vitest-cache node_modules/.vite",
-    "build": "rolldown -c rolldown.config.js",
+    "build": "tsc -p tsconfig.build.json",
     "docs": "typedoc",
     "prepublishOnly": "npm run build",
     "start": "node dist/cli.js",
@@ -45,14 +46,14 @@
     "ts-morph": "^27.0"
   },
   "devDependencies": {
+    "@angular/common": "^20.3.12",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^24",
     "@types/swagger-schema-official": "^2.0.25",
     "@vitest/coverage-istanbul": "^4.0.3",
     "glob": "^11.0",
-    "rolldown": "^1.0.0-beta.44",
-    "rolldown-plugin-dts": "^0.17.1",
     "swagger-schema-official": "^2.0.0-bab6bed",
+    "type-coverage": "^2.29.7",
     "typedoc": "^0.28.14",
     "typescript": "^5.9",
     "vitest": "^4.0"

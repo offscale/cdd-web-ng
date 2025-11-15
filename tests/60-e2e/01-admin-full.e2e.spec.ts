@@ -8,7 +8,7 @@ describe('E2E: Admin UI Generation', () => {
 
     // Helper to generate the admin UI and return the project
     const runAdminGen = async (spec: object) => {
-        project = await runGenerator(spec, { options: { admin: true, generateServices: true, dateType: 'string', enumStyle: 'enum' } });
+        project = await runGenerator(spec, { options: { admin: true, generateServices: true, dateType: 'string', enumStyle: 'enum' } as any });
         return project;
     };
 
@@ -86,44 +86,43 @@ describe('E2E: Admin UI Generation', () => {
     });
 
     describe('Polymorphism E2E with Bad Refs', () => {
-                it('should generate a form that gracefully handles unresolvable allOf refs', async () => {
-                        const specWithBadRef = {
-                                ...polymorphismSpec,
-                                paths: {
-                                    ...polymorphismSpec.paths,
-                                        '/bad-pets': {
-                                            post: {
-                                                    tags: ['BadPets'],
-                                                        requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/BadPet' } } } }
-                                                }
-                                        }
-                                },
-                            components: {
-                                    ...polymorphismSpec.components,
-                                        schemas: {
-                                            ...polymorphismSpec.components.schemas,
-                                                BadPet: {
-                                                    type: 'object',
-                                                        oneOf: [{ $ref: '#/components/schemas/BadCat' }],
-                                                        discriminator: { propertyName: 'petType' }
-                                                },
-                                            BadCat: {
-                                                    type: 'object',
-                                                        allOf: [
-                                                            { $ref: '#/components/schemas/BasePet' }, // This one is good
-                                                            { $ref: '#/components/schemas/NonExistentSchema' } // This one is bad
-                                                        ],
-                                                        properties: { petType: { type: 'string', enum: ['badcat'] } }
-                                                }
-                                        }
-                                }
-                        };
-                        project = await runAdminGen(specWithBadRef);
-                        const html = project.getFileSystem().readFileSync('/generated/admin/badPets/badPets-form/badPets-form.component.html');
-            
-                            expect(html).toBeDefined();
-                        expect(html).toContain('formControlName="name"');
-                    });
-            });
+        it('should generate a form that gracefully handles unresolvable allOf refs', async () => {
+            const specWithBadRef = {
+                ...polymorphismSpec,
+                paths: {
+                    ...polymorphismSpec.paths,
+                    '/bad-pets': {
+                        post: {
+                            tags: ['BadPets'],
+                            requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/BadPet' } } } }
+                        }
+                    }
+                },
+                components: {
+                    ...polymorphismSpec.components,
+                    schemas: {
+                        ...polymorphismSpec.components.schemas,
+                        BadPet: {
+                            type: 'object',
+                            oneOf: [{ $ref: '#/components/schemas/BadCat' }],
+                            discriminator: { propertyName: 'petType' }
+                        },
+                        BadCat: {
+                            type: 'object',
+                            allOf: [
+                                { $ref: '#/components/schemas/BasePet' }, // This one is good
+                                { $ref: '#/components/schemas/NonExistentSchema' } // This one is bad
+                            ],
+                            properties: { petType: { type: 'string', enum: ['badcat'] } }
+                        }
+                    }
+                }
+            };
+            project = await runAdminGen(specWithBadRef);
+            const html = project.getFileSystem().readFileSync('/generated/admin/badPets/badPets-form/badPets-form.component.html');
 
+            expect(html).toBeDefined();
+            expect(html).toContain('formControlName="name"');
+        });
+    });
 });

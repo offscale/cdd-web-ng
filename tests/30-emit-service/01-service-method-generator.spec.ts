@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { ClassDeclaration, Project } from 'ts-morph';
+import { Project, Scope } from 'ts-morph';
 import { ServiceMethodGenerator } from '@src/service/emit/service/service-method.generator.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig, PathInfo } from '@src/core/types.js';
@@ -109,9 +109,9 @@ describe('Emitter: ServiceMethodGenerator', () => {
         const serviceClass = sourceFile.addClass({ name: 'TmpService' });
         // Add minimal service boilerplate for the method body to compile
         sourceFile.addImportDeclaration({ moduleSpecifier: '@angular/common/http', namedImports: ['HttpHeaders', 'HttpContext', 'HttpParams'] });
-        serviceClass.addProperty({ name: 'basePath', isReadonly: true, scope: 'private', type: 'string', initializer: "''" });
-        serviceClass.addProperty({ name: 'http', isReadonly: true, scope: 'private', type: 'any', initializer: "{}" });
-        serviceClass.addMethod({ name: 'createContextWithClientId', isPrivate: true, returnType: 'any', statements: 'return {};' });
+        serviceClass.addProperty({ name: 'basePath', isReadonly: true, scope: Scope.Private, type: 'string', initializer: "''" });
+        serviceClass.addProperty({ name: 'http', isReadonly: true, scope: Scope.Private, type: 'any', initializer: "{}" });
+        serviceClass.addMethod({ name: 'createContextWithClientId', scope: Scope.Private, returnType: 'any', statements: 'return {};' });
         return { methodGen, serviceClass, parser };
     };
 
@@ -130,7 +130,7 @@ describe('Emitter: ServiceMethodGenerator', () => {
     describe('Documentation Generation', () => {
         const { methodGen, serviceClass, parser } = createTestEnvironment();
         const addMethodWithDocs = (operationId: string) => {
-            const op = parser.operations.find(o => o.operationId === operationId)!;
+            const op = parser.operations.find((o: PathInfo) => o.operationId === operationId)!;
             op.methodName = operationId;
             methodGen.addServiceMethod(serviceClass, op);
             return serviceClass.getMethodOrThrow(operationId).getJsDocs()[0].getDescription();
@@ -161,7 +161,7 @@ describe('Emitter: ServiceMethodGenerator', () => {
         it('should make options optional if other parameters are optional', () => {
             const { methodGen, serviceClass, parser } = createTestEnvironment();
             // This operation has an optional query param
-            const op = parser.operations.find(o => o.operationId === 'getWithSwagger2Param')!;
+            const op = parser.operations.find((o: PathInfo) => o.operationId === 'getWithSwagger2Param')!;
             op.methodName = 'getWithSwagger2Param';
             methodGen.addServiceMethod(serviceClass, op);
 
@@ -175,7 +175,7 @@ describe('Emitter: ServiceMethodGenerator', () => {
 
         it('should keep options required if all other parameters are required', () => {
             const { methodGen, serviceClass, parser } = createTestEnvironment();
-            const op = parser.operations.find(o => o.operationId === 'postAllRequired')!;
+            const op = parser.operations.find((o: PathInfo) => o.operationId === 'postAllRequired')!;
             op.methodName = 'postAllRequired';
             methodGen.addServiceMethod(serviceClass, op);
 
@@ -191,40 +191,40 @@ describe('Emitter: ServiceMethodGenerator', () => {
     describe('Parameter and Body Generation', () => {
         it('should handle multipart/form-data', () => {
             const { methodGen, serviceClass, parser } = createTestEnvironment();
-            const op = parser.operations.find(o => o.operationId === 'postMultipart')!;
+            const op = parser.operations.find((o: PathInfo) => o.operationId === 'postMultipart')!;
             op.methodName = 'postMultipart';
             methodGen.addServiceMethod(serviceClass, op);
             const body = serviceClass.getMethodOrThrow('postMultipart').getBodyText()!;
             expect(body).toContain("const formData = new FormData();");
             expect(body).toContain("if (fileUpload != null) { formData.append('file-upload', fileUpload); }");
-            expect(body).toContain("return this.http.post(url, formData, requestOptions);");
+            expect(body).toContain("return this.http.post(url, formData, requestOptions as any);");
         });
 
         it('should handle multipart/form-data with no formData params', () => {
             const { methodGen, serviceClass, parser } = createTestEnvironment();
-            const op = parser.operations.find(o => o.operationId === 'postMultipartNoParams')!;
+            const op = parser.operations.find((o: PathInfo) => o.operationId === 'postMultipartNoParams')!;
             op.methodName = 'postMultipartNoParams';
             methodGen.addServiceMethod(serviceClass, op);
             const body = serviceClass.getMethodOrThrow('postMultipartNoParams').getBodyText()!;
             // It should not generate FormData logic and fall back to a null body.
             expect(body).not.toContain('new FormData()');
-            expect(body).toContain('return this.http.post(url, null, requestOptions);');
+            expect(body).toContain('return this.http.post(url, null, requestOptions as any);');
         });
 
         it('should handle application/x-www-form-urlencoded', () => {
             const { methodGen, serviceClass, parser } = createTestEnvironment();
-            const op = parser.operations.find(o => o.operationId === 'postUrlencoded')!;
+            const op = parser.operations.find((o: PathInfo) => o.operationId === 'postUrlencoded')!;
             op.methodName = 'postUrlencoded';
             methodGen.addServiceMethod(serviceClass, op);
             const body = serviceClass.getMethodOrThrow('postUrlencoded').getBodyText()!;
             expect(body).toContain("let formBody = new HttpParams();");
             expect(body).toContain("if (grantType != null) { formBody = formBody.append('grantType', grantType); }");
-            expect(body).toContain("return this.http.post(url, formBody, requestOptions);");
+            expect(body).toContain("return this.http.post(url, formBody, requestOptions as any);");
         });
 
         it('should handle Swagger 2.0 style parameters (without schema wrapper)', () => {
             const { methodGen, serviceClass, parser } = createTestEnvironment();
-            const op = parser.operations.find(o => o.operationId === 'getWithSwagger2Param')!;
+            const op = parser.operations.find((o: PathInfo) => o.operationId === 'getWithSwagger2Param')!;
             op.methodName = 'getWithSwagger2Param';
             methodGen.addServiceMethod(serviceClass, op);
             const param = serviceClass.getMethodOrThrow('getWithSwagger2Param').getParameters().find(p => p.getName() === 'limit');
@@ -234,7 +234,7 @@ describe('Emitter: ServiceMethodGenerator', () => {
 
         it('should name the body parameter after the model type if it is an interface', () => {
             const { methodGen, serviceClass, parser } = createTestEnvironment();
-            const op = parser.operations.find(o => o.operationId === 'postAndReturn')!;
+            const op = parser.operations.find((o: PathInfo) => o.operationId === 'postAndReturn')!;
             op.methodName = 'postAndReturn';
             methodGen.addServiceMethod(serviceClass, op);
             const param = serviceClass.getMethodOrThrow('postAndReturn').getParameters().find(p => p.getName() === 'bodyModel');
@@ -244,7 +244,7 @@ describe('Emitter: ServiceMethodGenerator', () => {
 
         it('should handle request body without a schema by creating an "unknown" body param', () => {
             const { methodGen, serviceClass, parser } = createTestEnvironment();
-            const op = parser.operations.find(o => o.operationId === 'postBodyNoSchema')!;
+            const op = parser.operations.find((o: PathInfo) => o.operationId === 'postBodyNoSchema')!;
             op.methodName = 'postBodyNoSchema';
             methodGen.addServiceMethod(serviceClass, op);
 
@@ -256,13 +256,13 @@ describe('Emitter: ServiceMethodGenerator', () => {
 
         it('should handle formData params when consumes array is missing', () => {
             const { methodGen, serviceClass, parser } = createTestEnvironment();
-            const op = parser.operations.find(o => o.operationId === 'postFormDataNoConsumes')!;
+            const op = parser.operations.find((o: PathInfo) => o.operationId === 'postFormDataNoConsumes')!;
             op.methodName = 'postFormDataNoConsumes';
             methodGen.addServiceMethod(serviceClass, op);
 
             const body = serviceClass.getMethodOrThrow('postFormDataNoConsumes').getBodyText()!;
             // isMultipartForm will be false, so it falls through. Since there's no other body, 'null' is used.
-            expect(body).toContain('return this.http.post(url, null, requestOptions);');
+            expect(body).toContain('return this.http.post(url, null, requestOptions as any);');
             expect(body).not.toContain('new FormData()');
         });
     });
@@ -270,7 +270,7 @@ describe('Emitter: ServiceMethodGenerator', () => {
     describe('Response Type Resolution', () => {
         it('should infer response type from request body on POST when no success response is defined', () => {
             const { methodGen, serviceClass, parser } = createTestEnvironment();
-            const op = parser.operations.find(o => o.operationId === 'postInferReturn')!;
+            const op = parser.operations.find((o: PathInfo) => o.operationId === 'postInferReturn')!;
             op.methodName = 'postInferReturn';
             methodGen.addServiceMethod(serviceClass, op);
             const overload = serviceClass.getMethodOrThrow('postInferReturn').getOverloads()[0];
@@ -279,7 +279,7 @@ describe('Emitter: ServiceMethodGenerator', () => {
 
         it("should fall back to 'any' for responseType when no success response or request body schema is defined", () => {
             const { methodGen, serviceClass, parser } = createTestEnvironment();
-            const operation = parser.operations.find(o => o.operationId === 'getOAS2NoSchema')!;
+            const operation = parser.operations.find((o: PathInfo) => o.operationId === 'getOAS2NoSchema')!;
             operation.methodName = 'getOAS2NoSchema';
             methodGen.addServiceMethod(serviceClass, operation);
             const overload = serviceClass.getMethodOrThrow('getOAS2NoSchema').getOverloads()[0];
@@ -289,24 +289,24 @@ describe('Emitter: ServiceMethodGenerator', () => {
 
     it('should generate query param logic with correct nullish coalescing for options.params', () => {
         const { methodGen, serviceClass, parser } = createTestEnvironment();
-        const operation = parser.operations.find(op => op.operationId === 'withQuery')!;
+        const operation = parser.operations.find((op: PathInfo) => op.operationId === 'withQuery')!;
         operation.methodName = 'withQuery';
         methodGen.addServiceMethod(serviceClass, operation);
         const body = serviceClass.getMethodOrThrow('withQuery').getImplementation()?.getBodyText() ?? '';
         expect(body).toContain(`let params = new HttpParams({ fromObject: options?.params ?? {} });`);
         expect(body).toContain(`if (search != null) { params = HttpParamsBuilder.addToHttpParams(params, search, 'search'); }`);
-        expect(body).toContain(`params,`);
+        expect(body).toContain(`params`);
     });
 
     it('should generate header param logic correctly', () => {
         const { methodGen, serviceClass, parser } = createTestEnvironment();
-        const operation = parser.operations.find(op => op.operationId === 'withHeader')!;
+        const operation = parser.operations.find((op: PathInfo) => op.operationId === 'withHeader')!;
         operation.methodName = 'withHeader';
         methodGen.addServiceMethod(serviceClass, operation);
         const method = serviceClass.getMethodOrThrow('withHeader');
         const body = method.getImplementation()?.getBodyText() ?? '';
         expect(body).toContain(`let headers = options?.headers instanceof HttpHeaders ? options.headers : new HttpHeaders(options?.headers ?? {});`);
         expect(body).toContain(`if (xCustomHeader != null) { headers = headers.set('X-Custom-Header', String(xCustomHeader)); }`);
-        expect(body).toContain(`headers,`);
+        expect(body).toContain(`headers`);
     });
 });

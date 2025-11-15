@@ -4,11 +4,22 @@
  * parsing, and providing a unified interface to OpenAPI (3.x) and Swagger (2.x) specifications.
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import * as yaml from 'js-yaml';
-import { GeneratorConfig, PathInfo, SecurityScheme, SwaggerDefinition, SwaggerSpec } from './types.js';
+import { SwaggerDefinition, SwaggerSpec, GeneratorConfig, SecurityScheme, PathInfo } from './types.js';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import yaml from 'js-yaml';
 import { extractPaths, isUrl, pascalCase } from './utils.js';
+
+/** Represents a `$ref` object in a JSON Schema. */
+interface RefObject { $ref: string; }
+
+/**
+ * A type guard to safely check if an object is a `$ref` object.
+ * @param obj The object to check.
+ * @returns True if the object is a valid `$ref` object.
+ */
+const isRefObject = (obj: unknown): obj is RefObject =>
+    typeof obj === 'object' && obj !== null && '$ref' in obj && typeof (obj as { $ref: unknown }).$ref === 'string';
 
 /**
  * Represents a resolved option for a polymorphic (`oneOf`) schema,
@@ -143,8 +154,8 @@ export class SwaggerParser {
     public resolve<T>(obj: T | { $ref: string } | null | undefined): T | undefined {
         if (obj === null) return null as unknown as undefined;
         if (obj === undefined) return undefined;
-        if (typeof obj === 'object' && '$ref' in obj && typeof (obj as any).$ref === 'string') {
-            return this.resolveReference((obj as any).$ref);
+        if (isRefObject(obj)) {
+            return this.resolveReference(obj.$ref);
         }
         return obj as T;
     }
@@ -166,10 +177,10 @@ export class SwaggerParser {
             return undefined;
         }
         const pathParts = ref.substring(2).split('/');
-        let current: any = this.spec;
+        let current: unknown = this.spec;
         for (const part of pathParts) {
             if (typeof current === 'object' && current !== null && Object.prototype.hasOwnProperty.call(current, part)) {
-                current = current[part];
+                current = (current as Record<string, unknown>)[part];
             } else {
                 console.warn(`[Parser] Failed to resolve reference part "${part}" in path "${ref}"`);
                 return undefined;

@@ -1,6 +1,6 @@
 // src/service/emit/test/service-test-generator.ts
 
-import * as path from 'path';
+import * as path from 'node:path';
 import { Project, SourceFile } from 'ts-morph';
 import { SwaggerParser } from '../../../core/parser.js';
 import { GeneratorConfig, PathInfo, SwaggerDefinition } from '../../../core/types.js';
@@ -173,7 +173,6 @@ export class ServiceTestGenerator {
         });
     }
 
-    // FIX 2.4: Ensure getMethodTypes includes isPrimitiveBody logic and return type
     private getMethodTypes(op: PathInfo): {
         responseModel?: string;
         responseType: string;
@@ -193,7 +192,12 @@ export class ServiceTestGenerator {
         const bodyModel = isDataTypeInterface(bodyModelType) ? bodyModelType : undefined;
         const isPrimitiveBody = !!resolvedBodySchema && !resolvedBodySchema.properties && ['string', 'number', 'boolean'].includes(resolvedBodySchema.type as string);
 
-        return { responseModel, responseType, bodyModel, isPrimitiveBody };
+        return {
+            responseType,
+            isPrimitiveBody,
+            ...(responseModel && { responseModel }),
+            ...(bodyModel && { bodyModel }),
+        };
     }
 
     private collectModelImports(operations: PathInfo[]): Set<string> {

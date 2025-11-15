@@ -4,6 +4,7 @@ import { SwaggerParser } from '@src/core/parser.js';
 import { coverageSpecPart2 } from '../shared/specs.js';
 import { ListComponentGenerator } from '@src/service/emit/admin/list-component.generator.js';
 import { createTestProject } from '../shared/helpers.js';
+import { Resource } from '@src/core/types.js';
 
 /**
  * @fileoverview
@@ -16,7 +17,7 @@ describe('Admin Generators (Coverage)', () => {
     it('resource-discovery should use fallback action name when no operationId is present', () => {
         const parser = new SwaggerParser(coverageSpecPart2 as any, { options: {} } as any);
         const resources = discoverAdminResources(parser);
-        const resource = resources.find(r => r.name === 'noIdOpId');
+        const resource = resources.find((r: Resource) => r.name === 'noIdOpId');
         expect(resource).toBeDefined();
         // The final fallback computes the name from the method 'head' and path 'no-id-opid', which becomes 'headNoIdOpid'.
         expect(resource!.operations[0].action).toBe('headNoIdOpid');
@@ -25,7 +26,7 @@ describe('Admin Generators (Coverage)', () => {
     it('resource-discovery should handle resources with no defined schemas', () => {
         const parser = new SwaggerParser(coverageSpecPart2 as any, { options: {} } as any);
         const resources = discoverAdminResources(parser);
-        const resource = resources.find(r => r.name === 'noSchemaResource');
+        const resource = resources.find((r: Resource) => r.name === 'noSchemaResource');
         expect(resource).toBeDefined();
         // It should fall back to a default 'id' property.
         expect(resource!.formProperties).toEqual([{ name: 'id', schema: { type: 'string' } }]);
@@ -47,7 +48,7 @@ describe('Admin Generators (Coverage)', () => {
         };
         const project = createTestProject();
         const parser = new SwaggerParser(spec as any, { options: { admin: true } } as any);
-        const resource = discoverAdminResources(parser).find(r => r.name === 'reports')!;
+        const resource = discoverAdminResources(parser).find((r: Resource) => r.name === 'reports')!;
         const generator = new ListComponentGenerator(project);
 
         generator.generate(resource, '/admin');
@@ -68,7 +69,7 @@ describe('Admin Generators (Coverage)', () => {
         };
         const project = createTestProject();
         const parser = new SwaggerParser(spec as any, { options: { admin: true } } as any);
-        const resource = discoverAdminResources(parser).find(r => r.name === 'reports')!;
+        const resource = discoverAdminResources(parser).find((r: Resource) => r.name === 'reports')!;
         const generator = new ListComponentGenerator(project);
 
         generator.generate(resource, '/admin');
@@ -107,7 +108,7 @@ describe('Admin Generators (Coverage)', () => {
         };
         const project = createTestProject();
         const parser = new SwaggerParser(spec as any, { options: { admin: true } } as any);
-        const resource = discoverAdminResources(parser).find(r => r.name === 'diagnostics')!;
+        const resource = discoverAdminResources(parser).find((r: Resource) => r.name === 'diagnostics')!;
         const generator = new ListComponentGenerator(project);
         generator.generate(resource, '/admin');
         const listClass = project.getSourceFileOrThrow('/admin/diagnostics/diagnostics-list/diagnostics-list.component.ts').getClassOrThrow('DiagnosticsListComponent');

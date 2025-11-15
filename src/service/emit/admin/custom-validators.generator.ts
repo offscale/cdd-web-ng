@@ -1,5 +1,5 @@
 import { ClassDeclaration, MethodDeclarationStructure, OptionalKind, Project, Scope } from 'ts-morph';
-import { posix as path } from 'path';
+import { posix as path } from 'node:path';
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
 
 /**

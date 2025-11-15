@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { SwaggerParser } from '@src/core/parser.js';
 import { runGeneratorWithConfig } from '../shared/helpers.js';
 import { branchCoverageSpec, coverageSpec } from '../shared/specs.js';
+import { Resource } from '@src/core/types.js';
 import { discoverAdminResources } from '@src/service/emit/admin/resource-discovery.js';
 import { ListComponentGenerator } from '@src/service/emit/admin/list-component.generator.js';
 import { createTestProject } from '../shared/helpers.js';
@@ -12,7 +13,7 @@ describe('Final Branch Coverage Tests', () => {
     it('resource-discovery should use "Default" for root path', () => {
         const parser = new SwaggerParser(branchCoverageSpec as any, { options: { admin: true } } as any);
         const resources = discoverAdminResources(parser);
-        const resource = resources.find(r => r.name === 'default');
+        const resource = resources.find((r: Resource) => r.name === 'default');
         expect(resource).toBeDefined();
         expect(resource!.operations[0].operationId).toBe('getRoot');
     });
@@ -20,7 +21,7 @@ describe('Final Branch Coverage Tests', () => {
     it('resource-discovery getModelName should use fallback when no schema is present', () => {
         const parser = new SwaggerParser(branchCoverageSpec as any, { options: { admin: true } } as any);
         const resources = discoverAdminResources(parser);
-        const resource = resources.find(r => r.name === 'noSchemaResource');
+        const resource = resources.find((r: Resource) => r.name === 'noSchemaResource');
         expect(resource).toBeDefined();
         expect(resource!.modelName).toBe('NoSchemaResource');
     });
@@ -28,7 +29,7 @@ describe('Final Branch Coverage Tests', () => {
     it('resource-discovery should correctly classify complex custom action names', () => {
         const parser = new SwaggerParser(branchCoverageSpec as any, { options: { admin: true } } as any);
         const resources = discoverAdminResources(parser);
-        const resource = resources.find(r => r.name === 'multiPath');
+        const resource = resources.find((r: Resource) => r.name === 'multiPath');
         expect(resource).toBeDefined();
         expect(resource!.operations[0].action).toBe('multiPathComplexAction');
     });
@@ -36,7 +37,7 @@ describe('Final Branch Coverage Tests', () => {
     it('resource-discovery should not classify a custom action "addItem" as "create"', () => {
         const parser = new SwaggerParser(branchCoverageSpec as any, { options: { admin: true } } as any);
         const resources = discoverAdminResources(parser);
-        const widgetResource = resources.find(r => r.name === 'widgets')!;
+        const widgetResource = resources.find((r: Resource) => r.name === 'widgets')!;
         const addItemOp = widgetResource.operations.find(op => op.operationId === 'addItemToWidget')!;
         // This is a crucial test to ensure the "create" heuristic is not too greedy.
         expect(addItemOp.action).not.toBe('create');
@@ -46,7 +47,7 @@ describe('Final Branch Coverage Tests', () => {
     it('list-component-generator should handle a resource with only read-only properties', () => {
         const project = createTestProject();
         const parser = new SwaggerParser(branchCoverageSpec as any, { options: { admin: true } } as any);
-        const resource = discoverAdminResources(parser).find(r => r.name === 'readOnlyResource')!;
+        const resource = discoverAdminResources(parser).find((r: Resource) => r.name === 'readOnlyResource')!;
         const generator = new ListComponentGenerator(project);
         generator.generate(resource, '/admin');
         const listClass = project

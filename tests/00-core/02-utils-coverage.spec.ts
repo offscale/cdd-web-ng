@@ -14,7 +14,13 @@ describe('Core: utils.ts (Coverage)', () => {
     const config: GeneratorConfig = {
         input: 'spec.json',
         output: './out',
-        options: { dateType: 'string', enumStyle: 'enum' },
+        options: {
+            generateServices: true,
+            admin: false,
+            generateServiceTests: true,
+            dateType: 'string',
+            enumStyle: 'enum'
+        },
     };
     const configWithDate: GeneratorConfig = { ...config, options: { ...config.options, dateType: 'Date' } };
 
@@ -87,7 +93,7 @@ describe('Core: utils.ts (Coverage)', () => {
         });
 
         it('should handle `additionalProperties: true`', () => {
-            const schema = typeGenSpec.components.schemas.FreeObject;
+            const schema = typeGenSpec.components.schemas.FreeObject as any;
             expect(utils.getTypeScriptType(schema, config, [])).toBe('Record<string, any>');
         });
 
@@ -131,7 +137,7 @@ describe('Core: utils.ts (Coverage)', () => {
         });
 
         it('should handle operations with no request body or body param', () => {
-            const paths = utils.extractPaths(branchCoverageSpec.paths);
+            const paths = utils.extractPaths(branchCoverageSpec.paths as any);
             const op = paths.find(p => p.operationId === 'getNoBody');
             expect(op).toBeDefined();
             expect(op!.requestBody).toBeUndefined();
@@ -172,7 +178,7 @@ describe('Core: utils.ts (Coverage)', () => {
         });
 
         it('should handle responses with non-json content', () => {
-            const paths = utils.extractPaths(branchCoverageSpec.paths);
+            const paths = utils.extractPaths(branchCoverageSpec.paths as any);
             const op = paths.find(p => p.operationId === 'getNoBody');
             expect(op).toBeDefined();
             expect(op!.responses!['200'].content!['text/plain'].schema).toEqual({ type: 'string' });

@@ -11,7 +11,6 @@ import {
 } from '../../../core/types.js';
 import { camelCase, pascalCase, singular } from '../../../core/utils.js';
 
-// ... (getMethodName, getResourceName, classifyAction, findSchema are all correct) ...
 function getMethodName(op: PathInfo): string {
     const pathToMethodName = (path: string): string =>
         path
@@ -88,12 +87,19 @@ function getFormProperties(operations: PathInfo[], parser: SwaggerParser): FormP
         if (resSchema) allSchemas.push(resSchema);
 
         op.parameters?.forEach(param => {
-            if ((param as any).in === 'formData') {
-                formDataProperties[param.name] = {
-                    type: (param as any).type,
-                    format: (param as any).format,
-                    description: param.description,
-                };
+            if (param.in === 'formData' && param.schema && !('$ref' in param.schema)) {
+                const prop: Partial<SwaggerDefinition> = {};
+                if (param.schema.format) {
+                    prop.format = param.schema.format;
+                }
+                if (param.description) {
+                    prop.description = param.description;
+                }
+                const paramType = param.schema.type;
+                if (paramType && !Array.isArray(paramType)) {
+                    prop.type = paramType;
+                }
+                formDataProperties[param.name] = prop as SwaggerDefinition;
             }
         });
     });
@@ -119,33 +125,29 @@ function getFormProperties(operations: PathInfo[], parser: SwaggerParser): FormP
     const finalSchema: SwaggerDefinition = {
         properties: mergedProperties,
         required: Array.from(mergedRequired),
-        oneOf: mergedOneOf,
-        discriminator: mergedDiscriminator,
+        ...(mergedOneOf && { oneOf: mergedOneOf }),
+        ...(mergedDiscriminator && { discriminator: mergedDiscriminator }),
     };
+
     const properties: FormProperty[] = Object.entries(finalSchema.properties ?? {}).map(([name, propSchema]) => {
         const resolvedSchema = findSchema(propSchema, parser);
         const finalPropSchema: SwaggerDefinition = resolvedSchema ? { ...propSchema, ...resolvedSchema } : propSchema;
-        if (finalSchema.required?.includes(name)) (finalPropSchema as any).required = true;
+        if (finalSchema.required?.includes(name)) (finalPropSchema.required ||= []).push(name);
         return { name, schema: finalPropSchema };
     });
 
-    // THE DEFINITIVE FIX:
     if (finalSchema.oneOf && finalSchema.discriminator) {
         const dPropName = finalSchema.discriminator.propertyName;
         const existingProp = properties.find(p => p.name === dPropName);
 
         if (existingProp) {
-            // This is the normal case for object-based polymorphism where the discriminator is a listed property.
             existingProp.schema.oneOf = finalSchema.oneOf;
             existingProp.schema.discriminator = finalSchema.discriminator;
         } else {
-            // This is the fix for root-level oneOf schemas (like PolyWithPrimitive) that don't
-            // explicitly list the discriminator as a property. We must create a synthetic property
-            // to carry the polymorphism information to the form component generator.
             const syntheticProp: FormProperty = {
                 name: dPropName,
                 schema: {
-                    type: 'string', // The discriminator is a selector, usually for a string value.
+                    type: 'string',
                     description: `Determines the type of the polymorphic object.`,
                     oneOf: finalSchema.oneOf,
                     discriminator: finalSchema.discriminator,
@@ -158,8 +160,7 @@ function getFormProperties(operations: PathInfo[], parser: SwaggerParser): FormP
     return properties.length > 0 ? properties : [{ name: 'id', schema: { type: 'string' } }];
 }
 
-// ... (getModelName and discoverAdminResources are correct) ...
-function getModelName(resourceName: string, operations: PathInfo[], parser: SwaggerParser): string {
+function getModelName(resourceName: string, operations: PathInfo[]): string {
     const op = operations.find(o => o.method === 'POST') ?? operations.find(o => o.method === 'GET');
     const schema = op?.requestBody?.content?.['application/json']?.schema ?? op?.responses?.['200']?.content?.['application/json']?.schema;
     if (schema) {
@@ -190,20 +191,39 @@ export function discoverAdminResources(parser: SwaggerParser): Resource[] {
         const classifiedOps: ResourceOperation[] = group.operations.map(op => {
             const action = classifyAction(op, op.method);
             const hasPathParams = op.parameters?.some(p => p.in === 'path') ?? false;
-            return {
+
+            const resourceOperation: ResourceOperation = {
                 action,
-                ...op,
-                methodName: getMethodName(op),
-                isCustomItemAction: !['list', 'create', 'getById', 'update', 'delete'].includes(action) && hasPathParams,
-                isCustomCollectionAction: !['list', 'create', 'getById', 'update', 'delete'].includes(action) && !hasPathParams,
+                path: op.path,
+                method: op.method,
             };
+
+            const methodName = getMethodName(op);
+            if (methodName) {
+                resourceOperation.methodName = methodName;
+            }
+            if (op.operationId) {
+                resourceOperation.operationId = op.operationId;
+            }
+            if (op.parameters) {
+                resourceOperation.methodParameters = op.parameters;
+            }
+
+            const isCustom = !['list', 'create', 'getById', 'update', 'delete'].includes(action);
+            if (isCustom && hasPathParams) {
+                resourceOperation.isCustomItemAction = true;
+            }
+            if (isCustom && !hasPathParams) {
+                resourceOperation.isCustomCollectionAction = true;
+            }
+            return resourceOperation;
         });
 
         const formProperties = getFormProperties(group.operations, parser);
 
         finalResources.push({
             name: group.name,
-            modelName: getModelName(group.name, group.operations, parser),
+            modelName: getModelName(group.name, group.operations),
             operations: classifiedOps,
             isEditable: group.operations.some(op => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(op.method)),
             formProperties,

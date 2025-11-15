@@ -27,13 +27,13 @@ export interface Parameter {
     /** The name of the parameter. */
     name: string;
     /** The location of the parameter. */
-    in: "query" | "path" | "header" | "cookie";
+    in: "query" | "path" | "header" | "cookie" | "formData";
     /** Determines whether this parameter is mandatory. */
     required?: boolean;
     /** The schema defining the type of the parameter. */
     schema?: SwaggerDefinition | { $ref: string };
     /** The primitive type of the parameter (used in Swagger 2.0). */
-    type?: string;
+    type?: 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'file';
     /** The specific format of the parameter's type. */
     format?: string;
     /** A brief description of the parameter. */
@@ -156,9 +156,9 @@ export interface SwaggerSpec {
 /** Options that customize the output of the generated code. */
 export interface GeneratorConfigOptions {
     /** The TypeScript type to use for properties with `format: "date"` or `"date-time"`. */
-    dateType: 'string' | 'Date';
+    dateType?: 'string' | 'Date';
     /** How to generate types for schemas with an `enum` list. */
-    enumStyle: 'enum' | 'union';
+    enumStyle?: 'enum' | 'union';
     /** If true, generates Angular services for API operations. */
     generateServices?: boolean;
     /** If true, generates a complete admin UI module. */
@@ -170,7 +170,7 @@ export interface GeneratorConfigOptions {
     /** A record of static headers to be added to every generated service request. */
     customHeaders?: Record<string, string>;
     /** A callback to provide a custom method name for an operation. */
-    customizeMethodName?: (operationId: string) => string;
+    customizeMethodName?: ((operationId: string) => string);
 }
 
 /** The main configuration object for the entire generation process. */

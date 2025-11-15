@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { Project, ImportDeclaration } from 'ts-morph';
 import { ServiceGenerator } from '@src/service/emit/service/service.generator.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from '@src/core/types.js';
@@ -32,9 +33,9 @@ describe('Emitter: Service Generators (Coverage)', () => {
     it('should import models for parameter types that are interfaces', () => {
         const project = run(branchCoverageSpec);
         const serviceFile = project.getSourceFileOrThrow('/out/services/paramIsRef.service.ts');
-        const modelImport = serviceFile.getImportDeclaration(imp => imp.getModuleSpecifierValue() === '../models');
+        const modelImport = serviceFile.getImportDeclaration((imp: ImportDeclaration) => imp.getModuleSpecifierValue() === '../models');
         expect(modelImport).toBeDefined();
-        expect(modelImport!.getNamedImports().map(i => i.getName())).toContain('User');
+        expect(modelImport!.getNamedImports().map((i: any) => i.getName())).toContain('User');
     });
 
     it('should generate methods for multipart/form-data', () => {
@@ -43,7 +44,7 @@ describe('Emitter: Service Generators (Coverage)', () => {
         const methodBody = serviceFile.getClassOrThrow('FormDataService').getMethodOrThrow('postWithFormData').getBodyText()!;
         expect(methodBody).toContain('const formData = new FormData();');
         expect(methodBody).toContain("if (file != null) { formData.append('file', file); }");
-        expect(methodBody).toContain('return this.http.post(url, formData, requestOptions);');
+        expect(methodBody).toContain('return this.http.post(url, formData, requestOptions as any);');
     });
 
     it('should generate methods for application/x-www-form-urlencoded', () => {
@@ -52,23 +53,23 @@ describe('Emitter: Service Generators (Coverage)', () => {
         const methodBody = serviceFile.getClassOrThrow('UrlEncodedService').getMethodOrThrow('postWithUrlEncoded').getBodyText()!;
         expect(methodBody).toContain('let formBody = new HttpParams();');
         expect(methodBody).toContain("if (grantType != null) { formBody = formBody.append('grant_type', grantType); }");
-        expect(methodBody).toContain('return this.http.post(url, formBody, requestOptions);');
+        expect(methodBody).toContain('return this.http.post(url, formBody, requestOptions as any);');
     });
 
     it('should not import models for services that only return primitives', () => {
         const project = run(coverageSpecPart2);
         const serviceFile = project.getSourceFileOrThrow('/out/services/primitiveResponse.service.ts');
-        const modelImport = serviceFile.getImportDeclaration(imp => imp.getModuleSpecifierValue() === '../models');
+        const modelImport = serviceFile.getImportDeclaration((imp: ImportDeclaration) => imp.getModuleSpecifierValue() === '../models');
         // The import should exist (for RequestOptions), but it should not import any models beyond that.
         expect(modelImport).toBeDefined();
-        expect(modelImport!.getNamedImports().map(i => i.getName())).toEqual(['RequestOptions']);
+        expect(modelImport!.getNamedImports().map((i: any) => i.getName())).toEqual(['RequestOptions']);
     });
 
     it('should handle request body without a schema', () => {
         const project = run(branchCoverageSpec);
         const serviceFile = project.getSourceFileOrThrow('/out/services/bodyNoSchema.service.ts');
         const method = serviceFile.getClassOrThrow('BodyNoSchemaService').getMethodOrThrow('postBodyNoSchema');
-        const param = method.getParameters().find(p => p.getName() === 'body');
+        const param = method.getParameters().find((p: any) => p.getName() === 'body');
         expect(param?.getType().getText()).toBe('unknown');
     });
 
@@ -78,8 +79,8 @@ describe('Emitter: Service Generators (Coverage)', () => {
         const method = serviceFile.getClassOrThrow('AllRequiredService').getMethodOrThrow('getAllRequired');
         const overloads = method.getOverloads();
         // The 'options' parameter should NOT be optional in the overloads that require it
-        const responseOverload = overloads.find(o => o.getReturnType().getText().includes('HttpResponse'))!;
-        const optionsParam = responseOverload.getParameters().find(p => p.getName() === 'options')!;
+        const responseOverload = overloads.find((o: any) => o.getReturnType().getText().includes('HttpResponse'))!;
+        const optionsParam = responseOverload.getParameters().find((p: any) => p.getName() === 'options')!;
         expect(optionsParam.hasQuestionToken()).toBe(false);
     });
 
@@ -121,8 +122,8 @@ describe('Emitter: Service Generators (Coverage)', () => {
 
         const project = run(spec);
         const serviceFile = project.getSourceFileOrThrow('/out/services/defaultResponse.service.ts');
-        const modelImport = serviceFile.getImportDeclaration(imp => imp.getModuleSpecifierValue() === '../models');
-        expect(modelImport!.getNamedImports().map(i => i.getName())).toContain('User');
+        const modelImport = serviceFile.getImportDeclaration((imp: ImportDeclaration) => imp.getModuleSpecifierValue() === '../models');
+        expect(modelImport!.getNamedImports().map((i: any) => i.getName())).toContain('User');
 
         const noContentServiceFile = project.getSourceFileOrThrow('/out/services/noContentResponse.service.ts');
         expect(noContentServiceFile).toBeDefined();

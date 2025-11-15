@@ -1,3 +1,9 @@
+*.map
+*.spec.d*
+*.spec.js
+*.d.ts
+*.js
+
 # IDEs
 .idea
 .vscode

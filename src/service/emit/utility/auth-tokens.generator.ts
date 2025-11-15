@@ -1,6 +1,6 @@
 // src/service/emit/utility/auth-tokens.generator.ts
 
-import * as path from 'path';
+import * as path from 'node:path';
 import { Project, VariableDeclarationKind } from 'ts-morph';
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
 

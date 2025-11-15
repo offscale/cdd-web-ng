@@ -5,6 +5,7 @@ import { FormComponentGenerator } from "@src/service/emit/admin/form-component.g
 import { createTestProject } from "./helpers.js";
 import { branchCoverageSpec } from "./specs.js";
 import { describe, it, expect } from "vitest";
+import { Resource } from "@src/core/types.js";
 
 /**
  * @fileoverview
@@ -16,7 +17,7 @@ describe('Branch Coverage Specific Tests', () => {
     it('resource-discovery should correctly classify complex custom action names', () => {
         const parser = new SwaggerParser(branchCoverageSpec as any, { options: { admin: true } } as any);
         const resources = discoverAdminResources(parser);
-        const resource = resources.find(r => r.name === 'multiPath');
+        const resource = resources.find((r: Resource) => r.name === 'multiPath');
         expect(resource).toBeDefined();
         // Should NOT be 'create' just because it's a POST on a collection
         expect(resource!.operations[0].action).toBe('multiPathComplexAction');
@@ -25,7 +26,7 @@ describe('Branch Coverage Specific Tests', () => {
     it('list-component-generator should handle a resource with no editable properties', () => {
         const project = createTestProject();
         const parser = new SwaggerParser(branchCoverageSpec as any, { options: { admin: true } } as any);
-        const resource = discoverAdminResources(parser).find(r => r.name === 'readOnlyResource')!;
+        const resource = discoverAdminResources(parser).find((r: Resource) => r.name === 'readOnlyResource')!;
         const generator = new ListComponentGenerator(project);
         generator.generate(resource, '/admin');
         const listClass = project.getSourceFileOrThrow('/admin/readOnlyResource/readOnlyResource-list/readOnlyResource-list.component.ts')
@@ -37,7 +38,7 @@ describe('Branch Coverage Specific Tests', () => {
     it('form-component-generator should generate onSubmit with no actions if no create/update ops', () => {
         const project = createTestProject();
         const parser = new SwaggerParser(branchCoverageSpec as any, { options: { admin: true } } as any);
-        const resource = discoverAdminResources(parser).find(r => r.name === 'noCreateUpdate')!;
+        const resource = discoverAdminResources(parser).find((r: Resource) => r.name === 'noCreateUpdate')!;
         const generator = new FormComponentGenerator(project, parser);
         // This resource is editable (has DELETE) but has no form actions (create/update)
         generator.generate(resource, '/admin');
@@ -50,7 +51,7 @@ describe('Branch Coverage Specific Tests', () => {
     it('form-component-generator should handle ngOnInit for update-only forms without getById', () => {
         const project = createTestProject();
         const parser = new SwaggerParser(branchCoverageSpec as any, { options: { admin: true } } as any);
-        const resource = discoverAdminResources(parser).find(r => r.name === 'updateOnlyNoGet')!;
+        const resource = discoverAdminResources(parser).find((r: Resource) => r.name === 'updateOnlyNoGet')!;
         const generator = new FormComponentGenerator(project, parser);
 
         generator.generate(resource, '/admin');

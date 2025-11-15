@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import { Project } from 'ts-morph';
 import { CustomValidatorsGenerator } from '../../src/service/emit/admin/custom-validators.generator.js';
 import { createTestProject } from '../shared/helpers.js';
 

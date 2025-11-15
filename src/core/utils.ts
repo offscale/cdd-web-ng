@@ -64,7 +64,7 @@ function normalizeString(str: string): string {
 export function camelCase(str: string): string {
     const normalized = normalizeString(str);
     if (!normalized) return '';
-    return normalized.replace(/\s(.)/g, (_, char) => char.toUpperCase());
+    return normalized.replace(/\s(.)/g, (_: string, char: string): string => char.toUpperCase());
 }
 
 /**
@@ -75,7 +75,7 @@ export function camelCase(str: string): string {
 export function pascalCase(str: string): string {
     const normalized = normalizeString(str);
     if (!normalized) return '';
-    return normalized.replace(/(^|\s)(.)/g, (_, __, char) => char.toUpperCase());
+    return normalized.replace(/(^|\s)(.)/g, (_: string, __: string, char: string): string => char.toUpperCase());
 }
 
 /**
@@ -109,7 +109,7 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined | null, 
         return 'any';
     }
 
-    if ((schema as any).type === 'file') {
+    if (schema!.type === 'file') {
         return 'any';
     }
 
@@ -220,7 +220,12 @@ type UnifiedParameter = SwaggerOfficialParameter & {
     schema?: SwaggerDefinition | { $ref: string },
     type?: string,
     format?: string,
-    items?: any
+    items?: SwaggerDefinition | { $ref: string }
+};
+
+// Helper type that adds OpenAPI 3.x properties to the Swagger 2.0 Operation type
+type OpenAPIOperation = Operation & {
+    requestBody?: RequestBody;
 };
 
 /**
@@ -242,7 +247,7 @@ export function extractPaths(swaggerPaths: { [p: string]: Path } | undefined): P
     for (const [path, pathItem] of Object.entries(swaggerPaths)) {
         const pathParameters: UnifiedParameter[] = (pathItem.parameters as UnifiedParameter[]) || [];
         for (const method of methods) {
-            const operation = pathItem[method as keyof Path] as Operation;
+            const operation = pathItem[method as keyof Path] as OpenAPIOperation;
             if (operation) {
                 const paramsMap = new Map<string, UnifiedParameter>();
                 pathParameters.forEach(p => paramsMap.set(`${p.name}:${p.in}`, p));
@@ -254,24 +259,29 @@ export function extractPaths(swaggerPaths: { [p: string]: Path } | undefined): P
                 const bodyParam = allParams.find(p => p.in === 'body') as BodyParameter | undefined;
 
                 const parameters = nonBodyParams.map((p): Parameter => {
-                    // **THE FIX**: This logic correctly uses the OAS3 `schema` property if it exists,
-                    // and falls back to constructing a schema object from OAS2 properties otherwise.
                     const finalSchema = p.schema || {
-                        type: p.type as any,
+                        type: p.type as SwaggerDefinition['type'],
                         format: p.format,
                         items: p.items,
                     };
 
-                    return {
+                    const param: Parameter = {
                         name: p.name,
                         in: p.in as "query" | "path" | "header" | "cookie",
-                        required: p.required,
                         schema: finalSchema as SwaggerDefinition,
-                        description: p.description
                     };
+
+                    if (p.required !== undefined) {
+                        param.required = p.required;
+                    }
+                    if (p.description) {
+                        param.description = p.description;
+                    }
+
+                    return param;
                 });
 
-                const requestBody = (operation as any).requestBody
+                const requestBody = operation.requestBody
                     || (bodyParam ? { content: { 'application/json': { schema: bodyParam.schema } } } : undefined);
 
                 const normalizedResponses: Record<string, SwaggerResponse> = {};
@@ -282,7 +292,7 @@ export function extractPaths(swaggerPaths: { [p: string]: Path } | undefined): P
                             normalizedResponses[code] = {
                                 description: swagger2Response.description,
                                 content: {
-                                    'application/json': { schema: swagger2Response.schema as SwaggerDefinition }
+                                    'application/json': { schema: swagger2Response.schema as unknown as SwaggerDefinition }
                                 }
                             }
                         } else {
@@ -291,14 +301,20 @@ export function extractPaths(swaggerPaths: { [p: string]: Path } | undefined): P
                     }
                 }
 
-                paths.push({
+                const pathInfo: PathInfo = {
                     path,
-                    ...operation,
                     method: method.toUpperCase(),
                     parameters,
-                    requestBody: requestBody as RequestBody | undefined,
+                    requestBody: requestBody as RequestBody,
                     responses: normalizedResponses,
-                });
+                };
+                if (operation.operationId) pathInfo.operationId = operation.operationId;
+                if (operation.summary) pathInfo.summary = operation.summary;
+                if (operation.description) pathInfo.description = operation.description;
+                if (operation.tags) pathInfo.tags = operation.tags;
+                if (operation.consumes) pathInfo.consumes = operation.consumes;
+
+                paths.push(pathInfo);
             }
         }
     }

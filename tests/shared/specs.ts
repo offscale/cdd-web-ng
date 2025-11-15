@@ -88,14 +88,16 @@ export const coverageSpec = {
             post: {
                 tags: ['Publications'],
                 operationId: 'createPublication',
-                requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/Publication' } } } }
+                requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/Publication' } } } },
+                responses: { '201': {} }
             }
         },
         '/configs/{id}': {
             put: {
                 tags: ['Configs'],
                 operationId: 'updateConfig',
-                parameters: [{ name: 'id', in: 'path' }]
+                parameters: [{ name: 'id', in: 'path' }],
+                responses: { '200': {} }
             }
         },
         '/servers': {
@@ -105,19 +107,21 @@ export const coverageSpec = {
                 responses: { '200': { description: 'ok' } }
             }
         },
-        '/servers/reboot-all': { post: { tags: ['Servers'], operationId: 'rebootAllServers' } },
+        '/servers/reboot-all': { post: { tags: ['Servers'], operationId: 'rebootAllServers', responses: {} } },
         '/servers/{id}/start': {
             post: {
                 tags: ['Servers'],
                 operationId: 'startServer',
-                parameters: [{ name: 'id', in: 'path', schema: { type: 'string' } }]
+                parameters: [{ name: 'id', in: 'path', schema: { type: 'string' } }],
+                responses: {}
             }
         },
         '/servers/{id}/reboot-item': {
             post: {
                 tags: ['Servers'],
                 operationId: 'rebootServerItem',
-                parameters: [{ name: 'id', in: 'path', schema: { type: 'string' } }]
+                parameters: [{ name: 'id', in: 'path', schema: { type: 'string' } }],
+                responses: {}
             }
         },
         '/string-array': {
@@ -138,18 +142,19 @@ export const coverageSpec = {
                 }
             }
         },
-        '/custom-name': { get: { tags: ['CustomName'], operationId: 'get-custom-name' } },
+        '/custom-name': { get: { tags: ['CustomName'], operationId: 'get-custom-name', responses: {} } },
         '/duplicate-name': {
-            get: { tags: ['DuplicateName'], operationId: 'getName' },
-            post: { tags: ['DuplicateName'], operationId: 'getName' }
+            get: { tags: ['DuplicateName'], operationId: 'getName', responses: {} },
+            post: { tags: ['DuplicateName'], operationId: 'getName', responses: {} }
         },
         '/action-test/{id}': {
             head: {
                 tags: ['ActionTest'],
-                parameters: [{ name: 'id', in: 'path', schema: { type: 'string' } }]
+                parameters: [{ name: 'id', in: 'path', schema: { type: 'string' } }],
+                responses: {}
             }
         },
-        '/users-search': { post: { tags: ['UsersSearch'], operationId: 'searchUsers' } },
+        '/users-search': { post: { tags: ['UsersSearch'], operationId: 'searchUsers', responses: {} } },
         '/events': {
             get: {
                 operationId: 'getEvents',
@@ -197,7 +202,8 @@ export const coverageSpecPart2 = {
                 parameters: [
                     { name: 'file', in: 'formData', type: 'file', required: true },
                     { name: 'description', in: 'formData', type: 'string' }
-                ]
+                ],
+                responses: {}
             }
         },
         '/url-encoded-test': {
@@ -208,7 +214,8 @@ export const coverageSpecPart2 = {
                 parameters: [
                     { name: 'grant_type', in: 'formData', type: 'string' },
                     { name: 'code', in: 'formData', type: 'string' }
-                ]
+                ],
+                responses: {}
             }
         },
         '/primitive-response': {
@@ -219,7 +226,7 @@ export const coverageSpecPart2 = {
             }
         },
         '/no-create-update/{id}': {
-            delete: { tags: ['NoCreateUpdate'], operationId: 'deleteNoCreateUpdate', parameters: [{name: 'id', in: 'path'}] }
+            delete: { tags: ['NoCreateUpdate'], operationId: 'deleteNoCreateUpdate', parameters: [{name: 'id', in: 'path'}], responses: {} }
         }
     },
     components: {
@@ -322,7 +329,8 @@ export const adminFormSpec = {
             post: {
                 tags: ['Widgets'],
                 operationId: 'postWidgets',
-                requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/Widget' } } } }
+                requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/Widget' } } } },
+                responses: {}
             }
         }
     },
@@ -388,7 +396,8 @@ export const polymorphismSpec = {
             get: { tags: ['Pets'], responses: { '200': {} } },
             post: {
                 tags: ['Pets'],
-                requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/Pet' } } } }
+                requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/Pet' } } } },
+                responses: {}
             }
         }
     },
@@ -442,7 +451,8 @@ export const finalCoverageSpec = {
                 parameters: [
                     { name: 'pathParam', in: 'path', required: true, schema: { type: 'string' } }
                 ],
-                requestBody: { content: { 'application/octet-stream': {} } }
+                requestBody: { content: { 'application/octet-stream': {} } },
+                responses: {}
             }
         },
         '/with-query': {
@@ -451,7 +461,8 @@ export const finalCoverageSpec = {
                 operationId: 'withQuery',
                 parameters: [
                     { name: 'search', in: 'query', schema: { type: 'string' } }
-                ]
+                ],
+                responses: {}
             }
         },
         '/primitive-body': {
@@ -464,7 +475,8 @@ export const finalCoverageSpec = {
                             schema: { type: 'string' }
                         }
                     }
-                }
+                },
+                responses: {}
             }
         },
         '/with-header': {
@@ -473,14 +485,16 @@ export const finalCoverageSpec = {
                 operationId: 'withHeader',
                 parameters: [
                     { name: 'X-Custom-Header', in: 'header', schema: { type: 'string' } }
-                ]
+                ],
+                responses: {}
             }
         },
         '/post-and-return': {
             post: {
                 tags: ['PostAndReturn'],
                 operationId: 'postAndReturn',
-                requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/BodyModel' } } } }
+                requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/BodyModel' } } } },
+                responses: {}
             }
         },
         '/file-param': {
@@ -488,7 +502,8 @@ export const finalCoverageSpec = {
                 tags: ['FileParam'],
                 operationId: 'uploadFile',
                 consumes: ['multipart/form-data'],
-                parameters: [{ name: 'file', in: 'formData', type: 'file' }]
+                parameters: [{ name: 'file', in: 'formData', type: 'file' }],
+                responses: {}
             }
         },
         '/patch-op': {
@@ -516,7 +531,8 @@ export const finalCoverageSpec = {
             patch: {
                 tags: ['PatchResource'],
                 parameters: [{ name: 'id', in: 'path' }],
-                requestBody: { content: { 'application/json': { schema: { type: 'object' } } } }
+                requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
+                responses: {}
             }
         },
     },
@@ -535,47 +551,52 @@ export const listComponentSpec = {
     paths: {
         '/icon-tests': {
             get: { tags: ['IconTests'], responses: { '200': { description: 'ok' } } },
-            post: { tags: ['IconTests'], operationId: 'createItem' }
+            post: { tags: ['IconTests'], operationId: 'createItem', responses: {} }
         },
         '/icon-tests/{id}': {
-            put: { tags: ['IconTests'], operationId: 'updateItem', parameters: [{ name: 'id', in: 'path' }] },
-            delete: { tags: ['IconTests'], operationId: 'deleteItem', parameters: [{ name: 'id', in: 'path' }] }
+            put: { tags: ['IconTests'], operationId: 'updateItem', parameters: [{ name: 'id', in: 'path' }], responses: {} },
+            delete: { tags: ['IconTests'], operationId: 'deleteItem', parameters: [{ name: 'id', in: 'path' }], responses: {} }
         },
-        '/icon-tests/add': { post: { tags: ['IconTests'], operationId: 'addItem' } },
+        '/icon-tests/add': { post: { tags: ['IconTests'], operationId: 'addItem', responses: {} } },
         '/icon-tests/{id}/remove': {
             post: {
                 tags: ['IconTests'],
                 operationId: 'removeItem',
-                parameters: [{ name: 'id', in: 'path' }]
+                parameters: [{ name: 'id', in: 'path' }],
+                responses: {}
             }
         },
         '/icon-tests/{id}/start': {
             post: {
                 tags: ['IconTests'],
                 operationId: 'startItem',
-                parameters: [{ name: 'id', in: 'path' }]
+                parameters: [{ name: 'id', in: 'path' }],
+                responses: {}
             }
         },
         '/icon-tests/{id}/pause': {
             post: {
                 tags: ['IconTests'],
                 operationId: 'pauseProcess',
-                parameters: [{ name: 'id', in: 'path' }]
+                parameters: [{ name: 'id', in: 'path' }],
+                responses: {}
             }
         },
-        '/icon-tests/sync-all': { post: { tags: ['IconTests'], operationId: 'syncAll' } },
+        '/icon-tests/sync-all': { post: { tags: ['IconTests'], operationId: 'syncAll', responses: {} } },
         '/icon-tests/{id}/approve': {
             post: {
                 tags: ['IconTests'],
                 operationId: 'approveItem',
-                parameters: [{ name: 'id', in: 'path' }]
+                parameters: [{ name: 'id', in: 'path' }],
+                responses: {}
             }
         },
         '/icon-tests/{id}/block': {
             post: {
                 tags: ['IconTests'],
                 operationId: 'blockUser',
-                parameters: [{ name: 'id', in: 'path' }]
+                parameters: [{ name: 'id', in: 'path' }],
+                responses: {}
             }
         },
         '/no-list': { post: { tags: ['NoListResource'], responses: { '200': {} } } },
@@ -644,6 +665,7 @@ export const branchCoverageSpec = {
             get: {
                 tags: ['Default'],
                 operationId: 'getRoot',
+                responses: {},
             },
         },
         // For resource-discovery: getFormProperties & getModelName fallbacks
@@ -651,6 +673,7 @@ export const branchCoverageSpec = {
             delete: {
                 tags: ['NoSchemaResource'],
                 parameters: [{ name: 'id', in: 'path', required: true }],
+                responses: {},
                 // Deliberately no requestBody or success response with a schema
             },
         },
@@ -675,6 +698,7 @@ export const branchCoverageSpec = {
                 tags: ['NoCreateUpdate'],
                 operationId: 'deleteNoCreateUpdate',
                 parameters: [{ name: 'id', in: 'path' }],
+                responses: {},
             },
         },
         '/update-only-no-get/{id}': {
@@ -685,6 +709,7 @@ export const branchCoverageSpec = {
                 requestBody: {
                     content: { 'application/json': { schema: { $ref: '#/components/schemas/UpdateOnlyNoGet' } } },
                 },
+                responses: {}
             },
         },
         '/op-with-default-response': {
@@ -693,12 +718,7 @@ export const branchCoverageSpec = {
                 responses: { default: { content: { 'application/json': { schema: { $ref: '#/components/schemas/Base' } } } } },
             },
         },
-        '/param-is-ref': {
-            get: {
-                tags: ['ParamIsRef'],
-                parameters: [{ name: 'user', in: 'query', schema: { $ref: '#/components/schemas/User' } }],
-            },
-        },
+
         '/collection-action': {
             post: {
                 tags: ['CollectionAction'],
@@ -712,6 +732,7 @@ export const branchCoverageSpec = {
                 requestBody: {
                     content: { 'application/json': { schema: { $ref: '#/components/schemas/PolyReadonly' } } },
                 },
+                responses: {},
             },
         },
         '/all-required/{id}': {
@@ -719,6 +740,7 @@ export const branchCoverageSpec = {
                 tags: ['AllRequired'],
                 operationId: 'getAllRequired',
                 parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+                responses: {}
             },
         },
         '/body-no-schema': {
@@ -726,6 +748,7 @@ export const branchCoverageSpec = {
                 tags: ['BodyNoSchema'],
                 operationId: 'postBodyNoSchema',
                 requestBody: { content: { 'application/json': {} } },
+                responses: {},
             },
         },
         '/no-body-at-all': {
@@ -746,16 +769,18 @@ export const branchCoverageSpec = {
             get: {
                 tags: ['NoParamsKey'],
                 operationId: 'getNoParamsKey',
+                responses: {},
             },
         },
-                '/param-is-ref': {
-                get: {
-                        tags: ['ParamIsRef'],
-                            parameters: [
-                                { name: 'user', in: 'query', schema: { $ref: '#/components/schemas/User' } }
-                            ],
-                        }
-            },
+        '/param-is-ref': {
+            get: {
+                tags: ['ParamIsRef'],
+                parameters: [
+                    { name: 'user', in: 'query', schema: { $ref: '#/components/schemas/User' } }
+                ],
+                responses: {},
+            }
+        },
         // For service generator fallback test
         '/no-operation-id': {
             head: {
@@ -789,7 +814,8 @@ export const branchCoverageSpec = {
             patch: {
                 tags: ['PatchResource'],
                 parameters: [{ name: 'id', in: 'path' }],
-                requestBody: { content: { 'application/json': { schema: { type: 'object' } } } }
+                requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
+                responses: {},
             }
         },
     },

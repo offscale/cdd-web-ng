@@ -1,7 +1,7 @@
 // src/service/emit/service/service.generator.ts
 
 import { ClassDeclaration, Project, Scope, SourceFile } from 'ts-morph';
-import * as path from 'path';
+import * as path from 'node:path';
 import { SwaggerParser } from '../../../core/parser.js';
 import { GeneratorConfig, PathInfo } from '../../../core/types.js';
 import {
@@ -14,15 +14,6 @@ import {
 } from '../../../core/utils.js';
 import { SERVICE_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
 import { ServiceMethodGenerator } from './service-method.generator.js';
-
-function path_to_method_name_suffix(path: string): string {
-    return path.split('/').filter(Boolean).map(segment => {
-        if (segment.startsWith('{') && segment.endsWith('}')) {
-            return `By${pascalCase(segment.slice(1, -1))}`;
-        }
-        return pascalCase(segment);
-    }).join('');
-}
 
 export class ServiceGenerator {
     private methodGenerator: ServiceMethodGenerator;
@@ -44,7 +35,7 @@ export class ServiceGenerator {
         for (const op of operations) {
             const successResponse = op.responses?.['200'] ?? op.responses?.['201'] ?? op.responses?.['default'];
             if (successResponse?.content?.['application/json']?.schema) {
-                const responseType = getTypeScriptType(successResponse.content['application/json'].schema as any, this.config, knownTypes).replace(/\[\]| \| null/g, '');
+                const responseType = getTypeScriptType(successResponse.content['application/json'].schema, this.config, knownTypes).replace(/\[\]| \| null/g, '');
                 if (isDataTypeInterface(responseType)) {
                     modelImports.add(responseType);
                 }
@@ -52,14 +43,14 @@ export class ServiceGenerator {
 
             (op.parameters ?? []).forEach(param => {
                 // The extractPaths function ensures that param.schema is always populated.
-                const paramType = getTypeScriptType(param.schema as any, this.config, knownTypes).replace(/\[\]| \| null/g, '');
+                const paramType = getTypeScriptType(param.schema, this.config, knownTypes).replace(/\[\]| \| null/g, '');
                 if (isDataTypeInterface(paramType)) {
                     modelImports.add(paramType);
                 }
             });
 
             if (op.requestBody?.content?.['application/json']?.schema) {
-                const bodyType = getTypeScriptType(op.requestBody.content['application/json'].schema as any, this.config, knownTypes).replace(/\[\]| \| null/g, '');
+                const bodyType = getTypeScriptType(op.requestBody.content['application/json'].schema, this.config, knownTypes).replace(/\[\]| \| null/g, '');
                 if (isDataTypeInterface(bodyType)) {
                     modelImports.add(bodyType);
                 }
@@ -71,17 +62,7 @@ export class ServiceGenerator {
         this.addPropertiesAndHelpers(serviceClass);
 
         operations.forEach(op => {
-            let methodName: string;
-            const customizer = this.config.options?.customizeMethodName;
-            if (customizer && op.operationId) {
-                methodName = customizer(op.operationId);
-            } else {
-                methodName = op.operationId
-                    ? camelCase(op.operationId)
-                    : `${op.method.toLowerCase()}${path_to_method_name_suffix(op.path)}`;
-            }
-
-            // Method name de-duplication is now handled in `groupPathsByController`
+            // Method name de-duplication and assignment is now handled in `groupPathsByController`
             this.methodGenerator.addServiceMethod(serviceClass, op);
         });
     }

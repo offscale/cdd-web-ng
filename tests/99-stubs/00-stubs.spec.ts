@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach, type Mock } from 'vitest';
 import { emitComponent } from '@src/component/emit.js';
 import { parseComponent } from '@src/component/parse.js';
 import { emitRoute } from '@src/route/emit.js';
@@ -7,7 +7,7 @@ import { emitTest } from '@src/test/emit.js';
 import { parseTest } from '@src/test/parse.js';
 
 describe('Not Implemented Stubs', () => {
-    let spy: vi.SpyInstance;
+    let spy: Mock<(...args: any[]) => void>;
 
     beforeEach(() => {
         spy = vi.spyOn(console, 'log').mockImplementation(() => {});

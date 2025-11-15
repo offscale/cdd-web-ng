@@ -1,6 +1,6 @@
 // src/service/emit/utility/provider.generator.ts
 import { Project, SourceFile } from 'ts-morph';
-import * as path from 'path';
+import * as path from 'node:path';
 import { GeneratorConfig } from '../../../core/types.js';
 import { SwaggerParser } from '../../../core/parser.js';
 import { getBasePathTokenName, getInterceptorsTokenName, pascalCase } from '../../../core/utils.js';
@@ -24,7 +24,7 @@ export class ProviderGenerator {
      * @param tokenNames An array of auth token types (e.g., 'apiKey', 'bearerToken') that are used,
      *                   derived from the `AuthInterceptorGenerator`.
      */
-    constructor(private parser: SwaggerParser, private project: Project, private tokenNames: string[] = []) {
+    constructor(parser: SwaggerParser, private project: Project, private tokenNames: string[] = []) {
         this.config = parser.config;
         this.clientName = this.config.clientName ?? 'default';
         this.capitalizedClientName = pascalCase(this.clientName);

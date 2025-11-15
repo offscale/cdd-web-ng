@@ -7,6 +7,18 @@ import {
 import { GeneratorConfig, PathInfo, SwaggerDefinition } from '../../../core/types.js';
 import { SwaggerParser } from '../../../core/parser.js';
 import { camelCase, getTypeScriptType, isDataTypeInterface } from '../../../core/utils.js';
+import { HttpContext, HttpHeaders, HttpParams } from '@angular/common/http';
+
+/** A strongly-typed representation of Angular's HttpRequest options. */
+interface HttpRequestOptions {
+    headers?: HttpHeaders;
+    context?: HttpContext;
+    params?: HttpParams;
+    reportProgress?: boolean;
+    responseType?: 'arraybuffer' | 'blob' | 'json' | 'text';
+    withCredentials?: boolean;
+    observe?: 'body' | 'events' | 'response';
+}
 
 /**
  * Generates individual methods within a generated Angular service class.
@@ -76,9 +88,8 @@ export class ServiceMethodGenerator {
 
         (operation.parameters ?? []).forEach(param => {
             const paramName = camelCase(param.name);
-            const schemaObject = param.schema ? param.schema as SwaggerDefinition : param as unknown as SwaggerDefinition;
-            let paramType = getTypeScriptType(schemaObject, this.config, knownTypes);
-            if ((param as any).type === 'file') paramType = 'any';
+            // The `extractPaths` function normalizes Swagger 2.0 parameters to always have a `schema` object.
+            const paramType = getTypeScriptType(param.schema, this.config, knownTypes);
 
             parameters.push({
                 name: paramName,
@@ -109,6 +120,7 @@ export class ServiceMethodGenerator {
         });
 
         const lines = [`const url = \`\${this.basePath}${urlTemplate}\`;`];
+        const requestOptions: HttpRequestOptions = {};
 
         const queryParams = operation.parameters?.filter(p => p.in === 'query') ?? [];
         if (queryParams.length > 0) {
@@ -117,6 +129,7 @@ export class ServiceMethodGenerator {
                 const paramName = camelCase(p.name);
                 lines.push(`if (${paramName} != null) { params = HttpParamsBuilder.addToHttpParams(params, ${paramName}, '${p.name}'); }`);
             });
+            requestOptions.params = 'params' as any; // Use string placeholder
         }
 
         const headerParams = operation.parameters?.filter(p => p.in === 'header') ?? [];
@@ -126,17 +139,24 @@ export class ServiceMethodGenerator {
                 const paramName = camelCase(p.name);
                 lines.push(`if (${paramName} != null) { headers = headers.set('${p.name}', String(${paramName})); }`);
             });
+            requestOptions.headers = 'headers' as any; // Use string placeholder
         }
 
-        lines.push(`const requestOptions: any = {`);
-        lines.push(`  observe: options?.observe,`);
-        if (queryParams.length > 0) lines.push(`  params,`);
-        if (headerParams.length > 0) lines.push(`  headers,`);
-        lines.push(`  reportProgress: options?.reportProgress,`);
-        lines.push(`  responseType: options?.responseType,`);
-        lines.push(`  withCredentials: options?.withCredentials,`);
-        lines.push(`  context: this.createContextWithClientId(options?.context)`);
-        lines.push(`};`);
+        let optionProperties = `
+  observe: options?.observe,
+  reportProgress: options?.reportProgress,
+  responseType: options?.responseType,
+  withCredentials: options?.withCredentials,
+  context: this.createContextWithClientId(options?.context)`;
+
+        if (requestOptions.params) {
+            optionProperties += `,\n  params`;
+        }
+        if (requestOptions.headers) {
+            optionProperties += `,\n  headers`;
+        }
+
+        lines.push(`const requestOptions: HttpRequestOptions = {${optionProperties}\n};`);
 
         let bodyArgument = 'null';
         const nonBodyOpParams = new Set((operation.parameters ?? []).map(p => camelCase(p.name)));
@@ -144,7 +164,7 @@ export class ServiceMethodGenerator {
 
         const isUrlEncodedForm = operation.consumes?.includes('application/x-www-form-urlencoded');
         const isMultipartForm = operation.consumes?.includes('multipart/form-data');
-        const formDataParams = operation.parameters?.filter(p => (p as any).in === 'formData');
+        const formDataParams = operation.parameters?.filter(p => (p as { in?: string }).in === 'formData');
 
         if (isUrlEncodedForm && formDataParams?.length) {
             lines.push(`let formBody = new HttpParams();`);
@@ -166,9 +186,9 @@ export class ServiceMethodGenerator {
 
         const httpMethod = operation.method.toLowerCase();
         if (['post', 'put', 'patch'].includes(httpMethod)) {
-            lines.push(`return this.http.${httpMethod}(url, ${bodyArgument}, requestOptions);`);
+            lines.push(`return this.http.${httpMethod}(url, ${bodyArgument}, requestOptions as any);`);
         } else {
-            lines.push(`return this.http.${httpMethod}(url, requestOptions);`);
+            lines.push(`return this.http.${httpMethod}(url, requestOptions as any);`);
         }
 
         return lines.join('\n');

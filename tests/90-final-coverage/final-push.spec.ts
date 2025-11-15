@@ -1,15 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
 
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from '@src/core/types.js';
+import { GeneratorConfig, PathInfo } from '@src/core/types.js';
 import { discoverAdminResources } from '@src/service/emit/admin/resource-discovery.js';
-import { ServiceMethodGenerator } from '@src/service/emit/service/service-method.generator.js';
 import { groupPathsByController } from '@src/service/parse.js';
 import { ServiceTestGenerator } from '@src/service/emit/test/service-test-generator.js';
 import { TypeGenerator } from '@src/service/emit/type/type.generator.js';
 import { finalCoveragePushSpec } from '../shared/final-coverage.models.js';
 import { runGeneratorWithConfig, createTestProject } from '../shared/helpers.js';
-import { HttpParamsBuilderGenerator } from '@src/service/emit/utility/http-params-builder.js';
 import { MainIndexGenerator } from '@src/service/emit/utility/index.generator.js';
 
 describe('Final Coverage Push', () => {
@@ -55,7 +53,7 @@ describe('Final Coverage Push', () => {
         const urlencodedFile = project.getSourceFileOrThrow('/generated/services/urlencodedNoParams.service.ts');
         const urlencodedMethod = urlencodedFile.getClassOrThrow('UrlencodedNoParamsService').getMethodOrThrow('postUrlencodedNoParams');
         // The generator correctly creates a `body` parameter from the requestBody, even if empty.
-        expect(urlencodedMethod.getBodyText()).toContain('return this.http.post(url, body, requestOptions);');
+        expect(urlencodedMethod.getBodyText()).toContain('return this.http.post(url, body, requestOptions as any);');
     });
 
     it('service/emit/utility/index.generator should handle missing services dir', () => {
@@ -89,7 +87,7 @@ describe('Final Coverage Push', () => {
         new TypeGenerator(parser, project, config as any).generate('/out');
         const testGen = new ServiceTestGenerator(parser, project, config as any);
         const ops = Object.values(groupPathsByController(parser)).flat();
-        const serviceTestOps = ops.filter(op => op.tags?.includes('ServiceTests'));
+        const serviceTestOps = ops.filter((op: PathInfo): op is PathInfo => !!op.tags?.includes('ServiceTests'));
 
         testGen.generateServiceTestFile('ServiceTests', serviceTestOps, '/');
 

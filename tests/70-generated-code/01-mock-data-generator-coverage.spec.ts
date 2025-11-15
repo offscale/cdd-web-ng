@@ -54,7 +54,9 @@ const mockDataGenSpec = {
             },
             StringWithNonStringDefault: { type: 'string', default: 123 },
             BooleanWithDefault: { type: 'boolean', default: false },
+            StringWithStringDefault: { type: 'string', default: 'my-default' },
             NumberWithMin: { type: 'number', minimum: 55.5 },
+            IntegerWithNonNumberDefault: { type: 'integer', default: 'hello' },
             NumberWithNonNumberDefault: { type: 'number', default: 'hello' },
             UnresolvableRefWrapper: {
                 type: 'object',
@@ -192,6 +194,16 @@ describe('Generated Code: MockDataGenerator (Coverage)', () => {
     it('should fall back to default string if default value is not a string', () => {
         const mockString = generator.generate('StringWithNonStringDefault');
         expect(JSON.parse(mockString)).toBe('string-value');
+    });
+
+    it('should use the default value for a string if it is a string', () => {
+        const mockString = generator.generate('StringWithStringDefault');
+        expect(JSON.parse(mockString)).toBe('my-default');
+    });
+
+    it('should fall back to a default integer if default is not a number', () => {
+        const mockString = generator.generate('IntegerWithNonNumberDefault');
+        expect(JSON.parse(mockString)).toBe(123);
     });
 
     it('should handle `type` as array', () => {

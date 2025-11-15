@@ -29,6 +29,14 @@ describe('Emitter: Service Generators (Coverage)', () => {
         return project;
     };
 
+    it('should import models for parameter types that are interfaces', () => {
+        const project = run(branchCoverageSpec);
+        const serviceFile = project.getSourceFileOrThrow('/out/services/paramIsRef.service.ts');
+        const modelImport = serviceFile.getImportDeclaration(imp => imp.getModuleSpecifierValue() === '../models');
+        expect(modelImport).toBeDefined();
+        expect(modelImport!.getNamedImports().map(i => i.getName())).toContain('User');
+    });
+
     it('should generate methods for multipart/form-data', () => {
         const project = run(coverageSpecPart2);
         const serviceFile = project.getSourceFileOrThrow('/out/services/formData.service.ts');

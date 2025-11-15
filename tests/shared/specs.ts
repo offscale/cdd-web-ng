@@ -748,6 +748,14 @@ export const branchCoverageSpec = {
                 operationId: 'getNoParamsKey',
             },
         },
+                '/param-is-ref': {
+                get: {
+                        tags: ['ParamIsRef'],
+                            parameters: [
+                                { name: 'user', in: 'query', schema: { $ref: '#/components/schemas/User' } }
+                            ],
+                        }
+            },
         // For service generator fallback test
         '/no-operation-id': {
             head: {

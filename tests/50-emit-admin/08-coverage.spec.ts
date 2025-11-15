@@ -58,4 +58,62 @@ describe('Admin Generators (Coverage)', () => {
         // This ensures the `if (hasActions)` branch is correctly NOT taken.
         expect(displayedColumns).not.toContain('actions');
     });
+
+    it('list-component-generator handles listable resource with no actions', () => {
+        // This spec defines a resource that can be listed but has no edit/delete/custom actions.
+        const spec = {
+            paths: {
+                '/reports': { get: { tags: ['Reports'], responses: { '200': { description: 'ok' } } } }
+            }
+        };
+        const project = createTestProject();
+        const parser = new SwaggerParser(spec as any, { options: { admin: true } } as any);
+        const resource = discoverAdminResources(parser).find(r => r.name === 'reports')!;
+        const generator = new ListComponentGenerator(project);
+
+        generator.generate(resource, '/admin');
+
+        const listClass = project.getSourceFileOrThrow('/admin/reports/reports-list/reports-list.component.ts').getClassOrThrow('ReportsListComponent');
+        const displayedColumns = listClass.getProperty('displayedColumns')?.getInitializer()?.getText() as string;
+
+        // This ensures the `if (hasActions)` branch is correctly NOT taken.
+        expect(displayedColumns).not.toContain('actions');
+    });
+
+    it('list-component-generator handles resource with no actions and non-id primary key', () => {
+        const spec = {
+            paths: {
+                '/diagnostics': {
+                    get: {
+                        tags: ['Diagnostics'],
+                        responses: {
+                            '200': {
+                                content: {
+                                    'application/json': { schema: { $ref: '#/components/schemas/DiagnosticInfo' } }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            components: {
+                schemas: {
+                    DiagnosticInfo: {
+                        type: 'object',
+                        properties: { event_id: { type: 'string' }, message: { type: 'string' } }
+                    }
+                }
+            }
+        };
+        const project = createTestProject();
+        const parser = new SwaggerParser(spec as any, { options: { admin: true } } as any);
+        const resource = discoverAdminResources(parser).find(r => r.name === 'diagnostics')!;
+        const generator = new ListComponentGenerator(project);
+        generator.generate(resource, '/admin');
+        const listClass = project.getSourceFileOrThrow('/admin/diagnostics/diagnostics-list/diagnostics-list.component.ts').getClassOrThrow('DiagnosticsListComponent');
+        const displayedColumns = listClass.getProperty('displayedColumns')?.getInitializer()?.getText() as string;
+        expect(displayedColumns).not.toContain('actions');
+        const idProperty = listClass.getProperty('idProperty')?.getInitializer()?.getText() as string;
+        expect(idProperty).toBe(`'event_id'`);
+    });
 });

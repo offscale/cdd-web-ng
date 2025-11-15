@@ -118,6 +118,11 @@ describe('Core: utils.ts (Coverage)', () => {
             const expected = "{ 'required-prop': string; 'optional-prop'?: string }";
             expect(utils.getTypeScriptType(schema, config, [])).toBe(expected);
         });
+
+        it('should correctly handle an integer schema type', () => {
+            const schema: SwaggerDefinition = { type: 'integer' };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('number');
+        });
     });
 
     describe('extractPaths', () => {
@@ -187,5 +192,10 @@ describe('Core: utils.ts (Coverage)', () => {
     it('should correctly handle a boolean schema type', () => {
         const schema: SwaggerDefinition = { type: 'boolean' };
         expect(utils.getTypeScriptType(schema, config, [])).toBe('boolean');
+    });
+
+    it('should handle single quotes in enum values', () => {
+        const schema: SwaggerDefinition = { type: 'string', enum: ["it's a value"] };
+        expect(utils.getTypeScriptType(schema, config, [])).toBe(`'it\\'s a value'`);
     });
 });

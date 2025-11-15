@@ -51,8 +51,8 @@ export class ServiceGenerator {
             }
 
             (op.parameters ?? []).forEach(param => {
-                const schemaObject = param.schema ? param.schema : param;
-                const paramType = getTypeScriptType(schemaObject as any, this.config, knownTypes).replace(/\[\]| \| null/g, '');
+                // The extractPaths function ensures that param.schema is always populated.
+                const paramType = getTypeScriptType(param.schema as any, this.config, knownTypes).replace(/\[\]| \| null/g, '');
                 if (isDataTypeInterface(paramType)) {
                     modelImports.add(paramType);
                 }

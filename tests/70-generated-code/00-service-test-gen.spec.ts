@@ -115,5 +115,59 @@ describe('Generated Code: Service Test Generators', () => {
             expect(result).toBeInstanceOf(Set);
             expect(result.size).toBe(0);
         });
+
+        it('should handle inline object request body when generating tests', () => {
+            const spec = {
+                ...fullCRUD_Users,
+                paths: {
+                    '/inline': {
+                        post: { tags: ['Inline'], operationId: 'postInline', requestBody: { content: { 'application/json': { schema: { type: 'object', properties: { data: { type: 'string' } } } } } } }
+                    }
+                }
+            };
+            const { testGenerator, controllerGroups, project } = setupTestGen(spec);
+            testGenerator.generateServiceTestFile('Inline', controllerGroups['Inline'], '/out/services');
+            const specFile = project.getSourceFileOrThrow('/out/services/inline.service.spec.ts');
+            expect(specFile.getText()).toContain("const body = { data: 'test-body' };");
+        });
+
+            it('should generate tests for operation with no request body', () => {
+                    const spec = {
+                            paths: {
+                                '/no-body': {
+                                        post: { // POST with no request body
+                                                tags: ['NoBody'],
+                                                    operationId: 'postNoBody',
+                                                    responses: { '204': {} }
+                                            }
+                                    }
+                            }
+                    };
+                    const { testGenerator, controllerGroups, project } = setupTestGen(spec);
+                    testGenerator.generateServiceTestFile('NoBody', controllerGroups['NoBody'], '/out/services');
+                    const specFile = project.getSourceFileOrThrow('/out/services/noBody.service.spec.ts');
+                    const content = specFile.getText();
+            
+                        // This covers the branch where bodyParam is null
+                            expect(content).toContain('service.postNoBody().subscribe');
+                    expect(content).not.toContain('const body =');
+                });
+        
+                it('should generate test for parameter with an unresolvable ref', () => {
+                         const spec = {
+                                paths: {
+                                    '/bad-param-ref': {
+                                            get: {tags: ['BadParam'], operationId: 'getBadParam', parameters: [{ name: 'bad', in: 'query', schema: { $ref: '#/c/s/nonexistent' } }], responses: { '204': {} }}
+                                        }
+                                }
+                        };
+                        const { testGenerator, controllerGroups, project } = setupTestGen(spec);
+                        testGenerator.generateServiceTestFile('BadParam', controllerGroups['BadParam'], '/out/services');
+                        const specFile = project.getSourceFileOrThrow('/out/services/badParam.service.spec.ts');
+                        const content = specFile.getText();
+                
+                            // This covers the branch where resolvedSchema is undefined
+                                expect(content).toContain("const bad = 'test-bad';"); // It should fall back to string generation
+                    });
     });
 });

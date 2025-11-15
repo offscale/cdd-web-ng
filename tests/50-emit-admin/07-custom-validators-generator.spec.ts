@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CustomValidatorsGenerator } from '../../src/service/emit/admin/custom-validators.generator.js';
+import { CustomValidatorsGenerator } from '@src/service/emit/admin/custom-validators.generator.js';
 import { createTestProject } from '../shared/helpers.js';
 
 describe('Admin: CustomValidatorsGenerator', () => {

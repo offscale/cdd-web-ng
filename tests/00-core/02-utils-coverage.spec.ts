@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import * as utils from '../../src/core/utils.js';
-import { GeneratorConfig, RequestBody, SwaggerDefinition } from '../../src/core/types.js';
+import * as utils from '@src/core/utils.js';
+import { GeneratorConfig, RequestBody, SwaggerDefinition } from '@src/core/types.js';
 import { branchCoverageSpec, typeGenSpec } from '../shared/specs.js';
 
 /**
@@ -206,12 +206,12 @@ describe('Core: utils.ts (Coverage)', () => {
             expect(pathInfo.responses).toEqual({});
             expect(pathInfo.parameters).toHaveLength(2);
 
-            const limitParam = pathInfo.parameters.find(p => p.name === 'limit')!;
+            const limitParam = pathInfo.parameters!.find(p => p.name === 'limit')!;
             expect(limitParam.schema).toEqual({ type: 'integer', format: 'int32', items: undefined });
             expect(limitParam).not.toHaveProperty('required');
             expect(limitParam).not.toHaveProperty('description');
 
-            const offsetParam = pathInfo.parameters.find(p => p.name === 'offset')!;
+            const offsetParam = pathInfo.parameters!.find(p => p.name === 'offset')!;
             expect(offsetParam.schema).toEqual({ type: 'integer', format: undefined, items: undefined });
         });
     });

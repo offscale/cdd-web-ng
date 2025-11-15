@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { Project } from 'ts-morph';
-import { ListComponentGenerator } from '../../src/service/emit/admin/list-component.generator.js';
-import { discoverAdminResources } from '../../src/service/emit/admin/resource-discovery.js';
+import { ListComponentGenerator } from '@src/service/emit/admin/list-component.generator.js';
+import { discoverAdminResources } from '@src/service/emit/admin/resource-discovery.js';
 import { createTestProject } from '../shared/helpers.js';
 import { coverageSpec, listComponentSpec } from '../shared/specs.js';
-import { SwaggerParser } from '../../src/core/parser.js';
+import { SwaggerParser } from '@src/core/parser.js';
 
 describe('Admin: ListComponentGenerator', () => {
     let project: Project;

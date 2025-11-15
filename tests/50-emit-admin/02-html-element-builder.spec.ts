@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { HtmlElementBuilder as _ } from '../../src/service/emit/admin/html-element.builder.js';
+import { HtmlElementBuilder as _ } from '@src/service/emit/admin/html-element.builder.js';
 
 describe('Admin: HtmlElementBuilder', () => {
     it('should create a simple element with text content', () => {

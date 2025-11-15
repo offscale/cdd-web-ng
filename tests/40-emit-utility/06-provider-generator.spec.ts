@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
-import { SwaggerParser } from '../../src/core/parser.js';
-import { GeneratorConfig } from '../../src/core/types.js';
-import { ProviderGenerator } from '../../src/service/emit/utility/provider.generator.js';
-import { TokenGenerator } from '../../src/service/emit/utility/token.generator.js';
-import { BaseInterceptorGenerator } from '../../src/service/emit/utility/base-interceptor.generator.js';
-import { AuthTokensGenerator } from '../../src/service/emit/utility/auth-tokens.generator.js';
-import { AuthInterceptorGenerator } from '../../src/service/emit/utility/auth-interceptor.generator.js';
-import { DateTransformerGenerator } from '../../src/service/emit/utility/date-transformer.generator.js';
+import { SwaggerParser } from '@src/core/parser.js';
+import { GeneratorConfig } from '@src/core/types.js';
+import { ProviderGenerator } from '@src/service/emit/utility/provider.generator.js';
+import { TokenGenerator } from '@src/service/emit/utility/token.generator.js';
+import { BaseInterceptorGenerator } from '@src/service/emit/utility/base-interceptor.generator.js';
+import { AuthTokensGenerator } from '@src/service/emit/utility/auth-tokens.generator.js';
+import { AuthInterceptorGenerator } from '@src/service/emit/utility/auth-interceptor.generator.js';
+import { DateTransformerGenerator } from '@src/service/emit/utility/date-transformer.generator.js';
 import { emptySpec, securitySpec } from '../shared/specs.js';
 import { createTestProject } from '../shared/helpers.js';
 

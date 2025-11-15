@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { SwaggerParser } from '../../src/core/parser.js';
+import { SwaggerParser } from '@src/core/parser.js';
 import { parserCoverageSpec } from '../shared/specs.js';
 import { GeneratorConfig } from '@src/core/types.js';
 

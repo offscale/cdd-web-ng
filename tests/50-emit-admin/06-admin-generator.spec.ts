@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
-import { AdminGenerator } from '../../src/service/emit/admin/admin.generator.js';
-import * as resourceDiscovery from '../../src/service/emit/admin/resource-discovery.js';
+import { AdminGenerator } from '@src/service/emit/admin/admin.generator.js';
+import * as resourceDiscovery from '@src/service/emit/admin/resource-discovery.js';
 import { createTestProject } from '../shared/helpers.js';
 import { coverageSpec, adminFormSpec } from '../shared/specs.js';
-import { SwaggerParser } from '../../src/core/parser.js';
-import { CustomValidatorsGenerator } from '../../src/service/emit/admin/custom-validators.generator.js';
+import { SwaggerParser } from '@src/core/parser.js';
+import { CustomValidatorsGenerator } from '@src/service/emit/admin/custom-validators.generator.js';
 
 describe('Admin: AdminGenerator (Orchestrator)', () => {
 

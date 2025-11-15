@@ -1,6 +1,6 @@
 import { Project, IndentationText, ScriptTarget, ModuleKind } from 'ts-morph';
-import { generateFromConfig } from '../../src/index.js';
-import { GeneratorConfig } from '../../src/core/types.js';
+import { generateFromConfig } from '@src/index.js';
+import { GeneratorConfig } from '@src/core/types.js';
 
 /**
  * Creates a standard ts-morph project instance for use in tests.

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Project } from 'ts-morph';
-import { AuthTokensGenerator } from '../../src/service/emit/utility/auth-tokens.generator.js';
+import { AuthTokensGenerator } from '@src/service/emit/utility/auth-tokens.generator.js';
 
 describe('Emitter: AuthTokensGenerator', () => {
     it('should generate a file with API_KEY_TOKEN and BEARER_TOKEN_TOKEN', () => {

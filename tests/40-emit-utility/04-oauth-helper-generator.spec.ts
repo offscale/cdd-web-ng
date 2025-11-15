@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { SwaggerParser } from '../../src/core/parser.js';
-import { OAuthHelperGenerator } from '../../src/service/emit/utility/oauth-helper.generator.js';
+import { SwaggerParser } from '@src/core/parser.js';
+import { OAuthHelperGenerator } from '@src/service/emit/utility/oauth-helper.generator.js';
 import { createTestProject } from '../shared/helpers.js';
 import { securitySpec } from '../shared/specs.js';
 

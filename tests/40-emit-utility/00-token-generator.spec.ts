@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Project } from 'ts-morph';
-import { TokenGenerator } from '../../src/service/emit/utility/token.generator.js';
+import { TokenGenerator } from '@src/service/emit/utility/token.generator.js';
 
 describe('Emitter: TokenGenerator', () => {
     it('should generate uniquely named tokens for a given clientName', () => {

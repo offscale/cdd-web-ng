@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { SwaggerParser } from '../../src/core/parser.js';
-import { discoverAdminResources } from '../../src/service/emit/admin/resource-discovery.js';
+import { SwaggerParser } from '@src/core/parser.js';
+import { discoverAdminResources } from '@src/service/emit/admin/resource-discovery.js';
 import { coverageSpec, polymorphismSpec } from '../shared/specs.js';
 
 describe('Admin: discoverAdminResources', () => {

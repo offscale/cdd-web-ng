@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { Project } from 'ts-morph';
-import { AuthHelperGenerator } from '../../src/service/emit/utility/auth-helper.generator.js';
-import { DateTransformerGenerator } from '../../src/service/emit/utility/date-transformer.generator.js';
-import { FileDownloadGenerator } from '../../src/service/emit/utility/file-download.generator.js';
+import { AuthHelperGenerator } from '@src/service/emit/utility/auth-helper.generator.js';
+import { DateTransformerGenerator } from '@src/service/emit/utility/date-transformer.generator.js';
+import { FileDownloadGenerator } from '@src/service/emit/utility/file-download.generator.js';
 
 describe('Emitter: Miscellaneous Utility Generators', () => {
 

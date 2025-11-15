@@ -1,5 +1,5 @@
 // src/service/emit/utility/provider.generator.ts
-import { Project, SourceFile, InterfaceDeclaration } from 'ts-morph';
+import { Project, SourceFile } from 'ts-morph';
 import * as path from 'path';
 import { GeneratorConfig } from '../../../core/types.js';
 import { SwaggerParser } from '../../../core/parser.js';
@@ -26,7 +26,7 @@ export class ProviderGenerator {
      */
     constructor(private parser: SwaggerParser, private project: Project, private tokenNames: string[] = []) {
         this.config = parser.config;
-        this.clientName = this.config.clientName ? this.config.clientName : 'default';
+        this.clientName = this.config.clientName ?? 'default';
         this.capitalizedClientName = pascalCase(this.clientName);
         this.hasApiKey = this.tokenNames.includes('apiKey');
         this.hasBearer = this.tokenNames.includes('bearerToken');
@@ -63,18 +63,33 @@ export class ProviderGenerator {
      */
     private addImports(sourceFile: SourceFile, hasSecurity: boolean): void {
         sourceFile.addImportDeclarations([
-            { namedImports: ["EnvironmentProviders", "Provider", "makeEnvironmentProviders"], moduleSpecifier: "@angular/core" },
+            {
+                namedImports: ["EnvironmentProviders", "Provider", "makeEnvironmentProviders"],
+                moduleSpecifier: "@angular/core"
+            },
             { namedImports: ["HTTP_INTERCEPTORS", "HttpInterceptor"], moduleSpecifier: "@angular/common/http" },
-            { namedImports: [getBasePathTokenName(this.clientName), getInterceptorsTokenName(this.clientName)], moduleSpecifier: "./tokens" },
-            { namedImports: [`${this.capitalizedClientName}BaseInterceptor`], moduleSpecifier: "./utils/base-interceptor" },
+            {
+                namedImports: [getBasePathTokenName(this.clientName), getInterceptorsTokenName(this.clientName)],
+                moduleSpecifier: "./tokens"
+            },
+            {
+                namedImports: [`${this.capitalizedClientName}BaseInterceptor`],
+                moduleSpecifier: "./utils/base-interceptor"
+            },
         ]);
 
         if (this.config.options.dateType === "Date") {
-            sourceFile.addImportDeclaration({ namedImports: ["DateInterceptor"], moduleSpecifier: "./utils/date-transformer" });
+            sourceFile.addImportDeclaration({
+                namedImports: ["DateInterceptor"],
+                moduleSpecifier: "./utils/date-transformer"
+            });
         }
 
         if (hasSecurity) {
-            sourceFile.addImportDeclaration({ namedImports: ["AuthInterceptor"], moduleSpecifier: "./auth/auth.interceptor" });
+            sourceFile.addImportDeclaration({
+                namedImports: ["AuthInterceptor"],
+                moduleSpecifier: "./auth/auth.interceptor"
+            });
             const tokenImports: string[] = [];
             if (this.hasApiKey) tokenImports.push("API_KEY_TOKEN");
             if (this.hasBearer) tokenImports.push("BEARER_TOKEN_TOKEN");
@@ -92,17 +107,41 @@ export class ProviderGenerator {
             name: `${this.capitalizedClientName}Config`,
             isExported: true,
             properties: [
-                { name: "basePath", type: "string", docs: ["The base path of the API endpoint (e.g., 'https://api.example.com/v1')."] },
-                { name: "enableDateTransform", type: "boolean", hasQuestionToken: true, docs: ["If true, automatically transforms ISO date strings in responses to Date objects. Default: true"] },
-                { name: "interceptors", type: `(new (...args: any[]) => HttpInterceptor)[]`, hasQuestionToken: true, docs: ["An array of custom HttpInterceptor classes to apply to requests for this client."] },
+                {
+                    name: "basePath",
+                    type: "string",
+                    docs: ["The base path of the API endpoint (e.g., 'https://api.example.com/v1')."]
+                },
+                {
+                    name: "enableDateTransform",
+                    type: "boolean",
+                    hasQuestionToken: true,
+                    docs: ["If true, automatically transforms ISO date strings in responses to Date objects. Default: true"]
+                },
+                {
+                    name: "interceptors",
+                    type: `(new (...args: any[]) => HttpInterceptor)[]`,
+                    hasQuestionToken: true,
+                    docs: ["An array of custom HttpInterceptor classes to apply to requests for this client."]
+                },
             ],
             docs: [`Configuration for the ${this.capitalizedClientName} API client.`]
         });
         if (this.hasApiKey) {
-            configInterface.addProperty({ name: "apiKey", type: "string", hasQuestionToken: true, docs: ["The API key to be used for authentication."] });
+            configInterface.addProperty({
+                name: "apiKey",
+                type: "string",
+                hasQuestionToken: true,
+                docs: ["The API key to be used for authentication."]
+            });
         }
         if (this.hasBearer) {
-            configInterface.addProperty({ name: "bearerToken", type: "string | (() => string)", hasQuestionToken: true, docs: ["The Bearer token or a function returning the token for authentication."] });
+            configInterface.addProperty({
+                name: "bearerToken",
+                type: "string | (() => string)",
+                hasQuestionToken: true,
+                docs: ["The Bearer token or a function returning the token for authentication."]
+            });
         }
     }
 

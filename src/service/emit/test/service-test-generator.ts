@@ -6,10 +6,10 @@ import { SwaggerParser } from '../../../core/parser.js';
 import { GeneratorConfig, PathInfo, SwaggerDefinition } from '../../../core/types.js';
 import {
     camelCase,
-    pascalCase,
     getBasePathTokenName,
-    isDataTypeInterface,
     getTypeScriptType,
+    isDataTypeInterface,
+    pascalCase,
 } from '../../../core/utils.js';
 import { MockDataGenerator } from './mock-data.generator.js';
 
@@ -89,7 +89,11 @@ export class ServiceTestGenerator {
 
             // FIX 2.2: Use isPrimitiveBody
             const bodyParam = op.requestBody?.content?.['application/json']
-                ? { name: isPrimitiveBody ? 'body' : (bodyModel ? camelCase(bodyModel) : 'body'), model: bodyModel, isPrimitive: isPrimitiveBody }
+                ? {
+                    name: isPrimitiveBody ? 'body' : (bodyModel ? camelCase(bodyModel) : 'body'),
+                    model: bodyModel,
+                    isPrimitive: isPrimitiveBody
+                }
                 : null;
 
             const allArgs = [...params.map(p => p.name), ...(bodyParam ? [bodyParam.name] : [])];
@@ -147,8 +151,14 @@ export class ServiceTestGenerator {
     private addImports(sourceFile: SourceFile, serviceName: string, modelImports: string[]): void {
         sourceFile.addImportDeclarations([
             { moduleSpecifier: '@angular/core/testing', namedImports: ['TestBed', 'fail'] },
-            { moduleSpecifier: '@angular/common/http/testing', namedImports: ['HttpClientTestingModule', 'HttpTestingController'] },
-            { moduleSpecifier: `./${camelCase(serviceName.replace(/Service$/, ''))}.service`, namedImports: [serviceName] },
+            {
+                moduleSpecifier: '@angular/common/http/testing',
+                namedImports: ['HttpClientTestingModule', 'HttpTestingController']
+            },
+            {
+                moduleSpecifier: `./${camelCase(serviceName.replace(/Service$/, ''))}.service`,
+                namedImports: [serviceName]
+            },
         ]);
         // Only add the models import if there are models to import.
         if (modelImports.length > 0) {
@@ -164,7 +174,12 @@ export class ServiceTestGenerator {
     }
 
     // FIX 2.4: Ensure getMethodTypes includes isPrimitiveBody logic and return type
-    private getMethodTypes(op: PathInfo): { responseModel?: string; responseType: string; bodyModel?: string; isPrimitiveBody: boolean } {
+    private getMethodTypes(op: PathInfo): {
+        responseModel?: string;
+        responseType: string;
+        bodyModel?: string;
+        isPrimitiveBody: boolean
+    } {
         const knownTypes = this.parser.schemas.map(s => s.name);
         const successResponseSchema = op.responses?.['200']?.content?.['application/json']?.schema;
         const responseType = successResponseSchema ? getTypeScriptType(successResponseSchema, this.config, knownTypes) : 'any';

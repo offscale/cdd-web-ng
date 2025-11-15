@@ -8,6 +8,7 @@ import { createTestProject } from '../shared/helpers.js';
 import { AdminGenerator } from '@src/service/emit/admin/admin.generator.js';
 
 describe('Final Branch Coverage Tests', () => {
+
     it('resource-discovery should use "Default" for root path', () => {
         const parser = new SwaggerParser(branchCoverageSpec as any, { options: { admin: true } } as any);
         const resources = discoverAdminResources(parser);

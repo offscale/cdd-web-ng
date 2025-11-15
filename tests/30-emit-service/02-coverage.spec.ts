@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { ServiceGenerator } from '@src/service/emit/service/service.generator.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from '@src/core/types.js';
-import { coverageSpecPart2, branchCoverageSpec } from '../shared/specs.js';
+import { branchCoverageSpec, coverageSpecPart2 } from '../shared/specs.js';
 import { groupPathsByController } from '@src/service/parse.js';
 import { createTestProject } from '../shared/helpers.js';
 
@@ -80,5 +80,43 @@ describe('Emitter: Service Generators (Coverage)', () => {
         const serviceFile = project.getSourceFileOrThrow('/out/services/noSuccessResponse.service.ts');
         const method = serviceFile.getClassOrThrow('NoSuccessResponseService').getMethodOrThrow('getNoSuccess');
         expect(method.getOverloads()[0].getReturnType().getText()).toBe('Observable<any>');
+    });
+
+    it('should handle default responses and responses without content', () => {
+        const spec = {
+            paths: {
+                '/default-response': {
+                    get: {
+                        tags: ['DefaultResponse'],
+                        responses: {
+                            default: {
+                                content: { 'application/json': { schema: { $ref: '#/components/schemas/User' } } }
+                            }
+                        }
+                    }
+                },
+                '/no-content-response': {
+                    get: {
+                        tags: ['NoContentResponse'],
+                        responses: {
+                            '200': { description: 'OK' } // No content object
+                        }
+                    }
+                }
+            },
+            components: {
+                schemas: {
+                    User: { type: 'object', properties: { name: { type: 'string' } } }
+                }
+            }
+        };
+
+        const project = run(spec);
+        const serviceFile = project.getSourceFileOrThrow('/out/services/defaultResponse.service.ts');
+        const modelImport = serviceFile.getImportDeclaration(imp => imp.getModuleSpecifierValue() === '../models');
+        expect(modelImport!.getNamedImports().map(i => i.getName())).toContain('User');
+
+        const noContentServiceFile = project.getSourceFileOrThrow('/out/services/noContentResponse.service.ts');
+        expect(noContentServiceFile).toBeDefined();
     });
 });

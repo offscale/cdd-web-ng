@@ -13,6 +13,7 @@ import { HttpParamsBuilderGenerator } from '@src/service/emit/utility/http-param
 import { MainIndexGenerator } from '@src/service/emit/utility/index.generator.js';
 
 describe('Final Coverage Push', () => {
+
     const createParser = (spec: object = finalCoveragePushSpec): SwaggerParser => {
         const config: GeneratorConfig = { output: '/out', options: { admin: true } } as any;
         return new SwaggerParser(spec as any, config);
@@ -36,6 +37,7 @@ describe('Final Coverage Push', () => {
         const resources = discoverAdminResources(createParser());
         const resource = resources.find(r => r.name === 'poly')!;
 
+        // This tests the `else` block for creating a synthetic property for the discriminator.
         const polyProp = resource.formProperties.find(p => p.name === 'type');
         expect(polyProp).toBeDefined();
         expect(polyProp?.schema.oneOf).toBeDefined();

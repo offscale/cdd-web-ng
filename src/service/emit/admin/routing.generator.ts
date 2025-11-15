@@ -8,7 +8,8 @@ import { camelCase, pascalCase } from '../../../core/utils.js';
  * Generates the Angular routing configuration for the admin UI.
  */
 export class RoutingGenerator {
-    constructor(private readonly project: Project) { }
+    constructor(private readonly project: Project) {
+    }
 
     /**
      * Generates the master `admin.routes.ts` file.

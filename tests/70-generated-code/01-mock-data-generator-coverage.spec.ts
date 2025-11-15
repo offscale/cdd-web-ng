@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from '@src/core/types.js';
 import { MockDataGenerator } from "../../src/service/emit/test/mock-data.generator";
@@ -26,6 +26,7 @@ const mockDataGenSpec = {
             NumberWithDefault: { type: 'number', default: 42 },
 
             // New schemas for 100% coverage
+            AllOfWithNull: { allOf: [{ type: 'null' }, { type: 'object', properties: { name: { type: 'string' } } }] },
             DeepNest1: { properties: { nest2: { $ref: '#/components/schemas/DeepNest2' } } },
             DeepNest2: { properties: { nest3: { $ref: '#/components/schemas/DeepNest3' } } },
             DeepNest3: { properties: { nest4: { $ref: '#/components/schemas/DeepNest4' } } },
@@ -76,6 +77,12 @@ describe('Generated Code: MockDataGenerator (Coverage)', () => {
         return new MockDataGenerator(parser);
     };
     const generator = createMockGenerator(mockDataGenSpec);
+
+    it('should handle allOf containing a null type by ignoring it', () => {
+        const mockString = generator.generate('AllOfWithNull');
+        const mock = JSON.parse(mockString);
+        expect(mock).toEqual({ name: 'string-value' });
+    });
 
     it('should handle allOf with a bad ref by ignoring the bad part', () => {
         const mockString = generator.generate('WithBadRef');

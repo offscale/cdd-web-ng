@@ -1,11 +1,3 @@
-/**
- * @fileoverview
- * This file contains the ListComponentGenerator class, which is responsible for generating the
- * Angular component files (.ts, .html, .scss) for the administrative list/table view of a resource.
- * It uses ts-morph to programmatically construct the TypeScript file and delegates the creation of
- * HTML and SCSS to specialized builder functions.
- */
-
 import { ClassDeclaration, Project, Scope } from 'ts-morph';
 import { FormProperty, Resource } from '../../../core/types.js';
 import { camelCase, pascalCase } from '../../../core/utils.js';
@@ -24,7 +16,8 @@ export class ListComponentGenerator {
      * Initializes a new instance of the ListComponentGenerator.
      * @param project The ts-morph project instance for AST manipulation.
      */
-    constructor(private readonly project: Project) { }
+    constructor(private readonly project: Project) {
+    }
 
     /**
      * Generates all necessary files for the list component (.ts, .html, .scss).
@@ -52,12 +45,13 @@ export class ListComponentGenerator {
         const sourceFile = this.project.createSourceFile(`${outDir}/${resource.name}-list.component.ts`, '', { overwrite: true });
 
         sourceFile.addStatements([
-            `import { Component, OnDestroy, ViewChild, AfterViewInit, effect, inject, signal } from '@angular/core';`,
+            `import { Component, ViewChild, AfterViewInit, effect, inject, signal, ChangeDetectionStrategy, DestroyRef } from '@angular/core';`,
+            `import { takeUntilDestroyed } from '@angular/core/rxjs-interop';`,
             `import { MatPaginator, PageEvent } from '@angular/material/paginator';`,
             `import { MatTableDataSource } from '@angular/material/table';`,
             `import { Router, ActivatedRoute } from '@angular/router';`,
             `import { MatSnackBar } from '@angular/material/snack-bar';`,
-            `import { Subscription, of, catchError, startWith, switchMap } from 'rxjs';`,
+            `import { of, catchError, startWith, switchMap } from 'rxjs';`,
             `import { ${serviceName} } from '../../../../services/${camelCase(resource.name)}.service';`,
             `import { ${resource.modelName} } from '../../../../models';`,
             `${commonStandaloneImports.map(a => 'import { ' + a[0] + ' } from "' + a[1] + '";').join("\n")}`,
@@ -66,15 +60,15 @@ export class ListComponentGenerator {
         const componentClass = sourceFile.addClass({
             name: componentName,
             isExported: true,
-            implements: ['AfterViewInit', 'OnDestroy'],
+            implements: ['AfterViewInit'],
             decorators: [{
                 name: 'Component',
-                arguments: [`{
-                    selector: 'app-${resource.name}-list',
-                    standalone: true,
-                    imports: [ ...${commonStandaloneImports.map(a => a[0]).join(',\n')} ],
-                    templateUrl: './${resource.name}-list.component.html',
-                    styleUrl: './${resource.name}-list.component.scss'
+                arguments: [`{ 
+                    selector: 'app-${resource.name}-list', 
+                    imports: [ ${commonStandaloneImports.map(a => a[0]).join(',\n')} ], 
+                    templateUrl: './${resource.name}-list.component.html', 
+                    styleUrl: './${resource.name}-list.component.scss',
+                    changeDetection: ChangeDetectionStrategy.OnPush
                 }`]
             }],
         });
@@ -84,11 +78,6 @@ export class ListComponentGenerator {
         this.addLifecycleAndUtilityMethods(componentClass);
         this.addCrudActions(componentClass, resource, serviceName);
         this.addCustomActions(componentClass, resource, serviceName);
-
-        componentClass.addMethod({
-            name: 'ngOnDestroy',
-            statements: 'this.subscriptions.forEach(sub => sub.unsubscribe());',
-        });
     }
 
     /**
@@ -114,17 +103,26 @@ export class ListComponentGenerator {
             { name: 'router', isReadonly: true, initializer: 'inject(Router)' },
             { name: 'route', isReadonly: true, initializer: 'inject(ActivatedRoute)' },
             { name: 'snackBar', isReadonly: true, initializer: 'inject(MatSnackBar)' },
-            { name: `${camelCase(serviceName)}`, isReadonly: true, type: serviceName, initializer: `inject(${serviceName})` },
+            {
+                name: `${camelCase(serviceName)}`,
+                isReadonly: true,
+                type: serviceName,
+                initializer: `inject(${serviceName})`
+            },
+            { name: 'destroyRef', scope: Scope.Private, isReadonly: true, initializer: 'inject(DestroyRef)' },
             {
                 name: `paginator!: MatPaginator`,
                 decorators: [{ name: 'ViewChild', arguments: ['MatPaginator'] }]
             },
-            { name: 'dataSource', type: `MatTableDataSource<${resource.modelName}>`, initializer: `new MatTableDataSource<${resource.modelName}>()` },
+            {
+                name: 'dataSource',
+                type: `MatTableDataSource<${resource.modelName}>`,
+                initializer: `new MatTableDataSource<${resource.modelName}>()`
+            },
             { name: 'totalItems', initializer: 'signal(0)' },
             { name: 'isViewInitialized', scope: Scope.Private, initializer: 'signal(false)' },
             { name: 'displayedColumns: string[]', initializer: JSON.stringify(displayedColumns) },
             { name: 'idProperty: string', initializer: `'${idProperty}'` },
-            { name: 'subscriptions: Subscription[]', initializer: '[]' },
         ]);
     }
 
@@ -138,14 +136,13 @@ export class ListComponentGenerator {
      * @private
      */
     private addConstructorAndDataLoadingEffect(componentClass: ClassDeclaration, resource: Resource, serviceName: string): void {
-        const listOp = resource.operations.find(op => op.action === 'list');
-        if (!listOp) return;
+        const listOp = resource.operations.find(op => op.action === 'list')!;
 
         const constructor = componentClass.addConstructor();
         constructor.setBodyText(writer => {
             writer.writeLine('effect(() => {').indent(() => {
                 writer.writeLine(`if (!this.isViewInitialized()) { return; }`);
-                writer.writeLine('const sub = this.paginator.page.pipe(').indent(() => {
+                writer.writeLine('this.paginator.page.pipe(').indent(() => {
                     writer.writeLine(`startWith({} as PageEvent),`);
                     writer.writeLine(`switchMap((pageEvent: PageEvent) => {`);
                     writer.indent(() => {
@@ -156,7 +153,8 @@ export class ListComponentGenerator {
                             writer.writeLine(`catchError(() => of(null))`);
                         }).write(');');
                     });
-                    writer.writeLine('})');
+                    writer.writeLine('}),');
+                    writer.writeLine('takeUntilDestroyed(this.destroyRef)');
                 }).write(').subscribe(response => {');
                 writer.indent(() => {
                     writer.writeLine(`if (response === null) {`);
@@ -174,7 +172,6 @@ export class ListComponentGenerator {
                     writer.writeLine('}');
                 });
                 writer.write('});');
-                writer.writeLine('this.subscriptions.push(sub);');
             }).write('});');
         });
     }
@@ -207,10 +204,17 @@ export class ListComponentGenerator {
      */
     private addCrudActions(componentClass: ClassDeclaration, resource: Resource, serviceName: string): void {
         if (resource.operations.some(op => op.action === 'create')) {
-            componentClass.addMethod({ name: 'onCreate', statements: `this.router.navigate(['new'], { relativeTo: this.route });` });
+            componentClass.addMethod({
+                name: 'onCreate',
+                statements: `this.router.navigate(['new'], { relativeTo: this.route });`
+            });
         }
         if (resource.operations.some(op => op.action === 'update')) {
-            componentClass.addMethod({ name: 'onEdit', parameters: [{ name: 'id', type: 'string' }], statements: `this.router.navigate([id], { relativeTo: this.route });` });
+            componentClass.addMethod({
+                name: 'onEdit',
+                parameters: [{ name: 'id', type: 'string' }],
+                statements: `this.router.navigate([id], { relativeTo: this.route });`
+            });
         }
         if (resource.operations.some(op => op.action === 'delete')) {
             const deleteOp = resource.operations.find(op => op.action === 'delete')!;
@@ -219,11 +223,10 @@ export class ListComponentGenerator {
                 parameters: [{ name: 'id', type: 'string' }],
                 statements: [
                     `if (confirm('Are you sure you want to delete this item?')) {`,
-                    `  const sub = this.${camelCase(serviceName)}.${deleteOp.methodName}(id).subscribe(() => {`,
+                    `  this.${camelCase(serviceName)}.${deleteOp.methodName}(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {`,
                     `    this.snackBar.open('Item deleted successfully!', 'Close', { duration: 3000 });`,
                     `    this.refresh();`,
                     `  });`,
-                    `  this.subscriptions.push(sub);`,
                     `}`
                 ]
             });
@@ -244,19 +247,19 @@ export class ListComponentGenerator {
             const params = op.isCustomItemAction ? [{ name: 'id', type: 'string' }] : [];
             const args = op.isCustomItemAction ? 'id' : '';
 
-            const body = `const sub = this.${camelCase(serviceName)}.${op.methodName}(${args}).pipe(
-    catchError((err: any) => {
-        console.error('Action failed', err);
-        this.snackBar.open('Action failed', 'Close', { duration: 5000, panelClass: 'error-snackbar' });
-        return of(null);
-    })
-).subscribe(response => {
-    if (response !== null) {
-        this.snackBar.open('Action successful!', 'Close', { duration: 3000 });
-        this.refresh();
-    }
-});
-this.subscriptions.push(sub);`;
+            const body = `this.${camelCase(serviceName)}.${op.methodName}(${args}).pipe(
+    takeUntilDestroyed(this.destroyRef), 
+    catchError((err: any) => { 
+        console.error('Action failed', err); 
+        this.snackBar.open('Action failed', 'Close', { duration: 5000, panelClass: 'error-snackbar' }); 
+        return of(null); 
+    }) 
+).subscribe(response => { 
+    if (response !== null) { 
+        this.snackBar.open('Action successful!', 'Close', { duration: 3000 }); 
+        this.refresh(); 
+    } 
+});`;
 
             classDeclaration.addMethod({
                 name: op.action,
@@ -308,7 +311,7 @@ this.subscriptions.push(sub);`;
             return 'id';
         }
         // `resource.formProperties` is guaranteed by the discovery phase
-        // to have at least one property (falling back to a default 'id').
+        // to have at least one property (falling back to a default 'id'). 
         return allProps[0].name;
     }
 

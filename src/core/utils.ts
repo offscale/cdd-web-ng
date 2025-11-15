@@ -10,7 +10,13 @@
 
 import { MethodDeclaration } from 'ts-morph';
 import { GeneratorConfig, Parameter, PathInfo, RequestBody, SwaggerDefinition, SwaggerResponse } from './types.js';
-import { Path, Operation, Parameter as SwaggerOfficialParameter, BodyParameter, Response } from "swagger-schema-official";
+import {
+    BodyParameter,
+    Operation,
+    Parameter as SwaggerOfficialParameter,
+    Path,
+    Response
+} from "swagger-schema-official";
 
 // --- String Manipulation Utilities ---
 
@@ -210,7 +216,12 @@ export function hasDuplicateFunctionNames(methods: MethodDeclaration[]): boolean
 }
 
 // Helper type to handle union of Swagger 2.0 and OpenAPI 3.x parameter definitions
-type UnifiedParameter = SwaggerOfficialParameter & { schema?: SwaggerDefinition | { $ref: string }, type?: string, format?: string, items?: any };
+type UnifiedParameter = SwaggerOfficialParameter & {
+    schema?: SwaggerDefinition | { $ref: string },
+    type?: string,
+    format?: string,
+    items?: any
+};
 
 /**
  * Flattens the nested `paths` object from an OpenAPI spec into a linear array of `PathInfo` objects.

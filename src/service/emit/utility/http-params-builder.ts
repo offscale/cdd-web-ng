@@ -8,7 +8,8 @@ import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../../core/constants.js";
  * requirement for API query parameters that Angular's HttpClient does not handle out-of-the-box.
  */
 export class HttpParamsBuilderGenerator {
-    constructor(private project: Project) {}
+    constructor(private project: Project) {
+    }
 
     public generate(outputDir: string): void {
         const utilsDir = path.join(outputDir, "utils");

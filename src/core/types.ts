@@ -6,7 +6,7 @@
  */
 
 import { ModuleKind, ScriptTarget } from "ts-morph";
-import { Path, Operation, Parameter as SwaggerOfficialParameter, Reference, Info, ExternalDocs, XML, Tag, Security, BodyParameter, QueryParameter } from 'swagger-schema-official';
+import { Info, Path } from 'swagger-schema-official';
 
 // ===================================================================================
 // SECTION: OpenAPI / Swagger Specification Types

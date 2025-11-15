@@ -183,4 +183,9 @@ describe('Core: utils.ts (Coverage)', () => {
     it('getInterceptorsTokenName should use default client name when none is provided', () => {
         expect(utils.getInterceptorsTokenName()).toBe('HTTP_INTERCEPTORS_DEFAULT');
     });
+
+    it('should correctly handle a boolean schema type', () => {
+        const schema: SwaggerDefinition = { type: 'boolean' };
+        expect(utils.getTypeScriptType(schema, config, [])).toBe('boolean');
+    });
 });

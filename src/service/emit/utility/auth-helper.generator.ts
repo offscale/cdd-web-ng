@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { Project, ClassDeclaration, Scope } from 'ts-morph';
+import { ClassDeclaration, Project, Scope } from 'ts-morph';
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
 
 /**
@@ -11,7 +11,8 @@ import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
  * The focus here is on demonstrating the ts-morph-first approach.
  */
 export class AuthHelperGenerator {
-    constructor(private project: Project) {}
+    constructor(private project: Project) {
+    }
 
     public generate(outputDir: string): void {
         const authDir = path.join(outputDir, 'auth');

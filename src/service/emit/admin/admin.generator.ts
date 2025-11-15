@@ -17,7 +17,8 @@ export class AdminGenerator {
         private parser: SwaggerParser,
         private project: Project,
         private config: GeneratorConfig
-    ) {}
+    ) {
+    }
 
     public async generate(outputRoot: string): Promise<void> {
         console.log('🚀 Generating Admin UI...');

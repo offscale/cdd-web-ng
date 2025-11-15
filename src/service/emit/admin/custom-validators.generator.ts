@@ -1,4 +1,4 @@
-import { Project, ClassDeclaration, Scope, OptionalKind, MethodDeclarationStructure } from 'ts-morph';
+import { ClassDeclaration, MethodDeclarationStructure, OptionalKind, Project, Scope } from 'ts-morph';
 import { posix as path } from 'path';
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
 
@@ -8,7 +8,8 @@ import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
  * for advanced OpenAPI schema validation keywords not covered by Angular's built-in validators.
  */
 export class CustomValidatorsGenerator {
-    constructor(private project: Project) {}
+    constructor(private project: Project) {
+    }
 
     public generate(adminDir: string): void {
         const sharedDir = path.join(adminDir, 'shared');

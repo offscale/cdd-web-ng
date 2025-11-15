@@ -84,7 +84,10 @@ async function runGeneration(options: any) {
         }
 
         console.log('🚀 Starting code generation with the following configuration:');
-        console.log(yaml.dump({ ...finalConfig, options: { ...finalConfig.options } }, { indent: 2, skipInvalid: true }));
+        console.log(yaml.dump({ ...finalConfig, options: { ...finalConfig.options } }, {
+            indent: 2,
+            skipInvalid: true
+        }));
 
         await generateFromConfig(finalConfig);
 

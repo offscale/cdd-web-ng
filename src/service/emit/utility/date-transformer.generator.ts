@@ -8,7 +8,8 @@ import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../../core/constants.js";
  * in API responses into JavaScript `Date` objects.
  */
 export class DateTransformerGenerator {
-    constructor(private project: Project) { }
+    constructor(private project: Project) {
+    }
 
     public generate(outputDir: string): void {
         const utilsDir = path.join(outputDir, "utils");

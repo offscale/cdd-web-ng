@@ -1,4 +1,4 @@
-import { InterfaceDeclaration, Project, SourceFile } from 'ts-morph';
+import { Project, SourceFile } from 'ts-morph';
 import { SwaggerParser } from '../../../core/parser.js';
 import { GeneratorConfig, SwaggerDefinition } from '../../../core/types.js';
 import { getTypeScriptType, pascalCase } from '../../../core/utils.js';
@@ -20,7 +20,8 @@ export class TypeGenerator {
         private readonly parser: SwaggerParser,
         private readonly project: Project,
         private readonly config: GeneratorConfig
-    ) {}
+    ) {
+    }
 
     /**
      * The main entry point for the generator. It creates the `models/index.ts` file
@@ -141,7 +142,10 @@ export class TypeGenerator {
      * @private
      */
     private addCommonAngularImports(sourceFile: SourceFile): void {
-        sourceFile.addImportDeclaration({ moduleSpecifier: '@angular/common/http', namedImports: ['HttpHeaders', 'HttpContext', 'HttpParams'] });
+        sourceFile.addImportDeclaration({
+            moduleSpecifier: '@angular/common/http',
+            namedImports: ['HttpHeaders', 'HttpContext', 'HttpParams']
+        });
     }
 
     /**
@@ -158,7 +162,10 @@ export class TypeGenerator {
             properties: [
                 { name: 'headers?', type: 'HttpHeaders | { [header: string]: string | string[]; }' },
                 { name: 'context?', type: 'HttpContext' },
-                { name: 'params?', type: 'HttpParams | { [param: string]: string | number | boolean | ReadonlyArray<string | number | boolean>; }' },
+                {
+                    name: 'params?',
+                    type: 'HttpParams | { [param: string]: string | number | boolean | ReadonlyArray<string | number | boolean>; }'
+                },
                 { name: 'reportProgress?', type: 'boolean' },
                 { name: 'withCredentials?', type: 'boolean' },
             ]

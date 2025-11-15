@@ -7,18 +7,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
-import {
-    GeneratorConfig,
-    SwaggerDefinition,
-    SwaggerSpec,
-    SecurityScheme,
-    PathInfo
-} from './types.js';
-import {
-    extractPaths,
-    isUrl,
-    pascalCase
-} from './utils.js';
+import { GeneratorConfig, PathInfo, SecurityScheme, SwaggerDefinition, SwaggerSpec } from './types.js';
+import { extractPaths, isUrl, pascalCase } from './utils.js';
 
 /**
  * Represents a resolved option for a polymorphic (`oneOf`) schema,
@@ -58,7 +48,10 @@ export class SwaggerParser {
     public constructor(spec: SwaggerSpec, config: GeneratorConfig) {
         this.spec = spec;
         this.config = config;
-        this.schemas = Object.entries(this.getDefinitions()).map(([name, definition]) => ({ name: pascalCase(name), definition }));
+        this.schemas = Object.entries(this.getDefinitions()).map(([name, definition]) => ({
+            name: pascalCase(name),
+            definition
+        }));
         this.operations = extractPaths(this.spec.paths);
         this.security = this.getSecuritySchemes();
     }
@@ -121,16 +114,24 @@ export class SwaggerParser {
     }
 
     /** Retrieves the entire parsed specification object. */
-    public getSpec(): SwaggerSpec { return this.spec; }
+    public getSpec(): SwaggerSpec {
+        return this.spec;
+    }
 
     /** Retrieves all schema definitions from the specification, normalizing for OpenAPI 3 and Swagger 2. */
-    public getDefinitions(): Record<string, SwaggerDefinition> { return this.spec.definitions || this.spec.components?.schemas || {}; }
+    public getDefinitions(): Record<string, SwaggerDefinition> {
+        return this.spec.definitions || this.spec.components?.schemas || {};
+    }
 
     /** Retrieves a single schema definition by its original name from the specification. */
-    public getDefinition(name: string): SwaggerDefinition | undefined { return this.getDefinitions()[name]; }
+    public getDefinition(name: string): SwaggerDefinition | undefined {
+        return this.getDefinitions()[name];
+    }
 
     /** Retrieves all security scheme definitions from the specification. */
-    public getSecuritySchemes(): Record<string, SecurityScheme> { return (this.spec.components?.securitySchemes || this.spec.securityDefinitions || {}) as Record<string, SecurityScheme>; }
+    public getSecuritySchemes(): Record<string, SecurityScheme> {
+        return (this.spec.components?.securitySchemes || this.spec.securityDefinitions || {}) as Record<string, SecurityScheme>;
+    }
 
     /**
      * Resolves a JSON reference (`$ref`) object to its corresponding definition within the specification.
@@ -214,7 +215,9 @@ export class SwaggerParser {
     }
 
     /** Checks if the loaded specification is a valid OpenAPI 3.x or Swagger 2.0 file. */
-    public isValidSpec(): boolean { return !!((this.spec.swagger && this.spec.swagger.startsWith('2.')) || (this.spec.openapi && this.spec.openapi.startsWith('3.'))); }
+    public isValidSpec(): boolean {
+        return !!((this.spec.swagger && this.spec.swagger.startsWith('2.')) || (this.spec.openapi && this.spec.openapi.startsWith('3.')));
+    }
 
     /** Gets the version of the loaded specification. */
     public getSpecVersion(): { type: 'swagger' | 'openapi'; version: string } | null {

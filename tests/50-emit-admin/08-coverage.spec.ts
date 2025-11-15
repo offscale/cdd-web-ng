@@ -12,13 +12,13 @@ import { createTestProject } from '../shared/helpers.js';
  * that are not covered by other tests.
  */
 describe('Admin Generators (Coverage)', () => {
+
     it('resource-discovery should use fallback action name when no operationId is present', () => {
         const parser = new SwaggerParser(coverageSpecPart2 as any, { options: {} } as any);
         const resources = discoverAdminResources(parser);
         const resource = resources.find(r => r.name === 'noIdOpId');
         expect(resource).toBeDefined();
         // The final fallback computes the name from the method 'head' and path 'no-id-opid', which becomes 'headNoIdOpid'.
-        // FIX: Corrected typo in the expected string.
         expect(resource!.operations[0].action).toBe('headNoIdOpid');
     });
 
@@ -36,5 +36,26 @@ describe('Admin Generators (Coverage)', () => {
         // Accessing the private method for targeted testing.
         const getIcon = (action: string): string => (generator as any).getIconForAction(action);
         expect(getIcon('undefinedAction')).toBe('play_arrow'); // Default fallback
+    });
+
+    it('list-component-generator handles listable resource with no actions', () => {
+        // This spec defines a resource that can be listed but has no edit/delete/custom actions.
+        const spec = {
+            paths: {
+                '/reports': { get: { tags: ['Reports'], responses: { '200': { description: 'ok' } } } }
+            }
+        };
+        const project = createTestProject();
+        const parser = new SwaggerParser(spec as any, { options: { admin: true } } as any);
+        const resource = discoverAdminResources(parser).find(r => r.name === 'reports')!;
+        const generator = new ListComponentGenerator(project);
+
+        generator.generate(resource, '/admin');
+
+        const listClass = project.getSourceFileOrThrow('/admin/reports/reports-list/reports-list.component.ts').getClassOrThrow('ReportsListComponent');
+        const displayedColumns = listClass.getProperty('displayedColumns')?.getInitializer()?.getText() as string;
+
+        // This ensures the `if (hasActions)` branch is correctly NOT taken.
+        expect(displayedColumns).not.toContain('actions');
     });
 });

@@ -1,9 +1,8 @@
 // src/service/parse.ts
 
 import { SwaggerParser } from '../core/parser.js';
-import { camelCase, pascalCase } from '../core/utils.js';
+import { camelCase, extractPaths, pascalCase } from '../core/utils.js';
 import { PathInfo } from '../core/types.js';
-import { extractPaths } from '../core/utils.js';
 
 /**
  * Derives a controller name from an operation (PathInfo).
@@ -24,6 +23,7 @@ function getControllerName(operation: PathInfo): string {
 
     return 'Default';
 }
+
 /**
  * A helper function to generate a method name from a URL path.
  * @param path The URL path string.

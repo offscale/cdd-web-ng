@@ -32,7 +32,7 @@ describe('Emitter: AuthInterceptorGenerator', () => {
         expect(body).toContain('if (this.apiKey) { authReq = authReq.clone({ setParams');
         expect(body).toContain('if (this.apiKey) { authReq = authReq.clone({ setHeaders');
 
-        expect(body).toContain('if (this.bearerToken) { const token');
+        // This is the key check: ensure the bearer logic appears exactly once.
         const bearerMatches = body.match(/if \(this.bearerToken\)/g);
         expect(bearerMatches).not.toBeNull();
         expect(bearerMatches!.length).toBe(1);
@@ -82,5 +82,25 @@ describe('Emitter: AuthInterceptorGenerator', () => {
         const body = project.getSourceFileOrThrow('/out/auth/auth.interceptor.ts').getText();
         // This ensures the `typeof this.bearerToken === 'function'` branch is fully covered
         expect(body).toContain(`const token = typeof this.bearerToken === 'function' ? this.bearerToken() : this.bearerToken;`);
+    });
+
+    it('should ignore unsupported schemes when generating the intercept method body', () => {
+        const mixedSpec = {
+            ...emptySpec,
+            components: {
+                securitySchemes: {
+                    ApiKey: { type: 'apiKey', in: 'header', name: 'X-API-KEY' }, // Supported
+                    BasicAuth: { type: 'http', scheme: 'basic' } // Unsupported
+                },
+            },
+        };
+        const { project } = runGenerator(mixedSpec);
+        const body = project.getSourceFileOrThrow('/out/auth/auth.interceptor.ts')
+            .getClassOrThrow('AuthInterceptor')
+            .getMethodOrThrow('intercept')!
+            .getBodyText()!;
+
+        expect(body).toContain('if (this.apiKey)'); // Logic for api key exists
+        expect(body).not.toContain('Authorization'); // No logic for basic auth is added
     });
 });

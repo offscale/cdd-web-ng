@@ -10,7 +10,8 @@ import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
  * to the AuthInterceptor.
  */
 export class AuthTokensGenerator {
-    constructor(private project: Project) { }
+    constructor(private project: Project) {
+    }
 
     public generate(outputDir: string): void {
         const authDir = path.join(outputDir, 'auth');

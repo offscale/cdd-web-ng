@@ -1,5 +1,3 @@
-// tests/50-emit-admin/09-resource-discovery-coverage.spec.ts
-
 import { describe, expect, it } from 'vitest';
 import { discoverAdminResources } from '@src/service/emit/admin/resource-discovery.js';
 import { SwaggerParser } from '@src/core/parser.js';
@@ -35,7 +33,7 @@ describe('Admin: resource-discovery (Coverage)', () => {
         const resources = runDiscovery(branchCoverageSpec);
         const resource = resources.find(r => r.name === 'widgets')!;
         const addOp = resource.operations.find(op => op.operationId === 'addItemToWidget')!;
-        // This verifies the `!opIdLower.includes('add')` logic
+        // This verifies the `customActionKeywords` check in `classifyAction`
         expect(addOp.action).toBe('addItemToWidget');
     });
 

@@ -1,4 +1,4 @@
-import { ClassDeclaration, Project, Scope, InterfaceDeclaration, SourceFile } from 'ts-morph';
+import { ClassDeclaration, Project, Scope, SourceFile } from 'ts-morph';
 import { FormProperty, Resource, SwaggerDefinition } from '../../../core/types.js';
 import { camelCase, getTypeScriptType, pascalCase, singular } from '../../../core/utils.js';
 import { commonStandaloneImports } from './common-imports.js';
@@ -19,7 +19,8 @@ export class FormComponentGenerator {
      * @param project The ts-morph Project instance for AST manipulation.
      * @param parser The SwaggerParser instance, used for resolving schema references.
      */
-    constructor(private readonly project: Project, private readonly parser: SwaggerParser) {}
+    constructor(private readonly project: Project, private readonly parser: SwaggerParser) {
+    }
 
     /**
      * Main entry point for generating all files related to a form component for a given resource.
@@ -82,12 +83,12 @@ export class FormComponentGenerator {
             .join(', ') || '';
 
         sourceFile.addStatements([
-            `import { Component, OnInit, OnDestroy, computed, inject, signal, effect } from '@angular/core';`,
+            `import { Component, OnInit, computed, inject, signal, effect, ChangeDetectionStrategy, DestroyRef } from '@angular/core';`,
+            `import { takeUntilDestroyed } from '@angular/core/rxjs-interop';`,
             `import { FormBuilder, FormGroup, FormArray, Validators, FormControl, ReactiveFormsModule } from '@angular/forms';`,
             `import { ActivatedRoute, Router, RouterModule } from '@angular/router';`,
             ...commonStandaloneImports.map(a => `import { ${a[0]} } from "${a[1]}";`),
             `import { MatSnackBar } from '@angular/material/snack-bar';`,
-            `import { Subscription } from 'rxjs';`,
             `import { ${serviceName} } from '../../../services/${camelCase(resource.name)}.service';`,
             `import { ${resource.modelName}${oneOfImports ? ', ' + oneOfImports : ''} } from '../../../models';`,
             usesCustomValidators ? `import { CustomValidators } from '../../shared/custom-validators';` : ''
@@ -99,23 +100,27 @@ export class FormComponentGenerator {
             name: componentName, isExported: true,
             decorators: [{
                 name: 'Component',
-                arguments: [`{
-                    selector: 'app-${resource.name}-form',
-                    standalone: true,
-                    imports: [ ReactiveFormsModule, RouterModule, ...commonStandaloneImports.map(a => a[0]) ],
-                    templateUrl: './${resource.name}-form.component.html',
-                    styleUrl: './${resource.name}-form.component.scss'
+                arguments: [`{ 
+                    selector: 'app-${resource.name}-form', 
+                    imports: [ 
+                        ReactiveFormsModule, 
+                        RouterModule, 
+                        ${commonStandaloneImports.map(a => a[0]).join(',\n    ')} 
+                    ], 
+                    templateUrl: './${resource.name}-form.component.html', 
+                    styleUrl: './${resource.name}-form.component.scss',
+                    changeDetection: ChangeDetectionStrategy.OnPush
                 }`]
             }],
-            implements: ['OnInit', 'OnDestroy']
+            implements: ['OnInit']
         });
 
         this.addProperties(componentClass, resource, serviceName, formInterfaceName, oneOfProp);
         if (oneOfProp) {
             componentClass.addConstructor({
-                statements: writer => writer.write(`effect(() => {
-    const type = this.form.get(this.discriminatorPropName)?.value;
-    if (type) { this.updateFormForPetType(type); }
+                statements: writer => writer.write(`effect(() => { 
+    const type = this.form.get(this.discriminatorPropName)?.value; 
+    if (type) { this.updateFormForPetType(type); } 
 });`)
             });
         }
@@ -128,7 +133,6 @@ export class FormComponentGenerator {
         if (oneOfProp) this.addGetPayload(componentClass);
         this.addOnSubmit(componentClass, resource, serviceName, !!oneOfProp);
         this.addOnCancelMethod(componentClass);
-        this.addNgOnDestroy(componentClass);
 
         sourceFile.formatText({ ensureNewLineAtEndOfFile: true });
         return { usesCustomValidators };
@@ -153,13 +157,19 @@ export class FormComponentGenerator {
 
             if (schema.type === 'object' && schema.properties) {
                 const nestedInterfaceName = `${pascalCase(prop.name)}Form`;
-                this.generateFormInterface(sourceFile, nestedInterfaceName, Object.entries(schema.properties).map(([name, schema]) => ({ name, schema })), false);
+                this.generateFormInterface(sourceFile, nestedInterfaceName, Object.entries(schema.properties).map(([name, schema]) => ({
+                    name,
+                    schema
+                })), false);
                 propType = `FormGroup<${nestedInterfaceName}>`;
             } else if (schema.type === 'array') {
                 const itemSchema = schema.items as SwaggerDefinition;
                 if (itemSchema?.properties) {
                     const arrayItemInterfaceName = `${pascalCase(singular(prop.name))}Form`;
-                    this.generateFormInterface(sourceFile, arrayItemInterfaceName, Object.entries(itemSchema.properties).map(([name, schema]) => ({ name, schema })), false);
+                    this.generateFormInterface(sourceFile, arrayItemInterfaceName, Object.entries(itemSchema.properties).map(([name, schema]) => ({
+                        name,
+                        schema
+                    })), false);
                     propType = `FormArray<FormGroup<${arrayItemInterfaceName}>>`;
                 } else {
                     const itemTsType = this.getFormControlTypeString(itemSchema);
@@ -220,29 +230,80 @@ export class FormComponentGenerator {
      */
     private addProperties(classDeclaration: ClassDeclaration, resource: Resource, serviceName: string, formInterfaceName: string, oneOfProp?: FormProperty): void {
         classDeclaration.addProperties([
-            { name: 'fb', isReadonly: true, initializer: 'inject(FormBuilder)', docs: ["Injects Angular's FormBuilder service."] },
-            { name: 'route', isReadonly: true, initializer: 'inject(ActivatedRoute)', docs: ["Provides access to information about a route associated with a component."] },
-            { name: 'router', isReadonly: true, initializer: 'inject(Router)', docs: ["Provides navigation and URL manipulation capabilities."] },
-            { name: 'snackBar', isReadonly: true, initializer: 'inject(MatSnackBar)', docs: ["Service to dispatch Material Design snack bar messages."] },
-            { name: `${camelCase(serviceName)}`, isReadonly: true, type: serviceName, initializer: `inject(${serviceName})`, docs: [`The generated service for the '${resource.name}' resource.`] },
-            { name: `form!: FormGroup<${formInterfaceName}>`, docs: ["The main reactive form group for this component."] },
-            { name: 'id = signal<string | null>(null)', docs: ["Holds the ID of the resource being edited, or null for creation."] },
-            { name: 'isEditMode = computed(() => !!this.id())', docs: ["A computed signal that is true if the form is in edit mode."] },
-            { name: 'formTitle', initializer: `computed(() => this.isEditMode() ? 'Edit ${resource.modelName}' : 'Create ${resource.modelName}')`, docs: ["A computed signal for the form's title."] },
-            { name: 'subscriptions: Subscription[]', initializer: '[]', docs: ["A collection of subscriptions to be unsubscribed on component destruction."] },
+            {
+                name: 'fb',
+                isReadonly: true,
+                initializer: 'inject(FormBuilder)',
+                docs: ["Injects Angular's FormBuilder service."]
+            },
+            {
+                name: 'route',
+                isReadonly: true,
+                initializer: 'inject(ActivatedRoute)',
+                docs: ["Provides access to information about a route associated with a component."]
+            },
+            {
+                name: 'router',
+                isReadonly: true,
+                initializer: 'inject(Router)',
+                docs: ["Provides navigation and URL manipulation capabilities."]
+            },
+            {
+                name: 'snackBar',
+                isReadonly: true,
+                initializer: 'inject(MatSnackBar)',
+                docs: ["Service to dispatch Material Design snack bar messages."]
+            },
+            {
+                name: `${camelCase(serviceName)}`,
+                isReadonly: true,
+                type: serviceName,
+                initializer: `inject(${serviceName})`,
+                docs: [`The generated service for the '${resource.name}' resource.`]
+            },
+            {
+                name: `form!: FormGroup<${formInterfaceName}>`,
+                docs: ["The main reactive form group for this component."]
+            },
+            { name: 'destroyRef', scope: Scope.Private, isReadonly: true, initializer: 'inject(DestroyRef)' },
+            {
+                name: 'id = signal<string | null>(null)',
+                docs: ["Holds the ID of the resource being edited, or null for creation."]
+            },
+            {
+                name: 'isEditMode = computed(() => !!this.id())',
+                docs: ["A computed signal that is true if the form is in edit mode."]
+            },
+            {
+                name: 'formTitle',
+                initializer: `computed(() => this.isEditMode() ? 'Edit ${resource.modelName}' : 'Create ${resource.modelName}')`,
+                docs: ["A computed signal for the form's title."]
+            },
         ]);
 
         if (oneOfProp) {
             const options = this.parser.getPolymorphicSchemaOptions(oneOfProp.schema);
             const dPropName = oneOfProp.schema.discriminator!.propertyName;
             classDeclaration.addProperties([
-                { name: 'discriminatorOptions', isReadonly: true, initializer: JSON.stringify(options.map(o => o.name)), docs: ["The available options for the polymorphic discriminator."] },
-                { name: 'discriminatorPropName', isReadonly: true, scope: Scope.Private, initializer: `'${dPropName}'`, docs: ["The name of the discriminator property."] }
+                {
+                    name: 'discriminatorOptions',
+                    isReadonly: true,
+                    initializer: JSON.stringify(options.map(o => o.name)),
+                    docs: ["The available options for the polymorphic discriminator."]
+                },
+                {
+                    name: 'discriminatorPropName',
+                    isReadonly: true,
+                    scope: Scope.Private,
+                    initializer: `'${dPropName}'`,
+                    docs: ["The name of the discriminator property."]
+                }
             ]);
         }
 
         const processedEnums = new Set<string>();
         findEnums(resource.formProperties);
+
         function findEnums(properties: FormProperty[]) {
             for (const prop of properties) {
                 const schema = prop.schema;
@@ -251,7 +312,11 @@ export class FormComponentGenerator {
                 if (itemsSchema.enum) {
                     const optionsName = `${pascalCase(prop.name)}Options`;
                     if (!processedEnums.has(optionsName)) {
-                        classDeclaration.addProperty({ name: optionsName, isReadonly: true, initializer: JSON.stringify(itemsSchema.enum) });
+                        classDeclaration.addProperty({
+                            name: optionsName,
+                            isReadonly: true,
+                            initializer: JSON.stringify(itemsSchema.enum)
+                        });
                         processedEnums.add(optionsName);
                     }
                 }
@@ -272,7 +337,7 @@ export class FormComponentGenerator {
         const patchCall = needsComplexPatch ? 'this.patchForm(entity)' : 'this.form.patchValue(entity as any)';
         let body = `this.initForm();\nconst id = this.route.snapshot.paramMap.get('id');\nif (id) {\n  this.id.set(id);`;
         if (getByIdOp?.methodName) {
-            body += `\n  const sub = this.${camelCase(serviceName)}.${getByIdOp.methodName}(id).subscribe(entity => {\n    ${patchCall};\n  });\n  this.subscriptions.push(sub);`;
+            body += `\n  this.${camelCase(serviceName)}.${getByIdOp.methodName}(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(entity => {\n    ${patchCall};\n  });`;
         }
         body += '\n}';
         classDeclaration.addMethod({ name: 'ngOnInit', statements: body });
@@ -368,8 +433,8 @@ export class FormComponentGenerator {
         } else if (createOp?.methodName) {
             body += `if (this.isEditMode()) { console.error('Form is in edit mode, but no update operation is available.'); return; }\n`;
             body += `const action$ = this.${camelCase(serviceName)}.${createOp.methodName}(finalPayload);\n`;
-        } else { return; }
-        body += `const sub = action$.subscribe({\n  next: () => {\n    this.snackBar.open('${resource.modelName} saved successfully!', 'Close', { duration: 3000 });\n    this.router.navigate(['../'], { relativeTo: this.route });\n  },\n  error: (err) => {\n    console.error('Error saving ${resource.modelName}', err);\n    this.snackBar.open('Error saving ${resource.modelName}', 'Close', { duration: 5000, panelClass: 'error-snackbar' });\n  }\n});\nthis.subscriptions.push(sub);`;
+        }
+        body += `action$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({\n  next: () => {\n    this.snackBar.open('${resource.modelName} saved successfully!', 'Close', { duration: 3000 });\n    this.router.navigate(['../'], { relativeTo: this.route });\n  },\n  error: (err) => {\n    console.error('Error saving ${resource.modelName}', err);\n    this.snackBar.open('Error saving ${resource.modelName}', 'Close', { duration: 5000, panelClass: 'error-snackbar' });\n  }\n});`;
         classDeclaration.addMethod({ name: 'onSubmit', statements: body });
     }
 
@@ -378,15 +443,10 @@ export class FormComponentGenerator {
      * @private
      */
     private addOnCancelMethod(classDeclaration: ClassDeclaration): void {
-        classDeclaration.addMethod({ name: 'onCancel', statements: `this.router.navigate(['../'], { relativeTo: this.route });` });
-    }
-
-    /**
-     * Adds the `ngOnDestroy` lifecycle hook to unsubscribe from all active subscriptions.
-     * @private
-     */
-    private addNgOnDestroy(classDeclaration: ClassDeclaration): void {
-        classDeclaration.addMethod({ name: 'ngOnDestroy', statements: 'this.subscriptions.forEach(sub => sub.unsubscribe());' });
+        classDeclaration.addMethod({
+            name: 'onCancel',
+            statements: `this.router.navigate(['../'], { relativeTo: this.route });`
+        });
     }
 
     /**
@@ -451,7 +511,12 @@ export class FormComponentGenerator {
             }
             body += `}\n`;
         }
-        classDeclaration.addMethod({ name: 'patchForm', scope: Scope.Private, parameters: [{ name: 'entity', type: resource.modelName || 'any' }], statements: body });
+        classDeclaration.addMethod({
+            name: 'patchForm',
+            scope: Scope.Private,
+            parameters: [{ name: 'entity', type: resource.modelName || 'any' }],
+            statements: body
+        });
     }
 
     /**
@@ -461,7 +526,11 @@ export class FormComponentGenerator {
      */
     private addPolymorphismLogic(classDeclaration: ClassDeclaration, prop: FormProperty, resource: Resource) {
         const dPropName = prop.schema.discriminator!.propertyName;
-        const updateMethod = classDeclaration.addMethod({ name: 'updateFormForPetType', scope: Scope.Private, parameters: [{ name: 'type', type: 'string' }] });
+        const updateMethod = classDeclaration.addMethod({
+            name: 'updateFormForPetType',
+            scope: Scope.Private,
+            parameters: [{ name: 'type', type: 'string' }]
+        });
 
         // THE DEFINITIVE FIX: Check if any of the `oneOf` options are objects.
         const oneOfHasObjects = prop.schema.oneOf!.some(s => this.parser.resolve(s)?.properties);
@@ -489,13 +558,24 @@ export class FormComponentGenerator {
         }
 
         // The rest of this method is correct.
-        classDeclaration.addMethod({ name: 'isPetType', parameters: [{ name: 'type', type: 'string' }], returnType: 'boolean', statements: `return this.form.get(this.discriminatorPropName)?.value === type;` });
+        classDeclaration.addMethod({
+            name: 'isPetType',
+            parameters: [{ name: 'type', type: 'string' }],
+            returnType: 'boolean',
+            statements: `return this.form.get(this.discriminatorPropName)?.value === type;`
+        });
         for (const subSchemaRef of prop.schema.oneOf!) {
             if (!subSchemaRef.$ref) continue;
             const subSchemaName = pascalCase(subSchemaRef.$ref!.split('/').pop()!);
             const subSchema = this.parser.resolve(subSchemaRef)!;
             const typeName = subSchema.properties![dPropName].enum![0] as string;
-            classDeclaration.addMethod({ name: `is${subSchemaName}`, scope: Scope.Private, parameters: [{ name: 'entity', type: resource.modelName }], returnType: `entity is ${subSchemaName}`, statements: `return (entity as any).${dPropName} === '${typeName}';` });
+            classDeclaration.addMethod({
+                name: `is${subSchemaName}`,
+                scope: Scope.Private,
+                parameters: [{ name: 'entity', type: resource.modelName }],
+                returnType: `entity is ${subSchemaName}`,
+                statements: `return (entity as any).${dPropName} === '${typeName}';`
+            });
         }
     }
 
@@ -505,12 +585,12 @@ export class FormComponentGenerator {
      * @private
      */
     private addGetPayload(classDeclaration: ClassDeclaration) {
-        const body = `const baseValue = this.form.getRawValue();
-const petType = (baseValue as any)[this.discriminatorPropName];
-if (!petType) return baseValue;
-const subFormValue = (this.form.get(petType) as FormGroup | undefined)?.value || {};
-const payload = { ...baseValue, ...subFormValue };
-this.discriminatorOptions.forEach(opt => delete (payload as any)[opt]);
+        const body = `const baseValue = this.form.getRawValue(); 
+const petType = (baseValue as any)[this.discriminatorPropName]; 
+if (!petType) return baseValue; 
+const subFormValue = (this.form.get(petType) as FormGroup | undefined)?.value || {}; 
+const payload = { ...baseValue, ...subFormValue }; 
+this.discriminatorOptions.forEach(opt => delete (payload as any)[opt]); 
 return payload;`;
         classDeclaration.addMethod({ name: 'getPayload', scope: Scope.Private, statements: body });
     }

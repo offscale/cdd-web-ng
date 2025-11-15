@@ -16,7 +16,8 @@ export class AuthInterceptorGenerator {
      * @param parser The `SwaggerParser` instance for accessing spec details.
      * @param project The `ts-morph` project for AST manipulation.
      */
-    constructor(private parser: SwaggerParser, private project: Project) {}
+    constructor(private parser: SwaggerParser, private project: Project) {
+    }
 
     /**
      * Generates the auth interceptor file if any **supported** security schemes are defined in the spec.

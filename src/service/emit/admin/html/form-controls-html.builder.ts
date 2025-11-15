@@ -1,7 +1,7 @@
 // src/service/emit/admin/html/form-controls-html.builder.ts
 
 import { FormProperty, SwaggerDefinition } from "../../../../core/types.js";
-import { pascalCase, camelCase, singular } from "../../../../core/utils.js";
+import { camelCase, pascalCase, singular } from "../../../../core/utils.js";
 import { HtmlElementBuilder, HtmlElementBuilder as _ } from "../html-element.builder.js";
 
 /**
@@ -82,7 +82,8 @@ export function buildFormControl(prop: FormProperty): HtmlElementBuilder | null 
                     : createRadio(prop, labelText, `${camelCase(prop.name)}Options`);
             }
             return createInput(prop, labelText, 'text');
-        case 'boolean': return createToggle(prop, labelText);
+        case 'boolean':
+            return createToggle(prop, labelText);
         case 'integer':
         case 'number':
             if (prop.schema.minimum !== undefined && prop.schema.maximum !== undefined && !prop.schema.exclusiveMinimum && !prop.schema.exclusiveMaximum) {
@@ -102,7 +103,8 @@ export function buildFormControl(prop: FormProperty): HtmlElementBuilder | null 
                 return createFormGroup(prop);
             }
             return null;
-        default: return null;
+        default:
+            return null;
     }
 }
 
@@ -184,7 +186,7 @@ function createSlider(prop: FormProperty, label: string, min: any, max: any): Ht
 /** @private Creates a chip input for an array of strings. */
 function createChips(prop: FormProperty, label: string): HtmlElementBuilder {
     const field = _.create('mat-form-field');
-    const chipGrid =_.create('mat-chip-grid').setAttribute('formControlName', prop.name).setAttribute(`#chipGrid_${prop.name}`,'');
+    const chipGrid = _.create('mat-chip-grid').setAttribute('formControlName', prop.name).setAttribute(`#chipGrid_${prop.name}`, '');
     chipGrid.setInnerHtml(`@for (item of form.get('${prop.name}')?.value; track item) {\n  <mat-chip-row>{{item}}</mat-chip-row>\n}`);
     field.appendChild(_.create('mat-label').setTextContent(label));
     field.appendChild(chipGrid);
@@ -196,7 +198,7 @@ function createChips(prop: FormProperty, label: string): HtmlElementBuilder {
 function createTextarea(prop: FormProperty, label: string): HtmlElementBuilder {
     const field = _.create('mat-form-field');
     field.appendChild(_.create('mat-label').setTextContent(label));
-    field.appendChild(_.create('textarea').setAttribute('matInput','').setAttribute('formControlName', prop.name));
+    field.appendChild(_.create('textarea').setAttribute('matInput', '').setAttribute('formControlName', prop.name));
     return field;
 }
 
@@ -204,7 +206,7 @@ function createTextarea(prop: FormProperty, label: string): HtmlElementBuilder {
 function createFormGroup(prop: FormProperty): HtmlElementBuilder {
     const container = _.create('div').addClass('admin-form-group').setAttribute('formGroupName', prop.name);
     container.appendChild(_.create('h3').setTextContent(pascalCase(prop.name)));
-    for(const key in prop.schema.properties) {
+    for (const key in prop.schema.properties) {
         const control = buildFormControl({ name: key, schema: prop.schema.properties[key] });
         if (control) {
             container.appendChild(control);
@@ -230,7 +232,7 @@ function createFormArray(prop: FormProperty, label: string): HtmlElementBuilder 
         }
     }
 
-    itemContainer.appendChild(_.create('button').setAttribute('mat-icon-button', '').setAttribute('color','warn').setAttribute('(click)', `remove${pascalCase(singular(prop.name))}(i)`).appendChild(_.create('mat-icon').setTextContent('delete')));
+    itemContainer.appendChild(_.create('button').setAttribute('mat-icon-button', '').setAttribute('color', 'warn').setAttribute('(click)', `remove${pascalCase(singular(prop.name))}(i)`).appendChild(_.create('mat-icon').setTextContent('delete')));
 
     arrayContainer.appendChild(itemContainer);
     container.appendChild(arrayContainer);

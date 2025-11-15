@@ -1,12 +1,12 @@
 import {
     ClassDeclaration,
+    MethodDeclarationOverloadStructure,
     OptionalKind,
     ParameterDeclarationStructure,
-    MethodDeclarationOverloadStructure,
 } from 'ts-morph';
 import { GeneratorConfig, PathInfo, SwaggerDefinition } from '../../../core/types.js';
 import { SwaggerParser } from '../../../core/parser.js';
-import { getTypeScriptType, camelCase, isDataTypeInterface } from '../../../core/utils.js';
+import { camelCase, getTypeScriptType, isDataTypeInterface } from '../../../core/utils.js';
 
 /**
  * Generates individual methods within a generated Angular service class.
@@ -17,7 +17,8 @@ export class ServiceMethodGenerator {
     constructor(
         private readonly config: GeneratorConfig,
         private readonly parser: SwaggerParser
-    ) { }
+    ) {
+    }
 
     public addServiceMethod(classDeclaration: ClassDeclaration, operation: PathInfo): void {
         if (!operation.methodName) {
@@ -33,7 +34,11 @@ export class ServiceMethodGenerator {
 
         classDeclaration.addMethod({
             name: operation.methodName,
-            parameters: [...parameters, { name: 'options', hasQuestionToken: true, type: `RequestOptions & { observe?: 'body' | 'events' | 'response', responseType?: 'arraybuffer' | 'blob' | 'json' | 'text' }` }],
+            parameters: [...parameters, {
+                name: 'options',
+                hasQuestionToken: true,
+                type: `RequestOptions & { observe?: 'body' | 'events' | 'response', responseType?: 'arraybuffer' | 'blob' | 'json' | 'text' }`
+            }],
             returnType: 'Observable<any>',
             statements: bodyStatements,
             overloads: overloads,
@@ -175,17 +180,29 @@ export class ServiceMethodGenerator {
 
         return [
             {
-                parameters: [...parameters, { name: 'options', hasQuestionToken: true, type: `RequestOptions & { observe?: 'body' }` }],
+                parameters: [...parameters, {
+                    name: 'options',
+                    hasQuestionToken: true,
+                    type: `RequestOptions & { observe?: 'body' }`
+                }],
                 returnType: `Observable<${finalResponseType}>`,
                 docs: [`${methodName}. \n${paramsDocs}\n@param options The options for this request.`]
             },
             {
-                parameters: [...parameters, { name: 'options', hasQuestionToken: false, type: `RequestOptions & { observe: 'response' }` }],
+                parameters: [...parameters, {
+                    name: 'options',
+                    hasQuestionToken: false,
+                    type: `RequestOptions & { observe: 'response' }`
+                }],
                 returnType: `Observable<HttpResponse<${finalResponseType}>>`,
                 docs: [`${methodName}. \n${paramsDocs}\n@param options The options for this request, with response observation enabled.`]
             },
             {
-                parameters: [...parameters, { name: 'options', hasQuestionToken: false, type: `RequestOptions & { observe: 'events' }` }],
+                parameters: [...parameters, {
+                    name: 'options',
+                    hasQuestionToken: false,
+                    type: `RequestOptions & { observe: 'events' }`
+                }],
                 returnType: `Observable<HttpEvent<${finalResponseType}>>`,
                 docs: [`${methodName}. \n${paramsDocs}\n@param options The options for this request, with event observation enabled.`]
             },

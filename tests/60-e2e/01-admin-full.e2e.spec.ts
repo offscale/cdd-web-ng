@@ -84,4 +84,46 @@ describe('E2E: Admin UI Generation', () => {
             expect(html).not.toContain('formControlName="unsupportedField"');
         });
     });
+
+    describe('Polymorphism E2E with Bad Refs', () => {
+                it('should generate a form that gracefully handles unresolvable allOf refs', async () => {
+                        const specWithBadRef = {
+                                ...polymorphismSpec,
+                                paths: {
+                                    ...polymorphismSpec.paths,
+                                        '/bad-pets': {
+                                            post: {
+                                                    tags: ['BadPets'],
+                                                        requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/BadPet' } } } }
+                                                }
+                                        }
+                                },
+                            components: {
+                                    ...polymorphismSpec.components,
+                                        schemas: {
+                                            ...polymorphismSpec.components.schemas,
+                                                BadPet: {
+                                                    type: 'object',
+                                                        oneOf: [{ $ref: '#/components/schemas/BadCat' }],
+                                                        discriminator: { propertyName: 'petType' }
+                                                },
+                                            BadCat: {
+                                                    type: 'object',
+                                                        allOf: [
+                                                            { $ref: '#/components/schemas/BasePet' }, // This one is good
+                                                            { $ref: '#/components/schemas/NonExistentSchema' } // This one is bad
+                                                        ],
+                                                        properties: { petType: { type: 'string', enum: ['badcat'] } }
+                                                }
+                                        }
+                                }
+                        };
+                        project = await runAdminGen(specWithBadRef);
+                        const html = project.getFileSystem().readFileSync('/generated/admin/badPets/badPets-form/badPets-form.component.html');
+            
+                            expect(html).toBeDefined();
+                        expect(html).toContain('formControlName="name"');
+                    });
+            });
+
 });

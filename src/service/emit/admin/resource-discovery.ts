@@ -2,12 +2,12 @@
 
 import { SwaggerParser } from '../../../core/parser.js';
 import {
+    DiscriminatorObject,
     FormProperty,
     PathInfo,
     Resource,
     ResourceOperation,
     SwaggerDefinition,
-    DiscriminatorObject,
 } from '../../../core/types.js';
 import { camelCase, pascalCase, singular } from '../../../core/utils.js';
 
@@ -26,12 +26,14 @@ function getMethodName(op: PathInfo): string {
 
     return op.operationId ? camelCase(op.operationId) : `${op.method.toLowerCase()}${pathToMethodName(op.path)}`;
 }
+
 function getResourceName(path: PathInfo): string {
     const tag = path.tags?.[0];
     if (tag) return camelCase(tag);
     const firstSegment = path.path.split('/').filter(p => p && !p.startsWith('{'))[0];
     return camelCase(firstSegment ?? 'default');
 }
+
 function classifyAction(path: PathInfo, method: string): ResourceOperation['action'] {
     const hasIdSuffix = path.path.endsWith('}');
     const m = method.toLowerCase();
@@ -63,7 +65,10 @@ function classifyAction(path: PathInfo, method: string): ResourceOperation['acti
     const parts = [m, ...nonParamSegments, ...(hasIdSuffix ? ['ById'] : [])];
     return camelCase(parts.join(' '));
 }
-function findSchema(schema: SwaggerDefinition | { $ref: string } | undefined, parser: SwaggerParser): SwaggerDefinition | undefined {
+
+function findSchema(schema: SwaggerDefinition | {
+    $ref: string
+} | undefined, parser: SwaggerParser): SwaggerDefinition | undefined {
     if (!schema) return undefined;
     if ('$ref' in schema && typeof schema.$ref === 'string') return parser.resolveReference<SwaggerDefinition>(schema.$ref);
     return schema as SwaggerDefinition;
@@ -168,6 +173,7 @@ function getModelName(resourceName: string, operations: PathInfo[], parser: Swag
     }
     return singular(pascalCase(resourceName));
 }
+
 export function discoverAdminResources(parser: SwaggerParser): Resource[] {
     const resourceMap = new Map<string, { name: string; operations: PathInfo[] }>();
 

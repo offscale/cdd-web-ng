@@ -7,7 +7,8 @@ import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../../core/constants.js";
  * and an RxJS operator for handling file downloads in the browser.
  */
 export class FileDownloadGenerator {
-    constructor(private project: Project) {}
+    constructor(private project: Project) {
+    }
 
     public generate(outputDir: string): void {
         const utilsDir = path.join(outputDir, "utils");

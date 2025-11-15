@@ -29,6 +29,8 @@ describe('Core: utils.ts', () => {
         it('should handle various strings for kebabCase', () => {
             expect(utils.kebabCase('helloWorld')).toBe('hello-world');
             expect(utils.kebabCase('HelloWorld')).toBe('hello-world');
+            expect(utils.kebabCase('__FOO_BAR__')).toBe('foo-bar'); // Updated test case
+            expect(utils.kebabCase('--leading-trailing--')).toBe('leading-trailing'); // New test case for coverage
             expect(utils.kebabCase('')).toBe('');
         });
     });

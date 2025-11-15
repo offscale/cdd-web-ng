@@ -14,7 +14,8 @@ export class MockDataGenerator {
     /**
      * @param parser The SwaggerParser instance used to resolve `$ref` schemas.
      */
-    constructor(private parser: SwaggerParser) {}
+    constructor(private parser: SwaggerParser) {
+    }
 
     /**
      * Generates a JSON string representing mock data for a given schema name.

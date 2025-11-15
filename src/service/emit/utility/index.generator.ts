@@ -1,8 +1,11 @@
 // src/service/emit/utility/index.generator.ts
-import { Project, SourceFile } from "ts-morph";
+import { Project } from "ts-morph";
 import * as path from "node:path";
 import { GeneratorConfig } from '../../../core/types.js';
-import { MAIN_INDEX_GENERATOR_HEADER_COMMENT, SERVICE_INDEX_GENERATOR_HEADER_COMMENT } from "../../../core/constants.js";
+import {
+    MAIN_INDEX_GENERATOR_HEADER_COMMENT,
+    SERVICE_INDEX_GENERATOR_HEADER_COMMENT
+} from "../../../core/constants.js";
 import { SwaggerParser } from "../../../core/parser.js";
 
 /**
@@ -16,7 +19,8 @@ export class MainIndexGenerator {
      * @param config The generator configuration.
      * @param parser The Swagger parser instance.
      */
-    constructor(private project: Project, private config: GeneratorConfig, private parser: SwaggerParser) {}
+    constructor(private project: Project, private config: GeneratorConfig, private parser: SwaggerParser) {
+    }
 
     /**
      * Generates the main `index.ts` file.
@@ -77,7 +81,8 @@ export class ServiceIndexGenerator {
     /**
      * @param project The ts-morph Project.
      */
-    constructor(private project: Project) {}
+    constructor(private project: Project) {
+    }
 
     /**
      * Generates the `services/index.ts` file. If the services directory does not
@@ -92,12 +97,7 @@ export class ServiceIndexGenerator {
 
         sourceFile.insertText(0, SERVICE_INDEX_GENERATOR_HEADER_COMMENT);
 
-        const servicesDirectory = this.project.getDirectory(servicesDir);
-        if (!servicesDirectory) {
-            // If the services directory doesn't exist, we've still created the
-            // empty index file, so we can just exit.
-            return;
-        }
+        const servicesDirectory = this.project.getDirectory(servicesDir)!;
 
         const serviceFiles = servicesDirectory.getSourceFiles()
             .filter(sf => sf.getFilePath().endsWith('.service.ts'));

@@ -1,10 +1,17 @@
 // src/service/emit/service/service.generator.ts
 
-import { Project, ClassDeclaration, Scope, SourceFile } from 'ts-morph';
+import { ClassDeclaration, Project, Scope, SourceFile } from 'ts-morph';
 import * as path from 'path';
 import { SwaggerParser } from '../../../core/parser.js';
 import { GeneratorConfig, PathInfo } from '../../../core/types.js';
-import { camelCase, pascalCase, getBasePathTokenName, getClientContextTokenName, isDataTypeInterface, getTypeScriptType } from '../../../core/utils.js';
+import {
+    camelCase,
+    getBasePathTokenName,
+    getClientContextTokenName,
+    getTypeScriptType,
+    isDataTypeInterface,
+    pascalCase
+} from '../../../core/utils.js';
 import { SERVICE_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
 import { ServiceMethodGenerator } from './service-method.generator.js';
 
@@ -82,10 +89,16 @@ export class ServiceGenerator {
     private addImports(sourceFile: SourceFile, modelImports: Set<string>): void {
         sourceFile.addImportDeclarations([
             { moduleSpecifier: '@angular/core', namedImports: ['Injectable', 'inject'] },
-            { moduleSpecifier: '@angular/common/http', namedImports: ['HttpClient', 'HttpContext', 'HttpParams', 'HttpResponse', 'HttpEvent', 'HttpHeaders', 'HttpContextToken'] },
+            {
+                moduleSpecifier: '@angular/common/http',
+                namedImports: ['HttpClient', 'HttpContext', 'HttpParams', 'HttpResponse', 'HttpEvent', 'HttpHeaders', 'HttpContextToken']
+            },
             { moduleSpecifier: 'rxjs', namedImports: ['Observable'] },
             { moduleSpecifier: `../models`, namedImports: Array.from(modelImports) },
-            { moduleSpecifier: `../tokens`, namedImports: [getBasePathTokenName(this.config.clientName), getClientContextTokenName(this.config.clientName)] },
+            {
+                moduleSpecifier: `../tokens`,
+                namedImports: [getBasePathTokenName(this.config.clientName), getClientContextTokenName(this.config.clientName)]
+            },
             { moduleSpecifier: `../utils/http-params-builder`, namedImports: ['HttpParamsBuilder'] },
         ]);
     }
@@ -99,11 +112,28 @@ export class ServiceGenerator {
     }
 
     private addPropertiesAndHelpers(serviceClass: ClassDeclaration): void {
-        serviceClass.addProperty({ name: 'http', scope: Scope.Private, isReadonly: true, initializer: 'inject(HttpClient)' });
-        serviceClass.addProperty({ name: 'basePath', scope: Scope.Private, isReadonly: true, type: 'string', initializer: `inject(${getBasePathTokenName(this.config.clientName)})` });
+        serviceClass.addProperty({
+            name: 'http',
+            scope: Scope.Private,
+            isReadonly: true,
+            initializer: 'inject(HttpClient)'
+        });
+        serviceClass.addProperty({
+            name: 'basePath',
+            scope: Scope.Private,
+            isReadonly: true,
+            type: 'string',
+            initializer: `inject(${getBasePathTokenName(this.config.clientName)})`
+        });
         const clientContextTokenName = getClientContextTokenName(this.config.clientName);
 
-        serviceClass.addProperty({ name: "clientContextToken", type: `HttpContextToken<string>`, scope: Scope.Private, isReadonly: true, initializer: clientContextTokenName });
+        serviceClass.addProperty({
+            name: "clientContextToken",
+            type: `HttpContextToken<string>`,
+            scope: Scope.Private,
+            isReadonly: true,
+            initializer: clientContextTokenName
+        });
 
         serviceClass.addMethod({
             name: "createContextWithClientId",

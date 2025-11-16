@@ -2,7 +2,7 @@
 
 import * as fs from 'node:fs';
 import { ModuleKind, Project, ScriptTarget } from 'ts-morph';
-import { GeneratorConfig } from './core/types.js';
+import { GeneratorConfig, SwaggerSpec } from './core/types.js';
 import { SwaggerParser } from './core/parser.js';
 import { emitClientLibrary } from "@src/service/emit/index.js";
 import { isUrl } from "@src/core/utils.js";
@@ -52,7 +52,10 @@ export async function generateFromConfig(
     try {
         let swaggerParser: SwaggerParser;
         if (isTestEnv) {
-            swaggerParser = new SwaggerParser(testConfig.spec as any, config);
+            const docUri = 'file://in-memory-spec.json';
+            const spec = testConfig.spec as SwaggerSpec;
+            const cache = new Map<string, SwaggerSpec>([[docUri, spec]]);
+            swaggerParser = new SwaggerParser(spec, config, cache, docUri);
         } else {
             swaggerParser = await SwaggerParser.create(config.input, config);
         }

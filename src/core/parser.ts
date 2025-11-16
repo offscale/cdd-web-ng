@@ -7,6 +7,7 @@
 import { SwaggerDefinition, SwaggerSpec, GeneratorConfig, SecurityScheme, PathInfo } from './types.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import yaml from 'js-yaml';
 import { extractPaths, isUrl, pascalCase } from './utils.js';
 
@@ -39,26 +40,45 @@ export interface PolymorphicOption {
  * helpful utilities like `$ref` resolution.
  */
 export class SwaggerParser {
-    /** The raw, parsed OpenAPI/Swagger specification object. */
+    /** The raw, parsed OpenAPI/Swagger specification object for the entry document. */
     public readonly spec: SwaggerSpec;
     /** The configuration object for the generator. */
     public readonly config: GeneratorConfig;
-    /** A normalized array of all top-level schemas (definitions) found in the specification. */
+    /** The full URI of the entry document. */
+    public readonly documentUri: string;
+
+    /** A normalized array of all top-level schemas (definitions) found in the entry specification. */
     public readonly schemas: { name: string; definition: SwaggerDefinition; }[];
-    /** A flattened and processed list of all API operations (paths). */
+    /** A flattened and processed list of all API operations (paths) from the entry specification. */
     public readonly operations: PathInfo[];
-    /** A normalized record of all security schemes defined in the specification. */
+    /** A normalized record of all security schemes defined in the entry specification. */
     public readonly security: Record<string, SecurityScheme>;
+
+    /** A cache of all loaded specifications, keyed by their absolute URI. */
+    private readonly specCache: Map<string, SwaggerSpec>;
 
     /**
      * Initializes a new instance of the SwaggerParser. It is generally recommended
      * to use the static `create` factory method instead of this constructor directly.
-     * @param spec The raw OpenAPI/Swagger specification object.
+     * @param spec The raw OpenAPI/Swagger specification object for the entry document.
      * @param config The generator configuration.
+     * @param specCache A map containing all pre-loaded and parsed specifications, including the entry spec.
+     * @param documentUri The absolute URI of the entry document.
      */
-    public constructor(spec: SwaggerSpec, config: GeneratorConfig) {
+    public constructor(
+        spec: SwaggerSpec,
+        config: GeneratorConfig,
+        specCache?: Map<string, SwaggerSpec>,
+        documentUri: string = 'file://entry-spec.json'
+    ) {
         this.spec = spec;
         this.config = config;
+        this.documentUri = documentUri;
+
+        // If a cache isn't provided, create one with just the entry spec.
+        this.specCache = specCache || new Map<string, SwaggerSpec>([[this.documentUri, spec]]);
+
+
         this.schemas = Object.entries(this.getDefinitions()).map(([name, definition]) => ({
             name: pascalCase(name),
             definition
@@ -69,15 +89,78 @@ export class SwaggerParser {
 
     /**
      * Asynchronously creates a SwaggerParser instance from a file path or URL.
-     * This is the recommended factory method for creating a parser instance.
-     * @param inputPath The local file path or remote URL of the OpenAPI/Swagger specification.
+     * This is the recommended factory method. It pre-loads and caches the entry document
+     * and any other documents it references.
+     * @param inputPath The local file path or remote URL of the entry OpenAPI/Swagger specification.
      * @param config The generator configuration.
-     * @returns A promise that resolves to a new SwaggerParser instance.
+     * @returns A promise that resolves to a new, fully initialized SwaggerParser instance.
      */
     static async create(inputPath: string, config: GeneratorConfig): Promise<SwaggerParser> {
-        const content = await this.loadContent(inputPath);
-        const spec = this.parseSpecContent(content, inputPath);
-        return new SwaggerParser(spec, config);
+        const documentUri = isUrl(inputPath)
+            ? inputPath
+            : pathToFileURL(path.resolve(process.cwd(), inputPath)).href;
+
+        const cache = new Map<string, SwaggerSpec>();
+        await this.loadAndCacheSpecRecursive(documentUri, cache, new Set<string>());
+
+        const entrySpec = cache.get(documentUri)!;
+        return new SwaggerParser(entrySpec, config, cache, documentUri);
+    }
+
+    /**
+     * Recursively traverses a specification, loading and caching all external references.
+     * @param uri The absolute URI of the specification to load.
+     * @param cache The map where loaded specs are stored.
+     * @param visited A set to track already processed URIs to prevent infinite loops.
+     * @private
+     */
+    private static async loadAndCacheSpecRecursive(uri: string, cache: Map<string, SwaggerSpec>, visited: Set<string>): Promise<void> {
+        if (visited.has(uri)) return;
+        visited.add(uri);
+
+        const content = await this.loadContent(uri);
+        const spec = this.parseSpecContent(content, uri);
+        cache.set(uri, spec);
+
+        const baseUri = spec.$self ? new URL(spec.$self, uri).href : uri;
+
+        const refs = this.findRefs(spec);
+        for (const ref of refs) {
+            const [filePath] = ref.split('#', 2);
+            if (filePath) { // It's a reference to another document
+                const nextUri = new URL(filePath, baseUri).href;
+                await this.loadAndCacheSpecRecursive(nextUri, cache, visited);
+            }
+        }
+    }
+
+    /**
+     * Recursively finds all unique `$ref` values within a given object.
+     * @param obj The object to search.
+     * @returns An array of unique `$ref` strings.
+     * @private
+     */
+    private static findRefs(obj: unknown): string[] {
+        const refs = new Set<string>();
+
+        function traverse(current: unknown) {
+            if (!current || typeof current !== 'object') {
+                return;
+            }
+
+            if (isRefObject(current)) {
+                refs.add(current.$ref);
+            }
+
+            for (const key in current as object) {
+                if (Object.prototype.hasOwnProperty.call(current, key)) {
+                    traverse((current as any)[key]);
+                }
+            }
+        }
+
+        traverse(obj);
+        return Array.from(refs);
     }
 
     /**
@@ -88,13 +171,14 @@ export class SwaggerParser {
      */
     private static async loadContent(pathOrUrl: string): Promise<string> {
         try {
-            if (isUrl(pathOrUrl)) {
+            if (isUrl(pathOrUrl) && !pathOrUrl.startsWith('file:')) {
                 const response = await fetch(pathOrUrl);
                 if (!response.ok) throw new Error(`Failed to fetch spec from ${pathOrUrl}: ${response.statusText}`);
                 return response.text();
             } else {
-                if (!fs.existsSync(pathOrUrl)) throw new Error(`Input file not found at ${pathOrUrl}`);
-                return fs.readFileSync(pathOrUrl, 'utf8');
+                const filePath = pathOrUrl.startsWith('file:') ? new URL(pathOrUrl).pathname : pathOrUrl;
+                if (!fs.existsSync(filePath)) throw new Error(`Input file not found at ${filePath}`);
+                return fs.readFileSync(filePath, 'utf8');
             }
         } catch (e) {
             const message = e instanceof Error ? e.message : String(e);
@@ -124,36 +208,36 @@ export class SwaggerParser {
         }
     }
 
-    /** Retrieves the entire parsed specification object. */
+    /** Retrieves the entire parsed entry specification object. */
     public getSpec(): SwaggerSpec {
         return this.spec;
     }
 
-    /** Retrieves all schema definitions from the specification, normalizing for OpenAPI 3 and Swagger 2. */
+    /** Retrieves all schema definitions from the entry specification, normalizing for OpenAPI 3 and Swagger 2. */
     public getDefinitions(): Record<string, SwaggerDefinition> {
         return this.spec.definitions || this.spec.components?.schemas || {};
     }
 
-    /** Retrieves a single schema definition by its original name from the specification. */
+    /** Retrieves a single schema definition by its original name from the entry specification. */
     public getDefinition(name: string): SwaggerDefinition | undefined {
         return this.getDefinitions()[name];
     }
 
-    /** Retrieves all security scheme definitions from the specification. */
+    /** Retrieves all security scheme definitions from the entry specification. */
     public getSecuritySchemes(): Record<string, SecurityScheme> {
         return (this.spec.components?.securitySchemes || this.spec.securityDefinitions || {}) as Record<string, SecurityScheme>;
     }
 
     /**
-     * Resolves a JSON reference (`$ref`) object to its corresponding definition within the specification.
+     * Synchronously resolves a JSON reference (`$ref`) object to its corresponding definition.
      * If the provided object is not a `$ref`, it is returned as is.
+     * This method assumes all necessary files have been pre-loaded into the cache.
      * @template T The expected type of the resolved object.
      * @param obj The object to resolve.
      * @returns The resolved definition, the original object if not a ref, or `undefined` if the reference is invalid.
      */
     public resolve<T>(obj: T | { $ref: string } | null | undefined): T | undefined {
-        if (obj === null) return null as unknown as undefined;
-        if (obj === undefined) return undefined;
+        if (obj === null || obj === undefined) return undefined;
         if (isRefObject(obj)) {
             return this.resolveReference(obj.$ref);
         }
@@ -161,32 +245,63 @@ export class SwaggerParser {
     }
 
     /**
-     * Resolves a JSON reference string (e.g., '#/components/schemas/User') directly to its definition.
-     * This robust implementation can traverse any valid local path within the specification.
-     * It gracefully handles invalid paths and non-local references by returning `undefined`.
+     * Synchronously resolves a JSON reference string (e.g., './schemas.yaml#/User') to its definition.
+     * This method reads from the pre-populated cache and can handle nested references.
      * @param ref The JSON reference string.
-     * @returns The resolved definition, or `undefined` if the reference is not found or is invalid.
+     * @param currentDocUri The absolute URI of the document containing the reference. Defaults to the entry document's base URI.
+     * @returns The resolved definition, or `undefined` if the reference cannot be resolved.
      */
-    public resolveReference<T = SwaggerDefinition>(ref: string): T | undefined {
+    public resolveReference<T = SwaggerDefinition>(ref: string, currentDocUri: string = this.documentUri): T | undefined {
         if (typeof ref !== 'string') {
             console.warn(`[Parser] Encountered an unsupported or invalid reference: ${ref}`);
             return undefined;
         }
-        if (!ref.startsWith('#/')) {
-            console.warn(`[Parser] Unsupported external or non-root reference: ${ref}`);
+
+        const [filePath, jsonPointer] = ref.split('#', 2);
+
+        // Get the specification for the current document context to determine its logical base URI.
+        const currentDocSpec = this.specCache.get(currentDocUri);
+
+        // This can happen if an invalid URI is somehow passed as the context.
+        if (!currentDocSpec) {
+            console.warn(`[Parser] Unresolved document URI in cache: ${currentDocUri}. Cannot resolve reference "${ref}".`);
             return undefined;
         }
-        const pathParts = ref.substring(2).split('/');
-        let current: unknown = this.spec;
-        for (const part of pathParts) {
-            if (typeof current === 'object' && current !== null && Object.prototype.hasOwnProperty.call(current, part)) {
-                current = (current as Record<string, unknown>)[part];
-            } else {
-                console.warn(`[Parser] Failed to resolve reference part "${part}" in path "${ref}"`);
-                return undefined;
+
+        // The base for resolving relative file paths is the document's logical URI, derived from its $self,
+        // falling back to its physical URI.
+        const logicalBaseUri = currentDocSpec.$self ? new URL(currentDocSpec.$self, currentDocUri).href : currentDocUri;
+
+        // The target file's physical URI is resolved using the logical base. If the ref is local, it's just the current doc's physical URI.
+        const targetFileUri = filePath ? new URL(filePath, logicalBaseUri).href : currentDocUri;
+
+        const targetSpec = this.specCache.get(targetFileUri);
+        if (!targetSpec) {
+            console.warn(`[Parser] Unresolved external file reference: ${targetFileUri}. File was not pre-loaded.`);
+            return undefined;
+        }
+
+        let result: any = targetSpec;
+        if (jsonPointer) {
+            // Gracefully handle pointers that are just "/" or empty
+            const pointerParts = jsonPointer.split('/').filter(p => p !== '');
+            for (const part of pointerParts) {
+                const decodedPart = part.replace(/~1/g, '/').replace(/~0/g, '~');
+                if (typeof result === 'object' && result !== null && Object.prototype.hasOwnProperty.call(result, decodedPart)) {
+                    result = result[decodedPart];
+                } else {
+                    console.warn(`[Parser] Failed to resolve reference part "${decodedPart}" in path "${ref}" within file ${targetFileUri}`);
+                    return undefined;
+                }
             }
         }
-        return current as T;
+
+        // Handle nested $refs recursively, passing the physical URI of the new document context.
+        if (isRefObject(result)) {
+            return this.resolveReference(result.$ref, targetFileUri);
+        }
+
+        return result as T;
     }
 
     /**

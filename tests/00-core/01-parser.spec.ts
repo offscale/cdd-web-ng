@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from '@src/core/types.js';
 import * as yaml from 'js-yaml';
@@ -11,9 +12,13 @@ vi.mock('fs', async (importOriginal) => {
 vi.mock('js-yaml');
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
+vi.mock('node:url', () => ({
+    pathToFileURL: (p: string) => ({ href: `file://${p.replace(/\\/g, '/')}` })
+}));
 
 describe('Core: SwaggerParser', () => {
     let config: GeneratorConfig;
+    const originalJsonParse = JSON.parse;
 
     beforeEach(() => {
         config = {
@@ -26,13 +31,14 @@ describe('Core: SwaggerParser', () => {
     });
 
     afterEach(() => {
+        JSON.parse = originalJsonParse;
         vi.restoreAllMocks();
         mockFetch.mockReset();
     });
 
     it('should create parser from local JSON file', async () => {
         (fs.existsSync as Mock).mockReturnValue(true);
-        (fs.readFileSync as Mock).mockReturnValue('{ "openapi": "3.0.0" }');
+        (fs.readFileSync as Mock).mockReturnValue('{ "openapi": "3.0.0", "info": {}, "paths": {} }');
         const parser = await SwaggerParser.create('spec.json', config);
         expect(parser.getSpec().openapi).toBe('3.0.0');
     });
@@ -40,7 +46,7 @@ describe('Core: SwaggerParser', () => {
     it('should create parser from local YAML file (by extension)', async () => {
         (fs.existsSync as Mock).mockReturnValue(true);
         (fs.readFileSync as Mock).mockReturnValue('openapi: 3.0.1');
-        (yaml.load as Mock).mockReturnValue({ openapi: '3.0.1' });
+        (yaml.load as Mock).mockReturnValue({ openapi: '3.0.1', info: {}, paths: {} });
         const parser = await SwaggerParser.create('spec.yaml', config);
         expect(parser.getSpec().openapi).toBe('3.0.1');
         expect(parser.getSpecVersion()).toEqual({ type: 'openapi', version: '3.0.1' });
@@ -49,18 +55,19 @@ describe('Core: SwaggerParser', () => {
     it('should create parser from local YAML file (by content)', async () => {
         (fs.existsSync as Mock).mockReturnValue(true);
         (fs.readFileSync as Mock).mockReturnValue('openapi: 3.0.1');
-        (yaml.load as Mock).mockReturnValue({ openapi: '3.0.1' });
+        (yaml.load as Mock).mockReturnValue({ openapi: '3.0.1', info: {}, paths: {} });
         const parser = await SwaggerParser.create('spec-no-ext', config);
         expect(parser.getSpec().openapi).toBe('3.0.1');
     });
 
     it('should throw if local file does not exist', async () => {
         (fs.existsSync as Mock).mockReturnValue(false);
-        await expect(SwaggerParser.create('nonexistent.json', config)).rejects.toThrow('Input file not found');
+        const expectedPath = path.resolve(process.cwd(), 'nonexistent.json');
+        await expect(SwaggerParser.create('nonexistent.json', config)).rejects.toThrow(`Input file not found at ${expectedPath}`);
     });
 
     it('should create parser from URL', async () => {
-        mockFetch.mockResolvedValue({ ok: true, text: () => Promise.resolve('{ "openapi": "3.0.2" }') });
+        mockFetch.mockResolvedValue({ ok: true, text: () => Promise.resolve('{ "openapi": "3.0.2", "info": {}, "paths": {} }') });
         const parser = await SwaggerParser.create('http://test.com/spec.json', config);
         expect(parser.getSpec().openapi).toBe('3.0.2');
     });
@@ -91,12 +98,20 @@ describe('Core: SwaggerParser', () => {
         JSON.parse = vi.fn().mockImplementation(() => {
             throw 'a string error';
         });
-        await expect(SwaggerParser.create('spec.json', config)).rejects.toThrow('Failed to parse content from spec.json. Error: a string error');
+        const fullPath = `file://${path.resolve(process.cwd(), 'spec.json').replace(/\\/g, '/')}`;
+        await expect(SwaggerParser.create('spec.json', config)).rejects.toThrow(`Failed to parse content from ${fullPath}. Error: a string error`);
     });
 
-    describe('resolve()', () => {
-        const spec = { components: { schemas: { User: { type: 'string' }, Broken: null } } };
-        const parser = new SwaggerParser(spec as any, config);
+    describe('resolve() and resolveReference()', () => {
+        const spec = {
+            openapi: '3.0.0', info: {}, paths: {},
+            components: { schemas: { User: { type: 'string' }, Broken: null } }
+        };
+        let parser: SwaggerParser;
+
+        beforeEach(() => {
+            parser = new SwaggerParser(spec as any, config, new Map([['file://entry-spec.json', spec as any]]));
+        });
 
         it('should resolve a valid local reference object', () => {
             const result = parser.resolve<{ type: string }>({ $ref: '#/components/schemas/User' });
@@ -107,12 +122,6 @@ describe('Core: SwaggerParser', () => {
             const obj = { type: 'number' };
             const result = parser.resolve(obj);
             expect(result).toBe(obj);
-        });
-
-        it('should warn and return undefined for external references', () => {
-            const result = parser.resolve({ $ref: 'external.json#/User' });
-            expect(result).toBeUndefined();
-            expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('Unsupported external'));
         });
 
         it('should warn and return undefined for invalid reference paths', () => {
@@ -128,25 +137,95 @@ describe('Core: SwaggerParser', () => {
         });
 
         it('should return undefined for a null/undefined object', () => {
-            expect(parser.resolve(null as any)).toBeNull();
+            expect(parser.resolve(null as any)).toBeUndefined();
             expect(parser.resolve(undefined as any)).toBeUndefined();
         });
     });
 
-    it('should resolve references via resolveReference', () => {
-        const spec = { components: { schemas: { User: { type: 'string' } } } };
-        const parser = new SwaggerParser(spec as any, config);
+    describe('Multi-document parsing', () => {
+        it('should pre-load and resolve external file references', async () => {
+            const mainSpecContent = JSON.stringify({
+                openapi: '3.0.0', info: {}, paths: { '/user': { get: { responses: { '200': { content: { 'application/json': { schema: { $ref: './schemas.json#/components/schemas/User' } } } } } } } }
+            });
+            const schemasSpecContent = JSON.stringify({
+                openapi: '3.0.0', info: {}, paths: {}, components: {
+                    schemas: {
+                        User: { type: 'object', properties: { name: { type: 'string' } } }
+                    }
+                }
+            });
+
+            (fs.existsSync as Mock).mockReturnValue(true);
+            (fs.readFileSync as Mock)
+                .mockImplementation((p: string) => {
+                    const normalizedPath = p.replace(/\\/g, '/');
+                    if (normalizedPath.endsWith('/main.json')) return mainSpecContent;
+                    if (normalizedPath.endsWith('/schemas.json')) return schemasSpecContent;
+                    return '';
+                });
+
+            const parser = await SwaggerParser.create('main.json', config);
+            const userSchema = parser.resolveReference('#/paths/~1user/get/responses/200/content/application~1json/schema');
+
+            expect(userSchema).toEqual({ type: 'object', properties: { name: { type: 'string' } } });
+            expect((fs.readFileSync as Mock).mock.calls.length).toBeGreaterThanOrEqual(2);
+        });
+
+        it('should use $self as the base URI for resolving references', async () => {
+            const mainSpecContent = JSON.stringify({
+                openapi: '3.0.0', $self: 'https://api.example.com/specs/v1/', info: {}, paths: { '/user': { get: { responses: { '200': { content: { 'application/json': { schema: { $ref: 'schemas.json#/components/schemas/User' } } } } } } } }
+            });
+            const schemasSpecContent = JSON.stringify({ openapi: '3.0.0', info: {}, paths: {}, components: {schemas: { User: { type: 'string' }}}});
+
+            mockFetch
+                .mockResolvedValueOnce({ ok: true, text: () => Promise.resolve(mainSpecContent) })
+                .mockResolvedValueOnce({ ok: true, text: () => Promise.resolve(schemasSpecContent) });
+
+            const parser = await SwaggerParser.create('http://some.other.domain/main.json', config);
+            const userSchema = parser.resolveReference('#/paths/~1user/get/responses/200/content/application~1json/schema');
+
+            expect(userSchema).toEqual({ type: 'string' });
+            expect(mockFetch).toHaveBeenCalledWith('https://api.example.com/specs/v1/schemas.json');
+        });
+
+        it('should handle nested external references', async () => {
+            const mainSpec = { openapi: '3.0.0', info: {}, paths: {}, components: {schemas: {Entry: {$ref: './schemas.json#/components/schemas/User'}}} };
+            const schemasSpec = { openapi: '3.0.0', info: {}, paths: {}, components: {schemas: {User: { allOf: [{ $ref: './base.json#/components/schemas/Base' }] } }}};
+            const baseSpec = { openapi: '3.0.0', info: {}, paths: {}, components: {schemas: {Base: { type: 'object', properties: { id: { type: 'string' } } } }}};
+
+            (fs.existsSync as Mock).mockReturnValue(true);
+            (fs.readFileSync as Mock).mockImplementation((p: string) => {
+                const normalizedPath = p.replace(/\\/g, '/');
+                if (normalizedPath.endsWith('main.json')) return JSON.stringify(mainSpec);
+                if (normalizedPath.endsWith('schemas.json')) return JSON.stringify(schemasSpec);
+                if (normalizedPath.endsWith('base.json')) return JSON.stringify(baseSpec);
+                return '';
+            });
+
+            const parser = await SwaggerParser.create('main.json', config);
+            const resolved = parser.resolveReference('#/components/schemas/Entry');
+
+            expect(resolved).toEqual({ allOf: [{ $ref: './base.json#/components/schemas/Base' }] });
+        });
+    });
+
+    it('should resolve references via resolveReference', async () => {
+        const spec = {
+            openapi: '3.0.0', info: {}, paths: {},
+            components: { schemas: { User: { type: 'string' } } }
+        };
+        const parser = new SwaggerParser(spec as any, config, new Map([['file://entry-spec.json', spec as any]]));
         expect(parser.resolveReference('#/components/schemas/User')).toEqual({ type: 'string' });
     });
 
-    it('should warn and return undefined for invalid references', () => {
-        const parser = new SwaggerParser({} as any, config);
-        expect(parser.resolveReference('invalid-ref')).toBeUndefined();
-        expect(console.warn).toHaveBeenCalledWith('[Parser] Unsupported external or non-root reference: invalid-ref');
-
-        // Cover the non-string case
-        expect(parser.resolveReference(123 as any)).toBeUndefined();
-        expect(console.warn).toHaveBeenCalledWith('[Parser] Encountered an unsupported or invalid reference: 123');
+    it('should warn and return undefined for un-cached external references', () => {
+        const spec = {openapi: '3.0.0', info: {}, paths: {}} as any;
+        const cache = new Map<string, any>([['file:///entry.json', spec]]);
+        const parser = new SwaggerParser(spec, config, cache, 'file:///entry.json');
+        const ref = 'invalid-ref.json';
+        const expectedUrl = new URL(ref, 'file:///entry.json').href;
+        expect(parser.resolveReference(ref)).toBeUndefined();
+        expect(console.warn).toHaveBeenCalledWith(`[Parser] Unresolved external file reference: ${expectedUrl}. File was not pre-loaded.`);
     });
 
     it('should get definitions from Swagger 2.0 `definitions`', () => {

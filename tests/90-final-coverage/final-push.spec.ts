@@ -21,7 +21,7 @@ describe('Final Coverage Push', () => {
         const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
         const parser = createParser();
         parser.resolveReference('external.json#/User');
-        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Unsupported external or non-root reference'));
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Unresolved external file reference'));
         warnSpy.mockRestore();
     });
 

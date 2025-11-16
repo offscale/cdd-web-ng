@@ -1,3 +1,5 @@
+// src/core/types.ts
+
 /**
  * @fileoverview
  * This file serves as the central repository for all custom TypeScript types and interfaces
@@ -134,6 +136,7 @@ export interface SecurityScheme {
 export interface SwaggerSpec {
     openapi?: string;
     swagger?: string;
+    $self?: string;
     info: Info;
     paths: { [pathName: string]: Path };
     /** Schema definitions (Swagger 2.0). */

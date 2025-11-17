@@ -809,7 +809,6 @@ export const branchCoverageSpec = {
                 },
             },
         },
-        // FIX: Add the new PATCH resource path here
         '/patch-resource/{id}': {
             patch: {
                 tags: ['PatchResource'],

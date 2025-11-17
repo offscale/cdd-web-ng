@@ -63,7 +63,6 @@ export async function emitClientLibrary(outputRoot: string, parser: SwaggerParse
             // generate() returns the names of the tokens used (e.g., 'apiKey', 'bearerToken'),
             // which the ProviderGenerator needs to create the correct configuration interface.
             const interceptorResult = interceptorGenerator.generate(outputRoot);
-            // FIX: Ensure tokenNames is always an array, even if the interceptor isn't generated.
             tokenNames = interceptorResult?.tokenNames || [];
 
             if (Object.values(securitySchemes).some(s => s.type === 'oauth2')) {

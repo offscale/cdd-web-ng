@@ -5,9 +5,9 @@ import {
     ParameterDeclarationStructure,
 } from 'ts-morph';
 import { GeneratorConfig, PathInfo, SwaggerDefinition } from '../../../core/types.js';
-import { SwaggerParser } from '../../../core/parser.js';
 import { camelCase, getTypeScriptType, isDataTypeInterface } from '../../../core/utils.js';
 import { HttpContext, HttpHeaders, HttpParams } from '@angular/common/http';
+import { SwaggerParser } from "@src/core/parser.js";
 
 /** A strongly-typed representation of Angular's HttpRequest options. */
 interface HttpRequestOptions {
@@ -119,7 +119,21 @@ export class ServiceMethodGenerator {
             urlTemplate = urlTemplate.replace(`{${p.name}}`, `\${${camelCase(p.name)}}`);
         });
 
-        const lines = [`const url = \`\${this.basePath}${urlTemplate}\`;`];
+        const lines: string[] = [];
+
+        const cookieParams = operation.parameters?.filter(p => p.in === 'cookie') ?? [];
+        if (cookieParams.length > 0) {
+            lines.push(`// TODO: Cookie parameters are not handled by Angular's HttpClient. You may need to handle them manually.
+console.warn('The following cookie parameters are not automatically handled:', ${JSON.stringify(cookieParams.map(p => p.name))});`);
+        }
+
+        const querystringParams = operation.parameters?.filter(p => p.in === 'querystring') ?? [];
+        if (querystringParams.length > 0) {
+            lines.push(`// TODO: querystring parameters are not handled by Angular's HttpClient. You may need to handle them manually by constructing the URL.
+console.warn('The following querystring parameters are not automatically handled:', ${JSON.stringify(querystringParams.map(p => p.name))});`);
+        }
+        lines.push(`const url = \`\${this.basePath}${urlTemplate}\`;`);
+
         const requestOptions: HttpRequestOptions = {};
 
         const queryParams = operation.parameters?.filter(p => p.in === 'query') ?? [];
@@ -127,7 +141,8 @@ export class ServiceMethodGenerator {
             lines.push(`let params = new HttpParams({ fromObject: options?.params ?? {} });`);
             queryParams.forEach(p => {
                 const paramName = camelCase(p.name);
-                lines.push(`if (${paramName} != null) { params = HttpParamsBuilder.addToHttpParams(params, ${paramName}, '${p.name}'); }`);
+                const paramDefJson = JSON.stringify(p);
+                lines.push(`if (${paramName} != null) { params = HttpParamsBuilder.serializeQueryParam(params, ${paramDefJson}, ${paramName}); }`);
             });
             requestOptions.params = 'params' as any; // Use string placeholder
         }
@@ -143,10 +158,10 @@ export class ServiceMethodGenerator {
         }
 
         let optionProperties = `
-  observe: options?.observe,
-  reportProgress: options?.reportProgress,
-  responseType: options?.responseType,
-  withCredentials: options?.withCredentials,
+  observe: options?.observe, 
+  reportProgress: options?.reportProgress, 
+  responseType: options?.responseType, 
+  withCredentials: options?.withCredentials, 
   context: this.createContextWithClientId(options?.context)`;
 
         if (requestOptions.params) {

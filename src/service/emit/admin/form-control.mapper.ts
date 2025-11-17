@@ -7,7 +7,6 @@ export interface FormControlInfo {
 }
 
 export function mapSchemaToFormControl(schema: SwaggerDefinition): FormControlInfo | null {
-    // FIX: Add a null check at the very beginning to prevent crashes.
     if (!schema) {
         return null;
     }

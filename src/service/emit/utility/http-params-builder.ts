@@ -1,11 +1,11 @@
 import * as path from "node:path";
-import { ClassDeclaration, MethodDeclarationStructure, OptionalKind, Project, Scope } from "ts-morph";
+import { Project, Scope } from "ts-morph";
 import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../../core/constants.js";
 
 /**
  * Generates the `http-params-builder.ts` file. This file contains a static utility class
- * for recursively building HttpParams from complex objects and arrays, which is a common
- * requirement for API query parameters that Angular's HttpClient does not handle out-of-the-box.
+ * for building HttpParams from complex objects and arrays according to OpenAPI serialization rules,
+ * which is a common requirement for API query parameters that Angular's HttpClient does not handle out-of-the-box.
  */
 export class HttpParamsBuilderGenerator {
     constructor(private project: Project) {
@@ -19,104 +19,146 @@ export class HttpParamsBuilderGenerator {
 
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
-        sourceFile.addImportDeclaration({
-            namedImports: ["HttpParams"],
-            moduleSpecifier: "@angular/common/http",
-        });
+        sourceFile.addImportDeclarations([
+            {
+                namedImports: ["HttpParams"],
+                moduleSpecifier: "@angular/common/http",
+            },
+            {
+                namedImports: ["Parameter"],
+                moduleSpecifier: "../models",
+            },
+        ]);
 
         const classDeclaration = sourceFile.addClass({
             name: "HttpParamsBuilder",
             isExported: true,
-            docs: ["A utility class for building HttpParams recursively from complex objects."],
+            docs: ["A utility class for building HttpParams from complex objects and arrays based on OpenAPI serialization styles."],
         });
 
-        this.addMethods(classDeclaration);
-    }
+        classDeclaration.addMethod({
+            name: "serializeQueryParam",
+            isStatic: true,
+            scope: Scope.Public,
+            parameters: [
+                { name: "params", type: "HttpParams" },
+                { name: "parameter", type: "Parameter" },
+                { name: "value", type: "any" },
+            ],
+            returnType: "HttpParams",
+            docs: [
+                "Serializes a query parameter based on its OpenAPI definition (style, explode).",
+                "@param params The current HttpParams instance to append to.",
+                "@param parameter The OpenAPI parameter definition.",
+                "@param value The actual value of the parameter.",
+                "@returns The updated HttpParams instance."
+            ],
+            statements: this.getSerializeQueryParamBody(),
+        });
 
-    private addMethods(classDeclaration: ClassDeclaration): void {
-        const methods: OptionalKind<MethodDeclarationStructure>[] = [
-            {
-                name: "addToHttpParams",
-                isStatic: true,
-                scope: Scope.Public,
-                parameters: [
-                    { name: "httpParams", type: "HttpParams" },
-                    { name: "value", type: "unknown" },
-                    { name: "key", type: "string" },
-                ],
-                returnType: "HttpParams",
-                docs: [
-                    "Public entry point to add a value to HttpParams. It delegates to the recursive handler.",
-                    "@param value The value to add. Can be a primitive, object, or array.",
-                    "@param key The key for the parameter."
-                ],
-                statements: `
-if (value == null) {
-    return httpParams;
-}
-
-const isDate = value instanceof Date;
-const isObject = typeof value === 'object' && !isDate;
-
-if (isObject) {
-    return this.addFromObject(httpParams, value as Record<string, unknown>, key);
-}
-
-// For primitives, dates, and other types
-return httpParams.append(key, this.formatValue(value));`,
-            },
-            {
-                name: "addFromObject",
-                isStatic: true,
-                scope: Scope.Private,
-                parameters: [
-                    { name: "httpParams", type: "HttpParams" },
-                    { name: "obj", type: "Record<string, unknown> | unknown[]" },
-                    { name: "prefix", type: "string" },
-                ],
-                returnType: "HttpParams",
-                docs: ["Recursively processes an object or array."],
-                statements: `
-if (Array.isArray(obj)) {
-    // For arrays, append each item under the same key.
-    // e.g., { ids: [1, 2] } becomes 'ids=1&ids=2'
-    for (const value of obj) {
-        if (value != null) {
-            httpParams = this.addToHttpParams(httpParams, value, prefix);
-        }
-    }
-} else {
-    // For objects, iterate over keys and build nested keys.
-    // e.g., { filter: { name: 'test' } } becomes 'filter.name=test'
-    for (const key in obj) {
-        if (Object.prototype.hasOwnProperty.call(obj, key)) {
-            const value = (obj as Record<string, unknown>)[key];
-            if (value != null) {
-                const newPrefix = prefix ? \`\${prefix}.\${key}\` : key;
-                httpParams = this.addToHttpParams(httpParams, value, newPrefix);
-            }
-        }
-    }
-}
-return httpParams;`,
-            },
-            {
-                name: "formatValue",
-                isStatic: true,
-                scope: Scope.Private,
-                parameters: [
-                    { name: "value", type: "unknown" },
-                ],
-                returnType: "string",
-                docs: ["Formats a value into a string suitable for URL parameters."],
-                statements: `
-if (value instanceof Date) {
-    return value.toISOString();
-}
+        classDeclaration.addMethod({
+            name: "formatValue",
+            isStatic: true,
+            scope: Scope.Private,
+            parameters: [
+                { name: "value", type: "unknown" },
+            ],
+            returnType: "string",
+            docs: ["Formats a value into a string suitable for URL parameters."],
+            statements: `
+if (value instanceof Date) { 
+    return value.toISOString(); 
+} 
 return String(value);`,
-            },
-        ];
+        });
 
-        classDeclaration.addMethods(methods);
+        sourceFile.formatText();
+    }
+
+    private getSerializeQueryParamBody(): string {
+        return `
+    if (value == null) { 
+        return params; 
+    } 
+
+    const name = parameter.name; 
+    // Defaulting logic from OAS spec
+    const style = parameter.style ?? 'form'; 
+    const explode = parameter.explode ?? (style === 'form'); 
+    const schema = parameter.schema ?? { type: parameter.type }; 
+
+    const isArray = schema.type === 'array'; 
+    const isObject = schema.type === 'object'; 
+
+    switch (style) { 
+        case 'form': 
+            if (isArray) { 
+                const arrValue = value as any[]; 
+                if (explode) { 
+                    arrValue.forEach(item => { 
+                        if (item != null) {
+                            params = params.append(name, this.formatValue(item)); 
+                        }
+                    }); 
+                } else { 
+                    const csv = arrValue.map(item => this.formatValue(item)).join(','); 
+                    params = params.append(name, csv); 
+                } 
+            } else if (isObject) { 
+                const objValue = value as Record<string, any>; 
+                if (explode) { 
+                    Object.entries(objValue).forEach(([key, propValue]) => { 
+                       if (propValue != null) params = params.append(key, this.formatValue(propValue)); 
+                    }); 
+                } else { 
+                    const csv = Object.entries(objValue).flatMap(([k, v]) => [k, this.formatValue(v)]).join(','); 
+                    params = params.append(name, csv); 
+                } 
+            } else { 
+                params = params.append(name, this.formatValue(value)); 
+            } 
+            return params; 
+
+        case 'spaceDelimited': 
+            if (isArray && !explode) { 
+                const ssv = (value as any[]).map(item => this.formatValue(item)).join(' '); 
+                params = params.append(name, ssv); 
+                return params; 
+            } 
+            // Other combinations are not specified for query params
+            break; 
+
+        case 'pipeDelimited': 
+             if (isArray && !explode) { 
+                const psv = (value as any[]).map(item => this.formatValue(item)).join('|'); 
+                params = params.append(name, psv); 
+                return params; 
+            } 
+            // Other combinations are not specified for query params
+            break; 
+
+        case 'deepObject': 
+            if (isObject && explode) { 
+                 Object.entries(value as Record<string, any>).forEach(([key, propValue]) => { 
+                    if (propValue != null) { 
+                       params = params.append(\`\${name}[\${key}]\`, this.formatValue(propValue)); 
+                    } 
+                }); 
+                 return params; 
+            } 
+            // Other combinations are not specified for query params
+            break; 
+    } 
+
+    // Fallback for simple cases or unsupported styles/combos. 
+    // This often defaults to <code>style: 'form', explode: true</code> for arrays. 
+    if (Array.isArray(value)) { 
+        value.forEach(item => { 
+            if (item != null) params = params.append(name, this.formatValue(item)); 
+        }); 
+    } else { 
+        params = params.append(name, this.formatValue(value)); 
+    } 
+    return params;`;
     }
 }

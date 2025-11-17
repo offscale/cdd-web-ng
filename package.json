@@ -47,6 +47,7 @@
   },
   "devDependencies": {
     "@angular/common": "^20.3.12",
+    "@angular/compiler": "^20.3.12",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^24",
     "@types/swagger-schema-official": "^2.0.25",

@@ -30,7 +30,6 @@ export class AuthInterceptorGenerator {
     public generate(outputDir: string): { tokenNames: string[] } | void {
         const securitySchemes = Object.values(this.parser.getSecuritySchemes());
 
-        // FIX: Determine which types of authentication are SUPPORTED by this interceptor.
         const hasSupportedApiKey = securitySchemes.some(s => s.type === 'apiKey' && (s.in === 'header' || s.in === 'query'));
         const hasBearer = securitySchemes.some(s => (s.type === 'http' && s.scheme === 'bearer') || s.type === 'oauth2');
 

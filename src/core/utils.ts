@@ -221,6 +221,10 @@ type UnifiedParameter = SwaggerOfficialParameter & {
     type?: string,
     format?: string,
     items?: SwaggerDefinition | { $ref: string }
+    // Additions for OAS3 and Swagger2 compatibility
+    collectionFormat?: 'csv' | 'ssv' | 'tsv' | 'pipes' | 'multi' | string,
+    style?: string,
+    explode?: boolean
 };
 
 // Helper type that adds OpenAPI 3.x properties to the Swagger 2.0 Operation type
@@ -267,9 +271,40 @@ export function extractPaths(swaggerPaths: { [p: string]: Path } | undefined): P
 
                     const param: Parameter = {
                         name: p.name,
-                        in: p.in as "query" | "path" | "header" | "cookie",
+                        in: p.in as "query" | "path" | "header" | "cookie" | "querystring",
                         schema: finalSchema as SwaggerDefinition,
                     };
+
+                    // Carry over OAS3 style properties if they exist, but only if they're not undefined to satisfy `exactOptionalPropertyTypes`.
+                    if (p.style !== undefined) {
+                        param.style = p.style;
+                    }
+                    if (p.explode !== undefined) {
+                        param.explode = p.explode;
+                    }
+
+                    // Swagger 2.0 collectionFormat translation
+                    const collectionFormat = p.collectionFormat;
+                    if (collectionFormat) {
+                        switch (collectionFormat) {
+                            case 'csv':
+                                param.style = 'form';
+                                param.explode = false;
+                                break;
+                            case 'ssv':
+                                param.style = 'spaceDelimited';
+                                param.explode = false;
+                                break;
+                            case 'pipes':
+                                param.style = 'pipeDelimited';
+                                param.explode = false;
+                                break;
+                            case 'multi':
+                                param.style = 'form';
+                                param.explode = true;
+                                break;
+                        }
+                    }
 
                     if (p.required !== undefined) {
                         param.required = p.required;

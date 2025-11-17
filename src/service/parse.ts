@@ -53,7 +53,6 @@ export function groupPathsByController(parser: SwaggerParser): Record<string, Pa
     const groups: Record<string, PathInfo[]> = {};
 
     for (const operation of allOperations) {
-        // FIX: Re-introduce the customizeMethodName logic here where method names are assigned.
         const customizer = parser.config.options?.customizeMethodName;
         let baseMethodName: string;
         if (customizer && operation.operationId) {

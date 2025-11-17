@@ -377,7 +377,6 @@ export class FormComponentGenerator {
                 docs: [`Getter for the ${singularCamel} FormArray.`]
             });
 
-            // FIX: Move the `docs` from the parameter to the method itself and format with @param.
             const createMethod = classDeclaration.addMethod({
                 name: `create${singularPascal}`,
                 scope: Scope.Private,
@@ -497,7 +496,6 @@ export class FormComponentGenerator {
             body += `if (petType) {\n`;
             body += `  this.form.get(this.discriminatorPropName)?.setValue(petType, { emitEvent: true });\n`;
             for (const subSchemaRef of oneOfProp.schema.oneOf!) {
-                // THE DEFINITIVE FIX: Guard against inline schemas that are not refs.
                 if (!subSchemaRef.$ref) {
                     continue; // Skip primitives like { type: 'string' }
                 }
@@ -532,7 +530,6 @@ export class FormComponentGenerator {
             parameters: [{ name: 'type', type: 'string' }]
         });
 
-        // THE DEFINITIVE FIX: Check if any of the `oneOf` options are objects.
         const oneOfHasObjects = prop.schema.oneOf!.some(s => this.parser.resolve(s)?.properties);
 
         // If none of the `oneOf` options are objects (i.e., they are all primitives like string/number),

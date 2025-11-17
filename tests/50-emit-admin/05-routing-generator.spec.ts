@@ -53,7 +53,6 @@ describe('Admin: RoutingGenerator', () => {
         const localProject = createTestProject();
         new RoutingGenerator(localProject).generateMaster([], '/admin');
         const varDecl = localProject.getSourceFileOrThrow('/admin/admin.routes.ts').getVariableDeclarationOrThrow('adminRoutes');
-        // FIX: Check the initializer text is just an empty array
         expect(varDecl.getInitializer()?.getText()).toMatch(/\[\s*\]/);
     });
 });

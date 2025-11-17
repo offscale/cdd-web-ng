@@ -265,6 +265,21 @@ describe('Emitter: ServiceMethodGenerator', () => {
             expect(body).toContain('return this.http.post(url, null, requestOptions as any);');
             expect(body).not.toContain('new FormData()');
         });
+
+        it('should add warnings for unsupported cookie and querystring parameters', () => {
+            const { methodGen, serviceClass } = createTestEnvironment();
+            const op: PathInfo = {
+                method: 'GET', path: '/test', methodName: 'getWithUnsupported',
+                parameters: [
+                    { name: 'sid', in: 'cookie', schema: { type: 'string'}},
+                    { name: 'raw', in: 'querystring', schema: { type: 'string'}}
+                ]
+            };
+            methodGen.addServiceMethod(serviceClass, op);
+            const body = serviceClass.getMethodOrThrow('getWithUnsupported').getBodyText()!;
+            expect(body).toContain("console.warn('The following cookie parameters are not automatically handled:', [\"sid\"]);");
+            expect(body).toContain("console.warn('The following querystring parameters are not automatically handled:', [\"raw\"]);");
+        });
     });
 
     describe('Response Type Resolution', () => {
@@ -289,18 +304,19 @@ describe('Emitter: ServiceMethodGenerator', () => {
 
     it('should generate query param logic with correct nullish coalescing for options.params', () => {
         const { methodGen, serviceClass, parser } = createTestEnvironment();
-        const operation = parser.operations.find((op: PathInfo) => op.operationId === 'withQuery')!;
+        const operation = parser.operations.find((o: PathInfo) => o.operationId === 'withQuery')!;
         operation.methodName = 'withQuery';
         methodGen.addServiceMethod(serviceClass, operation);
         const body = serviceClass.getMethodOrThrow('withQuery').getImplementation()?.getBodyText() ?? '';
         expect(body).toContain(`let params = new HttpParams({ fromObject: options?.params ?? {} });`);
-        expect(body).toContain(`if (search != null) { params = HttpParamsBuilder.addToHttpParams(params, search, 'search'); }`);
+        expect(body).toContain(`params = HttpParamsBuilder.serializeQueryParam(params,`);
+        expect(body).toContain(`, search`);
         expect(body).toContain(`params`);
     });
 
     it('should generate header param logic correctly', () => {
         const { methodGen, serviceClass, parser } = createTestEnvironment();
-        const operation = parser.operations.find((op: PathInfo) => op.operationId === 'withHeader')!;
+        const operation = parser.operations.find((o: PathInfo) => o.operationId === 'withHeader')!;
         operation.methodName = 'withHeader';
         methodGen.addServiceMethod(serviceClass, operation);
         const method = serviceClass.getMethodOrThrow('withHeader');

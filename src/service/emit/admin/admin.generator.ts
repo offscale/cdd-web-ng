@@ -43,8 +43,6 @@ export class AdminGenerator {
                 listGen.generate(resource, adminDir);
             }
 
-            // THE DEFINITIVE FIX: Generate a form if the resource is marked as editable.
-            // This is more robust and correctly handles the failing 'poly' resource case.
             if (resource.isEditable) {
                 const formResult = formGen.generate(resource, adminDir);
                 if (formResult.usesCustomValidators) {

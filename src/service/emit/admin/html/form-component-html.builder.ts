@@ -65,8 +65,8 @@ export function generateFormComponentHtml(resource: Resource, parser: SwaggerPar
             const subSchema = option.schema;
 
             // ====================================================================
-            // THE FIX: Create a helper function to recursively merge properties from `allOf`.
-            // This ensures inherited properties (like `name` from `BasePet`) are included.
+            // This helper function recursively merges properties from `allOf`.
+            // ensuring inherited properties (like `name` from `BasePet`) are included.
             // ====================================================================
             const getAllProperties = (schema: SwaggerDefinition): Record<string, SwaggerDefinition> => {
                 let allProperties: Record<string, SwaggerDefinition> = { ...schema.properties };

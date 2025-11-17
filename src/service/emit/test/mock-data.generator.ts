@@ -200,8 +200,6 @@ export class MockDataGenerator {
             case 'password':
                 return "StrongPassword123!";
             default:
-                // FIX: `schema.default` is `unknown` and could be an object, which is not assignable to string.
-                // We must check if it's a string before using it.
                 return typeof schema.default === 'string' ? schema.default : 'string-value';
         }
     }
@@ -216,7 +214,6 @@ export class MockDataGenerator {
         if (typeof schema.minimum !== 'undefined') {
             return schema.minimum; // This is safe as `minimum` is typed `number | undefined`.
         }
-        // FIX: `schema.default` is `unknown`. We must check if it's a number before returning.
         if (typeof schema.default === 'number') {
             return schema.default;
         }

@@ -29,7 +29,7 @@ export interface Parameter {
     /** The name of the parameter. */
     name: string;
     /** The location of the parameter. */
-    in: "query" | "path" | "header" | "cookie" | "formData";
+    in: "query" | "path" | "header" | "cookie" | "formData" | "querystring";
     /** Determines whether this parameter is mandatory. */
     required?: boolean;
     /** The schema defining the type of the parameter. */
@@ -40,6 +40,14 @@ export interface Parameter {
     format?: string;
     /** A brief description of the parameter. */
     description?: string;
+    /** Describes how the parameter value will be serialized. */
+    style?: string;
+    /** When true, parameter values of type `array` or `object` generate separate parameters. */
+    explode?: boolean;
+    /** Allows sending reserved characters through. */
+    allowReserved?: boolean;
+    /** A map containing the representations for the parameter. For complex serialization scenarios. */
+    content?: Record<string, { schema?: SwaggerDefinition | { $ref: string } }>;
 }
 
 /** A processed, unified representation of a single API operation (e.g., GET /users/{id}). */
@@ -120,7 +128,7 @@ export interface SwaggerDefinition {
     nullable?: boolean;
     required?: string[];
     /** An example of the schema representation. */
-    example?: unknown; // FIX: Added the 'example' property.
+    example?: unknown;
 }
 
 /** Represents a security scheme recognized by the API. */

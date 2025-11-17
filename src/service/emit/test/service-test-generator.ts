@@ -66,13 +66,12 @@ export class ServiceTestGenerator {
 
     private generateMethodTests(operations: PathInfo[]): string[] {
         const tests: string[] = [];
-        const knownTypes = this.parser.schemas.map(s => s.name); // FIX 3: Correct scoping
+        const knownTypes = this.parser.schemas.map(s => s.name);
 
         for (const op of operations) {
             if (!op.methodName) continue;
-            const { responseModel, responseType, bodyModel, isPrimitiveBody } = this.getMethodTypes(op); // FIX 2.1: Get isPrimitiveBody
+            const { responseModel, responseType, bodyModel, isPrimitiveBody } = this.getMethodTypes(op);
 
-            // FIX 1: Add null check before map
             const params = (op.parameters ?? []).map(p => {
                 const name = camelCase(p.name);
                 const type = getTypeScriptType(p.schema, this.config, knownTypes);
@@ -87,7 +86,6 @@ export class ServiceTestGenerator {
                 return { name, value, type, modelName };
             });
 
-            // FIX 2.2: Use isPrimitiveBody
             const bodyParam = op.requestBody?.content?.['application/json']
                 ? {
                     name: isPrimitiveBody ? 'body' : (bodyModel ? camelCase(bodyModel) : 'body'),
@@ -100,7 +98,6 @@ export class ServiceTestGenerator {
 
             const declareParams = (): string[] => {
                 const lines: string[] = [];
-                // FIX 2.3: Re-add correct logic for primitive body
                 if (bodyParam?.model) {
                     lines.push(`      const ${bodyParam.name}: ${bodyParam.model} = ${this.mockDataGenerator.generate(bodyParam.model)};`);
                 } else if (bodyParam?.isPrimitive) {

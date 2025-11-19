@@ -124,7 +124,6 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined | null, 
         if (val === null) return 'null';
         if (typeof val === 'string') return `'${val.replace(/'/g, "\\'")}'`;
         if (typeof val === 'number' || typeof val === 'boolean') return String(val);
-        // For complex objects in const, fallback to 'any' or simple types is safer than partial object literals
         return 'any';
     }
 
@@ -156,11 +155,6 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined | null, 
     // Handling for 'not' keyword: Exclude<any, Type> or Exclude<KnownType, Type>
     if (schema.not) {
         const notType = getTypeScriptType(schema.not, config, knownTypes);
-        /**
-         * Note: Generating `Exclude<any, T>` in TS effectively just stays `any` or `unknown` depending on usage,
-         * making strict `not` validation irrelevant at build time unless used within composite types.
-         * We return a utility type string for clarity.
-         */
         return `Exclude<any, ${notType}>`;
     }
 
@@ -173,7 +167,7 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined | null, 
     switch (schema.type) {
         case 'string':
             type = (schema.format === 'date' || schema.format === 'date-time') && config.options.dateType === 'Date' ? 'Date' : 'string';
-            // OAS 3.1 support: contentMediaType='image/png' implies binary data -> Blob
+            // OAS 3.1 support: contentMediaType implies binary data -> Blob
             if (schema.format === 'binary' || schema.contentMediaType) {
                 type = 'Blob';
             }
@@ -258,7 +252,9 @@ type UnifiedParameter = SwaggerOfficialParameter & {
     // Additions for OAS3 and Swagger2 compatibility
     collectionFormat?: 'csv' | 'ssv' | 'tsv' | 'pipes' | 'multi' | string,
     style?: string,
-    explode?: boolean
+    explode?: boolean,
+    allowReserved?: boolean,
+    content?: Record<string, { schema?: SwaggerDefinition }>
 };
 
 // Helper type that adds OpenAPI 3.x properties to the Swagger 2.0 Operation type
@@ -309,12 +305,19 @@ export function extractPaths(swaggerPaths: { [p: string]: Path } | undefined): P
                         schema: finalSchema as SwaggerDefinition,
                     };
 
+                    if (p.content) {
+                        param.content = p.content as any;
+                    }
+
                     // Carry over OAS3 style properties if they exist, but only if they're not undefined to satisfy `exactOptionalPropertyTypes`.
                     if (p.style !== undefined) {
                         param.style = p.style;
                     }
                     if (p.explode !== undefined) {
                         param.explode = p.explode;
+                    }
+                    if (p.allowReserved !== undefined) {
+                        param.allowReserved = p.allowReserved;
                     }
 
                     // Swagger 2.0 collectionFormat translation

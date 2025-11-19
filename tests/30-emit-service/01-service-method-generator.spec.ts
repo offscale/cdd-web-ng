@@ -41,7 +41,7 @@ const serviceMethodGenSpec = {
                 parameters: [{ name: 'limit', in: 'query', type: 'integer' }] // No 'schema' key
             }
         },
-        // NEW paths for coverage
+        // Paths for coverage
         '/post-infer-return': {
             post: {
                 tags: ['ResponseType'],
@@ -85,7 +85,17 @@ const serviceMethodGenSpec = {
                 // No 'consumes' array here
                 parameters: [{ name: 'file', in: 'formData', type: 'file' }]
             }
-        }
+        },
+        '/with-header': {
+            get: {
+                tags: ['WithHeader'],
+                operationId: 'withHeader',
+                parameters: [
+                    { name: 'X-Custom-Header', in: 'header', schema: { type: 'string' } }
+                ],
+                responses: {}
+            }
+        },
     }
 };
 
@@ -189,7 +199,7 @@ describe('Emitter: ServiceMethodGenerator', () => {
     });
 
     describe('Parameter and Body Generation', () => {
-        it('should correctly serialize path parameters', () => {
+        it('should correctly serialize path parameters with default allowReserved=false', () => {
             const { methodGen, serviceClass } = createTestEnvironment();
             const op: PathInfo = {
                 method: 'GET', path: '/users/{id}', methodName: 'getUser',
@@ -197,7 +207,20 @@ describe('Emitter: ServiceMethodGenerator', () => {
             };
             methodGen.addServiceMethod(serviceClass, op);
             const body = serviceClass.getMethodOrThrow('getUser').getBodyText()!;
-            expect(body).toContain("HttpParamsBuilder.serializePathParam('id', id, 'simple', false)");
+            // Expect 5th argument to be false (or implied)
+            expect(body).toContain("HttpParamsBuilder.serializePathParam('id', id, 'simple', false, false)");
+        });
+
+        it('should pass allowReserved: true for path parameters', () => {
+            const { methodGen, serviceClass } = createTestEnvironment();
+            const op: PathInfo = {
+                method: 'GET', path: '/files/{path}', methodName: 'getFile',
+                parameters: [{ name: 'path', in: 'path', required: true, allowReserved: true, schema: { type: 'string' } }]
+            };
+            methodGen.addServiceMethod(serviceClass, op);
+            const body = serviceClass.getMethodOrThrow('getFile').getBodyText()!;
+            // Expect 5th argument to be true
+            expect(body).toContain("HttpParamsBuilder.serializePathParam('path', path, 'simple', false, true)");
         });
 
         it('should handle multipart/form-data', () => {
@@ -344,15 +367,66 @@ describe('Emitter: ServiceMethodGenerator', () => {
         expect(body).toContain(`params`);
     });
 
-    it('should generate header param logic correctly', () => {
+    it('should generate header param logic correctly using HttpParamsBuilder', () => {
         const { methodGen, serviceClass, parser } = createTestEnvironment();
         const operation = parser.operations.find((o: PathInfo) => o.operationId === 'withHeader')!;
         operation.methodName = 'withHeader';
         methodGen.addServiceMethod(serviceClass, operation);
         const method = serviceClass.getMethodOrThrow('withHeader');
         const body = method.getImplementation()?.getBodyText() ?? '';
+
         expect(body).toContain(`let headers = options?.headers instanceof HttpHeaders ? options.headers : new HttpHeaders(options?.headers ?? {});`);
+        // Expect usage of serializeHeaderParam
         expect(body).toContain(`if (xCustomHeader != null) { headers = headers.set('X-Custom-Header', HttpParamsBuilder.serializeHeaderParam('X-Custom-Header', xCustomHeader, false)); }`);
         expect(body).toContain(`headers`);
+    });
+
+    describe('Strict Content Serialization Generation', () => {
+        it('should generate correct builder call with "json" hint for path params with content', () => {
+            const { methodGen, serviceClass } = createTestEnvironment({});
+            const op: PathInfo = {
+                method: 'GET', path: '/search/{filter}', methodName: 'search',
+                parameters: [{
+                    name: 'filter', in: 'path', required: true,
+                    content: { 'application/json': { schema: { type: 'object' } } }
+                }]
+            };
+            methodGen.addServiceMethod(serviceClass, op);
+            const body = serviceClass.getMethodOrThrow('search').getBodyText()!;
+            // Expect 6th argument to be 'json'
+            expect(body).toContain("HttpParamsBuilder.serializePathParam('filter', filter, 'simple', false, false, 'json')");
+        });
+
+        it('should generate correct builder call with "json" hint for header params with content', () => {
+            const { methodGen, serviceClass } = createTestEnvironment({});
+            const op: PathInfo = {
+                method: 'GET', path: '/info', methodName: 'getInfo',
+                parameters: [{
+                    name: 'X-Meta', in: 'header',
+                    content: { 'application/json': { schema: { type: 'object' } } }
+                }]
+            };
+            methodGen.addServiceMethod(serviceClass, op);
+            const body = serviceClass.getMethodOrThrow('getInfo').getBodyText()!;
+            // Expect 4th arg to be 'json'
+            expect(body).toContain("HttpParamsBuilder.serializeHeaderParam('X-Meta', xMeta, false, 'json')");
+        });
+
+        it('should handle query params implicitly via the parameter JSON passed to builder', () => {
+            // Query params use the `serializeQueryParam` which takes the full definition object.
+            // We just verify the definition object string contains the content key.
+            const { methodGen, serviceClass } = createTestEnvironment({});
+            const op: PathInfo = {
+                method: 'GET', path: '/list', methodName: 'list',
+                parameters: [{
+                    name: 'q', in: 'query',
+                    content: { 'application/json': { schema: { type: 'object' } } }
+                }]
+            };
+            methodGen.addServiceMethod(serviceClass, op);
+            const body = serviceClass.getMethodOrThrow('list').getBodyText()!;
+            // The parameter definition is passed as JSON.stringify(p)
+            expect(body).toContain('"content":{"application/json"');
+        });
     });
 });

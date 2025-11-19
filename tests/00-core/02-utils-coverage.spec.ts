@@ -207,6 +207,32 @@ describe('Core: utils.ts (Coverage)', () => {
             expect(pathInfo.responses?.['200'].description).toBe('A successful response');
         });
 
+        it('should copy "content" property (OAS 3.x) to the normalized parameter', () => {
+            const swaggerPaths = {
+                '/test': {
+                    get: {
+                        operationId: 'getWithContent',
+                        parameters: [
+                            {
+                                name: 'filter',
+                                in: 'query',
+                                content: {
+                                    'application/json': {
+                                        schema: { type: 'object', properties: { a: { type: 'string'} } }
+                                    }
+                                }
+                            }
+                        ],
+                        responses: { '200': { description: 'ok' } }
+                    }
+                }
+            };
+            const [pathInfo] = utils.extractPaths(swaggerPaths as any);
+            const param = pathInfo.parameters![0];
+            expect(param.content).toBeDefined();
+            expect(param.content!['application/json']).toBeDefined();
+        });
+
         it('should handle swagger 2.0 response without a schema', () => {
             const swaggerPaths = {
                 '/test': {

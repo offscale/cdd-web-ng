@@ -9,7 +9,7 @@ import { SecurityScheme } from '../../../core/types.js';
  * Generates the `auth.interceptor.ts` file. This interceptor is responsible for
  * attaching API keys and/or Bearer tokens to outgoing HTTP requests based on the
  * security schemes defined in the OpenAPI specification.
- * It currently supports `apiKey` (in header or query), `http` (bearer), `oauth2`, and `openIdConnect`.
+ * It supports `apiKey`, `http` (Bearer), `oauth2`, `openIdConnect`, and recognizes `mutualTLS`.
  */
 export class AuthInterceptorGenerator {
     /**
@@ -21,7 +21,6 @@ export class AuthInterceptorGenerator {
 
     /**
      * Generates the auth interceptor file if any **supported** security schemes are defined in the spec.
-     * A scheme is supported if it's an `apiKey` in the header/query or an `http`/`oauth2`/`openIdConnect` (Bearer).
      *
      * @param outputDir The root output directory.
      * @returns An object containing the names of the tokens for supported schemes (e.g., `['apiKey', 'bearerToken']`),
@@ -32,9 +31,10 @@ export class AuthInterceptorGenerator {
 
         const hasSupportedApiKey = securitySchemes.some(s => s.type === 'apiKey' && (s.in === 'header' || s.in === 'query'));
         const hasBearer = securitySchemes.some(s => this.isBearerScheme(s));
+        const hasMutualTLS = securitySchemes.some(s => s.type === 'mutualTLS');
 
         // If no supported schemes are found, do not generate the file at all.
-        if (!hasSupportedApiKey && !hasBearer) {
+        if (!hasSupportedApiKey && !hasBearer && !hasMutualTLS) {
             return;
         }
 
@@ -45,7 +45,7 @@ export class AuthInterceptorGenerator {
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
         const tokenImports: string[] = [];
-        const tokenNames: string[] = []; // This will be the return value
+        const tokenNames: string[] = [];
 
         if (hasSupportedApiKey) {
             tokenImports.push('API_KEY_TOKEN');
@@ -96,7 +96,6 @@ export class AuthInterceptorGenerator {
         let statementsBody = 'let authReq = req;';
         let bearerLogicAdded = false;
 
-        // De-duplicate schemes for generation loop
         const uniqueSchemes = Array.from(new Set(securitySchemes.map(s => JSON.stringify(s)))).map(s => JSON.parse(s) as SecurityScheme);
 
         for (const scheme of uniqueSchemes) {
@@ -111,6 +110,8 @@ export class AuthInterceptorGenerator {
                     statementsBody += `\nif (this.bearerToken) { const token = typeof this.bearerToken === 'function' ? this.bearerToken() : this.bearerToken; if (token) { authReq = authReq.clone({ setHeaders: { ...authReq.headers.keys().reduce((acc, key) => ({ ...acc, [key]: authReq.headers.getAll(key) }), {}), 'Authorization': \`Bearer \${token}\` } }); } }`;
                     bearerLogicAdded = true;
                 }
+            } else if (scheme.type === 'mutualTLS') {
+                statementsBody += `\n// Security Scheme '${scheme.name || 'MutualTLS'}' (mutualTLS) is assumed to be handled by the browser/client configuration.`;
             }
         }
 

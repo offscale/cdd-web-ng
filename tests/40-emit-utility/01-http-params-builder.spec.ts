@@ -16,9 +16,7 @@ function getGeneratedBuilderClass() {
     // 1. Remove imports because they can't be resolved in this context.
     const tsCodeWithoutImports = fileContent.replace(/import .* from ".*";/g, '');
 
-    // 2. Transpile the TypeScript code to JavaScript. We explicitly target CommonJS,
-    // as it predictably uses an `exports` object, which seems to be the output format
-    // in this test environment regardless of the `module` setting.
+    // 2. Transpile the TypeScript code to JavaScript.
     const jsCode = ts.transpile(
         tsCodeWithoutImports,
         { // Provide basic compiler options
@@ -148,9 +146,61 @@ describe('Utility: HttpParamsBuilder', () => {
         });
     });
 
+    describe('Strict Content JSON Serialization (Mutation Testing)', () => {
+
+        it('should serialize Query Param as JSON if content type is application/json', () => {
+            const param: Parameter = {
+                name: 'filter',
+                in: 'query',
+                content: { 'application/json': { schema: { type: 'object' } } }
+            };
+            const val = { a: 1, b: 'text' };
+            const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, val);
+            expect(params.toString()).toBe('filter=%7B%22a%22:1,%22b%22:%22text%22%7D'); // encoded {"a":1,"b":"text"}
+        });
+
+        it('should serialize Path Param as JSON if hinted', () => {
+            const val = { id: 123 };
+            // name, value, style, explode, allowReserved, serializationType
+            const res = TestHttpParamsBuilder.serializePathParam('id', val, 'simple', false, false, 'json');
+            expect(res).toBe('%7B%22id%22%3A123%7D'); // encoded {"id":123}
+        });
+
+        it('should serialize Header Param as JSON if hinted', () => {
+            const val = { key: 'value' };
+            const res = TestHttpParamsBuilder.serializeHeaderParam('X-Meta', val, false, 'json');
+            expect(res).toBe('{"key":"value"}');
+        });
+
+        it('should serialize Cookie Param as JSON if hinted', () => {
+            const val = { sess: 99 };
+            // name, value, style, explode, serializationType
+            const res = TestHttpParamsBuilder.serializeCookieParam('Session', val, 'form', false, 'json');
+            expect(res).toBe('Session=%7B%22sess%22%3A99%7D');
+        });
+    });
+
     describe('Path Parameters (serializePathParam)', () => {
         it('should return empty string for null/undefined', () => {
             expect(TestHttpParamsBuilder.serializePathParam('p', null, 'simple', false)).toBe('');
+        });
+
+        it('should encode standard characters by default (allowReserved=false)', () => {
+            const val = 'a/b?c';
+            // default simple style = full encode
+            expect(TestHttpParamsBuilder.serializePathParam('p', val, 'simple', false, false)).toBe('a%2Fb%3Fc');
+        });
+
+        it('should NOT encode reserved characters when allowReserved=true', () => {
+            const val = 'a/b?c';
+            // Should keep / and ?
+            expect(TestHttpParamsBuilder.serializePathParam('p', val, 'simple', false, true)).toBe('a/b?c');
+        });
+
+        it('should still encode unsafe characters even when allowReserved=true', () => {
+            const val = 'a/b space';
+            // space is unsafe, / is reserved.
+            expect(TestHttpParamsBuilder.serializePathParam('p', val, 'simple', false, true)).toBe('a/b%20space');
         });
 
         // Style: simple
@@ -212,12 +262,10 @@ describe('Utility: HttpParamsBuilder', () => {
         });
 
         it('form: array (explode=true)', () => {
-            // Should result in separate key=value pairs joined by '; '
             expect(TestHttpParamsBuilder.serializeCookieParam('id', [5, 6], 'form', true)).toBe('id=5; id=6');
         });
 
         it('form: array (explode=false)', () => {
-            // Should result in csv
             expect(TestHttpParamsBuilder.serializeCookieParam('id', [5, 6], 'form', false)).toBe('id=5,6');
         });
 
@@ -241,19 +289,16 @@ describe('Utility: HttpParamsBuilder', () => {
         });
 
         it('array value (csv)', () => {
-            // Arrays are always CSV in headers (simple style)
             expect(TestHttpParamsBuilder.serializeHeaderParam('X-List', [1, 2, 3], false)).toBe('1,2,3');
             expect(TestHttpParamsBuilder.serializeHeaderParam('X-List', [1, 2, 3], true)).toBe('1,2,3');
         });
 
         it('object value (explode=false)', () => {
-            // key,val,key,val
             const val = { a: 1, b: 2 };
             expect(TestHttpParamsBuilder.serializeHeaderParam('X-Obj', val, false)).toBe('a,1,b,2');
         });
 
         it('object value (explode=true)', () => {
-            // key=val,key=val
             const val = { a: 1, b: 2 };
             expect(TestHttpParamsBuilder.serializeHeaderParam('X-Obj', val, true)).toBe('a=1,b=2');
         });

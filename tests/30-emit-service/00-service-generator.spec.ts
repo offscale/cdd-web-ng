@@ -41,8 +41,8 @@ describe('Emitter: ServiceGenerator', () => {
         const method = serviceClass.getMethods().find(m => m.getName() === 'updateUser' && m.getParameters().some(p => p.getName() === 'user'))!;
         const body = method.getBodyText() ?? '';
 
-        // Updated expectation: Path parameters are now serialized via HttpParamsBuilder
-        expect(body).toContain("const url = `${this.basePath}/users/${HttpParamsBuilder.serializePathParam('id', id, 'simple', false)}`;");
+        // Updated expectation: Path parameters are now serialized via HttpParamsBuilder (id, style=simple, explode=false, allowReserved=false)
+        expect(body).toContain("const url = `${this.basePath}/users/${HttpParamsBuilder.serializePathParam('id', id, 'simple', false, false)}`;");
         // Assert the new, correct code generation pattern
         expect(body).toContain("return this.http.put(url, user, requestOptions as any);");
         expect(body).not.toContain("finalOptions.body = user;"); // Ensure old pattern is gone

@@ -4,7 +4,7 @@ import {
     OptionalKind,
     ParameterDeclarationStructure,
 } from 'ts-morph';
-import { GeneratorConfig, PathInfo, SwaggerDefinition } from '../../../core/types.js';
+import { GeneratorConfig, Parameter, PathInfo, SwaggerDefinition } from '../../../core/types.js';
 import { camelCase, getTypeScriptType, isDataTypeInterface } from '../../../core/utils.js';
 import { HttpContext, HttpHeaders, HttpParams } from '@angular/common/http';
 import { SwaggerParser } from "@src/core/parser.js";
@@ -88,7 +88,16 @@ export class ServiceMethodGenerator {
 
         (operation.parameters ?? []).forEach(param => {
             const paramName = camelCase(param.name);
-            const paramType = getTypeScriptType(param.schema, this.config, knownTypes);
+            // Robust schema retrieval: check `content` for schema if basic schema is missing/default
+            let effectiveSchema = param.schema;
+            if (param.content) {
+                const firstType = Object.keys(param.content)[0];
+                if (firstType && param.content[firstType].schema) {
+                    effectiveSchema = param.content[firstType].schema as SwaggerDefinition;
+                }
+            }
+
+            const paramType = getTypeScriptType(effectiveSchema, this.config, knownTypes);
 
             parameters.push({
                 name: paramName,
@@ -112,13 +121,21 @@ export class ServiceMethodGenerator {
         return parameters.sort((a, b) => (a.hasQuestionToken ? 1 : 0) - (b.hasQuestionToken ? 1 : 0));
     }
 
+    private isJsonContent(p: Parameter): boolean {
+        if (!p.content) return false;
+        const keys = Object.keys(p.content);
+        return keys.some(k => k.includes('application/json') || k.includes('*/*'));
+    }
+
     private buildMethodBody(operation: PathInfo, parameters: OptionalKind<ParameterDeclarationStructure>[]): string {
         let urlTemplate = operation.path;
         operation.parameters?.filter(p => p.in === 'path').forEach(p => {
             const jsParam = camelCase(p.name);
             const style = p.style || 'simple';
             const explode = p.explode ?? false;
-            urlTemplate = urlTemplate.replace(`{${p.name}}`, `\${HttpParamsBuilder.serializePathParam('${p.name}', ${jsParam}, '${style}', ${explode})}`);
+            const allowReserved = p.allowReserved ?? false;
+            const serializationArg = this.isJsonContent(p) ? ", 'json'" : "";
+            urlTemplate = urlTemplate.replace(`{${p.name}}`, `\${HttpParamsBuilder.serializePathParam('${p.name}', ${jsParam}, '${style}', ${explode}, ${allowReserved}${serializationArg})}`);
         });
 
         const lines: string[] = [];
@@ -153,7 +170,8 @@ console.warn('The following querystring parameters are not automatically handled
             headerParams.forEach(p => {
                 const paramName = camelCase(p.name);
                 const explode = p.explode ?? false;
-                lines.push(`if (${paramName} != null) { headers = headers.set('${p.name}', HttpParamsBuilder.serializeHeaderParam('${p.name}', ${paramName}, ${explode})); }`);
+                const serializationArg = this.isJsonContent(p) ? ", 'json'" : "";
+                lines.push(`if (${paramName} != null) { headers = headers.set('${p.name}', HttpParamsBuilder.serializeHeaderParam('${p.name}', ${paramName}, ${explode}${serializationArg})); }`);
             });
 
             if (cookieParams.length > 0) {
@@ -162,7 +180,8 @@ console.warn('The following querystring parameters are not automatically handled
                     const paramName = camelCase(p.name);
                     const style = p.style || 'form';
                     const explode = p.explode ?? true;
-                    lines.push(`if (${paramName} != null) { __cookies.push(HttpParamsBuilder.serializeCookieParam('${p.name}', ${paramName}, '${style}', ${explode})); }`);
+                    const serializationArg = this.isJsonContent(p) ? ", 'json'" : "";
+                    lines.push(`if (${paramName} != null) { __cookies.push(HttpParamsBuilder.serializeCookieParam('${p.name}', ${paramName}, '${style}', ${explode}${serializationArg})); }`);
                 });
                 lines.push(`if (__cookies.length > 0) { headers = headers.set('Cookie', __cookies.join('; ')); }`);
             }

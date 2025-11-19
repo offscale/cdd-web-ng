@@ -122,4 +122,22 @@ describe('Emitter: AuthInterceptorGenerator', () => {
         expect(body).toContain('if (this.apiKey)'); // Logic for api key exists
         expect(body).not.toContain('Authorization'); // No logic for basic auth is added
     });
+
+    it('should handle mutualTLS by generating a comment', () => {
+        const specWithMtls = {
+            ...emptySpec,
+            components: {
+                securitySchemes: {
+                    MyCert: { type: 'mutualTLS', name: 'MyCert' }
+                },
+            },
+        };
+        const { project } = runGenerator(specWithMtls);
+        const body = project.getSourceFileOrThrow('/out/auth/auth.interceptor.ts')
+            .getClassOrThrow('AuthInterceptor')!
+            .getMethodOrThrow('intercept')!
+            .getBodyText()!;
+
+        expect(body).toContain("// Security Scheme 'MyCert' (mutualTLS) is assumed to be handled by the browser/client configuration.");
+    });
 });

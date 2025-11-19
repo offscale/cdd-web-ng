@@ -23,4 +23,11 @@ describe('Emitter: OAuthHelperGenerator', () => {
         expect(project.getSourceFile('/out/auth/oauth-redirect/oauth-redirect.component.ts')).toBeDefined();
         expect(project.getFileSystem().readFileSync('/out/auth/oauth-redirect/oauth-redirect.component.html')).toBe('<p>Redirecting...</p>');
     });
+
+    it('should generate service and component if openIdConnect scheme is present', () => {
+        const specWithOidc = { ...securitySpec, components: { securitySchemes: { OIDC: { type: 'openIdConnect', openIdConnectUrl: '...' } } }};
+        const project = runGenerator(specWithOidc);
+        expect(project.getSourceFile('/out/auth/oauth.service.ts')).toBeDefined();
+        expect(project.getSourceFile('/out/auth/oauth-redirect/oauth-redirect.component.ts')).toBeDefined();
+    });
 });

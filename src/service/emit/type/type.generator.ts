@@ -112,13 +112,31 @@ export class TypeGenerator {
 
         // Generate properties for the interface.
         if (definition.properties) {
-            interfaceDeclaration.addProperties(Object.entries(definition.properties).map(([key, propDef]) => ({
-                // Quote property names that are not valid TS identifiers (e.g., 'with-hyphen').
-                name: /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key) ? key : `'${key}'`,
-                type: getTypeScriptType(propDef, this.config, knownTypes),
-                hasQuestionToken: !(definition.required || []).includes(key),
-                docs: propDef.description ? [propDef.description] : [],
-            })));
+            interfaceDeclaration.addProperties(Object.entries(definition.properties).map(([key, propDef]) => {
+
+                // Build property documentation including specific OpenAPI 3.1 fields
+                const propDocs: string[] = [];
+                if (propDef.description) {
+                    propDocs.push(propDef.description);
+                }
+                if (propDef.contentEncoding) {
+                    propDocs.push(`Content Encoding: ${propDef.contentEncoding}`);
+                }
+                if (propDef.contentMediaType) {
+                    propDocs.push(`Content Media Type: ${propDef.contentMediaType}`);
+                }
+                if (propDef.externalDocs?.url) {
+                    propDocs.push(`@see ${propDef.externalDocs.url} ${propDef.externalDocs.description || ''}`);
+                }
+
+                return {
+                    // Quote property names that are not valid TS identifiers (e.g., 'with-hyphen').
+                    name: /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key) ? key : `'${key}'`,
+                    type: getTypeScriptType(propDef, this.config, knownTypes),
+                    hasQuestionToken: !(definition.required || []).includes(key),
+                    docs: propDocs,
+                };
+            }));
         }
 
         // Add an index signature if `additionalProperties` is defined.

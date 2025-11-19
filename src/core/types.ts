@@ -24,6 +24,36 @@ export interface DiscriminatorObject {
     mapping?: { [key: string]: string };
 }
 
+/**
+ * Metadata object that allows for more fine-tuned XML model definitions.
+ * @see https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.1.0.md#xmlObject
+ */
+export interface XmlObject {
+    /** Replaces the name of the element/attribute used for the described schema property. */
+    name?: string;
+    /** The URI of the namespace definition. */
+    namespace?: string;
+    /** The prefix to be used for the name. */
+    prefix?: string;
+    /** Declares whether the property definition translates to an attribute instead of an element. */
+    attribute?: boolean;
+    /** MAY be used only for an array definition. Signifies whether the array is wrapped. */
+    wrapped?: boolean;
+    /** Node type for XML mapping (OpenAPI 3.2.0 / Extended spec). */
+    nodeType?: string;
+}
+
+/**
+ * Allows referencing an external resource for extended documentation.
+ * @see https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.1.0.md#externalDocumentationObject
+ */
+export interface ExternalDocumentationObject {
+    /** A description of the target documentation. */
+    description?: string;
+    /** The URL for the target documentation. */
+    url: string;
+}
+
 /** A simplified, normalized representation of an operation parameter. */
 export interface Parameter {
     /** The name of the parameter. */
@@ -101,6 +131,8 @@ export interface SwaggerDefinition {
     format?: string;
     description?: string;
     default?: unknown;
+    /** JSON Schema `const` keyword. (OAS 3.1 / JSON Schema 2020-12) */
+    const?: unknown;
     maximum?: number;
     /** If true, the `maximum` is exclusive. */
     exclusiveMaximum?: boolean;
@@ -116,6 +148,16 @@ export interface SwaggerDefinition {
     multipleOf?: number;
     enum?: (string | number)[];
     items?: SwaggerDefinition | SwaggerDefinition[];
+
+    // JSON Schema 2020-12 / OpenAPI 3.1 Additions
+    prefixItems?: SwaggerDefinition[];
+    if?: SwaggerDefinition;
+    then?: SwaggerDefinition;
+    else?: SwaggerDefinition;
+    not?: SwaggerDefinition;
+    contentEncoding?: string;
+    contentMediaType?: string;
+
     $ref?: string;
     allOf?: SwaggerDefinition[];
     oneOf?: SwaggerDefinition[];
@@ -129,15 +171,19 @@ export interface SwaggerDefinition {
     required?: string[];
     /** An example of the schema representation. */
     example?: unknown;
+
+    xml?: XmlObject;
+    externalDocs?: ExternalDocumentationObject;
 }
 
 /** Represents a security scheme recognized by the API. */
 export interface SecurityScheme {
-    type: 'apiKey' | 'http' | 'oauth2' | 'openIdConnect';
+    type: 'apiKey' | 'http' | 'oauth2' | 'openIdConnect' | 'mutualTLS';
     in?: 'header' | 'query' | 'cookie';
     name?: string;
     scheme?: 'bearer' | string;
     flows?: Record<string, unknown>;
+    openIdConnectUrl?: string;
 }
 
 /** The root object of a parsed OpenAPI/Swagger specification. */
@@ -147,12 +193,17 @@ export interface SwaggerSpec {
     $self?: string;
     info: Info;
     paths: { [pathName: string]: Path };
+    /** The incoming webhooks that MAY be received as part of this API. */
+    webhooks?: { [name: string]: Path };
+    /** The default value for the $schema keyword within Schema Objects. */
+    jsonSchemaDialect?: string;
     /** Schema definitions (Swagger 2.0). */
     definitions?: { [definitionsName: string]: SwaggerDefinition };
     /** Replaces `definitions` in OpenAPI 3.x. */
     components?: {
         schemas?: Record<string, SwaggerDefinition>;
         securitySchemes?: Record<string, SecurityScheme>;
+        pathItems?: Record<string, Path>;
     };
     /** Security definitions (Swagger 2.0). */
     securityDefinitions?: { [securityDefinitionName: string]: SecurityScheme };

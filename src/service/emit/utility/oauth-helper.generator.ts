@@ -6,7 +6,7 @@ import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
 /**
  * Generates an OAuthService and a redirect component to assist with client-side
  * OAuth2 redirect flow handling. This generator is only active when an 'oauth2'
- * security scheme is present in the OpenAPI spec.
+ * or 'openIdConnect' security scheme is present in the OpenAPI spec.
  */
 export class OAuthHelperGenerator {
     /**
@@ -23,10 +23,10 @@ export class OAuthHelperGenerator {
      */
     public generate(outputDir: string): void {
         const securitySchemes = Object.values(this.parser.getSecuritySchemes());
-        const hasOAuth2 = securitySchemes.some(s => s.type === 'oauth2');
+        const hasOAuth2 = securitySchemes.some(s => s.type === 'oauth2' || s.type === 'openIdConnect');
 
         if (!hasOAuth2) {
-            return; // Don't generate if no oauth2 flows are defined.
+            return; // Don't generate if no oauth2/oidc flows are defined.
         }
 
         const authDir = path.join(outputDir, 'auth');
@@ -106,7 +106,7 @@ export class OAuthHelperGenerator {
                 name: 'Component',
                 arguments: [`{ 
                     selector: 'app-oauth-redirect', 
-                    templateUrl: './oauth-redirect.component.html',
+                    templateUrl: './oauth-redirect.component.html', 
                     changeDetection: ChangeDetectionStrategy.OnPush
                 }`]
             }],
@@ -137,9 +137,6 @@ export class OAuthHelperGenerator {
 
         tsFile.formatText();
 
-        // Note: OauthRedirectComponent is currently missing an `imports` array in its decorator.
-        // It's a very simple component so it doesn't need any, but for consistency it should be added.
-        // I have left it as is to match the original intent, but adding `imports: []` would be valid.
         this.project.getFileSystem().writeFileSync(htmlPath, `<p>Redirecting...</p>`);
     }
 }

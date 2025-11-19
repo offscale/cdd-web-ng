@@ -36,7 +36,7 @@ export interface PolymorphicOption {
 /**
  * A wrapper class for a raw OpenAPI/Swagger specification object.
  * It provides a structured and reliable API to access different parts of the spec,
- * normalizing differences between Swagger 2.0 and OpenAPI 3.x and providing
+ * normalizing differences between versions and providing
  * helpful utilities like `$ref` resolution.
  */
 export class SwaggerParser {
@@ -51,6 +51,8 @@ export class SwaggerParser {
     public readonly schemas: { name: string; definition: SwaggerDefinition; }[];
     /** A flattened and processed list of all API operations (paths) from the entry specification. */
     public readonly operations: PathInfo[];
+    /** A flattened and processed list of all Webhooks defined in the entry specification. */
+    public readonly webhooks: PathInfo[];
     /** A normalized record of all security schemes defined in the entry specification. */
     public readonly security: Record<string, SecurityScheme>;
 
@@ -78,12 +80,12 @@ export class SwaggerParser {
         // If a cache isn't provided, create one with just the entry spec.
         this.specCache = specCache || new Map<string, SwaggerSpec>([[this.documentUri, spec]]);
 
-
         this.schemas = Object.entries(this.getDefinitions()).map(([name, definition]) => ({
             name: pascalCase(name),
             definition
         }));
         this.operations = extractPaths(this.spec.paths);
+        this.webhooks = extractPaths(this.spec.webhooks);
         this.security = this.getSecuritySchemes();
     }
 
@@ -211,6 +213,11 @@ export class SwaggerParser {
     /** Retrieves the entire parsed entry specification object. */
     public getSpec(): SwaggerSpec {
         return this.spec;
+    }
+
+    /** Retrieves the global JSON Schema Dialect if defined. */
+    public getJsonSchemaDialect(): string | undefined {
+        return this.spec.jsonSchemaDialect;
     }
 
     /** Retrieves all schema definitions from the entry specification, normalizing for OpenAPI 3 and Swagger 2. */

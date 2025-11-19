@@ -189,6 +189,17 @@ describe('Emitter: ServiceMethodGenerator', () => {
     });
 
     describe('Parameter and Body Generation', () => {
+        it('should correctly serialize path parameters', () => {
+            const { methodGen, serviceClass } = createTestEnvironment();
+            const op: PathInfo = {
+                method: 'GET', path: '/users/{id}', methodName: 'getUser',
+                parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }]
+            };
+            methodGen.addServiceMethod(serviceClass, op);
+            const body = serviceClass.getMethodOrThrow('getUser').getBodyText()!;
+            expect(body).toContain("HttpParamsBuilder.serializePathParam('id', id, 'simple', false)");
+        });
+
         it('should handle multipart/form-data', () => {
             const { methodGen, serviceClass, parser } = createTestEnvironment();
             const op = parser.operations.find((o: PathInfo) => o.operationId === 'postMultipart')!;
@@ -266,18 +277,37 @@ describe('Emitter: ServiceMethodGenerator', () => {
             expect(body).not.toContain('new FormData()');
         });
 
-        it('should add warnings for unsupported cookie and querystring parameters', () => {
+        it('should generate logic for cookie parameters', () => {
+            const { methodGen, serviceClass } = createTestEnvironment({});
+            const op: PathInfo = {
+                method: 'GET', path: '/with-cookie', methodName: 'withCookie',
+                parameters: [
+                    { name: 'session', in: 'cookie', schema: { type: 'string' } }
+                ]
+            };
+            methodGen.addServiceMethod(serviceClass, op);
+            const body = serviceClass.getMethodOrThrow('withCookie').getBodyText()!;
+
+            // Check for cookie collection logic
+            expect(body).toContain('const __cookies: string[] = [];');
+            expect(body).toContain("if (session != null) { __cookies.push(HttpParamsBuilder.serializeCookieParam('session', session, 'form', true)); }");
+            expect(body).toContain("if (__cookies.length > 0) { headers = headers.set('Cookie', __cookies.join('; ')); }");
+        });
+
+        it('should add warnings for unsupported querystring parameters', () => {
             const { methodGen, serviceClass } = createTestEnvironment();
             const op: PathInfo = {
                 method: 'GET', path: '/test', methodName: 'getWithUnsupported',
                 parameters: [
-                    { name: 'sid', in: 'cookie', schema: { type: 'string'}},
+                    // Removed cookie, only querystring remains unsupported
                     { name: 'raw', in: 'querystring', schema: { type: 'string'}}
                 ]
             };
             methodGen.addServiceMethod(serviceClass, op);
             const body = serviceClass.getMethodOrThrow('getWithUnsupported').getBodyText()!;
-            expect(body).toContain("console.warn('The following cookie parameters are not automatically handled:', [\"sid\"]);");
+            // Warning about cookie support should be GONE
+            expect(body).not.toContain("console.warn('The following cookie parameters are not automatically handled");
+            // Warning about querystring should REMAIN
             expect(body).toContain("console.warn('The following querystring parameters are not automatically handled:', [\"raw\"]);");
         });
     });
@@ -322,7 +352,7 @@ describe('Emitter: ServiceMethodGenerator', () => {
         const method = serviceClass.getMethodOrThrow('withHeader');
         const body = method.getImplementation()?.getBodyText() ?? '';
         expect(body).toContain(`let headers = options?.headers instanceof HttpHeaders ? options.headers : new HttpHeaders(options?.headers ?? {});`);
-        expect(body).toContain(`if (xCustomHeader != null) { headers = headers.set('X-Custom-Header', String(xCustomHeader)); }`);
+        expect(body).toContain(`if (xCustomHeader != null) { headers = headers.set('X-Custom-Header', HttpParamsBuilder.serializeHeaderParam('X-Custom-Header', xCustomHeader, false)); }`);
         expect(body).toContain(`headers`);
     });
 });

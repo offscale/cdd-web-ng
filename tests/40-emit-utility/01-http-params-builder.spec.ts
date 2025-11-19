@@ -147,4 +147,115 @@ describe('Utility: HttpParamsBuilder', () => {
             expect(params2.toString()).toBe('a=1&c=3');
         });
     });
+
+    describe('Path Parameters (serializePathParam)', () => {
+        it('should return empty string for null/undefined', () => {
+            expect(TestHttpParamsBuilder.serializePathParam('p', null, 'simple', false)).toBe('');
+        });
+
+        // Style: simple
+        it('simple (default): primitive', () => {
+            expect(TestHttpParamsBuilder.serializePathParam('id', 5, 'simple', false)).toBe('5');
+        });
+        it('simple: array', () => {
+            expect(TestHttpParamsBuilder.serializePathParam('id', [3, 4, 5], 'simple', false)).toBe('3,4,5');
+        });
+        it('simple: object (explode=false)', () => {
+            expect(TestHttpParamsBuilder.serializePathParam('id', {role: 'admin', name: 'test'}, 'simple', false)).toBe('role,admin,name,test');
+        });
+        it('simple: object (explode=true)', () => {
+            expect(TestHttpParamsBuilder.serializePathParam('id', {role: 'admin', name: 'test'}, 'simple', true)).toBe('role=admin,name=test');
+        });
+
+        // Style: label
+        it('label: primitive', () => {
+            expect(TestHttpParamsBuilder.serializePathParam('id', 5, 'label', false)).toBe('.5');
+        });
+        it('label: array (explode=false)', () => {
+            expect(TestHttpParamsBuilder.serializePathParam('id', [3, 4, 5], 'label', false)).toBe('.3,4,5');
+        });
+        it('label: array (explode=true)', () => {
+            expect(TestHttpParamsBuilder.serializePathParam('id', [3, 4, 5], 'label', true)).toBe('.3.4.5');
+        });
+        it('label: object (explode=false)', () => {
+            expect(TestHttpParamsBuilder.serializePathParam('id', {role: 'admin'}, 'label', false)).toBe('.role,admin');
+        });
+        it('label: object (explode=true)', () => {
+            expect(TestHttpParamsBuilder.serializePathParam('id', {role: 'admin'}, 'label', true)).toBe('.role=admin');
+        });
+
+        // Style: matrix
+        it('matrix: primitive', () => {
+            expect(TestHttpParamsBuilder.serializePathParam('id', 5, 'matrix', false)).toBe(';id=5');
+        });
+        it('matrix: array (explode=false)', () => {
+            expect(TestHttpParamsBuilder.serializePathParam('id', [3, 4], 'matrix', false)).toBe(';id=3,4');
+        });
+        it('matrix: array (explode=true)', () => {
+            expect(TestHttpParamsBuilder.serializePathParam('id', [3, 4], 'matrix', true)).toBe(';id=3;id=4');
+        });
+        it('matrix: object (explode=false)', () => {
+            expect(TestHttpParamsBuilder.serializePathParam('id', {role: 'admin'}, 'matrix', false)).toBe(';id=role,admin');
+        });
+        it('matrix: object (explode=true)', () => {
+            expect(TestHttpParamsBuilder.serializePathParam('id', {role: 'admin', b: 2}, 'matrix', true)).toBe(';role=admin;b=2');
+        });
+    });
+
+    describe('Cookie Parameters (serializeCookieParam)', () => {
+        it('should return empty string for null/undefined', () => {
+            expect(TestHttpParamsBuilder.serializeCookieParam('c', null, 'form', true)).toBe('');
+        });
+
+        it('default style (form): primitive', () => {
+            expect(TestHttpParamsBuilder.serializeCookieParam('id', 5, 'form', true)).toBe('id=5');
+        });
+
+        it('form: array (explode=true)', () => {
+            // Should result in separate key=value pairs joined by '; '
+            expect(TestHttpParamsBuilder.serializeCookieParam('id', [5, 6], 'form', true)).toBe('id=5; id=6');
+        });
+
+        it('form: array (explode=false)', () => {
+            // Should result in csv
+            expect(TestHttpParamsBuilder.serializeCookieParam('id', [5, 6], 'form', false)).toBe('id=5,6');
+        });
+
+        it('form: object (explode=true)', () => {
+            expect(TestHttpParamsBuilder.serializeCookieParam('id', {a: 1, b: 2}, 'form', true)).toBe('a=1; b=2');
+        });
+
+        it('form: object (explode=false)', () => {
+            expect(TestHttpParamsBuilder.serializeCookieParam('id', {a: 1, b: 2}, 'form', false)).toBe('id=a,1,b,2');
+        });
+    });
+
+    describe('Header Parameters (serializeHeaderParam)', () => {
+        it('should return empty string for null/undefined', () => {
+            expect(TestHttpParamsBuilder.serializeHeaderParam('h', null, false)).toBe('');
+        });
+
+        it('primitive value', () => {
+            expect(TestHttpParamsBuilder.serializeHeaderParam('X-ID', 123, false)).toBe('123');
+            expect(TestHttpParamsBuilder.serializeHeaderParam('X-ID', 'abc', false)).toBe('abc');
+        });
+
+        it('array value (csv)', () => {
+            // Arrays are always CSV in headers (simple style)
+            expect(TestHttpParamsBuilder.serializeHeaderParam('X-List', [1, 2, 3], false)).toBe('1,2,3');
+            expect(TestHttpParamsBuilder.serializeHeaderParam('X-List', [1, 2, 3], true)).toBe('1,2,3');
+        });
+
+        it('object value (explode=false)', () => {
+            // key,val,key,val
+            const val = { a: 1, b: 2 };
+            expect(TestHttpParamsBuilder.serializeHeaderParam('X-Obj', val, false)).toBe('a,1,b,2');
+        });
+
+        it('object value (explode=true)', () => {
+            // key=val,key=val
+            const val = { a: 1, b: 2 };
+            expect(TestHttpParamsBuilder.serializeHeaderParam('X-Obj', val, true)).toBe('a=1,b=2');
+        });
+    });
 });

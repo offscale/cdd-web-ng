@@ -117,6 +117,28 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined | null, 
         const typeName = pascalCase(schema.$ref.split('/').pop() || '');
         return typeName && knownTypes.includes(typeName) ? typeName : 'any';
     }
+
+    // JSON Schema 'const' keyword support (OAS 3.1)
+    if (schema.const !== undefined) {
+        const val = schema.const;
+        if (val === null) return 'null';
+        if (typeof val === 'string') return `'${val.replace(/'/g, "\\'")}'`;
+        if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+        // For complex objects in const, fallback to 'any' or simple types is safer than partial object literals
+        return 'any';
+    }
+
+    // JSON Schema 2020-12 / OpenAPI 3.1 Tuple Support
+    if (schema.prefixItems && Array.isArray(schema.prefixItems)) {
+        const tupleTypes = schema.prefixItems.map(s => getTypeScriptType(s, config, knownTypes));
+        // If `items` exists alongside prefixItems, it signifies the type for additional items (rest element)
+        if (schema.items && !Array.isArray(schema.items)) {
+            const restType = getTypeScriptType(schema.items as SwaggerDefinition, config, knownTypes);
+            return `[${tupleTypes.join(', ')}, ...${restType}[]]`;
+        }
+        return `[${tupleTypes.join(', ')}]`;
+    }
+
     if (schema.allOf) {
         const parts = schema.allOf
             .map(s => getTypeScriptType(s, config, knownTypes))
@@ -131,6 +153,17 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined | null, 
         return parts.length > 0 ? parts.join(' | ') : 'any';
     }
 
+    // Handling for 'not' keyword: Exclude<any, Type> or Exclude<KnownType, Type>
+    if (schema.not) {
+        const notType = getTypeScriptType(schema.not, config, knownTypes);
+        /**
+         * Note: Generating `Exclude<any, T>` in TS effectively just stays `any` or `unknown` depending on usage,
+         * making strict `not` validation irrelevant at build time unless used within composite types.
+         * We return a utility type string for clarity.
+         */
+        return `Exclude<any, ${notType}>`;
+    }
+
     if (schema.enum) {
         return schema.enum.map(v => typeof v === 'string' ? `'${v.replace(/'/g, "\\'")}'` : v).join(' | ');
     }
@@ -140,7 +173,8 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined | null, 
     switch (schema.type) {
         case 'string':
             type = (schema.format === 'date' || schema.format === 'date-time') && config.options.dateType === 'Date' ? 'Date' : 'string';
-            if (schema.format === 'binary') {
+            // OAS 3.1 support: contentMediaType='image/png' implies binary data -> Blob
+            if (schema.format === 'binary' || schema.contentMediaType) {
                 type = 'Blob';
             }
             break;

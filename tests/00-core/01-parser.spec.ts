@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vite
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from '@src/core/types.js';
+import { GeneratorConfig, SwaggerSpec } from '@src/core/types.js';
 import * as yaml from 'js-yaml';
 
 vi.mock('fs', async (importOriginal) => {
@@ -266,5 +266,47 @@ describe('Core: SwaggerParser', () => {
         const spec = { components: { schemas: { User: { type: 'string' } } } };
         const parser = new SwaggerParser(spec as any, config);
         expect(parser.getDefinition('NonExistent')).toBeUndefined();
+    });
+
+    describe('OAS 3.1 Top Level Features', () => {
+        it('should parse jsonSchemaDialect', () => {
+            const spec = {
+                openapi: '3.1.0',
+                info: {},
+                paths: {},
+                jsonSchemaDialect: 'https://spec.openapis.org/oas/3.1/dialect/base'
+            } as any;
+            const parser = new SwaggerParser(spec, config);
+            expect(parser.getJsonSchemaDialect()).toBe('https://spec.openapis.org/oas/3.1/dialect/base');
+        });
+
+        it('should parse webhooks', () => {
+            const spec: SwaggerSpec = {
+                openapi: '3.1.0',
+                info: { title: 'test', version: '1' },
+                paths: {},
+                webhooks: {
+                    'newPet': {
+                        post: {
+                            requestBody: {
+                                content: {
+                                    'application/json': {
+                                        schema: { type: 'object' }
+                                    }
+                                }
+                            },
+                            responses: { '200': { description: 'ok' } }
+                        }
+                    }
+                }
+            };
+            const parser = new SwaggerParser(spec, config);
+            const webhooks = parser.webhooks;
+
+            expect(webhooks).toHaveLength(1);
+            expect(webhooks[0].path).toBe('newPet');
+            expect(webhooks[0].method).toBe('POST');
+            expect(webhooks[0].requestBody).toBeDefined();
+        });
     });
 });

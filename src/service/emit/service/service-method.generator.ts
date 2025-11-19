@@ -88,7 +88,6 @@ export class ServiceMethodGenerator {
 
         (operation.parameters ?? []).forEach(param => {
             const paramName = camelCase(param.name);
-            // The `extractPaths` function normalizes Swagger 2.0 parameters to always have a `schema` object.
             const paramType = getTypeScriptType(param.schema, this.config, knownTypes);
 
             parameters.push({
@@ -116,22 +115,20 @@ export class ServiceMethodGenerator {
     private buildMethodBody(operation: PathInfo, parameters: OptionalKind<ParameterDeclarationStructure>[]): string {
         let urlTemplate = operation.path;
         operation.parameters?.filter(p => p.in === 'path').forEach(p => {
-            urlTemplate = urlTemplate.replace(`{${p.name}}`, `\${${camelCase(p.name)}}`);
+            const jsParam = camelCase(p.name);
+            const style = p.style || 'simple';
+            const explode = p.explode ?? false;
+            urlTemplate = urlTemplate.replace(`{${p.name}}`, `\${HttpParamsBuilder.serializePathParam('${p.name}', ${jsParam}, '${style}', ${explode})}`);
         });
 
         const lines: string[] = [];
 
-        const cookieParams = operation.parameters?.filter(p => p.in === 'cookie') ?? [];
-        if (cookieParams.length > 0) {
-            lines.push(`// TODO: Cookie parameters are not handled by Angular's HttpClient. You may need to handle them manually.
-console.warn('The following cookie parameters are not automatically handled:', ${JSON.stringify(cookieParams.map(p => p.name))});`);
-        }
-
         const querystringParams = operation.parameters?.filter(p => p.in === 'querystring') ?? [];
         if (querystringParams.length > 0) {
-            lines.push(`// TODO: querystring parameters are not handled by Angular's HttpClient. You may need to handle them manually by constructing the URL.
+            lines.push(`// TODO: querystring parameters are not handled by Angular's HttpClient. You may need to handle them manually by constructing the URL. 
 console.warn('The following querystring parameters are not automatically handled:', ${JSON.stringify(querystringParams.map(p => p.name))});`);
         }
+
         lines.push(`const url = \`\${this.basePath}${urlTemplate}\`;`);
 
         const requestOptions: HttpRequestOptions = {};
@@ -144,17 +141,33 @@ console.warn('The following querystring parameters are not automatically handled
                 const paramDefJson = JSON.stringify(p);
                 lines.push(`if (${paramName} != null) { params = HttpParamsBuilder.serializeQueryParam(params, ${paramDefJson}, ${paramName}); }`);
             });
-            requestOptions.params = 'params' as any; // Use string placeholder
+            requestOptions.params = 'params' as any;
         }
 
         const headerParams = operation.parameters?.filter(p => p.in === 'header') ?? [];
-        if (headerParams.length > 0) {
+        const cookieParams = operation.parameters?.filter(p => p.in === 'cookie') ?? [];
+
+        if (headerParams.length > 0 || cookieParams.length > 0) {
             lines.push(`let headers = options?.headers instanceof HttpHeaders ? options.headers : new HttpHeaders(options?.headers ?? {});`);
+
             headerParams.forEach(p => {
                 const paramName = camelCase(p.name);
-                lines.push(`if (${paramName} != null) { headers = headers.set('${p.name}', String(${paramName})); }`);
+                const explode = p.explode ?? false;
+                lines.push(`if (${paramName} != null) { headers = headers.set('${p.name}', HttpParamsBuilder.serializeHeaderParam('${p.name}', ${paramName}, ${explode})); }`);
             });
-            requestOptions.headers = 'headers' as any; // Use string placeholder
+
+            if (cookieParams.length > 0) {
+                lines.push(`const __cookies: string[] = [];`);
+                cookieParams.forEach(p => {
+                    const paramName = camelCase(p.name);
+                    const style = p.style || 'form';
+                    const explode = p.explode ?? true;
+                    lines.push(`if (${paramName} != null) { __cookies.push(HttpParamsBuilder.serializeCookieParam('${p.name}', ${paramName}, '${style}', ${explode})); }`);
+                });
+                lines.push(`if (__cookies.length > 0) { headers = headers.set('Cookie', __cookies.join('; ')); }`);
+            }
+
+            requestOptions.headers = 'headers' as any;
         }
 
         let optionProperties = `
@@ -244,7 +257,6 @@ console.warn('The following querystring parameters are not automatically handled
         ].map(overload => {
             const hasOptionalParam = parameters.some(p => p.hasQuestionToken);
             if (hasOptionalParam) {
-                // This is guaranteed to exist in our templates.
                 overload.parameters.find(p => p.name === 'options')!.hasQuestionToken = true;
             }
             return overload;

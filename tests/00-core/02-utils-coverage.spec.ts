@@ -129,6 +129,48 @@ describe('Core: utils.ts (Coverage)', () => {
             const schema: SwaggerDefinition = { type: 'integer' };
             expect(utils.getTypeScriptType(schema, config, [])).toBe('number');
         });
+
+        // NEW TESTS FOR ADVANCED JSON SCHEMA SUPPORT
+
+        it('should handle "const" keyword for string literals', () => {
+            const schema: SwaggerDefinition = { const: 'Success' };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe("'Success'");
+        });
+
+        it('should handle "const" keyword for string with quotes', () => {
+            const schema: SwaggerDefinition = { const: "It's OK" };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe("'It\\'s OK'");
+        });
+
+        it('should handle "const" keyword for numbers', () => {
+            const schema: SwaggerDefinition = { const: 123.45 };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('123.45');
+        });
+
+        it('should handle "const" keyword for boolean', () => {
+            const schema: SwaggerDefinition = { const: true };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('true');
+        });
+
+        it('should handle "const": null', () => {
+            const schema: SwaggerDefinition = { const: null };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('null');
+        });
+
+        it('should fallback to "any" for complex "const" values', () => {
+            const schema: SwaggerDefinition = { const: { a: 1 } };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('any');
+        });
+
+        it('should map contentMediaType defined strings to Blob (OpenAPI 3.1)', () => {
+            const schema: SwaggerDefinition = { type: 'string', contentMediaType: 'image/png' };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('Blob');
+        });
+
+        it('should map contentMediaType to Blob even if format is not binary', () => {
+            const schema: SwaggerDefinition = { type: 'string', contentMediaType: 'application/octet-stream' };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('Blob');
+        });
     });
 
     describe('extractPaths', () => {

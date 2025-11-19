@@ -58,6 +58,25 @@ describe('Emitter: AuthInterceptorGenerator', () => {
         expect(body).not.toContain('if (this.apiKey)');
     });
 
+    it('should handle openIdConnect as a bearer token scheme', () => {
+        const { tokenNames, project } = runGenerator({
+            ...emptySpec,
+            components: {
+                securitySchemes: {
+                    OIDC: { type: 'openIdConnect', openIdConnectUrl: 'https://example.com/.well-known/openid-configuration' }
+                }
+            }
+        });
+        const body = project
+            .getSourceFileOrThrow('/out/auth/auth.interceptor.ts')
+            .getClassOrThrow('AuthInterceptor')!
+            .getMethodOrThrow('intercept')!
+            .getBodyText()!;
+        expect(tokenNames).toEqual(['bearerToken']);
+        expect(body).toContain('if (this.bearerToken)');
+        expect(body).not.toContain('if (this.apiKey)');
+    });
+
     it('should ignore apiKey in cookie', () => {
         const { tokenNames, project } = runGenerator({
             ...emptySpec,

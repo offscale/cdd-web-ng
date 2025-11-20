@@ -4,7 +4,7 @@
  * parsing, and providing a unified interface to OpenAPI (3.x) and Swagger (2.x) specifications.
  */
 
-import { SwaggerDefinition, SwaggerSpec, GeneratorConfig, SecurityScheme, PathInfo } from './types.js';
+import { GeneratorConfig, PathInfo, SecurityScheme, ServerObject, SwaggerDefinition, SwaggerSpec } from './types.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -12,7 +12,9 @@ import yaml from 'js-yaml';
 import { extractPaths, isUrl, pascalCase } from './utils.js';
 
 /** Represents a `$ref` object in a JSON Schema. */
-interface RefObject { $ref: string; }
+interface RefObject {
+    $ref: string;
+}
 
 /**
  * A type guard to safely check if an object is a `$ref` object.
@@ -49,6 +51,8 @@ export class SwaggerParser {
 
     /** A normalized array of all top-level schemas (definitions) found in the entry specification. */
     public readonly schemas: { name: string; definition: SwaggerDefinition; }[];
+    /** A normalized array of all servers defined in the entry specification. */
+    public readonly servers: ServerObject[];
     /** A flattened and processed list of all API operations (paths) from the entry specification. */
     public readonly operations: PathInfo[];
     /** A flattened and processed list of all Webhooks defined in the entry specification. */
@@ -84,6 +88,8 @@ export class SwaggerParser {
             name: pascalCase(name),
             definition
         }));
+
+        this.servers = this.spec.servers || [];
         this.operations = extractPaths(this.spec.paths);
         this.webhooks = extractPaths(this.spec.webhooks);
         this.security = this.getSecuritySchemes();

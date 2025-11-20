@@ -47,6 +47,9 @@ export class AuthInterceptorGenerator {
         const tokenImports: string[] = [];
         const tokenNames: string[] = [];
 
+        // Ensure SKIP_AUTH_CONTEXT_TOKEN is imported
+        tokenImports.push('SKIP_AUTH_CONTEXT_TOKEN');
+
         if (hasSupportedApiKey) {
             tokenImports.push('API_KEY_TOKEN');
             tokenNames.push('apiKey');
@@ -93,7 +96,11 @@ export class AuthInterceptorGenerator {
             });
         }
 
-        let statementsBody = 'let authReq = req;';
+        let statementsBody = `// Check for the skip auth token in the request context
+if (req.context.get(SKIP_AUTH_CONTEXT_TOKEN)) {
+    return next.handle(req);
+}\n`;
+        statementsBody += 'let authReq = req;';
         let bearerLogicAdded = false;
 
         const uniqueSchemes = Array.from(new Set(securitySchemes.map(s => JSON.stringify(s)))).map(s => JSON.parse(s) as SecurityScheme);

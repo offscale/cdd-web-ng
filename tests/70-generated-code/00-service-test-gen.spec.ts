@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { ServiceTestGenerator } from '@src/service/emit/test/service-test-generator.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from '@src/core/types.js';
-import { fullCRUD_Users, adminFormSpec, finalCoverageSpec, branchCoverageSpec } from '../shared/specs.js';
+import { adminFormSpec, branchCoverageSpec, finalCoverageSpec, fullCRUD_Users } from '../shared/specs.js';
 import { createTestProject } from '../shared/helpers.js';
 import { groupPathsByController } from '@src/service/parse.js';
 import { TypeGenerator } from '@src/service/emit/type/type.generator.js';
@@ -121,7 +121,20 @@ describe('Generated Code: Service Test Generators', () => {
                 ...fullCRUD_Users,
                 paths: {
                     '/inline': {
-                        post: { tags: ['Inline'], operationId: 'postInline', requestBody: { content: { 'application/json': { schema: { type: 'object', properties: { data: { type: 'string' } } } } } } }
+                        post: {
+                            tags: ['Inline'],
+                            operationId: 'postInline',
+                            requestBody: {
+                                content: {
+                                    'application/json': {
+                                        schema: {
+                                            type: 'object',
+                                            properties: { data: { type: 'string' } }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             };
@@ -157,7 +170,12 @@ describe('Generated Code: Service Test Generators', () => {
             const spec = {
                 paths: {
                     '/bad-param-ref': {
-                        get: {tags: ['BadParam'], operationId: 'getBadParam', parameters: [{ name: 'bad', in: 'query', schema: { $ref: '#/c/s/nonexistent' } }], responses: { '204': {} }}
+                        get: {
+                            tags: ['BadParam'],
+                            operationId: 'getBadParam',
+                            parameters: [{ name: 'bad', in: 'query', schema: { $ref: '#/c/s/nonexistent' } }],
+                            responses: { '204': {} }
+                        }
                     }
                 }
             };

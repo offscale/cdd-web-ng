@@ -63,7 +63,10 @@ describe('Emitter: AuthInterceptorGenerator', () => {
             ...emptySpec,
             components: {
                 securitySchemes: {
-                    OIDC: { type: 'openIdConnect', openIdConnectUrl: 'https://example.com/.well-known/openid-configuration' }
+                    OIDC: {
+                        type: 'openIdConnect',
+                        openIdConnectUrl: 'https://example.com/.well-known/openid-configuration'
+                    }
                 }
             }
         });
@@ -139,5 +142,16 @@ describe('Emitter: AuthInterceptorGenerator', () => {
             .getBodyText()!;
 
         expect(body).toContain("// Security Scheme 'MyCert' (mutualTLS) is assumed to be handled by the browser/client configuration.");
+    });
+
+    it('should check for SKIP_AUTH_CONTEXT_TOKEN at the start of intercept', () => {
+        const { project } = runGenerator(securitySpec);
+        const body = project.getSourceFileOrThrow('/out/auth/auth.interceptor.ts')
+            .getClassOrThrow('AuthInterceptor')!
+            .getMethodOrThrow('intercept')!
+            .getBodyText()!;
+
+        expect(body).toContain('if (req.context.get(SKIP_AUTH_CONTEXT_TOKEN))');
+        expect(body).toContain('return next.handle(req);');
     });
 });

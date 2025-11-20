@@ -4,8 +4,8 @@ import {
     OptionalKind,
     ParameterDeclarationStructure,
 } from 'ts-morph';
-import { GeneratorConfig, Parameter, PathInfo, SwaggerDefinition } from '../../../core/types.js';
-import { camelCase, getTypeScriptType, isDataTypeInterface } from '../../../core/utils.js';
+import { GeneratorConfig, Parameter, PathInfo, SwaggerDefinition } from '@src/core/types.js';
+import { camelCase, getTypeScriptType, isDataTypeInterface } from '@src/core/utils.js';
 import { HttpContext, HttpHeaders, HttpParams } from '@angular/common/http';
 import { SwaggerParser } from "@src/core/parser.js";
 
@@ -93,7 +93,6 @@ export class ServiceMethodGenerator {
 
         (operation.parameters ?? []).forEach(param => {
             const paramName = camelCase(param.name);
-            // Robust schema retrieval: check `content` for schema if basic schema is missing/default
             let effectiveSchema = param.schema;
             if (param.content) {
                 const firstType = Object.keys(param.content)[0];
@@ -101,7 +100,6 @@ export class ServiceMethodGenerator {
                     effectiveSchema = param.content[firstType].schema as SwaggerDefinition;
                 }
             }
-
             const paramType = getTypeScriptType(effectiveSchema, this.config, knownTypes);
 
             parameters.push({
@@ -116,7 +114,17 @@ export class ServiceMethodGenerator {
             const content = requestBody.content?.[Object.keys(requestBody.content)[0]];
             if (content?.schema) {
                 let bodyType = getTypeScriptType(content.schema as SwaggerDefinition, this.config, knownTypes);
-                const bodyName = isDataTypeInterface(bodyType.replace(/\[\]| \| null/g, '')) ? camelCase(bodyType.replace(/\[\]| \| null/g, '')) : 'body';
+                const rawBodyType = bodyType.replace(/\[\]| \| null/g, '');
+
+                if (knownTypes.includes(rawBodyType)) {
+                    const schemaObj = this.parser.schemas.find(s => s.name === rawBodyType);
+                    const definition = schemaObj?.definition;
+                    if (definition && this.needsRequestType(definition)) {
+                        bodyType = bodyType.replace(rawBodyType, `${rawBodyType}Request`);
+                    }
+                }
+
+                const bodyName = isDataTypeInterface(rawBodyType) ? camelCase(rawBodyType) : 'body';
                 parameters.push({ name: bodyName, type: bodyType, hasQuestionToken: !requestBody.required });
             } else {
                 parameters.push({ name: 'body', type: 'unknown', hasQuestionToken: !requestBody.required });
@@ -124,6 +132,11 @@ export class ServiceMethodGenerator {
         }
 
         return parameters.sort((a, b) => (a.hasQuestionToken ? 1 : 0) - (b.hasQuestionToken ? 1 : 0));
+    }
+
+    private needsRequestType(definition: SwaggerDefinition): boolean {
+        if (!definition.properties) return false;
+        return Object.values(definition.properties).some(p => p.readOnly || p.writeOnly);
     }
 
     private isJsonContent(p: Parameter): boolean {
@@ -194,12 +207,20 @@ console.warn('The following querystring parameters are not automatically handled
             requestOptions.headers = 'headers' as any;
         }
 
+        const hasGlobalSecurity = Object.keys(this.parser.getSecuritySchemes()).length > 0;
+        const hasSecurityOverride = operation.security && operation.security.length === 0;
+        let contextConstruction = `this.createContextWithClientId(options?.context)`;
+
+        if (hasGlobalSecurity && hasSecurityOverride) {
+            contextConstruction += `.set(SKIP_AUTH_CONTEXT_TOKEN, true)`;
+        }
+
         let optionProperties = `
   observe: options?.observe, 
   reportProgress: options?.reportProgress, 
   responseType: options?.responseType, 
   withCredentials: options?.withCredentials, 
-  context: this.createContextWithClientId(options?.context)`;
+  context: ${contextConstruction}`;
 
         if (requestOptions.params) {
             optionProperties += `,\n  params`;
@@ -214,9 +235,16 @@ console.warn('The following querystring parameters are not automatically handled
         const nonBodyOpParams = new Set((operation.parameters ?? []).map(p => camelCase(p.name)));
         const bodyParam = parameters.find(p => !nonBodyOpParams.has(p.name!));
 
-        const isUrlEncodedForm = operation.consumes?.includes('application/x-www-form-urlencoded');
-        const isMultipartForm = operation.consumes?.includes('multipart/form-data');
+        // --- DETECT CONTENT TYPE FOR MULTIPART / URLENCODED ---
+        const hasMultipartContent = !!operation.requestBody?.content?.['multipart/form-data'];
+        const hasUrlEncodedContent = !!operation.requestBody?.content?.['application/x-www-form-urlencoded'];
+
+        const isUrlEncodedForm = operation.consumes?.includes('application/x-www-form-urlencoded') || hasUrlEncodedContent;
+        const isMultipartForm = operation.consumes?.includes('multipart/form-data') || hasMultipartContent;
         const formDataParams = operation.parameters?.filter(p => (p as { in?: string }).in === 'formData');
+
+        const multipartContent = operation.requestBody?.content?.['multipart/form-data'];
+        const hasOas3MultipartBody = isMultipartForm && !!bodyParam && !!multipartContent;
 
         if (isUrlEncodedForm && formDataParams?.length) {
             lines.push(`let formBody = new HttpParams();`);
@@ -231,6 +259,32 @@ console.warn('The following querystring parameters are not automatically handled
                 const paramName = camelCase(p.name);
                 lines.push(`if (${paramName} != null) { formData.append('${p.name}', ${paramName}); }`);
             });
+            bodyArgument = 'formData';
+        } else if (hasOas3MultipartBody) {
+            // OAS 3.0 Multipart Body Handling (Single Object -> FormData)
+            const bodyName = bodyParam!.name;
+            lines.push(`const formData = new FormData();`);
+            lines.push(`if (${bodyName}) {`);
+
+            // Extract encodings if they exist
+            const encodings = multipartContent!.encoding || {};
+            const encodingMapString = JSON.stringify(encodings);
+            lines.push(` const encodings = ${encodingMapString} as Record<string, { contentType?: string }>;`);
+
+            lines.push(` Object.entries(${bodyName}).forEach(([key, value]) => {`);
+            lines.push(`  if (value === undefined || value === null) return;`);
+            // Check for specific encoding first
+            lines.push(`  const encoding = encodings[key];`);
+            lines.push(`  if (encoding?.contentType) {`);
+            lines.push(`    const blob = new Blob([JSON.stringify(value)], { type: encoding.contentType });`);
+            lines.push(`    formData.append(key, blob);`);
+            lines.push(`  } else {`);
+            // Standard append
+            lines.push(`    if (value instanceof Blob || value instanceof File) { formData.append(key, value); }`);
+            lines.push(`    else { formData.append(key, String(value)); }`);
+            lines.push(`  }`);
+            lines.push(` });`);
+            lines.push(`}`);
             bodyArgument = 'formData';
         } else if (bodyParam) {
             bodyArgument = bodyParam.name!;

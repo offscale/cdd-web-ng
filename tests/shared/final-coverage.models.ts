@@ -65,7 +65,18 @@ export const finalCoveragePushSpec = {
             get: {
                 tags: ['DeleteOnly'],
                 operationId: 'getDeleteOnlyList',
-                responses: { '200': { content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/DeleteOnly' } } } } } },
+                responses: {
+                    '200': {
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'array',
+                                    items: { $ref: '#/components/schemas/DeleteOnly' }
+                                }
+                            }
+                        }
+                    }
+                },
             },
         },
         '/delete-only/{id}': {
@@ -83,7 +94,7 @@ export const finalCoveragePushSpec = {
                 requestBody: {
                     content: { 'application/json': { schema: { $ref: '#/components/schemas/WithUnsupported' } } },
                 },
-                responses: {'200': {}}
+                responses: { '200': {} }
             },
         },
         '/poly-no-prop': {
@@ -134,7 +145,7 @@ export const finalCoveragePushSpec = {
                 tags: ['PolyWithOnlyPrimitives'],
                 operationId: 'postPolyWithOnlyPrimitives',
                 requestBody: {
-                    content: { 'application/json': { schema: { $ref: '#/components/schemas/PolyWithOnlyPrimitives' }}}
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/PolyWithOnlyPrimitives' } } }
                 }
             }
         }

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { SwaggerParser } from '@src/core/parser.js';
@@ -67,7 +67,10 @@ describe('Core: SwaggerParser', () => {
     });
 
     it('should create parser from URL', async () => {
-        mockFetch.mockResolvedValue({ ok: true, text: () => Promise.resolve('{ "openapi": "3.0.2", "info": {}, "paths": {} }') });
+        mockFetch.mockResolvedValue({
+            ok: true,
+            text: () => Promise.resolve('{ "openapi": "3.0.2", "info": {}, "paths": {} }')
+        });
         const parser = await SwaggerParser.create('http://test.com/spec.json', config);
         expect(parser.getSpec().openapi).toBe('3.0.2');
     });
@@ -145,7 +148,9 @@ describe('Core: SwaggerParser', () => {
     describe('Multi-document parsing', () => {
         it('should pre-load and resolve external file references', async () => {
             const mainSpecContent = JSON.stringify({
-                openapi: '3.0.0', info: {}, paths: { '/user': { get: { responses: { '200': { content: { 'application/json': { schema: { $ref: './schemas.json#/components/schemas/User' } } } } } } } }
+                openapi: '3.0.0',
+                info: {},
+                paths: { '/user': { get: { responses: { '200': { content: { 'application/json': { schema: { $ref: './schemas.json#/components/schemas/User' } } } } } } } }
             });
             const schemasSpecContent = JSON.stringify({
                 openapi: '3.0.0', info: {}, paths: {}, components: {
@@ -173,9 +178,17 @@ describe('Core: SwaggerParser', () => {
 
         it('should use $self as the base URI for resolving references', async () => {
             const mainSpecContent = JSON.stringify({
-                openapi: '3.0.0', $self: 'https://api.example.com/specs/v1/', info: {}, paths: { '/user': { get: { responses: { '200': { content: { 'application/json': { schema: { $ref: 'schemas.json#/components/schemas/User' } } } } } } } }
+                openapi: '3.0.0',
+                $self: 'https://api.example.com/specs/v1/',
+                info: {},
+                paths: { '/user': { get: { responses: { '200': { content: { 'application/json': { schema: { $ref: 'schemas.json#/components/schemas/User' } } } } } } } }
             });
-            const schemasSpecContent = JSON.stringify({ openapi: '3.0.0', info: {}, paths: {}, components: {schemas: { User: { type: 'string' }}}});
+            const schemasSpecContent = JSON.stringify({
+                openapi: '3.0.0',
+                info: {},
+                paths: {},
+                components: { schemas: { User: { type: 'string' } } }
+            });
 
             mockFetch
                 .mockResolvedValueOnce({ ok: true, text: () => Promise.resolve(mainSpecContent) })
@@ -189,9 +202,24 @@ describe('Core: SwaggerParser', () => {
         });
 
         it('should handle nested external references', async () => {
-            const mainSpec = { openapi: '3.0.0', info: {}, paths: {}, components: {schemas: {Entry: {$ref: './schemas.json#/components/schemas/User'}}} };
-            const schemasSpec = { openapi: '3.0.0', info: {}, paths: {}, components: {schemas: {User: { allOf: [{ $ref: './base.json#/components/schemas/Base' }] } }}};
-            const baseSpec = { openapi: '3.0.0', info: {}, paths: {}, components: {schemas: {Base: { type: 'object', properties: { id: { type: 'string' } } } }}};
+            const mainSpec = {
+                openapi: '3.0.0',
+                info: {},
+                paths: {},
+                components: { schemas: { Entry: { $ref: './schemas.json#/components/schemas/User' } } }
+            };
+            const schemasSpec = {
+                openapi: '3.0.0',
+                info: {},
+                paths: {},
+                components: { schemas: { User: { allOf: [{ $ref: './base.json#/components/schemas/Base' }] } } }
+            };
+            const baseSpec = {
+                openapi: '3.0.0',
+                info: {},
+                paths: {},
+                components: { schemas: { Base: { type: 'object', properties: { id: { type: 'string' } } } } }
+            };
 
             (fs.existsSync as Mock).mockReturnValue(true);
             (fs.readFileSync as Mock).mockImplementation((p: string) => {
@@ -219,7 +247,7 @@ describe('Core: SwaggerParser', () => {
     });
 
     it('should warn and return undefined for un-cached external references', () => {
-        const spec = {openapi: '3.0.0', info: {}, paths: {}} as any;
+        const spec = { openapi: '3.0.0', info: {}, paths: {} } as any;
         const cache = new Map<string, any>([['file:///entry.json', spec]]);
         const parser = new SwaggerParser(spec, config, cache, 'file:///entry.json');
         const ref = 'invalid-ref.json';
@@ -307,6 +335,32 @@ describe('Core: SwaggerParser', () => {
             expect(webhooks[0].path).toBe('newPet');
             expect(webhooks[0].method).toBe('POST');
             expect(webhooks[0].requestBody).toBeDefined();
+        });
+
+        it('should parse servers', () => {
+            const spec: SwaggerSpec = {
+                openapi: '3.0.0',
+                info: { title: 'test', version: '1' },
+                paths: {},
+                servers: [
+                    { url: 'https://api.example.com', description: 'Production' },
+                    { url: 'https://dev.api.com', description: 'Development' }
+                ]
+            };
+            const parser = new SwaggerParser(spec, config);
+            expect(parser.servers).toHaveLength(2);
+            expect(parser.servers[0].url).toBe('https://api.example.com');
+            expect(parser.servers[1].description).toBe('Development');
+        });
+
+        it('should default to empty servers array if missing', () => {
+            const spec: SwaggerSpec = {
+                openapi: '3.0.0',
+                info: { title: 'test', version: '1' },
+                paths: {}
+            };
+            const parser = new SwaggerParser(spec, config);
+            expect(parser.servers).toEqual([]);
         });
     });
 });

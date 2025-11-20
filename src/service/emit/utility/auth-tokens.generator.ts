@@ -20,10 +20,16 @@ export class AuthTokensGenerator {
 
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
-        sourceFile.addImportDeclaration({
-            moduleSpecifier: '@angular/core',
-            namedImports: ['InjectionToken'],
-        });
+        sourceFile.addImportDeclarations([
+            {
+                moduleSpecifier: '@angular/core',
+                namedImports: ['InjectionToken'],
+            },
+            {
+                moduleSpecifier: '@angular/common/http',
+                namedImports: ['HttpContextToken'],
+            }
+        ]);
 
         // API Key Token
         sourceFile.addVariableStatement({
@@ -49,6 +55,19 @@ export class AuthTokensGenerator {
                 },
             ],
             docs: ["Injection token for providing a bearer token or a function that returns a bearer token."]
+        });
+
+        // Skip Auth Token
+        sourceFile.addVariableStatement({
+            isExported: true,
+            declarationKind: VariableDeclarationKind.Const,
+            declarations: [
+                {
+                    name: 'SKIP_AUTH_CONTEXT_TOKEN',
+                    initializer: `new HttpContextToken<boolean>(() => false)`,
+                },
+            ],
+            docs: ["Context token to skip authentication for specific requests that override global security."]
         });
 
         sourceFile.formatText();

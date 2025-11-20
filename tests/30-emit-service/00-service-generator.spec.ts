@@ -1,11 +1,11 @@
 // tests/30-emit-service/00-service-generator.spec.ts
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { Project, Scope } from 'ts-morph';
 import { ServiceGenerator } from '@src/service/emit/service/service.generator.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from '@src/core/types.js';
-import { coverageSpec, fullCRUD_Users, branchCoverageSpec } from '../shared/specs.js';
+import { branchCoverageSpec, coverageSpec, fullCRUD_Users } from '../shared/specs.js';
 import { groupPathsByController } from '@src/service/parse.js';
 import { TypeGenerator } from '@src/service/emit/type/type.generator.js';
 import { TokenGenerator } from '@src/service/emit/utility/token.generator.js';
@@ -121,5 +121,60 @@ describe('Emitter: ServiceGenerator', () => {
         expect(method.getScope()).toBe(Scope.Private);
         const body = method.getBodyText() ?? '';
         expect(body).toContain(`return context.set(this.clientContextToken, 'default');`);
+    });
+
+    it('should add SKIP_AUTH import only if security override is present AND global security exists', () => {
+        const specWithOverride = {
+            ...coverageSpec,
+            components: {
+                securitySchemes: { Basic: { type: 'http', scheme: 'basic' } }
+            },
+            paths: {
+                '/public': {
+                    get: {
+                        tags: ['Public'],
+                        security: [], // Override
+                        responses: { '200': {} }
+                    }
+                }
+            }
+        };
+
+        const project = createTestEnvironment(specWithOverride);
+        const serviceFile = project.getSourceFileOrThrow('/out/services/public.service.ts');
+        // We iterate imports to find one coming from tokens.
+        const authImport = serviceFile.getImportDeclarations().find(d => {
+            const specifier = d.getModuleSpecifierValue();
+            return specifier.includes('auth.tokens');
+        });
+
+        expect(authImport).toBeDefined();
+        expect(authImport!.getNamedImports().map(i => i.getName())).toContain('SKIP_AUTH_CONTEXT_TOKEN');
+    });
+
+    it('should NOT add SKIP_AUTH import if no global security exists', () => {
+        const specWithoutGlobalSec = {
+            openapi: '3.0.0',
+            info: { title: 'Public API', version: '1.0' },
+            paths: {
+                '/public': {
+                    get: {
+                        tags: ['Public'],
+                        security: [], // Override (technically redundant here)
+                        responses: { '200': {} }
+                    }
+                }
+            },
+            components: {}
+        };
+
+        const project = createTestEnvironment(specWithoutGlobalSec);
+        const serviceFile = project.getSourceFileOrThrow('/out/services/public.service.ts');
+        // Check across all imports
+        const authImport = serviceFile.getImportDeclarations().find(d => {
+            const specifier = d.getModuleSpecifierValue();
+            return specifier.includes('auth.tokens');
+        });
+        expect(authImport).toBeUndefined();
     });
 });

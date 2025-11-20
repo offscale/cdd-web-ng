@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { discoverAdminResources } from '@src/service/emit/admin/resource-discovery.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { coverageSpecPart2 } from '../shared/specs.js';
@@ -42,12 +42,23 @@ const formGenCoverageSpec = {
             },
         },
         '/no-submit/{id}': {
-            get: { tags: ['NoSubmit'], responses: { '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/NoSubmit' } } } } } },
+            get: {
+                tags: ['NoSubmit'],
+                responses: { '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/NoSubmit' } } } } }
+            },
             delete: { tags: ['NoSubmit'], parameters: [{ name: 'id', in: 'path' }], responses: { '204': {} } }, // isEditable = true
         },
         '/simple-form/{id}': {
-            get: { tags: ['SimpleForm'], responses: { '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/Simple' } } } } } },
-            put: { tags: ['SimpleForm'], parameters: [{ name: 'id', in: 'path' }], requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/Simple' } } } }, responses: { '200': {} } },
+            get: {
+                tags: ['SimpleForm'],
+                responses: { '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/Simple' } } } } }
+            },
+            put: {
+                tags: ['SimpleForm'],
+                parameters: [{ name: 'id', in: 'path' }],
+                requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/Simple' } } } },
+                responses: { '200': {} }
+            },
         },
         '/poly-primitive-only': {
             post: {

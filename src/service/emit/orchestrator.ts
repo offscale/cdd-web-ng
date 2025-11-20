@@ -19,18 +19,8 @@ import { BaseInterceptorGenerator } from './utility/base-interceptor.generator.j
 import { ProviderGenerator } from './utility/provider.generator.js';
 import { MainIndexGenerator, ServiceIndexGenerator } from './utility/index.generator.js';
 import { ServiceTestGenerator } from "./test/service-test-generator.js";
+import { ServerUrlGenerator } from './utility/server-url.generator.js';
 
-/**
- * Orchestrates the entire code generation process for the Angular client library.
- * It calls specialized generators in a specific order to create models, services,
- * utilities, providers, and optionally an admin UI.
- *
- * @param outputRoot The root directory where all generated files will be written.
- * @param parser An initialized `SwaggerParser` instance containing the API specification.
- * @param config The global generator configuration object.
- * @param project The `ts-morph` project instance to which source files will be added.
- * @returns A promise that resolves when generation is complete.
- */
 export async function emitClientLibrary(outputRoot: string, parser: SwaggerParser, config: GeneratorConfig, project: Project): Promise<void> {
     new TypeGenerator(parser, project, config).generate(outputRoot);
     console.log('✅ Models generated.');
@@ -49,19 +39,18 @@ export async function emitClientLibrary(outputRoot: string, parser: SwaggerParse
         new TokenGenerator(project, config.clientName).generate(outputRoot);
         new HttpParamsBuilderGenerator(project).generate(outputRoot);
         new FileDownloadGenerator(project).generate(outputRoot);
+        new ServerUrlGenerator(parser, project).generate(outputRoot);
+
         if (config.options.dateType === 'Date') {
             new DateTransformerGenerator(project).generate(outputRoot);
         }
 
-        // Check for security schemes to determine if auth-related utilities are needed.
         const securitySchemes = parser.getSecuritySchemes();
-        let tokenNames: string[] = []; // Default to an empty array
+        let tokenNames: string[] = [];
         if (Object.keys(securitySchemes).length > 0) {
             new AuthTokensGenerator(project).generate(outputRoot);
 
             const interceptorGenerator = new AuthInterceptorGenerator(parser, project);
-            // generate() returns the names of the tokens used (e.g., 'apiKey', 'bearerToken'),
-            // which the ProviderGenerator needs to create the correct configuration interface.
             const interceptorResult = interceptorGenerator.generate(outputRoot);
             tokenNames = interceptorResult?.tokenNames || [];
 

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { SwaggerParser } from '@src/core/parser.js';
 import { discoverAdminResources } from '@src/service/emit/admin/resource-discovery.js';
 import { coverageSpec, polymorphismSpec } from '../shared/specs.js';

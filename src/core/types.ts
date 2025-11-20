@@ -8,7 +8,6 @@
  */
 
 import { ModuleKind, ScriptTarget } from "ts-morph";
-import { Path } from 'swagger-schema-official';
 
 // ===================================================================================
 // SECTION: OpenAPI / Swagger Specification Types
@@ -61,6 +60,34 @@ export interface InfoObject {
     license?: LicenseObject;
     /** The version of the OpenAPI document. */
     version: string;
+}
+
+/**
+ * An object representing a Server Variable for server URL template substitution.
+ * @see https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.2.0.md#server-variable-object
+ */
+export interface ServerVariableObject {
+    /** An enumeration of string values to be used if the substitution options are from a limited set. */
+    enum?: string[];
+    /** The default value to use for substitution. */
+    default: string;
+    /** An optional description for the server variable. */
+    description?: string;
+}
+
+/**
+ * An object representing a Server.
+ * @see https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.2.0.md#server-object
+ */
+export interface ServerObject {
+    /** A URL to the target host. */
+    url: string;
+    /** An optional string describing the host designated by the URL. */
+    description?: string;
+    /** An optional unique string to refer to the host designated by the URL. (OAS 3.2) */
+    name?: string;
+    /** A map between a variable name and its value. */
+    variables?: { [variable: string]: ServerVariableObject };
 }
 
 /** Represents the `discriminator` object used for polymorphism in OpenAPI schemas. */
@@ -158,6 +185,22 @@ export interface PathInfo {
     responses?: Record<string, SwaggerResponse>;
     /** The generator-derived, safe method name for this operation. */
     methodName?: string;
+    /** Security requirements specific to this operation. keys are definitions, values are scopes. */
+    security?: { [key: string]: string[] }[];
+}
+
+/** A single encoding definition for a multipart property. */
+export interface EncodingProperty {
+    /** The Content-Type for encoding a specific property. */
+    contentType?: string;
+    /** A map of headers that are to be encoded for the property. */
+    headers?: Record<string, any>;
+    /** serialization style */
+    style?: string;
+    /** whether to explode array/objects */
+    explode?: boolean;
+    /** allow reserved characters */
+    allowReserved?: boolean;
 }
 
 /** Represents the request body of an operation. */
@@ -165,7 +208,11 @@ export interface RequestBody {
     /** Determines if the request body is required. */
     required?: boolean;
     /** A map of media types to their corresponding schemas for the request body. */
-    content?: Record<string, { schema?: SwaggerDefinition | { $ref: string } }>;
+    content?: Record<string, {
+        schema?: SwaggerDefinition | { $ref: string };
+        /** Encoding object for multipart/form-data definitions */
+        encoding?: Record<string, EncodingProperty>;
+    }>;
 }
 
 /** Represents a single response from an API Operation. */
@@ -240,24 +287,66 @@ export interface SecurityScheme {
     openIdConnectUrl?: string;
 }
 
+/**
+ * Represents an Operation Object in OpenAPI (v2 or v3).
+ */
+export interface SpecOperation {
+    tags?: string[];
+    summary?: string;
+    description?: string;
+    externalDocs?: ExternalDocumentationObject;
+    operationId?: string;
+    consumes?: string[];
+    produces?: string[];
+    parameters?: any[]; // Raw parameters (Swagger 2 or OAS 3)
+    requestBody?: any; // OAS 3
+    responses: Record<string, any>;
+    schemes?: string[];
+    deprecated?: boolean;
+    security?: Record<string, string[]>[];
+    [key: string]: any;
+}
+
+/**
+ * Represents a Path Item Object in OpenAPI (v2 or v3).
+ */
+export interface PathItem {
+    $ref?: string;
+    summary?: string;
+    description?: string;
+    get?: SpecOperation;
+    put?: SpecOperation;
+    post?: SpecOperation;
+    delete?: SpecOperation;
+    options?: SpecOperation;
+    head?: SpecOperation;
+    patch?: SpecOperation;
+    trace?: SpecOperation;
+    query?: SpecOperation; // OAS 3.2 draft
+    parameters?: any[];
+    [key: string]: any;
+}
+
 /** The root object of a parsed OpenAPI/Swagger specification. */
 export interface SwaggerSpec {
     openapi?: string;
     swagger?: string;
     $self?: string;
     info: InfoObject;
-    paths: { [pathName: string]: Path };
+    paths: { [pathName: string]: PathItem };
     /** The incoming webhooks that MAY be received as part of this API. */
-    webhooks?: { [name: string]: Path };
+    webhooks?: { [name: string]: PathItem };
     /** The default value for the $schema keyword within Schema Objects. */
     jsonSchemaDialect?: string;
+    /** An array of Server Objects, which provide connectivity information to a target server. */
+    servers?: ServerObject[];
     /** Schema definitions (Swagger 2.0). */
     definitions?: { [definitionsName: string]: SwaggerDefinition };
     /** Replaces `definitions` in OpenAPI 3.x. */
     components?: {
         schemas?: Record<string, SwaggerDefinition>;
         securitySchemes?: Record<string, SecurityScheme>;
-        pathItems?: Record<string, Path>;
+        pathItems?: Record<string, PathItem>;
     };
     /** Security definitions (Swagger 2.0). */
     securityDefinitions?: { [securityDefinitionName: string]: SecurityScheme };

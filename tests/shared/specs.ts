@@ -226,12 +226,17 @@ export const coverageSpecPart2 = {
             }
         },
         '/no-create-update/{id}': {
-            delete: { tags: ['NoCreateUpdate'], operationId: 'deleteNoCreateUpdate', parameters: [{name: 'id', in: 'path'}], responses: {} }
+            delete: {
+                tags: ['NoCreateUpdate'],
+                operationId: 'deleteNoCreateUpdate',
+                parameters: [{ name: 'id', in: 'path' }],
+                responses: {}
+            }
         }
     },
     components: {
         schemas: {
-            NoCreateUpdate: { type: 'object', properties: { id: {type: 'string'}}}
+            NoCreateUpdate: { type: 'object', properties: { id: { type: 'string' } } }
         }
     }
 };
@@ -554,8 +559,18 @@ export const listComponentSpec = {
             post: { tags: ['IconTests'], operationId: 'createItem', responses: {} }
         },
         '/icon-tests/{id}': {
-            put: { tags: ['IconTests'], operationId: 'updateItem', parameters: [{ name: 'id', in: 'path' }], responses: {} },
-            delete: { tags: ['IconTests'], operationId: 'deleteItem', parameters: [{ name: 'id', in: 'path' }], responses: {} }
+            put: {
+                tags: ['IconTests'],
+                operationId: 'updateItem',
+                parameters: [{ name: 'id', in: 'path' }],
+                responses: {}
+            },
+            delete: {
+                tags: ['IconTests'],
+                operationId: 'deleteItem',
+                parameters: [{ name: 'id', in: 'path' }],
+                responses: {}
+            }
         },
         '/icon-tests/add': { post: { tags: ['IconTests'], operationId: 'addItem', responses: {} } },
         '/icon-tests/{id}/remove': {

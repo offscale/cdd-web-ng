@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { generateFromConfig } from '@src/index.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from '@src/core/types.js';
@@ -79,7 +79,8 @@ describe('E2E: Full Generation Orchestrator', () => {
     });
 
     it('should default to generating admin tests when admin option is present but test option is absent', async () => {
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {
+        });
 
         await runGeneratorWithConfig(coverageSpec, { admin: true });
 
@@ -110,7 +111,8 @@ describe('E2E: Full Generation Orchestrator', () => {
     });
 
     it('should skip admin test generation when config is false', async () => {
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {
+        });
         await runGeneratorWithConfig(coverageSpec, { admin: true, generateAdminTests: false });
         const logCalls = consoleSpy.mock.calls.flat();
 

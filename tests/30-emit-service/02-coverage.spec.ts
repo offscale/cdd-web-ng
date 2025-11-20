@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Project, ImportDeclaration } from 'ts-morph';
+import { ImportDeclaration, Project } from 'ts-morph';
 import { ServiceGenerator } from '@src/service/emit/service/service.generator.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from '@src/core/types.js';

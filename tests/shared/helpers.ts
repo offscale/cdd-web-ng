@@ -1,4 +1,4 @@
-import { Project, IndentationText, ScriptTarget, ModuleKind } from 'ts-morph';
+import { IndentationText, ModuleKind, Project, ScriptTarget } from 'ts-morph';
 import { generateFromConfig } from '@src/index.js';
 import { GeneratorConfig } from '@src/core/types.js';
 

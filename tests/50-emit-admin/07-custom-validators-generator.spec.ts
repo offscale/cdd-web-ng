@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { CustomValidatorsGenerator } from '@src/service/emit/admin/custom-validators.generator.js';
 import { createTestProject } from '../shared/helpers.js';
 

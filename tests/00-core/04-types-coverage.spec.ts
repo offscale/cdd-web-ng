@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { SwaggerSpec } from '@src/core/types.js';
 
 describe('Core: Types & Interfaces Coverage', () => {

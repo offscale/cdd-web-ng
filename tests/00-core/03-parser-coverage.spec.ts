@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SwaggerParser } from '@src/core/parser.js';
 import { parserCoverageSpec } from '../shared/specs.js';
 import { GeneratorConfig } from '@src/core/types.js';
@@ -11,7 +11,8 @@ import { GeneratorConfig } from '@src/core/types.js';
  */
 describe('Core: SwaggerParser (Coverage)', () => {
     beforeEach(() => {
-        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        vi.spyOn(console, 'warn').mockImplementation(() => {
+        });
     });
 
     afterEach(() => {

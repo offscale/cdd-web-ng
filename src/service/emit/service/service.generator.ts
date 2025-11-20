@@ -57,7 +57,7 @@ export class ServiceGenerator {
             }
         }
 
-        this.addImports(sourceFile, modelImports);
+        this.addImports(sourceFile, modelImports, operations);
         const serviceClass = this.addClass(sourceFile, className);
         this.addPropertiesAndHelpers(serviceClass);
 
@@ -67,7 +67,7 @@ export class ServiceGenerator {
         });
     }
 
-    private addImports(sourceFile: SourceFile, modelImports: Set<string>): void {
+    private addImports(sourceFile: SourceFile, modelImports: Set<string>, operations: PathInfo[]): void {
         sourceFile.addImportDeclarations([
             { moduleSpecifier: '@angular/core', namedImports: ['Injectable', 'inject'] },
             {
@@ -82,6 +82,17 @@ export class ServiceGenerator {
             },
             { moduleSpecifier: `../utils/http-params-builder`, namedImports: ['HttpParamsBuilder'] },
         ]);
+
+        // If any operation has securityOverride (empty security list) AND global security exists
+        const hasSecurityOverrides = operations.some(op => op.security && op.security.length === 0);
+        const hasGlobalSecurity = Object.keys(this.parser.getSecuritySchemes()).length > 0;
+
+        if (hasSecurityOverrides && hasGlobalSecurity) {
+            sourceFile.addImportDeclaration({
+                moduleSpecifier: `../auth/auth.tokens`,
+                namedImports: ['SKIP_AUTH_CONTEXT_TOKEN']
+            });
+        }
     }
 
     private addClass(sourceFile: SourceFile, className: string): ClassDeclaration {

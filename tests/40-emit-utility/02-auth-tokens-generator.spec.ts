@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
 import { AuthTokensGenerator } from '@src/service/emit/utility/auth-tokens.generator.js';
 
@@ -12,5 +12,14 @@ describe('Emitter: AuthTokensGenerator', () => {
         expect(fileContent).toContain("new InjectionToken<string>('API_KEY')");
         expect(fileContent).toContain('export const BEARER_TOKEN_TOKEN');
         expect(fileContent).toContain("new InjectionToken<string | (() => string)>('BEARER_TOKEN')");
+    });
+
+    it('should generate SKIP_AUTH_CONTEXT_TOKEN', () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        new AuthTokensGenerator(project).generate('/out');
+        const fileContent = project.getSourceFileOrThrow('/out/auth/auth.tokens.ts').getText();
+
+        expect(fileContent).toContain('export const SKIP_AUTH_CONTEXT_TOKEN');
+        expect(fileContent).toContain('new HttpContextToken<boolean>(() => false)');
     });
 });

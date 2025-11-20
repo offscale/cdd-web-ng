@@ -178,6 +178,23 @@ describe('Core: utils.ts (Coverage)', () => {
             expect(utils.extractPaths(undefined)).toEqual([]);
         });
 
+        // New test for QUERY method support
+        it('should extract the QUERY method from paths', () => {
+            const swaggerPaths = {
+                '/search': {
+                    query: { // 'query' is now a recognized method in OAS 3.2
+                        operationId: 'querySearch',
+                        responses: { '200': { description: 'ok' } }
+                    }
+                }
+            };
+            // Cast to any because standard Swagger types don't include 'query' yet
+            const [pathInfo] = utils.extractPaths(swaggerPaths as any);
+            expect(pathInfo).toBeDefined();
+            expect(pathInfo.method).toBe('QUERY');
+            expect(pathInfo.operationId).toBe('querySearch');
+        });
+
         it('should handle operations with no request body or body param', () => {
             const paths = utils.extractPaths(branchCoverageSpec.paths as any);
             const op = paths.find(p => p.operationId === 'getNoBody');
@@ -218,7 +235,7 @@ describe('Core: utils.ts (Coverage)', () => {
                                 in: 'query',
                                 content: {
                                     'application/json': {
-                                        schema: { type: 'object', properties: { a: { type: 'string'} } }
+                                        schema: { type: 'object', properties: { a: { type: 'string' } } }
                                     }
                                 }
                             }
@@ -281,6 +298,29 @@ describe('Core: utils.ts (Coverage)', () => {
 
             const offsetParam = pathInfo.parameters!.find(p => p.name === 'offset')!;
             expect(offsetParam.schema).toEqual({ type: 'integer', format: undefined, items: undefined });
+        });
+
+        it('should extract security overrides', () => {
+            const swaggerPaths = {
+                '/secure-override': {
+                    get: {
+                        security: [], // Explicit override
+                        responses: {}
+                    }
+                },
+                '/secure-default': {
+                    get: {
+                        // Implicitly inherits global security
+                        responses: {}
+                    }
+                }
+            } as any;
+            const paths = utils.extractPaths(swaggerPaths);
+            const overrideOp = paths.find(p => p.path === '/secure-override');
+            const defaultOp = paths.find(p => p.path === '/secure-default');
+
+            expect(overrideOp?.security).toEqual([]);
+            expect(defaultOp?.security).toBeUndefined();
         });
     });
 

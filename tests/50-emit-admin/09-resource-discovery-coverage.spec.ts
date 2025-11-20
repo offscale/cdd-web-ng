@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { discoverAdminResources } from '@src/service/emit/admin/resource-discovery.js';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig, FormProperty } from '@src/core/types.js';
+import { FormProperty, GeneratorConfig } from '@src/core/types.js';
 import { branchCoverageSpec } from '../shared/specs.js';
 import { Resource, ResourceOperation } from "../../src/core/types.js";
 
@@ -81,17 +81,19 @@ describe('Admin: resource-discovery (Coverage)', () => {
                     get: { // No `parameters` key at all
                         tags: ['Items'],
                         responses: {
-                            '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/Item' }}}}
+                            '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/Item' } } } }
                         },
                     }
                 }
             },
-            components: { schemas: {
+            components: {
+                schemas: {
                     Item: {
                         type: 'object',
                         properties: { name: { type: 'string' } } // no 'required' key
                     }
-                }}
+                }
+            }
         };
         const resources = runDiscovery(spec);
         const resource = resources.find((r: Resource) => r.name === 'items');
@@ -102,7 +104,22 @@ describe('Admin: resource-discovery (Coverage)', () => {
 
     it('should derive modelName from an inline schema', () => {
         const spec = {
-            paths: {'/items': {get: {tags: ['Items'], responses: {'200': {content: {'application/json': {schema: {type: 'object', properties: { id: { type: 'string' }}}}}}}}}}
+            paths: { '/items': { get: { tags: ['Items'],
+                        responses: {
+                            '200': {
+                                content: {
+                                    'application/json': {
+                                        schema: {
+                                            type: 'object',
+                                            properties: { id: { type: 'string' } }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         };
         const resources = runDiscovery(spec);
         const resource = resources.find((r: Resource) => r.name === 'items');

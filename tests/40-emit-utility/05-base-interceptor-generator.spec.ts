@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
 import { BaseInterceptorGenerator } from '@src/service/emit/utility/base-interceptor.generator.js';
 

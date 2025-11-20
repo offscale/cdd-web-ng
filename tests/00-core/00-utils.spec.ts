@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import * as utils from '@src/core/utils.js';
 import { GeneratorConfig, SwaggerDefinition } from '@src/core/types.js';
 import { MethodDeclaration } from 'ts-morph';
@@ -64,7 +64,12 @@ describe('Core: utils.ts', () => {
 
         it('should extract Swagger 2.0 body parameters correctly', () => {
             const swaggerPaths = {
-                '/test': { post: { responses: {}, parameters: [{ name: 'body', in: 'body', schema: { type: 'string' } }] } }
+                '/test': {
+                    post: {
+                        responses: {},
+                        parameters: [{ name: 'body', in: 'body', schema: { type: 'string' } }]
+                    }
+                }
             };
             const paths = utils.extractPaths(swaggerPaths as any);
             expect(paths.length).toBe(1);

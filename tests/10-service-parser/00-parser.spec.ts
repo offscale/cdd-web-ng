@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { groupPathsByController } from '@src/service/parse.js';
 import { SwaggerParser } from '@src/core/parser.js';
 

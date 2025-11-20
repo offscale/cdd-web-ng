@@ -40,17 +40,41 @@ export class TypeGenerator {
             this.generateTypeFromSchema(sourceFile, schema.name, schema.definition);
         }
 
+        this.generateWebhookTypes(sourceFile);
+
         this.addRequestOptionsInterface(sourceFile);
+    }
+
+    private generateWebhookTypes(sourceFile: SourceFile): void {
+        const spec = this.parser.spec;
+        if (!spec.webhooks) return;
+
+        for (const [name, pathItem] of Object.entries(spec.webhooks)) {
+            const methods = ['get', 'post', 'put', 'delete', 'patch', 'options', 'head', 'trace'];
+            for (const method of methods) {
+                const operation = (pathItem as any)[method];
+                if (operation && operation.requestBody && operation.requestBody.content) {
+                    for (const [_, content] of Object.entries(operation.requestBody.content)) {
+                        if ((content as any).schema) {
+                            const typeName = `${pascalCase(name)}Webhook`;
+                            const description = operation.description || operation.summary || `Webhook payload for ${name}`;
+                            const definition = (content as any).schema as SwaggerDefinition;
+                            const definitionWithDocs = {
+                                ...definition,
+                                description: definition.description || description
+                            };
+                            this.generateTypeFromSchema(sourceFile, typeName, definitionWithDocs);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /**
      * Analyzes a single schema definition and delegates to the correct generator function
      * based on its structure. This method acts as a dispatcher to handle the different
      * ways a schema can be defined in OpenAPI.
-     * @param sourceFile The ts-morph SourceFile to which the type will be added.
-     * @param name The PascalCase name for the generated type.
-     * @param definition The schema definition object from the specification.
-     * @private
      */
     private generateTypeFromSchema(sourceFile: SourceFile, name: string, definition: SwaggerDefinition): void {
         const knownTypes = this.parser.schemas.map(s => s.name);
@@ -59,20 +83,17 @@ export class TypeGenerator {
             docs.push(`@see ${definition.externalDocs.url} ${definition.externalDocs.description || ''}`.trim());
         }
 
-        // Case 1: Handle schemas with an empty `enum` array, which should resolve to `any`.
         if (definition.enum && definition.enum.length === 0) {
             sourceFile.addTypeAlias({ name, isExported: true, type: 'any', docs });
             return;
         }
 
-        // Case 2: Handle `allOf` composition by creating an intersection type alias (e.g., `TypeA & TypeB`).
         if (definition.allOf) {
             const typeString = getTypeScriptType(definition, this.config, knownTypes);
             sourceFile.addTypeAlias({ name, isExported: true, type: typeString, docs });
             return;
         }
 
-        // Case 3: Handle string enums based on the `enumStyle` configuration.
         const isStringEnum = (definition.enum?.every(e => typeof e === 'string')) ?? false;
         if (isStringEnum && this.config.options.enumStyle === 'enum') {
             sourceFile.addEnum({
@@ -84,28 +105,35 @@ export class TypeGenerator {
             return;
         }
 
-        // Case 4: Handle standard object schemas by generating a TypeScript interface.
         if (definition.type === 'object' || definition.properties) {
-            this.generateInterface(sourceFile, name, definition, docs);
+            // Generate main interface
+            this.generateInterface(sourceFile, name, definition, docs, 'response');
+
+            // Check if we need a separate Request interface
+            if (this.needsRequestType(definition)) {
+                const requestDocs = [...docs, `Request object for ${name}. Omitted readOnly properties.`];
+                this.generateInterface(sourceFile, `${name}Request`, definition, requestDocs, 'request');
+            }
             return;
         }
 
-        // Case 5: As a fallback, generate a type alias. This covers primitive types,
-        // union-style enums (if `enumStyle` is 'union'), and other miscellaneous schemas.
         const typeString = getTypeScriptType(definition, this.config, knownTypes);
         sourceFile.addTypeAlias({ name, isExported: true, type: typeString, docs });
+    }
+
+    /** Checks if a definition has readOnly or writeOnly properties requiring a split. */
+    private needsRequestType(definition: SwaggerDefinition): boolean {
+        if (!definition.properties) return false;
+        return Object.values(definition.properties).some(p => p.readOnly || p.writeOnly);
     }
 
     /**
      * Generates a TypeScript `interface` for a given object schema definition.
      * It handles properties, optionality (`required` keyword), and `additionalProperties`.
-     * @param sourceFile The ts-morph SourceFile to which the interface will be added.
-     * @param name The PascalCase name for the interface.
-     * @param definition The schema definition object.
-     * @param docs An array of strings for the TSDoc comment on the interface.
-     * @private
+     *
+     * @param mode 'response' = standard/response view (no writeOnly), 'request' = request view (no readOnly).
      */
-    private generateInterface(sourceFile: SourceFile, name: string, definition: SwaggerDefinition, docs: string[]): void {
+    private generateInterface(sourceFile: SourceFile, name: string, definition: SwaggerDefinition, docs: string[], mode: 'response' | 'request'): void {
         const knownTypes = this.parser.schemas.map(s => s.name);
         const interfaceDeclaration = sourceFile.addInterface({
             name,
@@ -113,36 +141,40 @@ export class TypeGenerator {
             docs,
         });
 
-        // Generate properties for the interface.
         if (definition.properties) {
             interfaceDeclaration.addProperties(Object.entries(definition.properties).map(([key, propDef]) => {
+                // MODE: Response
+                // Skip if property is writeOnly.
+                if (mode === 'response' && propDef.writeOnly) {
+                    return null;
+                }
+                // Mark as readonly if property is readOnly.
+                const isReadOnly = mode === 'response' && propDef.readOnly;
 
-                // Build property documentation including specific OpenAPI 3.1 fields
+                // MODE: Request
+                // Skip if property is readOnly.
+                if (mode === 'request' && propDef.readOnly) {
+                    return null;
+                }
+
                 const propDocs: string[] = [];
-                if (propDef.description) {
-                    propDocs.push(propDef.description);
-                }
-                if (propDef.contentEncoding) {
-                    propDocs.push(`Content Encoding: ${propDef.contentEncoding}`);
-                }
-                if (propDef.contentMediaType) {
-                    propDocs.push(`Content Media Type: ${propDef.contentMediaType}`);
-                }
-                if (propDef.externalDocs?.url) {
-                    propDocs.push(`@see ${propDef.externalDocs.url} ${propDef.externalDocs.description || ''}`);
-                }
+                if (propDef.description) propDocs.push(propDef.description);
+                if (propDef.contentEncoding) propDocs.push(`Content Encoding: ${propDef.contentEncoding}`);
+                if (propDef.contentMediaType) propDocs.push(`Content Media Type: ${propDef.contentMediaType}`);
+                if (propDef.externalDocs?.url) propDocs.push(`@see ${propDef.externalDocs.url} ${propDef.externalDocs.description || ''}`);
 
                 return {
-                    // Quote property names that are not valid TS identifiers (e.g., 'with-hyphen').
                     name: /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key) ? key : `'${key}'`,
                     type: getTypeScriptType(propDef, this.config, knownTypes),
+                    // In Request mode, optionality follows valid rules. writeOnly fields are standard optional/required.
+                    // However, in complex scenarios, some fields might be strictly required in requests.
                     hasQuestionToken: !(definition.required || []).includes(key),
+                    isReadonly: !!isReadOnly,
                     docs: propDocs,
                 };
-            }));
+            }).filter((p): p is NonNullable<typeof p> => p !== null));
         }
 
-        // Add an index signature if `additionalProperties` is defined.
         if (definition.additionalProperties) {
             const returnType = definition.additionalProperties === true
                 ? 'any'
@@ -157,10 +189,7 @@ export class TypeGenerator {
     }
 
     /**
-     * Adds common Angular HTTP imports to the models file, as they are needed for the
-     * `RequestOptions` interface.
-     * @param sourceFile The ts-morph SourceFile to modify.
-     * @private
+     * Adds common Angular HTTP imports to the models file.
      */
     private addCommonAngularImports(sourceFile: SourceFile): void {
         sourceFile.addImportDeclaration({
@@ -170,10 +199,7 @@ export class TypeGenerator {
     }
 
     /**
-     * Adds a standardized `RequestOptions` interface to the models file. This provides
-     * a consistent way for generated services to accept optional HTTP request parameters.
-     * @param sourceFile The ts-morph SourceFile to modify.
-     * @private
+     * Adds the `RequestOptions` interface.
      */
     private addRequestOptionsInterface(sourceFile: SourceFile): void {
         sourceFile.addInterface({

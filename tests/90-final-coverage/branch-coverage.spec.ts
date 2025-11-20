@@ -1,11 +1,10 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { SwaggerParser } from '@src/core/parser.js';
-import { runGeneratorWithConfig } from '../shared/helpers.js';
+import { createTestProject, runGeneratorWithConfig } from '../shared/helpers.js';
 import { branchCoverageSpec, coverageSpec } from '../shared/specs.js';
 import { Resource } from '@src/core/types.js';
 import { discoverAdminResources } from '@src/service/emit/admin/resource-discovery.js';
 import { ListComponentGenerator } from '@src/service/emit/admin/list-component.generator.js';
-import { createTestProject } from '../shared/helpers.js';
 import { AdminGenerator } from '@src/service/emit/admin/admin.generator.js';
 
 describe('Final Branch Coverage Tests', () => {
@@ -91,7 +90,8 @@ describe('Final Branch Coverage Tests', () => {
 
     it('orchestrator should call admin test generator when enabled', async () => {
         const generateSpy = vi.spyOn(AdminGenerator.prototype, 'generate');
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {
+        });
 
         await runGeneratorWithConfig(coverageSpec, { admin: true, generateAdminTests: true });
 

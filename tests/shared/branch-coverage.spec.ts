@@ -4,7 +4,7 @@ import { ListComponentGenerator } from "@src/service/emit/admin/list-component.g
 import { FormComponentGenerator } from "@src/service/emit/admin/form-component.generator.js";
 import { createTestProject } from "./helpers.js";
 import { branchCoverageSpec } from "./specs.js";
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { Resource } from "@src/core/types.js";
 
 /**

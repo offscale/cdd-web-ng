@@ -79,7 +79,10 @@ describe('Emitter: ProviderGenerator', () => {
     });
 
     it('should add providers for ONLY API key when spec contains only that', () => {
-        const apiKeySpec = { ...emptySpec, components: { securitySchemes: { ApiKeyAuth: {type: 'apiKey', in: 'header', name: 'X-API-KEY'} } } };
+        const apiKeySpec = {
+            ...emptySpec,
+            components: { securitySchemes: { ApiKeyAuth: { type: 'apiKey', in: 'header', name: 'X-API-KEY' } } }
+        };
         const fileContent = runGenerator(apiKeySpec, { clientName: 'Test' });
         expect(fileContent).toContain('apiKey?: string');
         expect(fileContent).not.toContain('bearerToken?:');
@@ -89,7 +92,10 @@ describe('Emitter: ProviderGenerator', () => {
     });
 
     it('should add providers for ONLY Bearer token when spec contains only that', () => {
-        const bearerSpec = { ...emptySpec, components: { securitySchemes: { BearerAuth: {type: 'http', scheme: 'bearer'} } } };
+        const bearerSpec = {
+            ...emptySpec,
+            components: { securitySchemes: { BearerAuth: { type: 'http', scheme: 'bearer' } } }
+        };
         const fileContent = runGenerator(bearerSpec, { clientName: 'Test' });
         expect(fileContent).not.toContain('apiKey?: string');
         expect(fileContent).toContain('bearerToken?: string | (() => string)');

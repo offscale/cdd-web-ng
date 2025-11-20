@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeAll } from 'vitest';
-import { Project, ClassDeclaration, SourceFile } from 'ts-morph';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { ClassDeclaration, Project, SourceFile } from 'ts-morph';
 import { runGenerator } from '../shared/helpers.js';
 import { coverageSpec, polymorphismSpec } from '../shared/specs.js';
 
@@ -8,7 +8,14 @@ describe('E2E: Admin UI Generation', () => {
 
     // Helper to generate the admin UI and return the project
     const runAdminGen = async (spec: object) => {
-        project = await runGenerator(spec, { options: { admin: true, generateServices: true, dateType: 'string', enumStyle: 'enum' } as any });
+        project = await runGenerator(spec, {
+            options: {
+                admin: true,
+                generateServices: true,
+                dateType: 'string',
+                enumStyle: 'enum'
+            } as any
+        });
         return project;
     };
 

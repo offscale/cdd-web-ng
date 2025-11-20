@@ -2,19 +2,26 @@
 
 /**
  * @fileoverview
- * This file contains core utility functions used throughout the OpenAPI Angular generator.
+ * This file contains core utility functions used throughout the generator.
  * It includes functions for string manipulation (case conversion), TypeScript type resolution from
  * OpenAPI schemas, OpenAPI spec parsing helpers, and functions for generating unique DI token names.
  * These utilities are pure, dependency-free helpers that form the building blocks of the generation logic.
  */
 
 import { MethodDeclaration } from 'ts-morph';
-import { GeneratorConfig, Parameter, PathInfo, RequestBody, SwaggerDefinition, SwaggerResponse } from './types.js';
+import {
+    GeneratorConfig,
+    Parameter,
+    PathInfo,
+    PathItem,
+    RequestBody,
+    SpecOperation,
+    SwaggerDefinition,
+    SwaggerResponse
+} from './types.js';
 import {
     BodyParameter,
-    Operation,
     Parameter as SwaggerOfficialParameter,
-    Path,
     Response
 } from "swagger-schema-official";
 
@@ -258,11 +265,6 @@ type UnifiedParameter = SwaggerOfficialParameter & {
     content?: Record<string, { schema?: SwaggerDefinition }>
 };
 
-// Helper type that adds OpenAPI 3.x properties to the Swagger 2.0 Operation type
-type OpenAPIOperation = Operation & {
-    requestBody?: RequestBody;
-};
-
 /**
  * Flattens the nested `paths` object from an OpenAPI spec into a linear array of `PathInfo` objects.
  * It merges path-level and operation-level parameters and normalizes Swagger 2.0 `body` parameters
@@ -271,18 +273,21 @@ type OpenAPIOperation = Operation & {
  * @param swaggerPaths The `paths` object from the OpenAPI specification a.k.a `SwaggerSpec['paths']`.
  * @returns An array of processed `PathInfo` objects, or an empty array if `swaggerPaths` is undefined.
  */
-export function extractPaths(swaggerPaths: { [p: string]: Path } | undefined): PathInfo[] {
+export function extractPaths(swaggerPaths: { [p: string]: PathItem } | undefined): PathInfo[] {
     if (!swaggerPaths) {
         return [];
     }
 
     const paths: PathInfo[] = [];
-    const methods = ["get", "post", "put", "patch", "delete", "options", "head"];
+    // Added 'query' to the supported methods list for OAS 3.2 compliance.
+    const methods = ["get", "post", "put", "patch", "delete", "options", "head", "query"];
 
     for (const [path, pathItem] of Object.entries(swaggerPaths)) {
         const pathParameters: UnifiedParameter[] = (pathItem.parameters as UnifiedParameter[]) || [];
         for (const method of methods) {
-            const operation = pathItem[method as keyof Path] as OpenAPIOperation;
+            // Swagger 2.0 Path object is loosely typed here, and doesn't necessarily have 'query' prop.
+            // However, for OAS 3.2, if it exists, we want it.
+            const operation = (pathItem as any)[method] as SpecOperation;
             if (operation) {
                 const paramsMap = new Map<string, UnifiedParameter>();
                 pathParameters.forEach(p => paramsMap.set(`${p.name}:${p.in}`, p));
@@ -391,6 +396,8 @@ export function extractPaths(swaggerPaths: { [p: string]: Path } | undefined): P
                 if (operation.consumes) pathInfo.consumes = operation.consumes;
                 // Add external documentation info from operation
                 if (operation.externalDocs) pathInfo.externalDocs = operation.externalDocs;
+                // Capture security if present
+                if (operation.security) pathInfo.security = operation.security;
 
                 paths.push(pathInfo);
             }

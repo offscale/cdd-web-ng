@@ -254,6 +254,7 @@ type UnifiedParameter = SwaggerOfficialParameter & {
     style?: string,
     explode?: boolean,
     allowReserved?: boolean,
+    allowEmptyValue?: boolean,
     content?: Record<string, { schema?: SwaggerDefinition }>
 };
 
@@ -318,6 +319,9 @@ export function extractPaths(swaggerPaths: { [p: string]: Path } | undefined): P
                     }
                     if (p.allowReserved !== undefined) {
                         param.allowReserved = p.allowReserved;
+                    }
+                    if (p.allowEmptyValue !== undefined) {
+                        param.allowEmptyValue = p.allowEmptyValue;
                     }
 
                     // Swagger 2.0 collectionFormat translation
@@ -385,6 +389,8 @@ export function extractPaths(swaggerPaths: { [p: string]: Path } | undefined): P
                 if (operation.description) pathInfo.description = operation.description;
                 if (operation.tags) pathInfo.tags = operation.tags;
                 if (operation.consumes) pathInfo.consumes = operation.consumes;
+                // Add external documentation info from operation
+                if (operation.externalDocs) pathInfo.externalDocs = operation.externalDocs;
 
                 paths.push(pathInfo);
             }

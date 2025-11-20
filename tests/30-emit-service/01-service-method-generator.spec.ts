@@ -18,6 +18,13 @@ const serviceMethodGenSpec = {
         '/docs/description': { get: { tags: ['Docs'], operationId: 'getDescription', description: 'This is a description.' } },
         '/docs/both': { get: { tags: ['Docs'], operationId: 'getBoth', summary: 'Summary.', description: 'Description.' } },
         '/docs/neither': { get: { tags: ['Docs'], operationId: 'getNeither' } },
+        '/docs/external': {
+            get: {
+                tags: ['Docs'],
+                operationId: 'getExternalDocs',
+                externalDocs: { url: 'https://example.com/docs', description: 'External Info' }
+            }
+        },
         '/multipart': {
             post: {
                 operationId: 'postMultipart',
@@ -143,7 +150,8 @@ describe('Emitter: ServiceMethodGenerator', () => {
             const op = parser.operations.find((o: PathInfo) => o.operationId === operationId)!;
             op.methodName = operationId;
             methodGen.addServiceMethod(serviceClass, op);
-            return serviceClass.getMethodOrThrow(operationId).getJsDocs()[0].getDescription();
+            // Changed from getDescription() to getInnerText() to include tags like @see
+            return serviceClass.getMethodOrThrow(operationId).getJsDocs()[0].getInnerText();
         };
 
         it('should use summary only', () => {
@@ -164,6 +172,11 @@ describe('Emitter: ServiceMethodGenerator', () => {
         it('should use a fallback when no docs are provided', () => {
             const docs = addMethodWithDocs('getNeither');
             expect(docs.trim()).toBe('Performs a GET request to /docs/neither.');
+        });
+
+        it('should append external docs when available', () => {
+            const docs = addMethodWithDocs('getExternalDocs');
+            expect(docs.trim()).toContain('@see https://example.com/docs External Info');
         });
     });
 

@@ -8,13 +8,60 @@
  */
 
 import { ModuleKind, ScriptTarget } from "ts-morph";
-import { Info, Path } from 'swagger-schema-official';
+import { Path } from 'swagger-schema-official';
 
 // ===================================================================================
 // SECTION: OpenAPI / Swagger Specification Types
 // These interfaces model the structure of a parsed OpenAPI/Swagger specification,
 // normalizing differences between versions and providing a consistent API.
 // ===================================================================================
+
+/**
+ * License information for the exposed API.
+ * @see https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.1.0.md#licenseObject
+ */
+export interface LicenseObject {
+    /** The license name used for the API. */
+    name: string;
+    /** A URI for the license used for the API. */
+    url?: string;
+    /** An SPDX license identifier for the API. (OAS 3.1+) */
+    identifier?: string;
+}
+
+/**
+ * Contact information for the exposed API.
+ * @see https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.1.0.md#contactObject
+ */
+export interface ContactObject {
+    /** The identifying name of the contact person/organization. */
+    name?: string;
+    /** The URL pointing to the contact information. */
+    url?: string;
+    /** The email address of the contact person/organization. */
+    email?: string;
+}
+
+/**
+ * The object provides metadata about the API.
+ * @see https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.1.0.md#infoObject
+ */
+export interface InfoObject {
+    /** The title of the API. */
+    title: string;
+    /** A short summary of the API. (OAS 3.1+) */
+    summary?: string;
+    /** A description of the API. */
+    description?: string;
+    /** A URL to the Terms of Service for the API. */
+    termsOfService?: string;
+    /** The contact information for the exposed API. */
+    contact?: ContactObject;
+    /** The license information for the exposed API. */
+    license?: LicenseObject;
+    /** The version of the OpenAPI document. */
+    version: string;
+}
 
 /** Represents the `discriminator` object used for polymorphism in OpenAPI schemas. */
 export interface DiscriminatorObject {
@@ -76,6 +123,11 @@ export interface Parameter {
     explode?: boolean;
     /** Allows sending reserved characters through. */
     allowReserved?: boolean;
+    /**
+     * If true, clients MAY pass a zero-length string value in place of parameters that would otherwise be omitted entirely.
+     * @deprecated
+     */
+    allowEmptyValue?: boolean;
     /** A map containing the representations for the parameter. For complex serialization scenarios. */
     content?: Record<string, { schema?: SwaggerDefinition | { $ref: string } }>;
 }
@@ -92,6 +144,8 @@ export interface PathInfo {
     summary?: string;
     /** A verbose explanation of the operation behavior. */
     description?: string;
+    /** External documentation link. */
+    externalDocs?: ExternalDocumentationObject;
     /** A list of tags for API documentation control. */
     tags?: string[];
     /** The media types consumed by the operation. */
@@ -191,7 +245,7 @@ export interface SwaggerSpec {
     openapi?: string;
     swagger?: string;
     $self?: string;
-    info: Info;
+    info: InfoObject;
     paths: { [pathName: string]: Path };
     /** The incoming webhooks that MAY be received as part of this API. */
     webhooks?: { [name: string]: Path };

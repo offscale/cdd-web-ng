@@ -176,14 +176,19 @@ return encodeURIComponent(value);
 
     const name = parameter.name; 
 
-    // Handle content-based serialization (mutually exclusive with style/explode in OAS3)
-    if (parameter.content) {
-        const contentType = Object.keys(parameter.content)[0]; // Use first available content type
-        if (contentType && (contentType.includes('application/json') || contentType.includes('*/*'))) {
-            // Strict JSON serialization
-            return params.append(name, JSON.stringify(value));
-        }
+    // Handle OAS 3.2 deprecated allowEmptyValue logic.
+    if (value === '' && parameter.allowEmptyValue === false) {
+        return params;
     }
+
+    // Handle content-based serialization (mutually exclusive with style/explode in OAS3) 
+    if (parameter.content) { 
+        const contentType = Object.keys(parameter.content)[0]; // Use first available content type
+        if (contentType && (contentType.includes('application/json') || contentType.includes('*/*'))) { 
+            // Strict JSON serialization
+            return params.append(name, JSON.stringify(value)); 
+        } 
+    } 
 
     // Defaulting logic from OAS spec
     const style = parameter.style ?? 'form'; 
@@ -242,7 +247,13 @@ return encodeURIComponent(value);
             if (isObject && explode) { 
                  Object.entries(value as Record<string, any>).forEach(([key, propValue]) => { 
                     if (propValue != null) { 
-                       params = params.append(\`\${name}[\${key}]\`, this.formatValue(propValue)); 
+                       if (Array.isArray(propValue)) {
+                           propValue.forEach(item => {
+                               if (item != null) params = params.append(\`\${name}[\${key}]\`, this.formatValue(item)); 
+                           });
+                       } else {
+                           params = params.append(\`\${name}[\${key}]\`, this.formatValue(propValue)); 
+                       }
                     } 
                 }); 
                  return params; 
@@ -264,9 +275,9 @@ return encodeURIComponent(value);
         return `
     if (value === null || value === undefined) return ''; 
 
-    if (serializationType === 'json') {
-        return this.encode(JSON.stringify(value), allowReserved);
-    }
+    if (serializationType === 'json') { 
+        return this.encode(JSON.stringify(value), allowReserved); 
+    } 
 
     // Default style for path is 'simple' 
     const effectiveStyle = style || 'simple'; 
@@ -333,9 +344,9 @@ return encodeURIComponent(value);
         return `
     if (value === null || value === undefined) return ''; 
     
-    if (serializationType === 'json') {
-        return \`\${name}=\${encodeURIComponent(JSON.stringify(value))}\`;
-    }
+    if (serializationType === 'json') { 
+        return \`\${name}=\${encodeURIComponent(JSON.stringify(value))}\`; 
+    } 
 
     const effectiveStyle = style || 'form'; 
 
@@ -368,9 +379,9 @@ return encodeURIComponent(value);
         return `
     if (value === null || value === undefined) return ''; 
 
-    if (serializationType === 'json') {
-        return JSON.stringify(value);
-    }
+    if (serializationType === 'json') { 
+        return JSON.stringify(value); 
+    } 
 
     if (Array.isArray(value)) { 
         return (value as any[]).map(v => this.formatValue(v)).join(','); 

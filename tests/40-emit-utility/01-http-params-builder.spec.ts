@@ -118,6 +118,15 @@ describe('Utility: HttpParamsBuilder', () => {
             expect(decodeURIComponent(params.toString())).toBe('color[R]=100&color[G]=200&color[B]=150');
         });
 
+        it('should serialize an object with nested array values correctly', () => {
+            // "Values for the parameters are serialized by extracting the properties... The behavior for nested objects or arrays is undefined."
+            // Current workaround: flatten arrays by repeating keys
+            const param: Parameter = { name: 'filter', in: 'query', style: 'deepObject', explode: true, schema: { type: 'object', properties: {} } };
+            const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, { ids: [1, 2] });
+            // Expected: filter[ids]=1&filter[ids]=2
+            expect(decodeURIComponent(params.toString())).toBe('filter[ids]=1&filter[ids]=2');
+        });
+
         it('should fall back for unsupported explode=false', () => {
             const param: Parameter = { name: 'color', in: 'query', style: 'deepObject', explode: false, schema: { type: 'object', properties: {} } };
             const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, { R: 100 });
@@ -180,6 +189,31 @@ describe('Utility: HttpParamsBuilder', () => {
         });
     });
 
+    describe('Style: deepObject', () => {
+        it('should serialize an object with explode=true', () => {
+            const param: Parameter = { name: 'color', in: 'query', style: 'deepObject', explode: true, schema: { type: 'object', properties: {} } };
+            const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, { R: 100, G: 200, B: 150 });
+            expect(decodeURIComponent(params.toString())).toBe('color[R]=100&color[G]=200&color[B]=150');
+        });
+
+        it('should serialize an object with nested array values correctly', () => {
+            // "Values for the parameters are serialized by extracting the properties... The behavior for nested objects or arrays is undefined."
+            // Current workaround: flatten arrays by repeating keys
+            const param: Parameter = { name: 'filter', in: 'query', style: 'deepObject', explode: true, schema: { type: 'object', properties: {} } };
+            const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, { ids: [1, 2] });
+            // Expected: filter[ids]=1&filter[ids]=2
+            expect(decodeURIComponent(params.toString())).toBe('filter[ids]=1&filter[ids]=2');
+        });
+
+        it('should fall back for unsupported explode=false', () => {
+            const param: Parameter = { name: 'color', in: 'query', style: 'deepObject', explode: false, schema: { type: 'object', properties: {} } };
+            const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, { R: 100 });
+            // Fallback is just the plain value
+            expect(params.toString()).toBe('color=%5Bobject%20Object%5D'); // Default toString
+        });
+    });
+
+    // ... (rest of existing tests)
     describe('Path Parameters (serializePathParam)', () => {
         it('should return empty string for null/undefined', () => {
             expect(TestHttpParamsBuilder.serializePathParam('p', null, 'simple', false)).toBe('');

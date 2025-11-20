@@ -55,6 +55,9 @@ export class TypeGenerator {
     private generateTypeFromSchema(sourceFile: SourceFile, name: string, definition: SwaggerDefinition): void {
         const knownTypes = this.parser.schemas.map(s => s.name);
         const docs = definition.description ? [definition.description] : [];
+        if (definition.externalDocs?.url) {
+            docs.push(`@see ${definition.externalDocs.url} ${definition.externalDocs.description || ''}`.trim());
+        }
 
         // Case 1: Handle schemas with an empty `enum` array, which should resolve to `any`.
         if (definition.enum && definition.enum.length === 0) {

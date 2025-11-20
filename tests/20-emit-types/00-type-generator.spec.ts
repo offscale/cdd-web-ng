@@ -1,3 +1,5 @@
+// tests/20-emit-types/00-type-generator.spec.ts
+
 import { describe, it, expect } from 'vitest';
 import { Project } from 'ts-morph';
 import { TypeGenerator } from '@src/service/emit/type/type.generator.js';
@@ -68,5 +70,21 @@ describe('Emitter: TypeGenerator', () => {
     it('should generate TSDoc comments from descriptions', () => {
         const output = runGenerator(typeGenSpec);
         expect(output).toContain('/** A test property. */');
+    });
+
+    it('should generate JSDoc @see tags from externalDocs', () => {
+        const specWithDocs = {
+            openapi: '3.0.0', info: {}, paths: {},
+            components: {
+                schemas: {
+                    DocModel: {
+                        type: 'object',
+                        externalDocs: { url: 'https://example.com', description: 'More info' }
+                    }
+                }
+            }
+        };
+        const output = runGenerator(specWithDocs);
+        expect(output).toContain('@see https://example.com More info');
     });
 });

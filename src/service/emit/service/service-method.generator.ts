@@ -44,6 +44,14 @@ export class ServiceMethodGenerator {
         const bodyStatements = this.buildMethodBody(operation, parameters);
         const overloads = this.buildOverloads(operation.methodName, responseType, parameters);
 
+        let docText =
+            (operation.summary || operation.description || `Performs a ${operation.method} request to ${operation.path}.`) +
+            (operation.description && operation.summary ? `\n\n${operation.description}` : '');
+
+        if (operation.externalDocs?.url) {
+            docText += `\n\n@see ${operation.externalDocs.url} ${operation.externalDocs.description || ''}`.trimEnd();
+        }
+
         classDeclaration.addMethod({
             name: operation.methodName,
             parameters: [...parameters, {
@@ -54,10 +62,7 @@ export class ServiceMethodGenerator {
             returnType: 'Observable<any>',
             statements: bodyStatements,
             overloads: overloads,
-            docs: [
-                (operation.summary || operation.description || `Performs a ${operation.method} request to ${operation.path}.`) +
-                (operation.description && operation.summary ? `\n\n${operation.description}` : '')
-            ]
+            docs: [docText]
         });
     }
 

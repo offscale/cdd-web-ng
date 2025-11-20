@@ -22,12 +22,33 @@ export class HttpParamsBuilderGenerator {
             {
                 namedImports: ["HttpParams"],
                 moduleSpecifier: "@angular/common/http",
-            },
-            {
-                namedImports: ["Parameter"],
-                moduleSpecifier: "../models",
-            },
+            }
         ]);
+
+        sourceFile.addInterface({
+            name: "ParameterStub",
+            isExported: true,
+            properties: [
+                { name: "name", type: "string" },
+                { name: "in", type: "string" },
+                { name: "style", type: "string", hasQuestionToken: true },
+                { name: "explode", type: "boolean", hasQuestionToken: true },
+                { name: "allowEmptyValue", type: "boolean", hasQuestionToken: true },
+                { name: "content", type: "Record<string, any>", hasQuestionToken: true },
+                { name: "schema", type: "any", hasQuestionToken: true }
+            ]
+        });
+
+        sourceFile.addInterface({
+            name: "EncodingConfig",
+            isExported: true,
+            properties: [
+                { name: "contentType", type: "string", hasQuestionToken: true },
+                { name: "style", type: "string", hasQuestionToken: true },
+                { name: "explode", type: "boolean", hasQuestionToken: true },
+                { name: "allowReserved", type: "boolean", hasQuestionToken: true }
+            ]
+        });
 
         const classDeclaration = sourceFile.addClass({
             name: "HttpParamsBuilder",
@@ -41,7 +62,7 @@ export class HttpParamsBuilderGenerator {
             scope: Scope.Public,
             parameters: [
                 { name: "params", type: "HttpParams" },
-                { name: "parameter", type: "Parameter" },
+                { name: "parameter", type: "ParameterStub" },
                 { name: "value", type: "any" },
             ],
             returnType: "HttpParams",
@@ -53,6 +74,25 @@ export class HttpParamsBuilderGenerator {
                 "@returns The updated HttpParams instance."
             ],
             statements: this.getSerializeQueryParamBody(),
+        });
+
+        classDeclaration.addMethod({
+            name: "serializeUrlEncodedBody",
+            isStatic: true,
+            scope: Scope.Public,
+            parameters: [
+                { name: "body", type: "any" },
+                { name: "encodings", type: "Record<string, EncodingConfig>", initializer: "{}" }
+            ],
+            returnType: "HttpParams",
+            docs: [
+                "Serializes a body object into HttpParams for application/x-www-form-urlencoded requests.",
+                "Applies OpenAPI 'encoding' rules (style, explode) per property.",
+                "@param body The object to serialize.",
+                "@param encodings A map of property names to encoding configurations.",
+                "@returns An HttpParams object representing the form body."
+            ],
+            statements: this.getSerializeUrlEncodedBodyBody()
         });
 
         classDeclaration.addMethod({
@@ -165,6 +205,36 @@ return encodeURIComponent(value);
 `
         });
 
+        // Add private helper for recursive deepObject serialization
+        classDeclaration.addMethod({
+            name: "appendDeepObject",
+            isStatic: true,
+            scope: Scope.Private,
+            parameters: [
+                { name: "params", type: "HttpParams" },
+                { name: "key", type: "string" },
+                { name: "value", type: "any" }
+            ],
+            returnType: "HttpParams",
+            statements: `
+    if (value === null || value === undefined) {
+        return params;
+    }
+    
+    if (Array.isArray(value)) {
+        value.forEach((item, index) => {
+            params = this.appendDeepObject(params, \`\${key}[\${index}]\`, item);
+        });
+    } else if (typeof value === 'object' && !(value instanceof Date)) {
+        Object.entries(value).forEach(([prop, val]) => {
+            params = this.appendDeepObject(params, \`\${key}[\${prop}]\`, val);
+        });
+    } else {
+        params = params.append(key, this.formatValue(value));
+    }
+    return params;`
+        });
+
         sourceFile.formatText();
     }
 
@@ -176,10 +246,10 @@ return encodeURIComponent(value);
 
     const name = parameter.name; 
 
-    // Handle OAS 3.2 deprecated allowEmptyValue logic.
-    if (value === '' && parameter.allowEmptyValue === false) {
-        return params;
-    }
+    // Handle OAS 3.2 deprecated allowEmptyValue logic. 
+    if (value === '' && parameter.allowEmptyValue === false) { 
+        return params; 
+    } 
 
     // Handle content-based serialization (mutually exclusive with style/explode in OAS3) 
     if (parameter.content) { 
@@ -193,10 +263,10 @@ return encodeURIComponent(value);
     // Defaulting logic from OAS spec
     const style = parameter.style ?? 'form'; 
     const explode = parameter.explode ?? (style === 'form'); 
-    const schema = parameter.schema ?? { type: parameter.type }; 
+    const schema = parameter.schema ?? { type: typeof value }; // Fallback if schema is missing
 
-    const isArray = schema.type === 'array'; 
-    const isObject = schema.type === 'object'; 
+    const isArray = Array.isArray(value); 
+    const isObject = typeof value === 'object' && value !== null && !isArray && !(value instanceof Date); 
 
     switch (style) { 
         case 'form': 
@@ -245,23 +315,13 @@ return encodeURIComponent(value);
 
         case 'deepObject': 
             if (isObject && explode) { 
-                 Object.entries(value as Record<string, any>).forEach(([key, propValue]) => { 
-                    if (propValue != null) { 
-                       if (Array.isArray(propValue)) {
-                           propValue.forEach(item => {
-                               if (item != null) params = params.append(\`\${name}[\${key}]\`, this.formatValue(item)); 
-                           });
-                       } else {
-                           params = params.append(\`\${name}[\${key}]\`, this.formatValue(propValue)); 
-                       }
-                    } 
-                }); 
-                 return params; 
+                 return this.appendDeepObject(params, name, value); 
             } 
             break; 
     } 
 
     if (Array.isArray(value)) { 
+        // Fallback/default for array if style didnt match
         value.forEach(item => { 
             if (item != null) params = params.append(name, this.formatValue(item)); 
         }); 
@@ -269,6 +329,35 @@ return encodeURIComponent(value);
         params = params.append(name, this.formatValue(value)); 
     } 
     return params;`;
+    }
+
+    private getSerializeUrlEncodedBodyBody(): string {
+        return `
+    let params = new HttpParams();
+    if (body === null || body === undefined) return params;
+
+    Object.entries(body).forEach(([key, value]) => {
+        if (value === undefined || value === null) return;
+        
+        const encoding = encodings[key] || {};
+        // Default content-type for form-urlencoded is form style, explode true
+        const style = encoding.style ?? 'form';
+        const explode = encoding.explode ?? true;
+        
+        // Use existing serializeQueryParam logic by constructing a minimal parameter definition
+        const paramDef: ParameterStub = {
+            name: key,
+            in: 'query', // Reuse query logic (same as form-urlencoded)
+            style,
+            explode,
+            schema: { type: typeof value }
+        };
+        
+        params = this.serializeQueryParam(params, paramDef, value);
+    });
+
+    return params;
+        `;
     }
 
     private getSerializePathParamBody(): string {

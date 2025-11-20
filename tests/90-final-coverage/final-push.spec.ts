@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig, PathInfo } from '@src/core/types.js';
@@ -7,7 +7,7 @@ import { groupPathsByController } from '@src/service/parse.js';
 import { ServiceTestGenerator } from '@src/service/emit/test/service-test-generator.js';
 import { TypeGenerator } from '@src/service/emit/type/type.generator.js';
 import { finalCoveragePushSpec } from '../shared/final-coverage.models.js';
-import { createTestProject, runGeneratorWithConfig } from '../shared/helpers.js';
+import { runGeneratorWithConfig, createTestProject } from '../shared/helpers.js';
 import { MainIndexGenerator } from '@src/service/emit/utility/index.generator.js';
 
 describe('Final Coverage Push', () => {
@@ -18,8 +18,7 @@ describe('Final Coverage Push', () => {
     };
 
     it('core/parser should warn on external refs', () => {
-        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
-        });
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
         const parser = createParser();
         parser.resolveReference('external.json#/User');
         expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Unresolved external file reference'));
@@ -27,10 +26,7 @@ describe('Final Coverage Push', () => {
     });
 
     it('orchestrator should run without auth generation for a spec with no security', async () => {
-        const project = await runGeneratorWithConfig({
-            ...finalCoveragePushSpec,
-            components: {}
-        }, { generateServices: true });
+        const project = await runGeneratorWithConfig({ ...finalCoveragePushSpec, components: {} }, { generateServices: true });
         expect(project.getSourceFile('/generated/auth/auth.interceptor.ts')).toBeUndefined();
         expect(project.getSourceFile('/generated/auth/auth.tokens.ts')).toBeUndefined();
     });
@@ -56,8 +52,10 @@ describe('Final Coverage Push', () => {
         const project = await runGeneratorWithConfig(finalCoveragePushSpec, {});
         const urlencodedFile = project.getSourceFileOrThrow('/generated/services/urlencodedNoParams.service.ts');
         const urlencodedMethod = urlencodedFile.getClassOrThrow('UrlencodedNoParamsService').getMethodOrThrow('postUrlencodedNoParams');
-        // The generator correctly creates a `body` parameter from the requestBody, even if empty.
-        expect(urlencodedMethod.getBodyText()).toContain('return this.http.post(url, body, requestOptions as any);');
+        const body = urlencodedMethod.getBodyText();
+        // FIX: Update expectation to match new urlencoded body handling logic
+        expect(body).toContain('HttpParamsBuilder.serializeUrlEncodedBody(body, {});');
+        expect(body).toContain('return this.http.post(url, formBody, requestOptions as any);');
     });
 
     it('service/emit/utility/index.generator should handle missing services dir', () => {

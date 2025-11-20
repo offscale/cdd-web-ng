@@ -235,7 +235,6 @@ console.warn('The following querystring parameters are not automatically handled
         const nonBodyOpParams = new Set((operation.parameters ?? []).map(p => camelCase(p.name)));
         const bodyParam = parameters.find(p => !nonBodyOpParams.has(p.name!));
 
-        // --- DETECT CONTENT TYPE FOR MULTIPART / URLENCODED ---
         const hasMultipartContent = !!operation.requestBody?.content?.['multipart/form-data'];
         const hasUrlEncodedContent = !!operation.requestBody?.content?.['application/x-www-form-urlencoded'];
 
@@ -244,7 +243,9 @@ console.warn('The following querystring parameters are not automatically handled
         const formDataParams = operation.parameters?.filter(p => (p as { in?: string }).in === 'formData');
 
         const multipartContent = operation.requestBody?.content?.['multipart/form-data'];
+        const urlEncodedContent = operation.requestBody?.content?.['application/x-www-form-urlencoded'];
         const hasOas3MultipartBody = isMultipartForm && !!bodyParam && !!multipartContent;
+        const hasOas3UrlEncodedBody = isUrlEncodedForm && !!bodyParam && !!urlEncodedContent;
 
         if (isUrlEncodedForm && formDataParams?.length) {
             lines.push(`let formBody = new HttpParams();`);
@@ -253,6 +254,15 @@ console.warn('The following querystring parameters are not automatically handled
                 lines.push(`if (${paramName} != null) { formBody = formBody.append('${p.name}', ${paramName}); }`);
             });
             bodyArgument = 'formBody';
+        } else if (hasOas3UrlEncodedBody) {
+            // OAS 3.0 UrlEncoded Body Handling
+            const bodyName = bodyParam!.name;
+            const encodings = urlEncodedContent!.encoding || {};
+            const encodingMapString = JSON.stringify(encodings);
+            // We use a builder method to handle style/explode per property rules on the body object
+            lines.push(`const formBody = HttpParamsBuilder.serializeUrlEncodedBody(${bodyName}, ${encodingMapString});`);
+            bodyArgument = 'formBody';
+
         } else if (isMultipartForm && formDataParams?.length) {
             lines.push(`const formData = new FormData();`);
             formDataParams.forEach(p => {
@@ -273,10 +283,11 @@ console.warn('The following querystring parameters are not automatically handled
 
             lines.push(` Object.entries(${bodyName}).forEach(([key, value]) => {`);
             lines.push(`  if (value === undefined || value === null) return;`);
-            // Check for specific encoding first
             lines.push(`  const encoding = encodings[key];`);
             lines.push(`  if (encoding?.contentType) {`);
-            lines.push(`    const blob = new Blob([JSON.stringify(value)], { type: encoding.contentType });`);
+            // Improved Content-Type Handling: Not everything is JSON.
+            lines.push(`    const content = encoding.contentType.includes('application/json') ? JSON.stringify(value) : String(value);`);
+            lines.push(`    const blob = new Blob([content], { type: encoding.contentType });`);
             lines.push(`    formData.append(key, blob);`);
             lines.push(`  } else {`);
             // Standard append

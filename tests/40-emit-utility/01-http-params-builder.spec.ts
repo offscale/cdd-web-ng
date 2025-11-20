@@ -1,5 +1,5 @@
 import '@angular/compiler'; // Make JIT compiler available for HttpParams
-import { describe, expect, it } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { HttpParams } from '@angular/common/http';
 import { HttpParamsBuilderGenerator } from '@src/service/emit/utility/http-params-builder.js';
 import { createTestProject } from '../shared/helpers.js';
@@ -26,8 +26,9 @@ function getGeneratedBuilderClass() {
     );
 
     // 3. Evaluate the JS code in a context where `exports` is defined, mimicking a CJS environment.
+    // We mock HttpParams by passing the actual class into the function scope used by eval so "new HttpParams()" works inside the generated class.
     const moduleScope = { exports: {} };
-    new Function('exports', jsCode)(moduleScope.exports);
+    new Function('exports', 'HttpParams', jsCode)(moduleScope.exports, HttpParams);
 
     // 4. Return the exported class from our mock module's exports.
     return (moduleScope.exports as any).HttpParamsBuilder;
@@ -52,49 +53,25 @@ describe('Utility: HttpParamsBuilder', () => {
 
     describe('Style: form', () => {
         it('should serialize array with explode=false (default csv)', () => {
-            const param: Parameter = {
-                name: 'ids',
-                in: 'query',
-                style: 'form',
-                explode: false,
-                schema: { type: 'array' }
-            };
+            const param: Parameter = { name: 'ids', in: 'query', style: 'form', explode: false, schema: { type: 'array' } };
             const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, [1, 'test', 3]);
             expect(params.toString()).toBe('ids=1,test,3');
         });
 
         it('should serialize array with explode=true (repeated param)', () => {
-            const param: Parameter = {
-                name: 'ids',
-                in: 'query',
-                style: 'form',
-                explode: true,
-                schema: { type: 'array' }
-            };
+            const param: Parameter = { name: 'ids', in: 'query', style: 'form', explode: true, schema: { type: 'array' } };
             const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, [1, 'test', 3]);
             expect(params.toString()).toBe('ids=1&ids=test&ids=3');
         });
 
         it('should serialize object with explode=false', () => {
-            const param: Parameter = {
-                name: 'color',
-                in: 'query',
-                style: 'form',
-                explode: false,
-                schema: { type: 'object', properties: {} }
-            };
+            const param: Parameter = { name: 'color', in: 'query', style: 'form', explode: false, schema: { type: 'object', properties: {} } };
             const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, { R: 100, G: 200 });
             expect(params.toString()).toBe('color=R,100,G,200');
         });
 
         it('should serialize object with explode=true', () => {
-            const param: Parameter = {
-                name: 'color',
-                in: 'query',
-                style: 'form',
-                explode: true,
-                schema: { type: 'object', properties: {} }
-            };
+            const param: Parameter = { name: 'color', in: 'query', style: 'form', explode: true, schema: { type: 'object', properties: {} } };
             const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, { R: 100, G: 200 });
             expect(params.toString()).toBe('R=100&G=200');
         });
@@ -108,25 +85,13 @@ describe('Utility: HttpParamsBuilder', () => {
 
     describe('Style: spaceDelimited', () => {
         it('should serialize array with explode=false', () => {
-            const param: Parameter = {
-                name: 'ids',
-                in: 'query',
-                style: 'spaceDelimited',
-                explode: false,
-                schema: { type: 'array' }
-            };
+            const param: Parameter = { name: 'ids', in: 'query', style: 'spaceDelimited', explode: false, schema: { type: 'array' } };
             const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, [1, 2, 3]);
             expect(params.toString()).toBe('ids=1%202%203');
         });
 
         it('should fall back for unsupported explode=true', () => {
-            const param: Parameter = {
-                name: 'ids',
-                in: 'query',
-                style: 'spaceDelimited',
-                explode: true,
-                schema: { type: 'array' }
-            };
+            const param: Parameter = { name: 'ids', in: 'query', style: 'spaceDelimited', explode: true, schema: { type: 'array' } };
             const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, [1, 2, 3]);
             // Fallback behavior is repeated param name, same as `form`, `explode=true`
             expect(params.toString()).toBe('ids=1&ids=2&ids=3');
@@ -135,25 +100,13 @@ describe('Utility: HttpParamsBuilder', () => {
 
     describe('Style: pipeDelimited', () => {
         it('should serialize array with explode=false', () => {
-            const param: Parameter = {
-                name: 'ids',
-                in: 'query',
-                style: 'pipeDelimited',
-                explode: false,
-                schema: { type: 'array' }
-            };
+            const param: Parameter = { name: 'ids', in: 'query', style: 'pipeDelimited', explode: false, schema: { type: 'array' } };
             const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, [1, 2, 3]);
             expect(params.toString()).toBe('ids=1%7C2%7C3');
         });
 
         it('should fall back for unsupported explode=true', () => {
-            const param: Parameter = {
-                name: 'ids',
-                in: 'query',
-                style: 'pipeDelimited',
-                explode: true,
-                schema: { type: 'array' }
-            };
+            const param: Parameter = { name: 'ids', in: 'query', style: 'pipeDelimited', explode: true, schema: { type: 'array' } };
             const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, [1, 2, 3]);
             expect(params.toString()).toBe('ids=1&ids=2&ids=3');
         });
@@ -161,44 +114,32 @@ describe('Utility: HttpParamsBuilder', () => {
 
     describe('Style: deepObject', () => {
         it('should serialize an object with explode=true', () => {
-            const param: Parameter = {
-                name: 'color',
-                in: 'query',
-                style: 'deepObject',
-                explode: true,
-                schema: { type: 'object', properties: {} }
-            };
-            const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, {
-                R: 100,
-                G: 200,
-                B: 150
-            });
+            const param: Parameter = { name: 'color', in: 'query', style: 'deepObject', explode: true, schema: { type: 'object', properties: {} } };
+            const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, { R: 100, G: 200, B: 150 });
             expect(decodeURIComponent(params.toString())).toBe('color[R]=100&color[G]=200&color[B]=150');
+        });
+
+        it('should serialize deeply nested objects recursively', () => {
+            const param: Parameter = { name: 'filter', in: 'query', style: 'deepObject', explode: true, schema: { type: 'object', properties: {} } };
+            const val = { user: { name: { first: 'John', last: 'Doe' } } };
+            const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, val);
+            // Expected: filter[user][name][first]=John&filter[user][name][last]=Doe
+            const str = decodeURIComponent(params.toString());
+            expect(str).toContain('filter[user][name][first]=John');
+            expect(str).toContain('filter[user][name][last]=Doe');
         });
 
         it('should serialize an object with nested array values correctly', () => {
             // "Values for the parameters are serialized by extracting the properties... The behavior for nested objects or arrays is undefined."
-            // Current workaround: flatten arrays by repeating keys
-            const param: Parameter = {
-                name: 'filter',
-                in: 'query',
-                style: 'deepObject',
-                explode: true,
-                schema: { type: 'object', properties: {} }
-            };
+            // Current implementation: recursive indexing
+            const param: Parameter = { name: 'filter', in: 'query', style: 'deepObject', explode: true, schema: { type: 'object', properties: {} } };
             const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, { ids: [1, 2] });
-            // Expected: filter[ids]=1&filter[ids]=2
-            expect(decodeURIComponent(params.toString())).toBe('filter[ids]=1&filter[ids]=2');
+            // Expected: filter[ids][0]=1&filter[ids][1]=2
+            expect(decodeURIComponent(params.toString())).toBe('filter[ids][0]=1&filter[ids][1]=2');
         });
 
         it('should fall back for unsupported explode=false', () => {
-            const param: Parameter = {
-                name: 'color',
-                in: 'query',
-                style: 'deepObject',
-                explode: false,
-                schema: { type: 'object', properties: {} }
-            };
+            const param: Parameter = { name: 'color', in: 'query', style: 'deepObject', explode: false, schema: { type: 'object', properties: {} } };
             const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, { R: 100 });
             // Fallback is just the plain value
             expect(params.toString()).toBe('color=%5Bobject%20Object%5D'); // Default toString
@@ -214,35 +155,18 @@ describe('Utility: HttpParamsBuilder', () => {
         });
 
         it('should handle nullish values inside arrays and objects', () => {
-            const param: Parameter = {
-                name: 'items',
-                in: 'query',
-                style: 'form',
-                explode: true,
-                schema: { type: 'array' }
-            };
+            const param: Parameter = { name: 'items', in: 'query', style: 'form', explode: true, schema: { type: 'array' } };
             const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, [1, null, 3, undefined]);
             expect(params.toString()).toBe('items=1&items=3');
 
-            const objParam: Parameter = {
-                name: 'meta',
-                in: 'query',
-                style: 'form',
-                explode: true,
-                schema: { type: 'object', properties: {} }
-            };
-            const params2 = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), objParam, {
-                a: 1,
-                b: null,
-                c: 3
-            });
+            const objParam: Parameter = { name: 'meta', in: 'query', style: 'form', explode: true, schema: { type: 'object', properties: {} } };
+            const params2 = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), objParam, { a: 1, b: null, c: 3 });
             expect(params2.keys().sort().join('&')).toBe('a&c');
             expect(params2.toString()).toBe('a=1&c=3');
         });
     });
 
-    describe('Strict Content JSON Serialization (Mutation Testing)', () => {
-
+    describe('Strict Content JSON Serialization', () => {
         it('should serialize Query Param as JSON if content type is application/json', () => {
             const param: Parameter = {
                 name: 'filter',
@@ -275,53 +199,6 @@ describe('Utility: HttpParamsBuilder', () => {
         });
     });
 
-    describe('Style: deepObject', () => {
-        it('should serialize an object with explode=true', () => {
-            const param: Parameter = {
-                name: 'color',
-                in: 'query',
-                style: 'deepObject',
-                explode: true,
-                schema: { type: 'object', properties: {} }
-            };
-            const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, {
-                R: 100,
-                G: 200,
-                B: 150
-            });
-            expect(decodeURIComponent(params.toString())).toBe('color[R]=100&color[G]=200&color[B]=150');
-        });
-
-        it('should serialize an object with nested array values correctly', () => {
-            // "Values for the parameters are serialized by extracting the properties... The behavior for nested objects or arrays is undefined."
-            // Current workaround: flatten arrays by repeating keys
-            const param: Parameter = {
-                name: 'filter',
-                in: 'query',
-                style: 'deepObject',
-                explode: true,
-                schema: { type: 'object', properties: {} }
-            };
-            const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, { ids: [1, 2] });
-            // Expected: filter[ids]=1&filter[ids]=2
-            expect(decodeURIComponent(params.toString())).toBe('filter[ids]=1&filter[ids]=2');
-        });
-
-        it('should fall back for unsupported explode=false', () => {
-            const param: Parameter = {
-                name: 'color',
-                in: 'query',
-                style: 'deepObject',
-                explode: false,
-                schema: { type: 'object', properties: {} }
-            };
-            const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, { R: 100 });
-            // Fallback is just the plain value
-            expect(params.toString()).toBe('color=%5Bobject%20Object%5D'); // Default toString
-        });
-    });
-
-    // ... (rest of existing tests)
     describe('Path Parameters (serializePathParam)', () => {
         it('should return empty string for null/undefined', () => {
             expect(TestHttpParamsBuilder.serializePathParam('p', null, 'simple', false)).toBe('');
@@ -353,16 +230,10 @@ describe('Utility: HttpParamsBuilder', () => {
             expect(TestHttpParamsBuilder.serializePathParam('id', [3, 4, 5], 'simple', false)).toBe('3,4,5');
         });
         it('simple: object (explode=false)', () => {
-            expect(TestHttpParamsBuilder.serializePathParam('id', {
-                role: 'admin',
-                name: 'test'
-            }, 'simple', false)).toBe('role,admin,name,test');
+            expect(TestHttpParamsBuilder.serializePathParam('id', {role: 'admin', name: 'test'}, 'simple', false)).toBe('role,admin,name,test');
         });
         it('simple: object (explode=true)', () => {
-            expect(TestHttpParamsBuilder.serializePathParam('id', {
-                role: 'admin',
-                name: 'test'
-            }, 'simple', true)).toBe('role=admin,name=test');
+            expect(TestHttpParamsBuilder.serializePathParam('id', {role: 'admin', name: 'test'}, 'simple', true)).toBe('role=admin,name=test');
         });
 
         // Style: label
@@ -376,10 +247,10 @@ describe('Utility: HttpParamsBuilder', () => {
             expect(TestHttpParamsBuilder.serializePathParam('id', [3, 4, 5], 'label', true)).toBe('.3.4.5');
         });
         it('label: object (explode=false)', () => {
-            expect(TestHttpParamsBuilder.serializePathParam('id', { role: 'admin' }, 'label', false)).toBe('.role,admin');
+            expect(TestHttpParamsBuilder.serializePathParam('id', {role: 'admin'}, 'label', false)).toBe('.role,admin');
         });
         it('label: object (explode=true)', () => {
-            expect(TestHttpParamsBuilder.serializePathParam('id', { role: 'admin' }, 'label', true)).toBe('.role=admin');
+            expect(TestHttpParamsBuilder.serializePathParam('id', {role: 'admin'}, 'label', true)).toBe('.role=admin');
         });
 
         // Style: matrix
@@ -393,13 +264,10 @@ describe('Utility: HttpParamsBuilder', () => {
             expect(TestHttpParamsBuilder.serializePathParam('id', [3, 4], 'matrix', true)).toBe(';id=3;id=4');
         });
         it('matrix: object (explode=false)', () => {
-            expect(TestHttpParamsBuilder.serializePathParam('id', { role: 'admin' }, 'matrix', false)).toBe(';id=role,admin');
+            expect(TestHttpParamsBuilder.serializePathParam('id', {role: 'admin'}, 'matrix', false)).toBe(';id=role,admin');
         });
         it('matrix: object (explode=true)', () => {
-            expect(TestHttpParamsBuilder.serializePathParam('id', {
-                role: 'admin',
-                b: 2
-            }, 'matrix', true)).toBe(';role=admin;b=2');
+            expect(TestHttpParamsBuilder.serializePathParam('id', {role: 'admin', b: 2}, 'matrix', true)).toBe(';role=admin;b=2');
         });
     });
 
@@ -421,11 +289,11 @@ describe('Utility: HttpParamsBuilder', () => {
         });
 
         it('form: object (explode=true)', () => {
-            expect(TestHttpParamsBuilder.serializeCookieParam('id', { a: 1, b: 2 }, 'form', true)).toBe('a=1; b=2');
+            expect(TestHttpParamsBuilder.serializeCookieParam('id', {a: 1, b: 2}, 'form', true)).toBe('a=1; b=2');
         });
 
         it('form: object (explode=false)', () => {
-            expect(TestHttpParamsBuilder.serializeCookieParam('id', { a: 1, b: 2 }, 'form', false)).toBe('id=a,1,b,2');
+            expect(TestHttpParamsBuilder.serializeCookieParam('id', {a: 1, b: 2}, 'form', false)).toBe('id=a,1,b,2');
         });
     });
 
@@ -452,6 +320,51 @@ describe('Utility: HttpParamsBuilder', () => {
         it('object value (explode=true)', () => {
             const val = { a: 1, b: 2 };
             expect(TestHttpParamsBuilder.serializeHeaderParam('X-Obj', val, true)).toBe('a=1,b=2');
+        });
+    });
+
+    describe('UrlEncoded Body Serialization', () => {
+        it('should serialize a flat object using default form style', () => {
+            const body = { foo: 'bar', baz: 123 };
+            const params: HttpParams = TestHttpParamsBuilder.serializeUrlEncodedBody(body, {});
+            expect(params.toString()).toBe('foo=bar&baz=123');
+        });
+
+        it('should handle explode=false for arrays via encoding config', () => {
+            const body = { tags: ['a', 'b'] };
+            const encoding = { tags: { style: 'form', explode: false } };
+            const params = TestHttpParamsBuilder.serializeUrlEncodedBody(body, encoding);
+            expect(params.toString()).toBe('tags=a,b');
+        });
+
+        it('should handle explode=true for arrays via encoding config', () => {
+            const body = { tags: ['a', 'b'] };
+            const encoding = { tags: { style: 'form', explode: true } };
+            const params = TestHttpParamsBuilder.serializeUrlEncodedBody(body, encoding);
+            expect(params.toString()).toBe('tags=a&tags=b');
+        });
+
+        it('should handle spaceDelimited style in body', () => {
+            const body = { scopes: ['read', 'write'] };
+            const encoding = { scopes: { style: 'spaceDelimited', explode: false } };
+            const params = TestHttpParamsBuilder.serializeUrlEncodedBody(body, encoding);
+            expect(params.toString()).toBe('scopes=read%20write');
+        });
+
+        it('should handle deepObject style in body', () => {
+            // Testing that our deepObject recursion works in the body context as well
+            const body = { meta: { page: 1, sort: { by: 'date' } } };
+            const encoding = { meta: { style: 'deepObject', explode: true } };
+            const params = TestHttpParamsBuilder.serializeUrlEncodedBody(body, encoding);
+            const str = decodeURIComponent(params.toString());
+            expect(str).toContain('meta[page]=1');
+            expect(str).toContain('meta[sort][by]=date');
+        });
+
+        it('should ignore null/undefined body properties', () => {
+            const body = { foo: 'bar', empty: null, undef: undefined };
+            const params = TestHttpParamsBuilder.serializeUrlEncodedBody(body, {});
+            expect(params.toString()).toBe('foo=bar');
         });
     });
 });

@@ -4,7 +4,15 @@
  * parsing, and providing a unified interface to OpenAPI (3.x) and Swagger (2.x) specifications.
  */
 
-import { GeneratorConfig, PathInfo, SecurityScheme, ServerObject, SwaggerDefinition, SwaggerSpec, LinkObject } from './types.js';
+import {
+    GeneratorConfig,
+    LinkObject,
+    PathInfo,
+    SecurityScheme,
+    ServerObject,
+    SwaggerDefinition,
+    SwaggerSpec
+} from './types.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';

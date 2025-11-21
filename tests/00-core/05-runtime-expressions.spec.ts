@@ -142,7 +142,13 @@ describe('Core: Runtime Expression Evaluator', () => {
             });
 
             it('should return undefined if response is missing', () => {
-                const noRes = { ...mockContext, response: undefined };
+                const noRes: RuntimeContext = {
+                    url: mockContext.url,
+                    method: mockContext.method,
+                    statusCode: mockContext.statusCode,
+                    request: mockContext.request
+                    // response is undefined
+                };
                 expect(evaluateRuntimeExpression('$response.body', noRes)).toBeUndefined();
             });
         });

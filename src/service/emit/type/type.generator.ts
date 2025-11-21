@@ -1,15 +1,23 @@
 import * as path from "node:path";
-import { Project, SourceFile, JSDocStructure, JSDocTagStructure, OptionalKind, PropertySignatureStructure, WriterFunction } from "ts-morph";
-import { GeneratorConfig, SwaggerDefinition, PathItem, LinkObject, HeaderObject } from "../../../core/types.js";
-import { SwaggerParser } from "../../../core/parser.js";
-import { extractPaths, getTypeScriptType, pascalCase } from "../../../core/utils.js";
+import {
+    JSDocStructure,
+    JSDocTagStructure,
+    OptionalKind,
+    Project,
+    PropertySignatureStructure,
+    SourceFile
+} from "ts-morph";
+import { GeneratorConfig, HeaderObject, PathItem, SwaggerDefinition } from "@src/core/types.js";
+import { SwaggerParser } from "@src/core/parser.js";
+import { extractPaths, getTypeScriptType, pascalCase } from "@src/core/utils.js";
 
 export class TypeGenerator {
     constructor(
         private parser: SwaggerParser,
         private project: Project,
         private config: GeneratorConfig
-    ) { }
+    ) {
+    }
 
     public generate(outputDir: string): void {
         const modelsDir = path.join(outputDir, "models");
@@ -92,7 +100,10 @@ export class TypeGenerator {
                     properties: properties,
                     docs: [{
                         description: `Parameters for the '${linkName}' link.`,
-                        tags: [{ tagName: 'see', text: 'https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.1.0.md#linkObject' }]
+                        tags: [{
+                            tagName: 'see',
+                            text: 'https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.1.0.md#linkObject'
+                        }]
                     }]
                 });
             }
@@ -101,7 +112,7 @@ export class TypeGenerator {
         // 5. Response Headers
         allPaths.forEach(op => {
             if (op.responses) {
-                Object. entries(op.responses).forEach(([code, resp]) => {
+                Object.entries(op.responses).forEach(([code, resp]) => {
                     if (resp.headers) {
                         // Naming: OperationId + Code + Headers, e.g., GetUser200Headers
                         const opIdBase = op.operationId ? pascalCase(op.operationId) : pascalCase(op.method + op.path);
@@ -220,14 +231,20 @@ export class TypeGenerator {
                 name: `${modelName}Request`,
                 isExported: true,
                 properties: requestProps,
-                docs: this.buildJSDoc({ ...def, description: `Model for sending ${modelName} data (excludes read-only fields).` })
+                docs: this.buildJSDoc({
+                    ...def,
+                    description: `Model for sending ${modelName} data (excludes read-only fields).`
+                })
             });
             this.applyComposition(requestDecl, def, { excludeReadOnly: true });
             this.applyIndexSignature(requestDecl, def);
         }
     }
 
-    private applyComposition(interfaceDecl: any, def: SwaggerDefinition, options: { excludeReadOnly?: boolean, excludeWriteOnly?: boolean }): void {
+    private applyComposition(interfaceDecl: any, def: SwaggerDefinition, options: {
+        excludeReadOnly?: boolean,
+        excludeWriteOnly?: boolean
+    }): void {
         if (def.allOf) {
             const extendsTypes: string[] = [];
             def.allOf.forEach(sub => {
@@ -275,7 +292,10 @@ export class TypeGenerator {
         }
     }
 
-    private getInterfaceProperties(def: SwaggerDefinition, options: { excludeReadOnly?: boolean, excludeWriteOnly?: boolean }): OptionalKind<PropertySignatureStructure>[] {
+    private getInterfaceProperties(def: SwaggerDefinition, options: {
+        excludeReadOnly?: boolean,
+        excludeWriteOnly?: boolean
+    }): OptionalKind<PropertySignatureStructure>[] {
         const props: OptionalKind<PropertySignatureStructure>[] = [];
         if (def.properties) {
             Object.entries(def.properties).forEach(([propName, propDef]) => {
@@ -291,7 +311,7 @@ export class TypeGenerator {
                     type: type,
                     hasQuestionToken: !isRequired,
                     docs: this.buildJSDoc(propDef),
-                    isReadonly: options.excludeWriteOnly && !!propDef.readOnly
+                    ...(options.excludeWriteOnly && !!propDef.readOnly && { isReadonly: true })
                 });
             });
         }

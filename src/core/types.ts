@@ -236,9 +236,9 @@ export interface PathInfo {
     /** Security requirements specific to this operation. keys are definitions, values are scopes. */
     security?: { [key: string]: string[] }[];
     /** An alternate server array to service this operation. (OAS 3+) */
-    servers?: ServerObject[];
+    servers?: ServerObject[] | undefined; // Allow undefined explicit assignment
     /** A map of possible out-of band callbacks related to the parent operation. (OAS 3+) */
-    callbacks?: Record<string, PathItem | { $ref: string }>;
+    callbacks?: Record<string, PathItem | { $ref: string }> | undefined; // Allow undefined explicit assignment
 }
 
 /** A single encoding definition for a multipart property. */

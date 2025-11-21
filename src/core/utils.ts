@@ -11,20 +11,16 @@
 import { MethodDeclaration } from 'ts-morph';
 import {
     GeneratorConfig,
+    HeaderObject,
     Parameter,
     PathInfo,
     PathItem,
     RequestBody,
     SpecOperation,
     SwaggerDefinition,
-    SwaggerResponse,
-    HeaderObject
+    SwaggerResponse
 } from './types.js';
-import {
-    BodyParameter,
-    Parameter as SwaggerOfficialParameter,
-    Response
-} from "swagger-schema-official";
+import { BodyParameter, Parameter as SwaggerOfficialParameter, Response } from "swagger-schema-official";
 
 // Re-export runtime expressions
 export * from './runtime-expressions.js';

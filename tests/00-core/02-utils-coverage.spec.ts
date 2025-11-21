@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import * as utils from '@src/core/utils.js';
-import { GeneratorConfig, RequestBody, SwaggerDefinition, SwaggerResponse } from '@src/core/types.js';
+import { GeneratorConfig, RequestBody, SwaggerDefinition } from '@src/core/types.js';
 import { branchCoverageSpec, typeGenSpec } from '../shared/specs.js';
 
 /**

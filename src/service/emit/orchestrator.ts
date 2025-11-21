@@ -1,5 +1,3 @@
-// src/service/emit/orchestrator.ts
-
 import { Project } from 'ts-morph';
 import { posix as path } from 'node:path';
 import { groupPathsByController } from '../parse.js';
@@ -20,10 +18,15 @@ import { ProviderGenerator } from './utility/provider.generator.js';
 import { MainIndexGenerator, ServiceIndexGenerator } from './utility/index.generator.js';
 import { ServiceTestGenerator } from "./test/service-test-generator.js";
 import { ServerUrlGenerator } from './utility/server-url.generator.js';
+import { XmlBuilderGenerator } from './utility/xml-builder.generator.js';
+import { InfoGenerator } from "./utility/info.generator.js";
 
 export async function emitClientLibrary(outputRoot: string, parser: SwaggerParser, config: GeneratorConfig, project: Project): Promise<void> {
     new TypeGenerator(parser, project, config).generate(outputRoot);
     console.log('✅ Models generated.');
+
+    // Always generate the info file, even if services are disabled, as it's general metadata.
+    new InfoGenerator(parser, project).generate(outputRoot);
 
     if (config.options.generateServices ?? true) {
         const servicesDir = path.join(outputRoot, 'services');
@@ -40,6 +43,7 @@ export async function emitClientLibrary(outputRoot: string, parser: SwaggerParse
         new HttpParamsBuilderGenerator(project).generate(outputRoot);
         new FileDownloadGenerator(project).generate(outputRoot);
         new ServerUrlGenerator(parser, project).generate(outputRoot);
+        new XmlBuilderGenerator(project).generate(outputRoot);
 
         if (config.options.dateType === 'Date') {
             new DateTransformerGenerator(project).generate(outputRoot);

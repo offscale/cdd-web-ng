@@ -13,13 +13,21 @@ import { HttpParamsBuilderGenerator } from '@src/service/emit/utility/http-param
 
 describe('Emitter: ServiceGenerator', () => {
 
-    const createTestEnvironment = (spec: object, configOverrides: Partial<GeneratorConfig['options']> = {}) => {
+    const createTestEnvironment = (spec: any, configOverrides: Partial<GeneratorConfig['options']> = {}) => {
         const project = new Project({ useInMemoryFileSystem: true });
         const config: GeneratorConfig = {
             input: '', output: '/out', clientName: 'default',
             options: { dateType: 'string', enumStyle: 'enum', ...configOverrides }
         };
-        const parser = new SwaggerParser(spec as any, config);
+
+        // Patch spec to ensure it passes validation if minimal/partial
+        const safeSpec = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
+            ...spec
+        };
+
+        const parser = new SwaggerParser(safeSpec, config);
 
         // Pre-generate dependencies
         new TypeGenerator(parser, project, config).generate('/out');
@@ -41,18 +49,16 @@ describe('Emitter: ServiceGenerator', () => {
         const method = serviceClass.getMethods().find(m => m.getName() === 'updateUser' && m.getParameters().some(p => p.getName() === 'user'))!;
         const body = method.getBodyText() ?? '';
 
-        // Updated expectation: Path parameters are now serialized via HttpParamsBuilder (id, style=simple, explode=false, allowReserved=false)
-        expect(body).toContain("const url = `${this.basePath}/users/${HttpParamsBuilder.serializePathParam('id', id, 'simple', false, false)}`;");
-        // Assert the new, correct code generation pattern
+        expect(body).toContain("const basePath = this.basePath;");
+        expect(body).toContain("const url = `${basePath}/users/${HttpParamsBuilder.serializePathParam('id', id, 'simple', false, false)}`;");
         expect(body).toContain("return this.http.put(url, user, requestOptions as any);");
-        expect(body).not.toContain("finalOptions.body = user;"); // Ensure old pattern is gone
+        expect(body).not.toContain("finalOptions.body = user;");
     });
 
     it('should generate a void return type for 204 responses', () => {
         const project = createTestEnvironment(coverageSpec);
         const serviceClass = project.getSourceFileOrThrow('/out/services/noContent.service.ts').getClassOrThrow('NoContentService');
         const method = serviceClass.getMethodOrThrow('deleteNoContent');
-        // The default overload (observe: 'body') is the first one now
         const firstOverload = method.getOverloads()[0]!;
         expect(firstOverload.getReturnType().getText()).toBe('Observable<void>');
     });
@@ -70,10 +76,7 @@ describe('Emitter: ServiceGenerator', () => {
         const project = createTestEnvironment(branchCoverageSpec, {
             customizeMethodName: (opId: string) => `custom_${opId}`
         });
-        // The tag was changed to 'NoOperationId' which creates 'noOperationId.service.ts'
         const serviceFile = project.getSourceFileOrThrow('/out/services/noOperationId.service.ts');
-        // The generator should ignore the customizer and create a name from the path.
-        // head /no-operation-id -> headNoOperationId
         const serviceClass = serviceFile.getClassOrThrow('NoOperationIdService');
         expect(serviceClass.getMethod('headNoOperationId')).toBeDefined();
     });
@@ -99,7 +102,6 @@ describe('Emitter: ServiceGenerator', () => {
         const serviceFile = project.getSourceFileOrThrow('/out/services/stringArray.service.ts');
         const importDecl = serviceFile.getImportDeclaration(d => d.getModuleSpecifierValue() === '../models');
         const namedImports = importDecl!.getNamedImports().map(ni => ni.getName());
-        // Should only have RequestOptions, not 'string' or other primitives.
         expect(namedImports).toEqual(['RequestOptions']);
     });
 
@@ -108,8 +110,6 @@ describe('Emitter: ServiceGenerator', () => {
         const serviceFile = project.getSourceFileOrThrow('/out/services/users.service.ts');
         const importDecl = serviceFile.getImportDeclaration('../models')!;
         const namedImports = importDecl.getNamedImports().map(i => i.getName());
-        // The `/users/{id}` path parameter is a string, so 'string' should not be imported.
-        // It should still import `User` for other methods in that service.
         expect(namedImports).not.toContain('string');
         expect(namedImports).toContain('User');
     });
@@ -142,7 +142,6 @@ describe('Emitter: ServiceGenerator', () => {
 
         const project = createTestEnvironment(specWithOverride);
         const serviceFile = project.getSourceFileOrThrow('/out/services/public.service.ts');
-        // We iterate imports to find one coming from tokens.
         const authImport = serviceFile.getImportDeclarations().find(d => {
             const specifier = d.getModuleSpecifierValue();
             return specifier.includes('auth.tokens');
@@ -170,7 +169,6 @@ describe('Emitter: ServiceGenerator', () => {
 
         const project = createTestEnvironment(specWithoutGlobalSec);
         const serviceFile = project.getSourceFileOrThrow('/out/services/public.service.ts');
-        // Check across all imports
         const authImport = serviceFile.getImportDeclarations().find(d => {
             const specifier = d.getModuleSpecifierValue();
             return specifier.includes('auth.tokens');

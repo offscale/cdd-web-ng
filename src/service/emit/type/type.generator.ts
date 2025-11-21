@@ -1,221 +1,332 @@
-import { Project, SourceFile } from 'ts-morph';
-import { SwaggerParser } from '../../../core/parser.js';
-import { GeneratorConfig, SwaggerDefinition } from '../../../core/types.js';
-import { getTypeScriptType, pascalCase } from '../../../core/utils.js';
-import { TYPE_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
+import * as path from "node:path";
+import { Project, SourceFile, JSDocStructure, JSDocTagStructure, OptionalKind, PropertySignatureStructure, WriterFunction } from "ts-morph";
+import { GeneratorConfig, SwaggerDefinition, PathItem, LinkObject, HeaderObject } from "../../../core/types.js";
+import { SwaggerParser } from "../../../core/parser.js";
+import { extractPaths, getTypeScriptType, pascalCase } from "../../../core/utils.js";
 
-/**
- * Generates the `models/index.ts` file, which contains all TypeScript interfaces,
- * enums, and type aliases derived from the schemas in an OpenAPI specification.
- * This class is responsible for interpreting various schema structures (`allOf`, `enum`, `object`, etc.)
- * and converting them into appropriate, well-formed TypeScript types.
- */
 export class TypeGenerator {
-    /**
-     * @param parser The `SwaggerParser` instance containing the loaded specification.
-     * @param project The `ts-morph` project instance for AST manipulation.
-     * @param config The global generator configuration.
-     */
     constructor(
-        private readonly parser: SwaggerParser,
-        private readonly project: Project,
-        private readonly config: GeneratorConfig
-    ) {
-    }
+        private parser: SwaggerParser,
+        private project: Project,
+        private config: GeneratorConfig
+    ) { }
 
-    /**
-     * The main entry point for the generator. It creates the `models/index.ts` file
-     * and populates it with all the generated types from the specification.
-     * @param outDir The root output directory for the generated library (e.g., 'generated').
-     */
-    public generate(outDir: string): void {
-        const modelsDir = `${outDir}/models`;
-        this.project.getFileSystem().mkdirSync(modelsDir);
-        const sourceFile = this.project.createSourceFile(`${modelsDir}/index.ts`, '', { overwrite: true });
+    public generate(outputDir: string): void {
+        const modelsDir = path.join(outputDir, "models");
+        const filePath = path.join(modelsDir, "index.ts");
+        const sourceFile = this.project.createSourceFile(filePath, "", { overwrite: true });
 
-        sourceFile.addStatements(TYPE_GENERATOR_HEADER_COMMENT);
-        this.addCommonAngularImports(sourceFile);
+        const definitions = this.parser.schemas;
 
-        for (const schema of this.parser.schemas) {
-            this.generateTypeFromSchema(sourceFile, schema.name, schema.definition);
-        }
+        const processDefinition = (name: string, def: SwaggerDefinition) => {
+            if (def.enum) {
+                this.generateEnum(sourceFile, name, def);
+            } else if (this.shouldGenerateInterface(def)) {
+                this.generateInterface(sourceFile, name, def);
+            } else {
+                this.generateTypeAlias(sourceFile, name, def);
+            }
+        };
 
-        this.generateWebhookTypes(sourceFile);
+        // 1. Type Definitions
+        definitions.forEach(def => processDefinition(def.name, def.definition));
 
-        this.addRequestOptionsInterface(sourceFile);
-    }
-
-    private generateWebhookTypes(sourceFile: SourceFile): void {
-        const spec = this.parser.spec;
-        if (!spec.webhooks) return;
-
-        for (const [name, pathItem] of Object.entries(spec.webhooks)) {
-            const methods = ['get', 'post', 'put', 'delete', 'patch', 'options', 'head', 'trace'];
-            for (const method of methods) {
-                const operation = (pathItem as any)[method];
-                if (operation && operation.requestBody && operation.requestBody.content) {
-                    for (const [_, content] of Object.entries(operation.requestBody.content)) {
-                        if ((content as any).schema) {
-                            const typeName = `${pascalCase(name)}Webhook`;
-                            const description = operation.description || operation.summary || `Webhook payload for ${name}`;
-                            const definition = (content as any).schema as SwaggerDefinition;
-                            const definitionWithDocs = {
-                                ...definition,
-                                description: definition.description || description
-                            };
-                            this.generateTypeFromSchema(sourceFile, typeName, definitionWithDocs);
-                        }
+        // 2. Webhooks (treated as models for payload typing)
+        const spec = this.parser.getSpec();
+        if (spec.webhooks) {
+            Object.entries(spec.webhooks).forEach(([name, pathItem]) => {
+                const postOp = (pathItem as any).post;
+                if (postOp && postOp.requestBody) {
+                    const content = postOp.requestBody.content || {};
+                    const jsonContent = content['application/json'] || content['*/*'];
+                    if (jsonContent && jsonContent.schema) {
+                        const modelName = pascalCase(name) + 'Webhook';
+                        processDefinition(modelName, jsonContent.schema as SwaggerDefinition);
                     }
                 }
-            }
+            });
         }
+
+        // 3. Callbacks
+        const allPaths = extractPaths(spec.paths);
+        allPaths.forEach(op => {
+            if (op.callbacks) {
+                Object.entries(op.callbacks).forEach(([callbackName, callbackObj]) => {
+                    const resolvedCallback = this.parser.resolve(callbackObj) as Record<string, PathItem>;
+                    if (!resolvedCallback) return;
+
+                    // Iterate through the runtime expression URLs in the callback definition
+                    Object.values(resolvedCallback).forEach((pathItem: PathItem) => {
+                        // Iterate methods in the callback path item
+                        ['post', 'put', 'patch'].forEach(method => {
+                            const operation = pathItem[method];
+                            if (operation && operation.requestBody) {
+                                const content = operation.requestBody.content || {};
+                                const jsonContent = content['application/json'] || content['*/*'];
+                                if (jsonContent && jsonContent.schema) {
+                                    const opIdBase = op.operationId ? pascalCase(op.operationId) : pascalCase(op.method + op.path);
+                                    const modelName = `${opIdBase}${pascalCase(callbackName)}Request`;
+                                    processDefinition(modelName, jsonContent.schema as SwaggerDefinition);
+                                }
+                            }
+                        });
+                    });
+                });
+            }
+        });
+
+        // 4. Links
+        const links = this.parser.links || {};
+        Object.entries(links).forEach(([linkName, linkObj]) => {
+            if (linkObj.parameters) {
+                const paramsName = `${pascalCase(linkName)}LinkParameters`;
+                const properties: OptionalKind<PropertySignatureStructure>[] = Object.keys(linkObj.parameters).map(key => ({
+                    name: key,
+                    type: 'string | any',
+                    docs: [`Value or expression for parameter '${key}'`]
+                }));
+
+                sourceFile.addInterface({
+                    name: paramsName,
+                    isExported: true,
+                    properties: properties,
+                    docs: [{
+                        description: `Parameters for the '${linkName}' link.`,
+                        tags: [{ tagName: 'see', text: 'https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.1.0.md#linkObject' }]
+                    }]
+                });
+            }
+        });
+
+        // 5. Response Headers
+        allPaths.forEach(op => {
+            if (op.responses) {
+                Object. entries(op.responses).forEach(([code, resp]) => {
+                    if (resp.headers) {
+                        // Naming: OperationId + Code + Headers, e.g., GetUser200Headers
+                        const opIdBase = op.operationId ? pascalCase(op.operationId) : pascalCase(op.method + op.path);
+                        const interfaceName = `${opIdBase}${code}Headers`;
+
+                        const properties: OptionalKind<PropertySignatureStructure>[] = [];
+
+                        for (const [headerName, headerObj] of Object.entries(resp.headers)) {
+                            const resolvedHeader = this.parser.resolve(headerObj) as HeaderObject;
+                            if (!resolvedHeader) continue;
+
+                            const schema = resolvedHeader.schema as SwaggerDefinition ||
+                                { type: resolvedHeader.type, format: resolvedHeader.format }; // Swagger 2 compat
+
+                            const type = getTypeScriptType(schema, this.config, this.parser.schemas.map(s => s.name));
+                            const safeName = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(headerName) ? headerName : `'${headerName}'`;
+
+                            properties.push({
+                                name: safeName,
+                                type: type,
+                                hasQuestionToken: !resolvedHeader.required,
+                                docs: resolvedHeader.description ? [resolvedHeader.description] : []
+                            });
+                        }
+
+                        if (properties.length > 0) {
+                            sourceFile.addInterface({
+                                name: interfaceName,
+                                isExported: true,
+                                properties: properties,
+                                docs: [`Response headers for operation '${op.operationId || op.method + ' ' + op.path}' with status ${code}.`]
+                            });
+                        }
+                    }
+                });
+            }
+        });
+
+        sourceFile.formatText();
     }
 
-    /**
-     * Analyzes a single schema definition and delegates to the correct generator function
-     * based on its structure. This method acts as a dispatcher to handle the different
-     * ways a schema can be defined in OpenAPI.
-     */
-    private generateTypeFromSchema(sourceFile: SourceFile, name: string, definition: SwaggerDefinition): void {
-        const knownTypes = this.parser.schemas.map(s => s.name);
-        const docs = definition.description ? [definition.description] : [];
-        if (definition.externalDocs?.url) {
-            docs.push(`@see ${definition.externalDocs.url} ${definition.externalDocs.description || ''}`.trim());
-        }
+    private shouldGenerateInterface(def: SwaggerDefinition): boolean {
+        // Unions must be Type Aliases
+        if (def.anyOf || def.oneOf) return false;
+        // Objects with properties or inheritance are Interfaces
+        return def.type === 'object' || !!def.properties || !!def.allOf || !!def.patternProperties;
+    }
 
-        if (definition.enum && definition.enum.length === 0) {
-            sourceFile.addTypeAlias({ name, isExported: true, type: 'any', docs });
-            return;
-        }
+    private generateEnum(sourceFile: SourceFile, name: string, def: SwaggerDefinition): void {
+        const enumStyle = this.config.options.enumStyle || 'enum';
+        const values = def.enum || [];
 
-        if (definition.allOf) {
-            const typeString = getTypeScriptType(definition, this.config, knownTypes);
-            sourceFile.addTypeAlias({ name, isExported: true, type: typeString, docs });
-            return;
-        }
-
-        const isStringEnum = (definition.enum?.every(e => typeof e === 'string')) ?? false;
-        if (isStringEnum && this.config.options.enumStyle === 'enum') {
-            sourceFile.addEnum({
-                name,
+        if (values.length === 0) {
+            sourceFile.addTypeAlias({
+                name: pascalCase(name),
                 isExported: true,
-                docs,
-                members: definition.enum!.map(val => ({ name: pascalCase(val as string), value: val as string }))
+                type: 'any',
+                docs: this.buildJSDoc(def)
             });
             return;
         }
 
-        if (definition.type === 'object' || definition.properties) {
-            // Generate main interface
-            this.generateInterface(sourceFile, name, definition, docs, 'response');
+        const allStrings = values.every(v => typeof v === 'string');
 
-            // Check if we need a separate Request interface
-            if (this.needsRequestType(definition)) {
-                const requestDocs = [...docs, `Request object for ${name}. Omitted readOnly properties.`];
-                this.generateInterface(sourceFile, `${name}Request`, definition, requestDocs, 'request');
-            }
-            return;
+        // Use Union Type if configured OR if contains non-string values
+        if (enumStyle === 'union' || !allStrings) {
+            sourceFile.addTypeAlias({
+                name: pascalCase(name),
+                isExported: true,
+                type: values.map(v => typeof v === 'string' ? `'${v}'` : v).join(' | '),
+                docs: this.buildJSDoc(def)
+            });
+        } else {
+            sourceFile.addEnum({
+                name: pascalCase(name),
+                isExported: true,
+                members: values.map(v => {
+                    const valStr = String(v);
+                    const key = valStr.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+                    const safeKey = /^[0-9]/.test(key) ? `_${key}` : key;
+                    return { name: safeKey, value: v as string };
+                }),
+                docs: this.buildJSDoc(def)
+            });
         }
-
-        const typeString = getTypeScriptType(definition, this.config, knownTypes);
-        sourceFile.addTypeAlias({ name, isExported: true, type: typeString, docs });
     }
 
-    /** Checks if a definition has readOnly or writeOnly properties requiring a split. */
-    private needsRequestType(definition: SwaggerDefinition): boolean {
-        if (!definition.properties) return false;
-        return Object.values(definition.properties).some(p => p.readOnly || p.writeOnly);
-    }
-
-    /**
-     * Generates a TypeScript `interface` for a given object schema definition.
-     * It handles properties, optionality (`required` keyword), and `additionalProperties`.
-     *
-     * @param mode 'response' = standard/response view (no writeOnly), 'request' = request view (no readOnly).
-     */
-    private generateInterface(sourceFile: SourceFile, name: string, definition: SwaggerDefinition, docs: string[], mode: 'response' | 'request'): void {
-        const knownTypes = this.parser.schemas.map(s => s.name);
-        const interfaceDeclaration = sourceFile.addInterface({
-            name,
+    private generateTypeAlias(sourceFile: SourceFile, name: string, def: SwaggerDefinition): void {
+        const type = getTypeScriptType(def, this.config, this.parser.schemas.map(s => s.name));
+        sourceFile.addTypeAlias({
+            name: pascalCase(name),
             isExported: true,
-            docs,
+            type: type,
+            docs: this.buildJSDoc(def)
         });
+    }
 
-        if (definition.properties) {
-            interfaceDeclaration.addProperties(Object.entries(definition.properties).map(([key, propDef]) => {
-                // MODE: Response
-                // Skip if property is writeOnly.
-                if (mode === 'response' && propDef.writeOnly) {
-                    return null;
+    private generateInterface(sourceFile: SourceFile, name: string, def: SwaggerDefinition): void {
+        const modelName = pascalCase(name);
+
+        // Response Model
+        const responseProps = this.getInterfaceProperties(def, { excludeWriteOnly: true });
+        const interfaceDecl = sourceFile.addInterface({
+            name: modelName,
+            isExported: true,
+            properties: responseProps,
+            docs: this.buildJSDoc(def)
+        });
+        this.applyComposition(interfaceDecl, def, { excludeWriteOnly: true });
+        this.applyIndexSignature(interfaceDecl, def);
+
+        // Request Model
+        if (this.needsRequestModel(def)) {
+            const requestProps = this.getInterfaceProperties(def, { excludeReadOnly: true });
+            const requestDecl = sourceFile.addInterface({
+                name: `${modelName}Request`,
+                isExported: true,
+                properties: requestProps,
+                docs: this.buildJSDoc({ ...def, description: `Model for sending ${modelName} data (excludes read-only fields).` })
+            });
+            this.applyComposition(requestDecl, def, { excludeReadOnly: true });
+            this.applyIndexSignature(requestDecl, def);
+        }
+    }
+
+    private applyComposition(interfaceDecl: any, def: SwaggerDefinition, options: { excludeReadOnly?: boolean, excludeWriteOnly?: boolean }): void {
+        if (def.allOf) {
+            const extendsTypes: string[] = [];
+            def.allOf.forEach(sub => {
+                if (sub.$ref) {
+                    let refName = pascalCase(sub.$ref.split('/').pop() || '');
+                    const refDef = this.parser.resolve(sub);
+                    if (refDef && this.needsRequestModel(refDef) && options.excludeReadOnly) {
+                        refName = `${refName}Request`;
+                    }
+                    if (refName) extendsTypes.push(refName);
+                } else if (sub.properties) {
+                    const inlineProps = this.getInterfaceProperties(sub, options);
+                    interfaceDecl.addProperties(inlineProps);
                 }
-                // Mark as readonly if property is readOnly.
-                const isReadOnly = mode === 'response' && propDef.readOnly;
+            });
+            if (extendsTypes.length > 0) {
+                interfaceDecl.addExtends(extendsTypes);
+            }
+        }
+    }
 
-                // MODE: Request
-                // Skip if property is readOnly.
-                if (mode === 'request' && propDef.readOnly) {
-                    return null;
-                }
+    private applyIndexSignature(interfaceDecl: any, def: SwaggerDefinition): void {
+        const returnTypes: string[] = [];
 
-                const propDocs: string[] = [];
-                if (propDef.description) propDocs.push(propDef.description);
-                if (propDef.contentEncoding) propDocs.push(`Content Encoding: ${propDef.contentEncoding}`);
-                if (propDef.contentMediaType) propDocs.push(`Content Media Type: ${propDef.contentMediaType}`);
-                if (propDef.externalDocs?.url) propDocs.push(`@see ${propDef.externalDocs.url} ${propDef.externalDocs.description || ''}`);
-
-                return {
-                    name: /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key) ? key : `'${key}'`,
-                    type: getTypeScriptType(propDef, this.config, knownTypes),
-                    // In Request mode, optionality follows valid rules. writeOnly fields are standard optional/required.
-                    // However, in complex scenarios, some fields might be strictly required in requests.
-                    hasQuestionToken: !(definition.required || []).includes(key),
-                    isReadonly: !!isReadOnly,
-                    docs: propDocs,
-                };
-            }).filter((p): p is NonNullable<typeof p> => p !== null));
+        if (def.additionalProperties) {
+            const valueType = def.additionalProperties === true
+                ? 'any'
+                : getTypeScriptType(def.additionalProperties as SwaggerDefinition, this.config, this.parser.schemas.map(s => s.name));
+            returnTypes.push(valueType);
         }
 
-        if (definition.additionalProperties) {
-            const returnType = definition.additionalProperties === true
-                ? 'any'
-                : getTypeScriptType(definition.additionalProperties as SwaggerDefinition, this.config, knownTypes);
+        if (def.patternProperties) {
+            Object.values(def.patternProperties).forEach(p => {
+                returnTypes.push(getTypeScriptType(p, this.config, this.parser.schemas.map(s => s.name)));
+            });
+        }
 
-            interfaceDeclaration.addIndexSignature({
+        if (returnTypes.length > 0) {
+            const distinct = Array.from(new Set(returnTypes));
+            interfaceDecl.addIndexSignature({
                 keyName: 'key',
                 keyType: 'string',
-                returnType,
+                returnType: distinct.join(' | ')
             });
         }
     }
 
-    /**
-     * Adds common Angular HTTP imports to the models file.
-     */
-    private addCommonAngularImports(sourceFile: SourceFile): void {
-        sourceFile.addImportDeclaration({
-            moduleSpecifier: '@angular/common/http',
-            namedImports: ['HttpHeaders', 'HttpContext', 'HttpParams']
-        });
+    private getInterfaceProperties(def: SwaggerDefinition, options: { excludeReadOnly?: boolean, excludeWriteOnly?: boolean }): OptionalKind<PropertySignatureStructure>[] {
+        const props: OptionalKind<PropertySignatureStructure>[] = [];
+        if (def.properties) {
+            Object.entries(def.properties).forEach(([propName, propDef]) => {
+                if (options.excludeReadOnly && propDef.readOnly) return;
+                if (options.excludeWriteOnly && propDef.writeOnly) return;
+
+                const type = getTypeScriptType(propDef, this.config, this.parser.schemas.map(s => s.name));
+                const isRequired = def.required?.includes(propName);
+                const safeName = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(propName) ? propName : `'${propName}'`;
+
+                props.push({
+                    name: safeName,
+                    type: type,
+                    hasQuestionToken: !isRequired,
+                    docs: this.buildJSDoc(propDef),
+                    isReadonly: options.excludeWriteOnly && !!propDef.readOnly
+                });
+            });
+        }
+        return props;
     }
 
-    /**
-     * Adds the `RequestOptions` interface.
-     */
-    private addRequestOptionsInterface(sourceFile: SourceFile): void {
-        sourceFile.addInterface({
-            name: 'RequestOptions',
-            isExported: true,
-            docs: ["A common interface for providing optional parameters to HTTP requests."],
-            properties: [
-                { name: 'headers?', type: 'HttpHeaders | { [header: string]: string | string[]; }' },
-                { name: 'context?', type: 'HttpContext' },
-                {
-                    name: 'params?',
-                    type: 'HttpParams | { [param: string]: string | number | boolean | ReadonlyArray<string | number | boolean>; }'
-                },
-                { name: 'reportProgress?', type: 'boolean' },
-                { name: 'withCredentials?', type: 'boolean' },
-            ]
-        });
+    private needsRequestModel(def: SwaggerDefinition): boolean {
+        const hasDirect = def.properties && Object.values(def.properties).some(p => p.readOnly || p.writeOnly);
+        if (hasDirect) return true;
+        if (def.allOf) {
+            return def.allOf.some(sub => {
+                if (sub.$ref) {
+                    const resolved = this.parser.resolve(sub);
+                    return resolved ? this.needsRequestModel(resolved) : false;
+                }
+                return sub.properties && Object.values(sub.properties).some(p => p.readOnly || p.writeOnly);
+            });
+        }
+        return false;
+    }
+
+    private buildJSDoc(def: SwaggerDefinition): OptionalKind<JSDocStructure>[] {
+        const description = def.description || '';
+        const tags: OptionalKind<JSDocTagStructure>[] = [];
+
+        if ((def as any).deprecated) tags.push({ tagName: 'deprecated' });
+        if (def.example) tags.push({ tagName: 'example', text: JSON.stringify(def.example, null, 2) });
+        if (def.default !== undefined) tags.push({ tagName: 'default', text: JSON.stringify(def.default) });
+        if (def.externalDocs?.url) {
+            const desc = def.externalDocs.description ? ` - ${def.externalDocs.description}` : '';
+            tags.push({ tagName: 'see', text: `${def.externalDocs.url}${desc}` });
+        }
+
+        if (!description && tags.length === 0) return [];
+
+        return [{ description, tags }];
     }
 }

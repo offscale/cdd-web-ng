@@ -4,12 +4,13 @@
  * parsing, and providing a unified interface to OpenAPI (3.x) and Swagger (2.x) specifications.
  */
 
-import { GeneratorConfig, PathInfo, SecurityScheme, ServerObject, SwaggerDefinition, SwaggerSpec } from './types.js';
+import { GeneratorConfig, PathInfo, SecurityScheme, ServerObject, SwaggerDefinition, SwaggerSpec, LinkObject } from './types.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import yaml from 'js-yaml';
 import { extractPaths, isUrl, pascalCase } from './utils.js';
+import { validateSpec } from './validator.js';
 
 /** Represents a `$ref` object in a JSON Schema. */
 interface RefObject {
@@ -59,6 +60,8 @@ export class SwaggerParser {
     public readonly webhooks: PathInfo[];
     /** A normalized record of all security schemes defined in the entry specification. */
     public readonly security: Record<string, SecurityScheme>;
+    /** A normalized record of all reusable links defined in the entry specification. */
+    public readonly links: Record<string, LinkObject>;
 
     /** A cache of all loaded specifications, keyed by their absolute URI. */
     private readonly specCache: Map<string, SwaggerSpec>;
@@ -77,6 +80,14 @@ export class SwaggerParser {
         specCache?: Map<string, SwaggerSpec>,
         documentUri: string = 'file://entry-spec.json'
     ) {
+        // 1. Fundamental Structure Validation
+        validateSpec(spec);
+
+        // 2. User-Configured Custom Validation
+        if (config.validateInput && !config.validateInput(spec)) {
+            throw new Error("Custom input validation failed.");
+        }
+
         this.spec = spec;
         this.config = config;
         this.documentUri = documentUri;
@@ -93,6 +104,7 @@ export class SwaggerParser {
         this.operations = extractPaths(this.spec.paths);
         this.webhooks = extractPaths(this.spec.webhooks);
         this.security = this.getSecuritySchemes();
+        this.links = this.getLinks();
     }
 
     /**
@@ -239,6 +251,21 @@ export class SwaggerParser {
     /** Retrieves all security scheme definitions from the entry specification. */
     public getSecuritySchemes(): Record<string, SecurityScheme> {
         return (this.spec.components?.securitySchemes || this.spec.securityDefinitions || {}) as Record<string, SecurityScheme>;
+    }
+
+    /** Retrieves all reusable link definitions from the entry specification. */
+    public getLinks(): Record<string, LinkObject> {
+        if (!this.spec.components?.links) return {};
+        const links: Record<string, LinkObject> = {};
+        for (const [key, val] of Object.entries(this.spec.components.links)) {
+            if ('$ref' in val) {
+                const resolved = this.resolveReference<LinkObject>(val.$ref);
+                if (resolved) links[key] = resolved;
+            } else {
+                links[key] = val as LinkObject;
+            }
+        }
+        return links;
     }
 
     /**

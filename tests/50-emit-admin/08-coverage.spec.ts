@@ -130,6 +130,8 @@ describe('Admin Generators (Coverage)', () => {
     it('list-component-generator handles listable resource with no actions', () => {
         // This spec defines a resource that can be listed but has no edit/delete/custom actions.
         const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
             paths: {
                 '/reports': { get: { tags: ['Reports'], responses: { '200': { description: 'ok' } } } }
             }
@@ -150,6 +152,8 @@ describe('Admin Generators (Coverage)', () => {
 
     it('list-component-generator handles resource with no actions and non-id primary key', () => {
         const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
             paths: {
                 '/diagnostics': {
                     get: {
@@ -226,8 +230,6 @@ describe('Admin: FormComponentGenerator (Coverage)', () => {
         const updateMethod = formClass.getMethod('updateFormForPetType');
         const body = updateMethod!.getBodyText()!;
         expect(body).toContain(`case 'sub':`);
-        // We are implicitly testing the `continue` here for the 'string' type, because if it didn't continue,
-        // it would have errored out trying to access `subSchema.properties`.
     });
 
     it('should not generate onSubmit for editable resource with no create/update ops', () => {

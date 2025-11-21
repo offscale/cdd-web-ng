@@ -4,8 +4,8 @@ import {
     OptionalKind,
     ParameterDeclarationStructure,
 } from 'ts-morph';
-import { GeneratorConfig, Parameter, PathInfo, SwaggerDefinition } from '@src/core/types.js';
-import { camelCase, getTypeScriptType, isDataTypeInterface } from '@src/core/utils.js';
+import { GeneratorConfig, Parameter, PathInfo, SwaggerDefinition } from '../../../core/types.js';
+import { camelCase, getTypeScriptType, isDataTypeInterface, pascalCase } from '../../../core/utils.js';
 import { HttpContext, HttpHeaders, HttpParams } from '@angular/common/http';
 import { SwaggerParser } from "@src/core/parser.js";
 
@@ -20,11 +20,6 @@ interface HttpRequestOptions {
     observe?: 'body' | 'events' | 'response';
 }
 
-/**
- * Generates individual methods within a generated Angular service class.
- * This class handles parameter mapping, response type resolution, method body construction,
- * and the creation of observable-based method overloads for different response types.
- */
 export class ServiceMethodGenerator {
     constructor(
         private readonly config: GeneratorConfig,
@@ -42,7 +37,7 @@ export class ServiceMethodGenerator {
         const responseType = this.getResponseType(operation, knownTypes);
         const parameters = this.getMethodParameters(operation, knownTypes);
         const bodyStatements = this.buildMethodBody(operation, parameters);
-        const overloads = this.buildOverloads(operation.methodName, responseType, parameters);
+        const overloads = this.buildOverloads(operation.methodName, responseType, parameters, operation.deprecated);
 
         let docText =
             (operation.summary || operation.description || `Performs a ${operation.method} request to ${operation.path}.`) +
@@ -50,6 +45,10 @@ export class ServiceMethodGenerator {
 
         if (operation.externalDocs?.url) {
             docText += `\n\n@see ${operation.externalDocs.url} ${operation.externalDocs.description || ''}`.trimEnd();
+        }
+
+        if (operation.deprecated) {
+            docText += `\n\n@deprecated`;
         }
 
         classDeclaration.addMethod({
@@ -68,7 +67,6 @@ export class ServiceMethodGenerator {
 
     private getResponseType(operation: PathInfo, knownTypes: string[]): string {
         if (operation.responses?.['204']) return 'void';
-
         const successCode = Object.keys(operation.responses ?? {}).find(code => code.startsWith('2'));
         if (successCode) {
             const responseSchema = operation.responses![successCode]?.content?.['application/json']?.schema;
@@ -76,7 +74,6 @@ export class ServiceMethodGenerator {
                 return getTypeScriptType(responseSchema as SwaggerDefinition, this.config, knownTypes);
             }
         }
-
         const httpMethod = operation.method.toLowerCase();
         if (httpMethod === 'post' || httpMethod === 'put') {
             const requestSchema = operation.requestBody?.content?.['application/json']?.schema;
@@ -84,13 +81,11 @@ export class ServiceMethodGenerator {
                 return getTypeScriptType(requestSchema as SwaggerDefinition, this.config, knownTypes);
             }
         }
-
         return 'any';
     }
 
     private getMethodParameters(operation: PathInfo, knownTypes: string[]): OptionalKind<ParameterDeclarationStructure>[] {
         const parameters: OptionalKind<ParameterDeclarationStructure>[] = [];
-
         (operation.parameters ?? []).forEach(param => {
             const paramName = camelCase(param.name);
             let effectiveSchema = param.schema;
@@ -105,17 +100,21 @@ export class ServiceMethodGenerator {
             parameters.push({
                 name: paramName,
                 type: paramType,
-                hasQuestionToken: !param.required
+                hasQuestionToken: !param.required,
+                // ParameterDeclarationStructure does not support 'docs', so we use leadingTrivia to inject JSDoc
+                leadingTrivia: param.deprecated ? [`/** @deprecated */ `] : undefined
             });
         });
-
         const requestBody = operation.requestBody;
         if (requestBody) {
-            const content = requestBody.content?.[Object.keys(requestBody.content)[0]];
+            let contentType = Object.keys(requestBody.content || {})[0];
+            if (requestBody.content?.['application/json']) contentType = 'application/json';
+            else if (requestBody.content?.['application/xml']) contentType = 'application/xml';
+
+            const content = requestBody.content?.[contentType!];
             if (content?.schema) {
                 let bodyType = getTypeScriptType(content.schema as SwaggerDefinition, this.config, knownTypes);
                 const rawBodyType = bodyType.replace(/\[\]| \| null/g, '');
-
                 if (knownTypes.includes(rawBodyType)) {
                     const schemaObj = this.parser.schemas.find(s => s.name === rawBodyType);
                     const definition = schemaObj?.definition;
@@ -123,14 +122,12 @@ export class ServiceMethodGenerator {
                         bodyType = bodyType.replace(rawBodyType, `${rawBodyType}Request`);
                     }
                 }
-
                 const bodyName = isDataTypeInterface(rawBodyType) ? camelCase(rawBodyType) : 'body';
                 parameters.push({ name: bodyName, type: bodyType, hasQuestionToken: !requestBody.required });
             } else {
                 parameters.push({ name: 'body', type: 'unknown', hasQuestionToken: !requestBody.required });
             }
         }
-
         return parameters.sort((a, b) => (a.hasQuestionToken ? 1 : 0) - (b.hasQuestionToken ? 1 : 0));
     }
 
@@ -160,14 +157,31 @@ export class ServiceMethodGenerator {
 
         const querystringParams = operation.parameters?.filter(p => p.in === 'querystring') ?? [];
         if (querystringParams.length > 0) {
-            lines.push(`// TODO: querystring parameters are not handled by Angular's HttpClient. You may need to handle them manually by constructing the URL. 
-console.warn('The following querystring parameters are not automatically handled:', ${JSON.stringify(querystringParams.map(p => p.name))});`);
+            lines.push(`// TODO: querystring parameters are not handled by Angular's HttpClient.`);
+            lines.push(`console.warn('The following querystring parameters are not automatically handled:', ${JSON.stringify(querystringParams.map(p => p.name))});`);
         }
 
-        lines.push(`const url = \`\${this.basePath}${urlTemplate}\`;`);
+        // OAS 3.0 Support: Operation-Level Servers Override
+        if (operation.servers && operation.servers.length > 0) {
+            const serverUrl = operation.servers[0].url;
+            // We apply simple substitution for variables if defaults exist in the spec,
+            // but typically we just use the raw URL from the spec if it's absolute.
+            // A more advanced implementation would allow runtime selection of servers.
+            let resolvedUrl = serverUrl;
+            if (operation.servers[0].variables) {
+                Object.entries(operation.servers[0].variables).forEach(([key, variable]) => {
+                    resolvedUrl = resolvedUrl.replace(`{${key}}`, variable.default);
+                });
+            }
+            // We treat this as a literal string since it comes from the spec
+            lines.push(`const basePath = '${resolvedUrl}';`);
+        } else {
+            lines.push(`const basePath = this.basePath;`);
+        }
+
+        lines.push(`const url = \`\${basePath}${urlTemplate}\`;`);
 
         const requestOptions: HttpRequestOptions = {};
-
         const queryParams = operation.parameters?.filter(p => p.in === 'query') ?? [];
         if (queryParams.length > 0) {
             lines.push(`let params = new HttpParams({ fromObject: options?.params ?? {} });`);
@@ -184,14 +198,12 @@ console.warn('The following querystring parameters are not automatically handled
 
         if (headerParams.length > 0 || cookieParams.length > 0) {
             lines.push(`let headers = options?.headers instanceof HttpHeaders ? options.headers : new HttpHeaders(options?.headers ?? {});`);
-
             headerParams.forEach(p => {
                 const paramName = camelCase(p.name);
                 const explode = p.explode ?? false;
                 const serializationArg = this.isJsonContent(p) ? ", 'json'" : "";
                 lines.push(`if (${paramName} != null) { headers = headers.set('${p.name}', HttpParamsBuilder.serializeHeaderParam('${p.name}', ${paramName}, ${explode}${serializationArg})); }`);
             });
-
             if (cookieParams.length > 0) {
                 lines.push(`const __cookies: string[] = [];`);
                 cookieParams.forEach(p => {
@@ -203,14 +215,12 @@ console.warn('The following querystring parameters are not automatically handled
                 });
                 lines.push(`if (__cookies.length > 0) { headers = headers.set('Cookie', __cookies.join('; ')); }`);
             }
-
             requestOptions.headers = 'headers' as any;
         }
 
         const hasGlobalSecurity = Object.keys(this.parser.getSecuritySchemes()).length > 0;
         const hasSecurityOverride = operation.security && operation.security.length === 0;
         let contextConstruction = `this.createContextWithClientId(options?.context)`;
-
         if (hasGlobalSecurity && hasSecurityOverride) {
             contextConstruction += `.set(SKIP_AUTH_CONTEXT_TOKEN, true)`;
         }
@@ -222,13 +232,8 @@ console.warn('The following querystring parameters are not automatically handled
   withCredentials: options?.withCredentials, 
   context: ${contextConstruction}`;
 
-        if (requestOptions.params) {
-            optionProperties += `,\n  params`;
-        }
-        if (requestOptions.headers) {
-            optionProperties += `,\n  headers`;
-        }
-
+        if (requestOptions.params) optionProperties += `,\n  params`;
+        if (requestOptions.headers) optionProperties += `,\n  headers`;
         lines.push(`const requestOptions: HttpRequestOptions = {${optionProperties}\n};`);
 
         let bodyArgument = 'null';
@@ -237,6 +242,7 @@ console.warn('The following querystring parameters are not automatically handled
 
         const hasMultipartContent = !!operation.requestBody?.content?.['multipart/form-data'];
         const hasUrlEncodedContent = !!operation.requestBody?.content?.['application/x-www-form-urlencoded'];
+        const hasXmlContent = !!operation.requestBody?.content?.['application/xml'];
 
         const isUrlEncodedForm = operation.consumes?.includes('application/x-www-form-urlencoded') || hasUrlEncodedContent;
         const isMultipartForm = operation.consumes?.includes('multipart/form-data') || hasMultipartContent;
@@ -244,8 +250,11 @@ console.warn('The following querystring parameters are not automatically handled
 
         const multipartContent = operation.requestBody?.content?.['multipart/form-data'];
         const urlEncodedContent = operation.requestBody?.content?.['application/x-www-form-urlencoded'];
+        const xmlContent = operation.requestBody?.content?.['application/xml'];
+
         const hasOas3MultipartBody = isMultipartForm && !!bodyParam && !!multipartContent;
         const hasOas3UrlEncodedBody = isUrlEncodedForm && !!bodyParam && !!urlEncodedContent;
+        const hasOas3XmlBody = hasXmlContent && !!bodyParam && !!xmlContent;
 
         if (isUrlEncodedForm && formDataParams?.length) {
             lines.push(`let formBody = new HttpParams();`);
@@ -255,14 +264,11 @@ console.warn('The following querystring parameters are not automatically handled
             });
             bodyArgument = 'formBody';
         } else if (hasOas3UrlEncodedBody) {
-            // OAS 3.0 UrlEncoded Body Handling
             const bodyName = bodyParam!.name;
             const encodings = urlEncodedContent!.encoding || {};
             const encodingMapString = JSON.stringify(encodings);
-            // We use a builder method to handle style/explode per property rules on the body object
             lines.push(`const formBody = HttpParamsBuilder.serializeUrlEncodedBody(${bodyName}, ${encodingMapString});`);
             bodyArgument = 'formBody';
-
         } else if (isMultipartForm && formDataParams?.length) {
             lines.push(`const formData = new FormData();`);
             formDataParams.forEach(p => {
@@ -271,32 +277,33 @@ console.warn('The following querystring parameters are not automatically handled
             });
             bodyArgument = 'formData';
         } else if (hasOas3MultipartBody) {
-            // OAS 3.0 Multipart Body Handling (Single Object -> FormData)
             const bodyName = bodyParam!.name;
             lines.push(`const formData = new FormData();`);
             lines.push(`if (${bodyName}) {`);
-
-            // Extract encodings if they exist
             const encodings = multipartContent!.encoding || {};
             const encodingMapString = JSON.stringify(encodings);
             lines.push(` const encodings = ${encodingMapString} as Record<string, { contentType?: string }>;`);
-
             lines.push(` Object.entries(${bodyName}).forEach(([key, value]) => {`);
             lines.push(`  if (value === undefined || value === null) return;`);
             lines.push(`  const encoding = encodings[key];`);
             lines.push(`  if (encoding?.contentType) {`);
-            // Improved Content-Type Handling: Not everything is JSON.
             lines.push(`    const content = encoding.contentType.includes('application/json') ? JSON.stringify(value) : String(value);`);
             lines.push(`    const blob = new Blob([content], { type: encoding.contentType });`);
             lines.push(`    formData.append(key, blob);`);
             lines.push(`  } else {`);
-            // Standard append
             lines.push(`    if (value instanceof Blob || value instanceof File) { formData.append(key, value); }`);
             lines.push(`    else { formData.append(key, String(value)); }`);
             lines.push(`  }`);
             lines.push(` });`);
             lines.push(`}`);
             bodyArgument = 'formData';
+        } else if (hasOas3XmlBody) {
+            const bodyName = bodyParam!.name;
+            const schema = xmlContent!.schema as SwaggerDefinition;
+            const xmlConfig = this.getXmlConfig(schema, 5);
+            const rootName = schema.xml?.name || 'root';
+            lines.push(`const xmlBody = XmlBuilder.serialize(${bodyName}, '${rootName}', ${JSON.stringify(xmlConfig)});`);
+            bodyArgument = 'xmlBody';
         } else if (bodyParam) {
             bodyArgument = bodyParam.name!;
         }
@@ -311,44 +318,64 @@ console.warn('The following querystring parameters are not automatically handled
         return lines.join('\n');
     }
 
-    private buildOverloads(methodName: string, responseType: string, parameters: OptionalKind<ParameterDeclarationStructure>[]): OptionalKind<MethodDeclarationOverloadStructure>[] {
+    private getXmlConfig(schema: SwaggerDefinition | undefined, depth: number): any {
+        if (!schema || depth <= 0) return {};
+        const resolved = this.parser.resolve(schema);
+        if (!resolved) return {};
+        const config: any = {};
+        if (resolved.xml?.name) config.name = resolved.xml.name;
+        if (resolved.xml?.attribute) config.attribute = true;
+        if (resolved.xml?.wrapped) config.wrapped = true;
+        if (resolved.type === 'array' && resolved.items) {
+            config.items = this.getXmlConfig(resolved.items as SwaggerDefinition, depth - 1);
+        }
+        if (resolved.properties) {
+            config.properties = {};
+            Object.entries(resolved.properties).forEach(([propName, propSchema]) => {
+                const propConfig = this.getXmlConfig(propSchema, depth - 1);
+                if (Object.keys(propConfig).length > 0) {
+                    config.properties[propName] = propConfig;
+                }
+            });
+        }
+        if (resolved.allOf) {
+            resolved.allOf.forEach(sub => {
+                const subConfig = this.getXmlConfig(sub, depth - 1);
+                if (subConfig.properties) {
+                    config.properties = { ...config.properties, ...subConfig.properties };
+                }
+            });
+        }
+        return config;
+    }
+
+    private buildOverloads(methodName: string, responseType: string, parameters: OptionalKind<ParameterDeclarationStructure>[], isDeprecated?: boolean): OptionalKind<MethodDeclarationOverloadStructure>[] {
         const paramsDocs = parameters.map(p => `@param ${p.name} ${p.hasQuestionToken ? '(optional) ' : ''}`).join('\n');
         const finalResponseType = responseType === 'any' ? 'any' : (responseType || 'unknown');
 
+        const deprecationDoc = isDeprecated ? '\n@deprecated' : '';
+
         return [
             {
-                parameters: [...parameters, {
-                    name: 'options',
-                    hasQuestionToken: true,
-                    type: `RequestOptions & { observe?: 'body' }`
-                }],
+                parameters: [...parameters, { name: 'options', hasQuestionToken: true, type: `RequestOptions & { observe?: 'body' }` }],
                 returnType: `Observable<${finalResponseType}>`,
-                docs: [`${methodName}. \n${paramsDocs}\n@param options The options for this request.`]
+                docs: [`${methodName}. \n${paramsDocs}\n@param options The options for this request.${deprecationDoc}`]
             },
             {
-                parameters: [...parameters, {
-                    name: 'options',
-                    hasQuestionToken: false,
-                    type: `RequestOptions & { observe: 'response' }`
-                }],
+                parameters: [...parameters, { name: 'options', hasQuestionToken: false, type: `RequestOptions & { observe: 'response' }` }],
                 returnType: `Observable<HttpResponse<${finalResponseType}>>`,
-                docs: [`${methodName}. \n${paramsDocs}\n@param options The options for this request, with response observation enabled.`]
+                docs: [`${methodName}. \n${paramsDocs}\n@param options The options for this request, with response observation enabled.${deprecationDoc}`]
             },
             {
-                parameters: [...parameters, {
-                    name: 'options',
-                    hasQuestionToken: false,
-                    type: `RequestOptions & { observe: 'events' }`
-                }],
+                parameters: [...parameters, { name: 'options', hasQuestionToken: false, type: `RequestOptions & { observe: 'events' }` }],
                 returnType: `Observable<HttpEvent<${finalResponseType}>>`,
-                docs: [`${methodName}. \n${paramsDocs}\n@param options The options for this request, with event observation enabled.`]
-            },
-        ].map(overload => {
-            const hasOptionalParam = parameters.some(p => p.hasQuestionToken);
-            if (hasOptionalParam) {
-                overload.parameters.find(p => p.name === 'options')!.hasQuestionToken = true;
+                docs: [`${methodName}. \n${paramsDocs}\n@param options The options for this request, with event observation enabled.${deprecationDoc}`]
             }
-            return overload;
+        ].map(o => {
+            if (parameters.some(p => p.hasQuestionToken)) o.parameters.find(p => p.name === 'options')!.hasQuestionToken = true;
+            // When spreading overloads, leading trivia in parameters needs to be preserved by ts-morph automatically,
+            // but if ts-morph reconstructs nodes, it generally preserves property values including leadingTrivia strings.
+            return o;
         });
     }
 }

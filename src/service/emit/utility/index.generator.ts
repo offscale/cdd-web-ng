@@ -18,8 +18,12 @@ export class MainIndexGenerator {
 
         sourceFile.insertText(0, MAIN_INDEX_GENERATOR_HEADER_COMMENT);
 
+        // Always export models and info
         sourceFile.addExportDeclaration({
             moduleSpecifier: "./models",
+        });
+        sourceFile.addExportDeclaration({
+            moduleSpecifier: "./info",
         });
 
         if (this.config.options.generateServices !== false) {

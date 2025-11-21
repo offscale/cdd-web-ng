@@ -128,6 +128,47 @@ export interface ExternalDocumentationObject {
     url: string;
 }
 
+/**
+ * The Link Object represents a possible design-time link for a response.
+ * @see https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.1.0.md#linkObject
+ */
+export interface LinkObject {
+    /** A URI reference to an OAS operation. Mutually exclusive with operationId. */
+    operationRef?: string;
+    /** The name of an existing, resolvable OAS operation. Mutually exclusive with operationRef. */
+    operationId?: string;
+    /** A map representing parameters to pass to an operation. Keys are param names, values are expressions or constants. */
+    parameters?: { [name: string]: any | string; };
+    /** A literal value or expression to use as a request body when calling the target operation. */
+    requestBody?: any | string;
+    /** A description of the link. */
+    description?: string;
+    /** A server object to be used by the target operation. */
+    server?: ServerObject;
+}
+
+/**
+ * The Header Object follows the structure of the Parameter Object with the following changes:
+ *   1. `name` MUST NOT be specified, it is given in the corresponding `headers` map.
+ *   2. `in` MUST NOT be specified, it is implicitly in `header`.
+ * @see https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.1.0.md#headerObject
+ */
+export interface HeaderObject {
+    description?: string;
+    required?: boolean;
+    deprecated?: boolean;
+    schema?: SwaggerDefinition | { $ref: string };
+    type?: 'string' | 'number' | 'integer' | 'boolean' | 'array';
+    format?: string;
+    items?: SwaggerDefinition | { $ref: string };
+    style?: string;
+    explode?: boolean;
+    allowReserved?: boolean;
+    content?: Record<string, { schema?: SwaggerDefinition | { $ref: string } }>;
+    example?: any;
+    examples?: Record<string, any>;
+}
+
 /** A simplified, normalized representation of an operation parameter. */
 export interface Parameter {
     /** The name of the parameter. */
@@ -157,6 +198,8 @@ export interface Parameter {
     allowEmptyValue?: boolean;
     /** A map containing the representations for the parameter. For complex serialization scenarios. */
     content?: Record<string, { schema?: SwaggerDefinition | { $ref: string } }>;
+    /** Specifies that a parameter is deprecated and SHOULD be transitioned out of usage. */
+    deprecated?: boolean;
 }
 
 /** A processed, unified representation of a single API operation (e.g., GET /users/{id}). */
@@ -171,6 +214,11 @@ export interface PathInfo {
     summary?: string;
     /** A verbose explanation of the operation behavior. */
     description?: string;
+    /**
+     * Declares this operation to be deprecated.
+     * Consumers SHOULD refrain from usage of the declared operation.
+     */
+    deprecated?: boolean;
     /** External documentation link. */
     externalDocs?: ExternalDocumentationObject;
     /** A list of tags for API documentation control. */
@@ -187,6 +235,10 @@ export interface PathInfo {
     methodName?: string;
     /** Security requirements specific to this operation. keys are definitions, values are scopes. */
     security?: { [key: string]: string[] }[];
+    /** An alternate server array to service this operation. (OAS 3+) */
+    servers?: ServerObject[];
+    /** A map of possible out-of band callbacks related to the parent operation. (OAS 3+) */
+    callbacks?: Record<string, PathItem | { $ref: string }>;
 }
 
 /** A single encoding definition for a multipart property. */
@@ -221,6 +273,10 @@ export interface SwaggerResponse {
     description?: string;
     /** A map of media types to their corresponding schemas for the response. */
     content?: Record<string, { schema?: SwaggerDefinition | { $ref: string } }>;
+    /** A map of operations links that can be followed from the response. */
+    links?: Record<string, LinkObject | { $ref: string }>;
+    /** Maps a header name to its definition. */
+    headers?: Record<string, HeaderObject | { $ref: string }>;
 }
 
 /**
@@ -265,6 +321,8 @@ export interface SwaggerDefinition {
     anyOf?: SwaggerDefinition[];
     additionalProperties?: SwaggerDefinition | boolean;
     properties?: { [propertyName: string]: SwaggerDefinition };
+    /** A map of regex patterns to schemas for properties key validation. */
+    patternProperties?: { [pattern: string]: SwaggerDefinition };
     discriminator?: DiscriminatorObject;
     readOnly?: boolean;
     writeOnly?: boolean;
@@ -304,6 +362,8 @@ export interface SpecOperation {
     schemes?: string[];
     deprecated?: boolean;
     security?: Record<string, string[]>[];
+    servers?: ServerObject[]; // OAS 3 (Operation-level override)
+    callbacks?: Record<string, PathItem | { $ref: string }>; // OAS 3
     [key: string]: any;
 }
 
@@ -324,6 +384,7 @@ export interface PathItem {
     trace?: SpecOperation;
     query?: SpecOperation; // OAS 3.2 draft
     parameters?: any[];
+    servers?: ServerObject[]; // OAS 3 (Path-level override)
     [key: string]: any;
 }
 
@@ -347,6 +408,8 @@ export interface SwaggerSpec {
         schemas?: Record<string, SwaggerDefinition>;
         securitySchemes?: Record<string, SecurityScheme>;
         pathItems?: Record<string, PathItem>;
+        links?: Record<string, LinkObject | { $ref: string }>;
+        headers?: Record<string, HeaderObject | { $ref: string }>;
     };
     /** Security definitions (Swagger 2.0). */
     securityDefinitions?: { [securityDefinitionName: string]: SecurityScheme };

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import * as utils from '@src/core/utils.js';
-import { GeneratorConfig, RequestBody, SwaggerDefinition } from '@src/core/types.js';
+import { GeneratorConfig, RequestBody, SwaggerDefinition, SwaggerResponse } from '@src/core/types.js';
 import { branchCoverageSpec, typeGenSpec } from '../shared/specs.js';
 
 /**
@@ -94,7 +94,7 @@ describe('Core: utils.ts (Coverage)', () => {
 
         it('should handle `additionalProperties: true`', () => {
             const schema = typeGenSpec.components.schemas.FreeObject as any;
-            expect(utils.getTypeScriptType(schema, config, [])).toBe('Record<string, any>');
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('{ [key: string]: any }');
         });
 
         it('should handle array with no items', () => {
@@ -170,6 +170,31 @@ describe('Core: utils.ts (Coverage)', () => {
         it('should map contentMediaType to Blob even if format is not binary', () => {
             const schema: SwaggerDefinition = { type: 'string', contentMediaType: 'application/octet-stream' };
             expect(utils.getTypeScriptType(schema, config, [])).toBe('Blob');
+        });
+
+        it('should handle patternProperties mapped to Record', () => {
+            const schema: SwaggerDefinition = {
+                type: 'object',
+                patternProperties: {
+                    '^\\d+$': { type: 'number' }
+                }
+            };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('{ [key: string]: number }');
+        });
+
+        it('should merge patternProperties and additionalProperties types in Record', () => {
+            const schema: SwaggerDefinition = {
+                type: 'object',
+                patternProperties: {
+                    '^S_': { type: 'string' }
+                },
+                additionalProperties: { type: 'boolean' }
+            };
+            // Should be string | boolean
+            const type = utils.getTypeScriptType(schema, config, []);
+            expect(type).toContain('string');
+            expect(type).toContain('boolean');
+            expect(type).toContain('[key: string]:');
         });
     });
 
@@ -260,6 +285,27 @@ describe('Core: utils.ts (Coverage)', () => {
             };
             const [pathInfo] = utils.extractPaths(swaggerPaths as any);
             expect(pathInfo.responses!['200'].content).toBeUndefined();
+        });
+
+        it('should extract swagger 2.0 response headers', () => {
+            const swaggerPaths = {
+                '/headers': {
+                    get: {
+                        responses: {
+                            '200': {
+                                description: 'ok',
+                                headers: {
+                                    'X-Rate-Limit': { type: 'integer' }
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+            const [pathInfo] = utils.extractPaths(swaggerPaths as any);
+            const headers = pathInfo.responses!['200'].headers;
+            expect(headers).toBeDefined();
+            expect(headers!['X-Rate-Limit']).toHaveProperty('type', 'integer');
         });
 
         it('should handle responses with non-json content', () => {

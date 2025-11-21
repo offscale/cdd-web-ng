@@ -67,7 +67,9 @@ describe('Admin: AdminGenerator (Orchestrator)', () => {
         vi.spyOn(resourceDiscovery, 'discoverAdminResources').mockReturnValue([]);
 
         const project = createTestProject();
-        const parser = new SwaggerParser({} as any, { options: {} } as any);
+        // Pass a VALID empty spec to the parser to avoid SpecValidationError
+        const validEmptySpec = { openapi: '3.0.0', info: { title: 'Empty', version: '0' }, paths: {} };
+        const parser = new SwaggerParser(validEmptySpec as any, { options: {} } as any);
         const adminGen = new AdminGenerator(parser, project);
 
         await adminGen.generate('/out');

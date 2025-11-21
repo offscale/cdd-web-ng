@@ -17,13 +17,17 @@ import {
     RequestBody,
     SpecOperation,
     SwaggerDefinition,
-    SwaggerResponse
+    SwaggerResponse,
+    HeaderObject
 } from './types.js';
 import {
     BodyParameter,
     Parameter as SwaggerOfficialParameter,
     Response
 } from "swagger-schema-official";
+
+// Re-export runtime expressions
+export * from './runtime-expressions.js';
 
 // --- String Manipulation Utilities ---
 
@@ -191,16 +195,40 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined | null, 
             type = `${itemType}[]`;
             break;
         case 'object':
+            // We build a single object signature.
+            const parts: string[] = [];
+
             if (schema.properties) {
                 const props = Object.entries(schema.properties).map(([key, propDef]) => {
                     const optional = schema.required?.includes(key) ? '' : '?';
                     const propName = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key) ? key : `'${key}'`;
                     return `${propName}${optional}: ${getTypeScriptType(propDef, config, knownTypes)}`;
-                }).join('; ');
-                type = `{ ${props} }`;
-            } else if (schema.additionalProperties) {
-                const valueType = schema.additionalProperties === true ? 'any' : getTypeScriptType(schema.additionalProperties as SwaggerDefinition, config, knownTypes);
-                type = `Record<string, ${valueType}>`;
+                });
+                parts.push(...props);
+            }
+
+            const indexValueTypes: string[] = [];
+
+            if (schema.patternProperties) {
+                Object.values(schema.patternProperties).forEach(def => {
+                    indexValueTypes.push(getTypeScriptType(def, config, knownTypes));
+                });
+            }
+
+            if (schema.additionalProperties) {
+                const valueType = schema.additionalProperties === true
+                    ? 'any'
+                    : getTypeScriptType(schema.additionalProperties as SwaggerDefinition, config, knownTypes);
+                indexValueTypes.push(valueType);
+            }
+
+            if (indexValueTypes.length > 0) {
+                const joined = Array.from(new Set(indexValueTypes)).join(' | ');
+                parts.push(`[key: string]: ${joined}`);
+            }
+
+            if (parts.length > 0) {
+                type = `{ ${parts.join('; ')} }`;
             } else {
                 type = 'Record<string, any>';
             }
@@ -262,7 +290,8 @@ type UnifiedParameter = SwaggerOfficialParameter & {
     explode?: boolean,
     allowReserved?: boolean,
     allowEmptyValue?: boolean,
-    content?: Record<string, { schema?: SwaggerDefinition }>
+    content?: Record<string, { schema?: SwaggerDefinition }>,
+    deprecated?: boolean
 };
 
 /**
@@ -284,6 +313,10 @@ export function extractPaths(swaggerPaths: { [p: string]: PathItem } | undefined
 
     for (const [path, pathItem] of Object.entries(swaggerPaths)) {
         const pathParameters: UnifiedParameter[] = (pathItem.parameters as UnifiedParameter[]) || [];
+
+        // Capture path-level servers (OAS 3)
+        const pathServers = pathItem.servers;
+
         for (const method of methods) {
             // Swagger 2.0 Path object is loosely typed here, and doesn't necessarily have 'query' prop.
             // However, for OAS 3.2, if it exists, we want it.
@@ -328,6 +361,9 @@ export function extractPaths(swaggerPaths: { [p: string]: PathItem } | undefined
                     if (p.allowEmptyValue !== undefined) {
                         param.allowEmptyValue = p.allowEmptyValue;
                     }
+                    if (p.deprecated !== undefined) {
+                        param.deprecated = p.deprecated;
+                    }
 
                     // Swagger 2.0 collectionFormat translation
                     const collectionFormat = p.collectionFormat;
@@ -369,18 +405,28 @@ export function extractPaths(swaggerPaths: { [p: string]: PathItem } | undefined
                 if (operation.responses) {
                     for (const [code, resp] of Object.entries(operation.responses)) {
                         const swagger2Response = resp as Response;
+                        // In OAS 3, headers are a record. In Swagger 2, they are Header Objects.
+                        const headers = (resp as any).headers as Record<string, HeaderObject>;
+
                         if (swagger2Response.schema) {
                             normalizedResponses[code] = {
                                 description: swagger2Response.description,
+                                headers: headers,
                                 content: {
                                     'application/json': { schema: swagger2Response.schema as unknown as SwaggerDefinition }
                                 }
                             }
                         } else {
-                            normalizedResponses[code] = resp as SwaggerResponse;
+                            normalizedResponses[code] = {
+                                ...(resp as SwaggerResponse),
+                                headers: headers
+                            };
                         }
                     }
                 }
+
+                // Resolve servers: Operation > Path > undefined (Global fallback happens in generator)
+                const effectiveServers = operation.servers || pathServers;
 
                 const pathInfo: PathInfo = {
                     path,
@@ -388,12 +434,15 @@ export function extractPaths(swaggerPaths: { [p: string]: PathItem } | undefined
                     parameters,
                     requestBody: requestBody as RequestBody,
                     responses: normalizedResponses,
+                    servers: effectiveServers,
+                    callbacks: operation.callbacks
                 };
                 if (operation.operationId) pathInfo.operationId = operation.operationId;
                 if (operation.summary) pathInfo.summary = operation.summary;
                 if (operation.description) pathInfo.description = operation.description;
                 if (operation.tags) pathInfo.tags = operation.tags;
                 if (operation.consumes) pathInfo.consumes = operation.consumes;
+                if (operation.deprecated) pathInfo.deprecated = operation.deprecated; // Copy deprecated flag
                 // Add external documentation info from operation
                 if (operation.externalDocs) pathInfo.externalDocs = operation.externalDocs;
                 // Capture security if present

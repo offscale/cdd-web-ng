@@ -14,6 +14,8 @@ describe('Admin: resource-discovery (Coverage)', () => {
 
     it('should infer form properties from a 201 response when 200 is missing', () => {
         const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
             paths: {
                 '/items-201': {
                     post: {
@@ -33,6 +35,7 @@ describe('Admin: resource-discovery (Coverage)', () => {
     it('should ignore formData parameters that are refs', () => {
         const spec = {
             swagger: '2.0',
+            info: { title: 'Test', version: '1.0' },
             paths: {
                 '/form-ref': {
                     post: {
@@ -58,6 +61,8 @@ describe('Admin: resource-discovery (Coverage)', () => {
 
     it('should correctly classify a POST with a custom keyword opId as a custom action', () => {
         const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
             paths: {
                 '/items': {
                     post: { // collection path, no ID suffix
@@ -76,6 +81,8 @@ describe('Admin: resource-discovery (Coverage)', () => {
 
     it('should handle operations with no parameters key and schemas with no required key', () => {
         const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
             paths: {
                 '/items': {
                     get: { // No `parameters` key at all
@@ -104,7 +111,11 @@ describe('Admin: resource-discovery (Coverage)', () => {
 
     it('should derive modelName from an inline schema', () => {
         const spec = {
-            paths: { '/items': { get: { tags: ['Items'],
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
+            paths: {
+                '/items': {
+                    get: { tags: ['Items'],
                         responses: {
                             '200': {
                                 content: {
@@ -155,6 +166,8 @@ describe('Admin: resource-discovery (Coverage)', () => {
 
     it('should handle a resource with a create op but no success response schema', () => {
         const resources = runDiscovery({
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
             paths: {
                 '/items': {
                     post: {
@@ -183,6 +196,7 @@ describe('Admin: resource-discovery (Coverage)', () => {
     it('should collect properties from swagger 2.0 formData parameters', () => {
         const spec = {
             swagger: '2.0',
+            info: { title: 'Test', version: '1.0' },
             paths: {
                 '/form-data': {
                     post: {
@@ -206,6 +220,8 @@ describe('Admin: resource-discovery (Coverage)', () => {
 
     it('should handle unresolvable schemas gracefully', () => {
         const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
             paths: {
                 '/bad-ref': {
                     get: {
@@ -231,6 +247,8 @@ describe('Admin: resource-discovery (Coverage)', () => {
 
     it('should handle getFormProperties with unresolvable ref in properties', () => {
         const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
             paths: {
                 '/bad-prop-ref': {
                     get: {
@@ -257,7 +275,11 @@ describe('Admin: resource-discovery (Coverage)', () => {
     });
 
     it('should fall back to path segment for untagged resource', () => {
-        const specWithUntagged = { paths: { '/some-resource': { get: { operationId: 'getSome' } } } };
+        const specWithUntagged = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
+            paths: { '/some-resource': { get: { operationId: 'getSome' } } }
+        };
         const resources = runDiscovery(specWithUntagged);
         const resource = resources.find((r: Resource) => r.name === 'someResource');
         expect(resource).toBeDefined();
@@ -272,6 +294,8 @@ describe('Admin: resource-discovery (Coverage)', () => {
 
     it('should exclude non-primitive properties from listProperties', () => {
         const specWithObjectProp = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
             paths: {
                 '/configs': {
                     get: {

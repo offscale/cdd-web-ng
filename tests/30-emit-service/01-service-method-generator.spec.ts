@@ -6,6 +6,7 @@ import { GeneratorConfig, PathInfo } from '@src/core/types.js';
 import { finalCoverageSpec } from '../shared/specs.js';
 import { TypeGenerator } from '@src/service/emit/type/type.generator.js';
 import { HttpParamsBuilderGenerator } from '@src/service/emit/utility/http-params-builder.js';
+import { XmlBuilderGenerator } from '@src/service/emit/utility/xml-builder.generator.js';
 
 const serviceMethodGenSpec = {
     openapi: '3.0.0',
@@ -56,6 +57,26 @@ const serviceMethodGenSpec = {
                 responses: {'200': {}}
             }
         },
+        '/xml-endpoint': {
+            post: {
+                operationId: 'postXml',
+                requestBody: {
+                    content: {
+                        'application/xml': {
+                            schema: {
+                                type: 'object',
+                                xml: { name: 'RequestRoot' },
+                                properties: {
+                                    id: { type: 'integer', xml: { attribute: true } },
+                                    name: { type: 'string' }
+                                }
+                            }
+                        }
+                    }
+                },
+                responses: { '200': {} }
+            }
+        },
         '/readonly-test': {
             post: {
                 operationId: 'postReadOnly',
@@ -66,6 +87,22 @@ const serviceMethodGenSpec = {
                         }
                     }
                 },
+                responses: { '200': {} }
+            }
+        },
+        '/deprecated-endpoint': {
+            get: {
+                operationId: 'getDeprecated',
+                deprecated: true,
+                responses: { '200': {} }
+            }
+        },
+        '/deprecated-param': {
+            get: {
+                operationId: 'getDeprecatedParam',
+                parameters: [
+                    { name: 'id', in: 'query', deprecated: true, schema: { type: 'string' } }
+                ],
                 responses: { '200': {} }
             }
         },
@@ -192,6 +229,14 @@ const serviceMethodGenSpec = {
                 }],
                 responses: {}
             }
+        },
+        '/server-override': {
+            get: {
+                tags: ['ServerOverride'],
+                operationId: 'getWithServerOverride',
+                servers: [{ url: 'https://custom.api.com', description: 'Custom Server' }],
+                responses: { '200': {} }
+            }
         }
     },
     components: {
@@ -217,6 +262,7 @@ describe('Emitter: ServiceMethodGenerator', () => {
         const parser = new SwaggerParser(spec as any, config);
         new TypeGenerator(parser, project, config).generate('/out');
         new HttpParamsBuilderGenerator(project).generate('/out');
+        new XmlBuilderGenerator(project).generate('/out');
 
         const methodGen = new ServiceMethodGenerator(config, parser);
         const sourceFile = project.createSourceFile('/out/tmp.service.ts');
@@ -227,6 +273,23 @@ describe('Emitter: ServiceMethodGenerator', () => {
         serviceClass.addMethod({ name: 'createContextWithClientId', scope: Scope.Private, returnType: 'any', statements: 'return {};' });
         return { methodGen, serviceClass, parser };
     };
+
+    it('should detect application/xml request body and generate xml serialization logic', () => {
+        const { methodGen, serviceClass } = createTestEnvironment();
+        const op: PathInfo = {
+            ...serviceMethodGenSpec.paths['/xml-endpoint'].post,
+            method: 'POST', path: '/xml-endpoint', methodName: 'postXml'
+        } as any;
+
+        methodGen.addServiceMethod(serviceClass, op);
+
+        const body = serviceClass.getMethodOrThrow('postXml').getBodyText()!;
+        // Check signature
+        expect(body).toContain(`const xmlBody = XmlBuilder.serialize(body, 'RequestRoot',`);
+        // Check config generation (id as attribute)
+        expect(body).toContain(`"id":{"attribute":true}`);
+        expect(body).toContain(`return this.http.post(url, xmlBody`);
+    });
 
     it('should generate blob wrapping for encoded multipart fields', () => {
         const { methodGen, serviceClass } = createTestEnvironment();
@@ -257,14 +320,14 @@ describe('Emitter: ServiceMethodGenerator', () => {
         methodGen.addServiceMethod(serviceClass, op);
 
         const body = serviceClass.getMethodOrThrow('postUrlEncoded').getBodyText()!;
-        // FIX: Updated expectation to match generated output from ServiceMethodGenerator
         // Note the JSON serialization of the encoding config object
         expect(body).toContain('const formBody = HttpParamsBuilder.serializeUrlEncodedBody(body, {"tags":{"style":"spaceDelimited","explode":false}});');
         expect(body).toContain('return this.http.post(url, formBody, requestOptions as any);');
     });
 
     it('should warn and skip generation if operation has no methodName', () => {
-        const { methodGen, serviceClass } = createTestEnvironment({});
+        const minimalSpec = { openapi: '3.0.0', info: { title: 'Void', version: '0' }, paths: {} };
+        const { methodGen, serviceClass } = createTestEnvironment(minimalSpec);
         const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
         const operationWithoutName: PathInfo = { path: '/test', method: 'GET', operationId: 'testOp' };
 
@@ -320,12 +383,9 @@ describe('Emitter: ServiceMethodGenerator', () => {
     describe('Strict Content Serialization Generation', () => {
         it('should generate correct builder call with "json" hint for path params with content', () => {
             const { methodGen, serviceClass } = createTestEnvironment();
-            // FIX: Use parser.operations directly to get the correct object reference that contains 'methodName' logic if needed,
-            // but here we must manually define the methodName because extractPaths logic isn't running fully on the ad-hoc object.
-            // Alternatively, just construct the object with methodName.
             const op: PathInfo = {
                 method: 'GET', path: '/search/{filter}',
-                methodName: 'search', // Explicitly set this
+                methodName: 'search',
                 parameters: [{
                     name: 'filter', in: 'path', required: true,
                     content: { 'application/json': { schema: { type: 'object' } } }
@@ -338,7 +398,6 @@ describe('Emitter: ServiceMethodGenerator', () => {
 
         it('should generate correct builder call with "json" hint for header params with content', () => {
             const { methodGen, serviceClass } = createTestEnvironment();
-            // FIX: Explicitly set methodName
             const op: PathInfo = {
                 method: 'GET', path: '/info',
                 methodName: 'getInfo',
@@ -355,12 +414,54 @@ describe('Emitter: ServiceMethodGenerator', () => {
 
     it('should apply SKIP_AUTH_CONTEXT_TOKEN to requests with security: []', () => {
         const { methodGen, serviceClass, parser } = createTestEnvironment();
-        // Find the operation and ensure it has a methodName attached (parser logic usually does this, but let's be safe)
         const op = parser.operations.find((o: any) => o.operationId === 'getPublic')!;
         op.methodName = 'getPublic';
         methodGen.addServiceMethod(serviceClass, op);
 
         const body = serviceClass.getMethodOrThrow('getPublic').getBodyText()!;
         expect(body).toContain('.set(SKIP_AUTH_CONTEXT_TOKEN, true)');
+    });
+
+    it('should generate @deprecated JSDoc for deprecated operations', () => {
+        const { methodGen, serviceClass } = createTestEnvironment();
+        const op: PathInfo = {
+            ...serviceMethodGenSpec.paths['/deprecated-endpoint'].get,
+            path: '/deprecated-endpoint', method: 'GET', methodName: 'getDeprecated'
+        } as any;
+
+        methodGen.addServiceMethod(serviceClass, op);
+
+        const method = serviceClass.getMethodOrThrow('getDeprecated');
+        const docs = method.getJsDocs().map(doc => doc.getInnerText());
+        expect(docs[0]).toContain('@deprecated');
+    });
+
+    it('should generate @deprecated JSDoc override for deprecated parameters', () => {
+        const { methodGen, serviceClass } = createTestEnvironment();
+        const op: PathInfo = {
+            ...serviceMethodGenSpec.paths['/deprecated-param'].get,
+            path: '/deprecated-param', method: 'GET', methodName: 'getDeprecatedParam'
+        } as any;
+
+        methodGen.addServiceMethod(serviceClass, op);
+
+        const method = serviceClass.getMethodOrThrow('getDeprecatedParam');
+        // We check the overloads effectively because JSDoc for consumers is on the overloads
+        const overload = method.getOverloads()[0];
+        const param = overload.getParameters()[0];
+        // getFullText() captures the leading trivia (JSDoc comments) attached to the parameter node, which we injected via 'leadingTrivia'
+        expect(param.getFullText()).toContain('@deprecated');
+    });
+
+    it('should override basePath when operation servers are present', () => {
+        const { methodGen, serviceClass } = createTestEnvironment();
+        const op: PathInfo = {
+            method: 'GET', path: '/server-override', methodName: 'getWithServerOverride',
+            servers: [{ url: 'https://custom.api.com' }]
+        };
+        methodGen.addServiceMethod(serviceClass, op);
+        const body = serviceClass.getMethodOrThrow('getWithServerOverride').getBodyText()!;
+        expect(body).toContain("const basePath = 'https://custom.api.com';");
+        expect(body).not.toContain('const basePath = this.basePath;');
     });
 });

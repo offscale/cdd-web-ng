@@ -15,6 +15,12 @@ import { MockDataGenerator } from "@src/service/emit/test/mock-data.generator.js
  * effectively testing the code that writes tests.
  */
 describe('Generated Code: Service Test Generators', () => {
+    const ensureValid = (spec: any) => ({
+        openapi: '3.0.0',
+        info: { title: 'Test', version: '1.0' },
+        ...spec
+    });
+
     describe('MockDataGenerator', () => {
         const createMockGenerator = (spec: object): MockDataGenerator => {
             const config: GeneratorConfig = {
@@ -22,7 +28,8 @@ describe('Generated Code: Service Test Generators', () => {
                 output: '/out',
                 options: { dateType: 'string', enumStyle: 'enum' },
             };
-            const parser = new SwaggerParser(spec as any, config);
+            // Patch validation
+            const parser = new SwaggerParser(ensureValid(spec), config);
             return new MockDataGenerator(parser);
         };
 
@@ -64,7 +71,8 @@ describe('Generated Code: Service Test Generators', () => {
                 clientName: 'Api',
                 options: { dateType: 'string', enumStyle: 'enum' },
             };
-            const parser = new SwaggerParser(spec as any, config);
+            // Patch validation
+            const parser = new SwaggerParser(ensureValid(spec), config);
             new TypeGenerator(parser, project, config).generate('/out');
             const testGenerator = new ServiceTestGenerator(parser, project, config);
             const controllerGroups = groupPathsByController(parser);

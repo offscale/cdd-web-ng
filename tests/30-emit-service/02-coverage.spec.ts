@@ -40,6 +40,8 @@ describe('Emitter: Service Generators (Coverage)', () => {
 
     it('should not import any models if only primitive parameters are used', () => {
         const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
             paths: {
                 '/primitives/{id}': {
                     get: {
@@ -114,6 +116,8 @@ describe('Emitter: Service Generators (Coverage)', () => {
 
     it('should handle default responses and responses without content', () => {
         const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
             paths: {
                 '/default-response': {
                     get: {

@@ -10,6 +10,12 @@ import { GeneratorConfig } from '@src/core/types.js';
  * and error handling during content loading.
  */
 describe('Core: SwaggerParser (Coverage)', () => {
+    const validSpecBase = {
+        openapi: '3.0.0',
+        info: { title: 'Test', version: '1.0.0' },
+        paths: {}
+    };
+
     beforeEach(() => {
         vi.spyOn(console, 'warn').mockImplementation(() => {
         });
@@ -20,7 +26,7 @@ describe('Core: SwaggerParser (Coverage)', () => {
     });
 
     it('getPolymorphicSchemaOptions should return empty array for non-polymorphic schema', () => {
-        const parser = new SwaggerParser({} as any, { options: {} } as GeneratorConfig);
+        const parser = new SwaggerParser(validSpecBase as any, { options: {} } as GeneratorConfig);
         expect(parser.getPolymorphicSchemaOptions({ type: 'object' })).toEqual([]);
         expect(parser.getPolymorphicSchemaOptions({ discriminator: { propertyName: 'type' } })).toEqual([]);
     });

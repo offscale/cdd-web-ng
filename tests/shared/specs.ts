@@ -10,6 +10,8 @@ const info = { title: 'Test API', version: '1.0.0' };
 export const emptySpec = { openapi: '3.0.0', info, paths: {} };
 
 export const fullCRUD_Users = {
+    openapi: '3.0.0',
+    info,
     paths: {
         '/users': {
             get: {
@@ -74,7 +76,6 @@ export const fullCRUD_Users = {
 export const coverageSpec = {
     openapi: '3.0.0',
     info,
-    ...fullCRUD_Users,
     paths: {
         ...fullCRUD_Users.paths,
         '/logs': {
@@ -278,7 +279,6 @@ export const parserCoverageSpec = {
     }
 };
 
-// ... (providerCoverageSpec, securitySpec, typeGenSpec, adminFormSpec, polymorphismSpec, finalCoverageSpec, listComponentSpec remain unchanged)
 export const providerCoverageSpec = {
     openapi: '3.0.0', info, paths: {},
     components: {

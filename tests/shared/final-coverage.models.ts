@@ -148,6 +148,14 @@ export const finalCoveragePushSpec = {
                     content: { 'application/json': { schema: { $ref: '#/components/schemas/PolyWithOnlyPrimitives' } } }
                 }
             }
+        },
+        '/server-override': {
+            get: {
+                tags: ['ServerOverride'],
+                operationId: 'getWithServerOverride',
+                servers: [{ url: 'https://custom.api.com', description: 'Custom Server' }],
+                responses: { '200': {} }
+            }
         }
     },
     components: {

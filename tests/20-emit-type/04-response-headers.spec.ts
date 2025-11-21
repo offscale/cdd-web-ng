@@ -22,6 +22,11 @@ const headerSpec = {
                             'X-Rate-Limit': {
                                 schema: { type: 'integer' }
                             },
+                            'X-Old-Header': {
+                                description: 'An old header',
+                                schema: { type: 'string' },
+                                deprecated: true
+                            },
                             'Link': {
                                 schema: { type: 'string' }
                             }
@@ -56,6 +61,17 @@ describe('Emitter: Response Header Type Generation', () => {
 
         const totalCount = headersInterface.getPropertyOrThrow("'X-Total-Count'");
         expect(totalCount.getJsDocs()[0].getDescription().trim()).toBe('Total number of items');
+    });
+
+    it('should include @deprecated tag for deprecated headers', () => {
+        const sourceFile = runGenerator(headerSpec);
+        const headersInterface = sourceFile.getInterfaceOrThrow('GetUsers200Headers');
+
+        const oldHeader = headersInterface.getPropertyOrThrow("'X-Old-Header'");
+        const doc = oldHeader.getJsDocs()[0].getText();
+
+        expect(doc).toContain('An old header');
+        expect(doc).toContain('@deprecated');
     });
 
     it('should fallback to operation method+path naming if operationId is missing', () => {

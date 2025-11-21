@@ -9,3 +9,14 @@ export const SERVICE_INDEX_GENERATOR_HEADER_COMMENT = HEADER;
 export const MAIN_INDEX_GENERATOR_HEADER_COMMENT = HEADER;
 export const PROVIDER_GENERATOR_HEADER_COMMENT = HEADER;
 export const UTILITY_GENERATOR_HEADER_COMMENT = HEADER;
+
+/**
+ * The standard JSON Schema dialect identifier used by OpenAPI 3.1.
+ * @see https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.1.0.md#schema-vocabulary
+ */
+export const OAS_3_1_DIALECT = 'https://spec.openapis.org/oas/3.1/dialect/base';
+
+/**
+ * The standard JSON Schema dialect identifier for JSON Schema 2020-12, which OAS 3.1 is based on.
+ */
+export const JSON_SCHEMA_2020_12_DIALECT = 'https://json-schema.org/draft/2020-12/schema';

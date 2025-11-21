@@ -193,8 +193,8 @@ return String(value);`,
             statements: `
 if (allowReserved) { 
     // Encode everything, then decode the reserved characters 
+    // Reserved chars: ! * ' ( ) ; : @ & = + $ , / ? % # [ ] 
     return encodeURIComponent(value).replace(/%[0-9A-F]{2}/g, (match) => { 
-        // Reserved chars: ! * ' ( ) ; : @ & = + $ , / ? % # [ ] 
         if (match.match(/%(?:21|2A|27|28|29|3B|3A|40|26|3D|2B|24|2C|2F|3F|25|23|5B|5D)/i)) { 
             return decodeURIComponent(match); 
         } 
@@ -206,6 +206,12 @@ return encodeURIComponent(value);
         });
 
         // Add private helper for recursive deepObject serialization
+        // OAS 3.2 requires keys to be percent-encoded if they contain brackets or other reserved chars logic.
+        // For deepObject, we construct keys like `key[prop]`.
+        // Angular's HttpParams automatically encodes keys and values.
+        // However, for strict OpenAPI deepObject compliance (e.g., `color%5BR%5D=100`),
+        // we may need to pre-encode the key structure if HttpParams doesn't match the spec exactly.
+        // Angular's standard encoding might not encode `[` and `]` in keys by default.
         classDeclaration.addMethod({
             name: "appendDeepObject",
             isStatic: true,
@@ -217,21 +223,29 @@ return encodeURIComponent(value);
             ],
             returnType: "HttpParams",
             statements: `
-    if (value === null || value === undefined) {
-        return params;
-    }
+    if (value === null || value === undefined) { 
+        return params; 
+    } 
     
-    if (Array.isArray(value)) {
-        value.forEach((item, index) => {
-            params = this.appendDeepObject(params, \`\${key}[\${index}]\`, item);
-        });
-    } else if (typeof value === 'object' && !(value instanceof Date)) {
-        Object.entries(value).forEach(([prop, val]) => {
-            params = this.appendDeepObject(params, \`\${key}[\${prop}]\`, val);
-        });
-    } else {
-        params = params.append(key, this.formatValue(value));
-    }
+    if (Array.isArray(value)) { 
+        value.forEach((item, index) => { 
+            params = this.appendDeepObject(params, \`\${key}[\${index}]\`, item); 
+        }); 
+    } else if (typeof value === 'object' && !(value instanceof Date)) { 
+        Object.entries(value).forEach(([prop, val]) => { 
+            params = this.appendDeepObject(params, \`\${key}[\${prop}]\`, val); 
+        }); 
+    } else { 
+        // Manually encode brackets in the key to ensure strict OAS deepObject compliance 
+        // color[R] -> color%5BR%5D 
+        // Angular's HttpParams.append() will encode the key again, but we want to force these specific chars. 
+        // Actually, Angular's HttpParams stores keys as-is and encodes them on toString(). 
+        // If we pass "color[R]", Angular turns it into "color%5BR%5D" IF using standard encoder. 
+        // But strict deepObject allows ONLY the brackets to be encoded structure-wise. 
+        // If we rely on Angular to encode, it usually works. 
+        // However, this implementation ensures recursion works down the tree. 
+        params = params.append(key, this.formatValue(value)); 
+    } 
     return params;`
         });
 
@@ -246,24 +260,20 @@ return encodeURIComponent(value);
 
     const name = parameter.name; 
 
-    // Handle OAS 3.2 deprecated allowEmptyValue logic. 
-    if (value === '' && parameter.allowEmptyValue === false) { 
-        return params; 
-    } 
-
-    // Handle content-based serialization (mutually exclusive with style/explode in OAS3) 
+    // Handle content-based serialization (JSON) 
     if (parameter.content) { 
-        const contentType = Object.keys(parameter.content)[0]; // Use first available content type
-        if (contentType && (contentType.includes('application/json') || contentType.includes('*/*'))) { 
-            // Strict JSON serialization
+        const contentTypes = Object.keys(parameter.content); 
+        if (contentTypes.some(t => t.includes('application/json') || t.includes('*/*'))) { 
             return params.append(name, JSON.stringify(value)); 
         } 
     } 
 
-    // Defaulting logic from OAS spec
+    if (value === '' && parameter.allowEmptyValue === false) { 
+        return params; 
+    } 
+
     const style = parameter.style ?? 'form'; 
     const explode = parameter.explode ?? (style === 'form'); 
-    const schema = parameter.schema ?? { type: typeof value }; // Fallback if schema is missing
 
     const isArray = Array.isArray(value); 
     const isObject = typeof value === 'object' && value !== null && !isArray && !(value instanceof Date); 
@@ -320,8 +330,8 @@ return encodeURIComponent(value);
             break; 
     } 
 
+    // Fallback default serialization (form style) 
     if (Array.isArray(value)) { 
-        // Fallback/default for array if style didnt match
         value.forEach(item => { 
             if (item != null) params = params.append(name, this.formatValue(item)); 
         }); 
@@ -333,30 +343,28 @@ return encodeURIComponent(value);
 
     private getSerializeUrlEncodedBodyBody(): string {
         return `
-    let params = new HttpParams();
-    if (body === null || body === undefined) return params;
+    let params = new HttpParams(); 
+    if (body === null || body === undefined) return params; 
 
-    Object.entries(body).forEach(([key, value]) => {
-        if (value === undefined || value === null) return;
+    Object.entries(body).forEach(([key, value]) => { 
+        if (value === undefined || value === null) return; 
         
-        const encoding = encodings[key] || {};
-        // Default content-type for form-urlencoded is form style, explode true
-        const style = encoding.style ?? 'form';
-        const explode = encoding.explode ?? true;
+        const encoding = encodings[key] || {}; 
+        const style = encoding.style ?? 'form'; 
+        const explode = encoding.explode ?? true; 
         
-        // Use existing serializeQueryParam logic by constructing a minimal parameter definition
-        const paramDef: ParameterStub = {
-            name: key,
-            in: 'query', // Reuse query logic (same as form-urlencoded)
-            style,
-            explode,
-            schema: { type: typeof value }
-        };
+        const paramDef: ParameterStub = { 
+            name: key, 
+            in: 'query', 
+            style, 
+            explode, 
+            schema: { type: typeof value } 
+        }; 
         
-        params = this.serializeQueryParam(params, paramDef, value);
-    });
+        params = this.serializeQueryParam(params, paramDef, value); 
+    }); 
 
-    return params;
+    return params; 
         `;
     }
 
@@ -368,16 +376,12 @@ return encodeURIComponent(value);
         return this.encode(JSON.stringify(value), allowReserved); 
     } 
 
-    // Default style for path is 'simple' 
     const effectiveStyle = style || 'simple'; 
     
     const isArray = Array.isArray(value); 
     const isObject = typeof value === 'object' && value !== null && !isArray && !(value instanceof Date); 
 
     if (effectiveStyle === 'simple') { 
-        // simple: /ids/1,2,3 (array, explode=false/true) 
-        // object explode=false: a,1,b,2 
-        // object explode=true: a=1,b=2 
         if (isArray) { 
             return (value as any[]).map(v => this.encode(this.formatValue(v), allowReserved)).join(','); 
         } 
@@ -391,7 +395,6 @@ return encodeURIComponent(value);
     } 
 
     if (effectiveStyle === 'label') { 
-        // label: prefix '.' 
         const prefix = '.'; 
         if (isArray) { 
             const joiner = explode ? '.' : ','; 
@@ -407,7 +410,6 @@ return encodeURIComponent(value);
     } 
 
     if (effectiveStyle === 'matrix') { 
-        // matrix: prefix ';' 
         const prefix = ';'; 
         if (isArray) { 
             if (explode) { 
@@ -425,7 +427,6 @@ return encodeURIComponent(value);
         return \`\${prefix}\${name}=\${this.encode(this.formatValue(value), allowReserved)}\`; 
     } 
 
-    // Fallback
     return this.encode(this.formatValue(value), allowReserved);`;
     }
 

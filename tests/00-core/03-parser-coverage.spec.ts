@@ -2,12 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SwaggerParser } from '@src/core/parser.js';
 import { parserCoverageSpec } from '../shared/specs.js';
 import { GeneratorConfig } from '@src/core/types.js';
+import { JSON_SCHEMA_2020_12_DIALECT, OAS_3_1_DIALECT } from '@src/core/constants.js';
 
 /**
  * @fileoverview
  * This file contains targeted tests for `src/core/parser.ts` to cover specific
  * edge cases and branches related to parsing, especially for polymorphic schemas
- * and error handling during content loading.
+ *, dialect validation, and error handling during content loading.
  */
 describe('Core: SwaggerParser (Coverage)', () => {
     const validSpecBase = {
@@ -16,8 +17,10 @@ describe('Core: SwaggerParser (Coverage)', () => {
         paths: {}
     };
 
+    let consoleWarnSpy: any;
+
     beforeEach(() => {
-        vi.spyOn(console, 'warn').mockImplementation(() => {
+        consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
         });
     });
 
@@ -93,5 +96,37 @@ describe('Core: SwaggerParser (Coverage)', () => {
         await expect(SwaggerParser.create('http://bad.url', {} as GeneratorConfig)).rejects.toThrow(
             'Failed to read content from "http://bad.url": Network failure',
         );
+    });
+
+    describe('Dialect Validation', () => {
+        it('should accept OAS 3.1 default dialect silently', () => {
+            const spec = {
+                ...validSpecBase,
+                openapi: '3.1.0',
+                jsonSchemaDialect: OAS_3_1_DIALECT
+            };
+            new SwaggerParser(spec as any, { options: {} } as GeneratorConfig);
+            expect(consoleWarnSpy).not.toHaveBeenCalled();
+        });
+
+        it('should accept JSON Schema 2020-12 dialect silently', () => {
+            const spec = {
+                ...validSpecBase,
+                openapi: '3.1.0',
+                jsonSchemaDialect: JSON_SCHEMA_2020_12_DIALECT
+            };
+            new SwaggerParser(spec as any, { options: {} } as GeneratorConfig);
+            expect(consoleWarnSpy).not.toHaveBeenCalled();
+        });
+
+        it('should warn when a custom dialect is used', () => {
+            const spec = {
+                ...validSpecBase,
+                openapi: '3.1.0',
+                jsonSchemaDialect: 'https://spec.openapis.org/oas/3.0/dialect' // Custom or older
+            };
+            new SwaggerParser(spec as any, { options: {} } as GeneratorConfig);
+            expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('custom jsonSchemaDialect'));
+        });
     });
 });

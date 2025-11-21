@@ -19,75 +19,164 @@ function getXmlBuilder() {
 describe('Utility: XmlBuilder', () => {
     const XmlBuilder = getXmlBuilder();
 
-    it('should serialize simple primitives', () => {
-        expect(XmlBuilder.serialize(123, 'id')).toBe('<id>123</id>');
-        expect(XmlBuilder.serialize('foo', 'name')).toBe('<name>foo</name>');
-        expect(XmlBuilder.serialize(true, 'active')).toBe('<active>true</active>');
-    });
+    describe('Standard (Legacy) Behavior', () => {
+        it('should serialize simple primitives', () => {
+            expect(XmlBuilder.serialize(123, 'id')).toBe('<id>123</id>');
+            expect(XmlBuilder.serialize('foo', 'name')).toBe('<name>foo</name>');
+            expect(XmlBuilder.serialize(true, 'active')).toBe('<active>true</active>');
+        });
 
-    it('should serialize objects', () => {
-        const data = { id: 1, name: 'Item' };
-        const xml = XmlBuilder.serialize(data, 'Entity');
-        expect(xml).toBe('<Entity><id>1</id><name>Item</name></Entity>');
-    });
+        it('should serialize objects', () => {
+            const data = { id: 1, name: 'Item' };
+            const xml = XmlBuilder.serialize(data, 'Entity');
+            expect(xml).toBe('<Entity><id>1</id><name>Item</name></Entity>');
+        });
 
-    it('should handle attributes via config', () => {
-        const data = { id: 5, val: 'test' };
-        const config = {
-            properties: {
-                id: { attribute: true }
-            }
-        };
-        const xml = XmlBuilder.serialize(data, 'Item', config);
-        expect(xml).toBe('<Item id="5"><val>test</val></Item>');
-    });
-
-    it('should handle custom tag names', () => {
-        const data = { simple: 'val' };
-        const config = {
-            properties: {
-                simple: { name: 'complex' }
-            }
-        };
-        const xml = XmlBuilder.serialize(data, 'Root', config);
-        expect(xml).toBe('<Root><complex>val</complex></Root>');
-    });
-
-    it('should handle wrapped arrays', () => {
-        const data = { tags: ['a', 'b'] };
-        const config = {
-            properties: {
-                tags: {
-                    wrapped: true,
-                    items: { name: 'Tag' }
+        it('should handle attributes via legacy config', () => {
+            const data = { id: 5, val: 'test' };
+            const config = {
+                properties: {
+                    id: { attribute: true }
                 }
-            }
-        };
-        const xml = XmlBuilder.serialize(data, 'Root', config);
-        // <Root><tags><Tag>a</Tag><Tag>b</Tag></tags></Root>
-        expect(xml).toBe('<Root><tags><Tag>a</Tag><Tag>b</Tag></tags></Root>');
+            };
+            const xml = XmlBuilder.serialize(data, 'Item', config);
+            expect(xml).toBe('<Item id="5"><val>test</val></Item>');
+        });
+
+        it('should handle custom tag names', () => {
+            const data = { simple: 'val' };
+            const config = {
+                properties: {
+                    simple: { name: 'complex' }
+                }
+            };
+            const xml = XmlBuilder.serialize(data, 'Root', config);
+            expect(xml).toBe('<Root><complex>val</complex></Root>');
+        });
+
+        it('should handle wrapped arrays (legacy)', () => {
+            const data = { tags: ['a', 'b'] };
+            const config = {
+                properties: {
+                    tags: {
+                        wrapped: true,
+                        items: { name: 'Tag' }
+                    }
+                }
+            };
+            const xml = XmlBuilder.serialize(data, 'Root', config);
+            expect(xml).toBe('<Root><tags><Tag>a</Tag><Tag>b</Tag></tags></Root>');
+        });
+
+        it('should handle unwrapped arrays (default)', () => {
+            const data = { tags: ['a', 'b'] };
+            const config = {
+                properties: { tags: { wrapped: false } }
+            };
+            const xml = XmlBuilder.serialize(data, 'Root', config);
+            expect(xml).toBe('<Root><tags>a</tags><tags>b</tags></Root>');
+        });
     });
 
-    it('should handle unwrapped arrays (default)', () => {
-        const data = { tags: ['a', 'b'] };
-        const config = {
-            properties: { tags: { wrapped: false } }
-        };
-        const xml = XmlBuilder.serialize(data, 'Root', config);
-        // <Root><tags>a</tags><tags>b</tags></Root>
-        expect(xml).toBe('<Root><tags>a</tags><tags>b</tags></Root>');
+    describe('OAS 3.2 nodeType Support', () => {
+        it('should handle nodeType: "attribute"', () => {
+            const data = { id: 99, content: 'stuff' };
+            const config = {
+                properties: {
+                    id: { nodeType: 'attribute' }
+                }
+            };
+            const xml = XmlBuilder.serialize(data, 'Node', config);
+            expect(xml).toBe('<Node id="99"><content>stuff</content></Node>');
+        });
+
+        it('should handle nodeType: "element" on arrays (Wrapping)', () => {
+            // Equivalent to wrapped: true
+            const data = { list: [1, 2] };
+            const config = {
+                properties: {
+                    list: {
+                        nodeType: 'element',
+                        items: { name: 'item' }
+                    }
+                }
+            };
+            const xml = XmlBuilder.serialize(data, 'Root', config);
+            expect(xml).toBe('<Root><list><item>1</item><item>2</item></list></Root>');
+        });
+
+        it('should handle nodeType: "none" (Unwrapping/Grouping)', () => {
+            // If a property is "none", it has no tag, its children (or text) are direct children of parent
+            const data = {
+                meta: { version: '1.0', author: 'me' }
+            };
+            const config = {
+                properties: {
+                    meta: { nodeType: 'none' }
+                }
+            };
+            // Expect meta's children to appear directly in Root, not wrapped in <meta>
+            const xml = XmlBuilder.serialize(data, 'Root', config);
+            expect(xml).toBe('<Root><version>1.0</version><author>me</author></Root>');
+        });
+
+        it('should handle nodeType: "text" (Inner Text)', () => {
+            const data = {
+                attr: 'attrVal',
+                content: 'This is text content'
+            };
+            const config = {
+                properties: {
+                    attr: { nodeType: 'attribute' },
+                    content: { nodeType: 'text' }
+                }
+            };
+            const xml = XmlBuilder.serialize(data, 'Element', config);
+            expect(xml).toBe('<Element attr="attrVal">This is text content</Element>');
+        });
+
+        it('should handle nodeType: "cdata"', () => {
+            const data = {
+                html: '<html><body></body></html>'
+            };
+            const config = {
+                properties: {
+                    html: { nodeType: 'cdata' }
+                }
+            };
+            // Per OAS 3.2, if nodeType is cdata, it represents a CDATA section node.
+            // It is inserted directly into the parent without a wrapper tag named after the property.
+            const xml = XmlBuilder.serialize(data, 'Doc', config);
+            expect(xml).toBe('<Doc><![CDATA[<html><body></body></html>]]></Doc>');
+        });
+
+        it('should handle nodeType: "cdata" combined with "none" to inject raw CDATA', () => {
+            // OAS Use case: Referenced Element With CDATA
+            const data = {
+                raw: '<html></html>'
+            };
+            const config = {
+                properties: {
+                    raw: { nodeType: 'cdata' }
+                }
+            };
+            const xml = XmlBuilder.serialize(data, 'Doc', config);
+            expect(xml).toBe('<Doc><![CDATA[<html></html>]]></Doc>');
+        });
     });
 
-    it('should escape special characters', () => {
-        const data = { text: '<&>' };
-        const xml = XmlBuilder.serialize(data, 'R');
-        expect(xml).toBe('<R><text>&lt;&amp;&gt;</text></R>');
-    });
+    describe('Escaping', () => {
+        it('should escape special characters in text', () => {
+            const data = { text: '<&>' };
+            const xml = XmlBuilder.serialize(data, 'R');
+            expect(xml).toBe('<R><text>&lt;&amp;&gt;</text></R>');
+        });
 
-    it('should escape attributes', () => {
-        const data = { attr: '"quotes"' };
-        const config = { properties: { attr: { attribute: true } } };
-        const xml = XmlBuilder.serialize(data, 'R', config);
-        expect(xml).toBe('<R attr="&quot;quotes&quot;"></R>');
+        it('should escape attributes', () => {
+            const data = { attr: '"quotes"' };
+            const config = { properties: { attr: { attribute: true } } };
+            const xml = XmlBuilder.serialize(data, 'R', config);
+            expect(xml).toBe('<R attr="&quot;quotes&quot;"></R>');
+        });
     });
 });

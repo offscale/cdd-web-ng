@@ -43,6 +43,14 @@ const typeGenSpec = {
                 properties: { id: { type: 'integer' } },
                 example: { id: 123, meta: 'test' }
             },
+            WithMultipleExamples: {
+                type: 'object',
+                properties: { count: { type: 'integer' } },
+                examples: [
+                    { count: 1, desc: 'One' },
+                    { count: 2, desc: 'Two' }
+                ]
+            },
             WithPatternProps: {
                 type: 'object',
                 patternProperties: {
@@ -119,6 +127,20 @@ describe('Emitter: TypeGenerator', () => {
         const doc = model.getJsDocs()[0].getText();
         expect(doc).toContain('@example');
         expect(doc).toContain('"id": 123');
+    });
+
+    it('should generate multiple @example tags for OAS 3.1+ examples array', () => {
+        const { generator, project } = createEnvironment();
+        generator.generate('/out');
+        const sourceFile = project.getSourceFileOrThrow('/out/models/index.ts');
+        const model = sourceFile.getInterfaceOrThrow('WithMultipleExamples');
+        const doc = model.getJsDocs()[0].getText();
+
+        // Ensure multiple @example blocks are generated
+        const exampleMatches = doc.match(/@example/g);
+        expect(exampleMatches?.length).toBe(2);
+        expect(doc).toContain('"count": 1');
+        expect(doc).toContain('"count": 2');
     });
 
     it('should generate index signature for patternProperties', () => {

@@ -540,6 +540,24 @@ export const finalCoverageSpec = {
                 responses: {}
             }
         },
+        // OAS 3.2 Support: GET with body
+        '/get-with-body': {
+            get: {
+                tags: ['OAS32'],
+                operationId: 'getWithBody',
+                requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
+                responses: { '200': {} }
+            }
+        },
+        // OAS 3.2 Support: DELETE with body
+        '/delete-with-body': {
+            delete: {
+                tags: ['OAS32'],
+                operationId: 'deleteWithBody',
+                requestBody: { content: { 'application/json': { schema: { type: 'string' } } } },
+                responses: { '200': {} }
+            }
+        }
     },
     components: {
         schemas: {

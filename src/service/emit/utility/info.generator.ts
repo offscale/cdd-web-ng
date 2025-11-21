@@ -5,8 +5,8 @@ import { SwaggerParser } from "../../../core/parser.js";
 
 /**
  * Generates the `info.ts` file.
- * This file exports the metadata found in the OpenAPI `info` object (title, version, etc.)
- * as a runtime constant, allowing the application to access API details.
+ * This file exports the metadata found in the OpenAPI `info` object, as well as
+ * root-level `tags` and `externalDocs`, allowing the application to access API details at runtime.
  */
 export class InfoGenerator {
     constructor(private parser: SwaggerParser, private project: Project) {
@@ -19,8 +19,7 @@ export class InfoGenerator {
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
         // Define a runtime interface for the Info object so the constant is typed.
-        // We reproduce the structure here to keep the generated code self-contained
-        // and independent of the generator's internal types.
+        // We reproduce the structure here to keep the generated code self-contained.
         sourceFile.addInterface({
             name: "ApiInfo",
             isExported: true,
@@ -44,7 +43,23 @@ export class InfoGenerator {
             docs: ["Interface representing the metadata of the API."]
         });
 
-        // Export the actual data from the parsed spec
+        sourceFile.addInterface({
+            name: "ApiTag",
+            isExported: true,
+            properties: [
+                { name: "name", type: "string" },
+                { name: "description", type: "string", hasQuestionToken: true },
+                { name: "summary", type: "string", hasQuestionToken: true },
+                {
+                    name: "externalDocs",
+                    type: "{ description?: string; url: string; }",
+                    hasQuestionToken: true
+                }
+            ],
+            docs: ["Interface representing a tag defined in the API."]
+        });
+
+        // Export the Info data from the parsed spec
         sourceFile.addVariableStatement({
             isExported: true,
             declarationKind: VariableDeclarationKind.Const,
@@ -54,6 +69,30 @@ export class InfoGenerator {
                 initializer: JSON.stringify(this.parser.spec.info, null, 2)
             }],
             docs: ["Metadata about the API defined in the OpenAPI specification."]
+        });
+
+        // Export the Tags data from the parsed spec
+        sourceFile.addVariableStatement({
+            isExported: true,
+            declarationKind: VariableDeclarationKind.Const,
+            declarations: [{
+                name: "API_TAGS",
+                type: "ApiTag[]",
+                initializer: JSON.stringify(this.parser.spec.tags || [], null, 2)
+            }],
+            docs: ["List of tags defined in the OpenAPI specification."]
+        });
+
+        // Export External Documentation from the parsed spec
+        sourceFile.addVariableStatement({
+            isExported: true,
+            declarationKind: VariableDeclarationKind.Const,
+            declarations: [{
+                name: "API_EXTERNAL_DOCS",
+                type: "{ description?: string; url: string; } | undefined",
+                initializer: JSON.stringify(this.parser.spec.externalDocs, null, 2)
+            }],
+            docs: ["Global external documentation defined in the OpenAPI specification."]
         });
 
         sourceFile.formatText();

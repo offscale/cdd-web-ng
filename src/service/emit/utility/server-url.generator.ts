@@ -34,6 +34,7 @@ export class ServerUrlGenerator {
             properties: [
                 { name: "url", type: "string" },
                 { name: "description", type: "string", hasQuestionToken: true },
+                { name: "name", type: "string", hasQuestionToken: true }, // OAS 3.2
                 {
                     name: "variables",
                     hasQuestionToken: true,
@@ -54,18 +55,20 @@ export class ServerUrlGenerator {
             docs: ["The list of servers defined in the OpenAPI specification."]
         });
 
+        const lookupParamType = "number | string";
+
         // Helper function to build the URL
         sourceFile.addFunction({
             name: "getServerUrl",
             isExported: true,
             parameters: [
-                { name: "indexOrDescription", type: "number | string", initializer: "0" },
+                { name: "indexOrDescription", type: lookupParamType, initializer: "0" },
                 { name: "variables", type: "Record<string, string>", hasQuestionToken: true }
             ],
             returnType: "string",
             docs: [
                 "Gets the URL for a specific server definition, substituting variables if needed.",
-                "@param indexOrDescription The index of the server in `API_SERVERS` or its description. Defaults to 0.",
+                "@param indexOrDescription The index of the server, or its name (OAS 3.2), or description.",
                 "@param variables A map of variable names to values to override the defaults.",
                 "@throws Error if the server is not found.",
                 "@returns The fully constructed URL."
@@ -75,7 +78,8 @@ export class ServerUrlGenerator {
                 writer.writeLine("if (typeof indexOrDescription === 'number') {").indent(() => {
                     writer.writeLine("server = API_SERVERS[indexOrDescription];");
                 }).writeLine("} else {").indent(() => {
-                    writer.writeLine("server = API_SERVERS.find(s => s.description === indexOrDescription);");
+                    // Support lookup by Name (preferred) or Description
+                    writer.writeLine("server = API_SERVERS.find(s => s.name === indexOrDescription || s.description === indexOrDescription);");
                 }).writeLine("}");
 
                 writer.writeLine("if (!server) {").indent(() => {
@@ -86,6 +90,12 @@ export class ServerUrlGenerator {
                 writer.writeLine("if (server.variables) {").indent(() => {
                     writer.writeLine("Object.entries(server.variables).forEach(([key, config]) => {").indent(() => {
                         writer.writeLine("const value = variables?.[key] ?? config.default;");
+
+                        // Validate against enum if present
+                        writer.writeLine("if (config.enum && !config.enum.includes(value)) {").indent(() => {
+                            writer.writeLine("throw new Error(`Value \"${value}\" for variable \"${key}\" is not in the allowed enum: ${config.enum.join(', ')}`);");
+                        }).writeLine("}");
+
                         writer.writeLine("// Simple substitution (e.g., {port})");
                         writer.writeLine("url = url.replace(new RegExp(`{${key}}`, 'g'), value);");
                     }).writeLine("});");

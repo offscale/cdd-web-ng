@@ -19,6 +19,7 @@ import { pathToFileURL } from 'node:url';
 import yaml from 'js-yaml';
 import { extractPaths, isUrl, pascalCase } from './utils.js';
 import { validateSpec } from './validator.js';
+import { JSON_SCHEMA_2020_12_DIALECT, OAS_3_1_DIALECT } from './constants.js';
 
 /** Represents a `$ref` object in a JSON Schema. */
 interface RefObject {
@@ -91,7 +92,18 @@ export class SwaggerParser {
         // 1. Fundamental Structure Validation
         validateSpec(spec);
 
-        // 2. User-Configured Custom Validation
+        // 2. Dialect Validation (OAS 3.1+)
+        if (spec.jsonSchemaDialect) {
+            const dialect = spec.jsonSchemaDialect;
+            // We accept the specific OAS dialect and the generic JSON Schema Draft 2020-12
+            if (dialect !== OAS_3_1_DIALECT && dialect !== JSON_SCHEMA_2020_12_DIALECT) {
+                console.warn(`⚠️  Warning: The specification defines a custom jsonSchemaDialect: "${dialect}". ` +
+                    `This generator is optimized for the default OpenAPI 3.1 dialect (${OAS_3_1_DIALECT}). ` +
+                    `Some schema features may not be generated exactly as intended.`);
+            }
+        }
+
+        // 3. User-Configured Custom Validation
         if (config.validateInput && !config.validateInput(spec)) {
             throw new Error("Custom input validation failed.");
         }
@@ -277,7 +289,7 @@ export class SwaggerParser {
     }
 
     /**
-     * Synchronously resolves a JSON reference (`$ref`) object to its corresponding definition.
+     * Synchronously resolves a JSON reference (`$ref`) object to its definition.
      * If the provided object is not a `$ref`, it is returned as is.
      * This method assumes all necessary files have been pre-loaded into the cache.
      * @template T The expected type of the resolved object.

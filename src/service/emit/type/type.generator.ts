@@ -63,9 +63,7 @@ export class TypeGenerator {
                     const resolvedCallback = this.parser.resolve(callbackObj) as Record<string, PathItem>;
                     if (!resolvedCallback) return;
 
-                    // Iterate through the runtime expression URLs in the callback definition
                     Object.values(resolvedCallback).forEach((pathItem: PathItem) => {
-                        // Iterate methods in the callback path item
                         ['post', 'put', 'patch'].forEach(method => {
                             const operation = pathItem[method];
                             if (operation && operation.requestBody) {
@@ -100,10 +98,7 @@ export class TypeGenerator {
                     properties: properties,
                     docs: [{
                         description: `Parameters for the '${linkName}' link.`,
-                        tags: [{
-                            tagName: 'see',
-                            text: 'https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.1.0.md#linkObject'
-                        }]
+                        tags: [{ tagName: 'see', text: 'linkObject' }]
                     }]
                 });
             }
@@ -114,7 +109,6 @@ export class TypeGenerator {
             if (op.responses) {
                 Object.entries(op.responses).forEach(([code, resp]) => {
                     if (resp.headers) {
-                        // Naming: OperationId + Code + Headers, e.g., GetUser200Headers
                         const opIdBase = op.operationId ? pascalCase(op.operationId) : pascalCase(op.method + op.path);
                         const interfaceName = `${opIdBase}${code}Headers`;
 
@@ -125,16 +119,25 @@ export class TypeGenerator {
                             if (!resolvedHeader) continue;
 
                             const schema = resolvedHeader.schema as SwaggerDefinition ||
-                                { type: resolvedHeader.type, format: resolvedHeader.format }; // Swagger 2 compat
+                                { type: resolvedHeader.type, format: resolvedHeader.format };
 
                             const type = getTypeScriptType(schema, this.config, this.parser.schemas.map(s => s.name));
                             const safeName = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(headerName) ? headerName : `'${headerName}'`;
+
+                            // Updated logic: Build JSDoc structure explicitly
+                            const jsDocs: OptionalKind<JSDocStructure>[] = [];
+                            if (resolvedHeader.description || resolvedHeader.deprecated) {
+                                const doc: OptionalKind<JSDocStructure> = {};
+                                if (resolvedHeader.description) doc.description = resolvedHeader.description;
+                                if (resolvedHeader.deprecated) doc.tags = [{ tagName: 'deprecated' }];
+                                jsDocs.push(doc);
+                            }
 
                             properties.push({
                                 name: safeName,
                                 type: type,
                                 hasQuestionToken: !resolvedHeader.required,
-                                docs: resolvedHeader.description ? [resolvedHeader.description] : []
+                                docs: jsDocs
                             });
                         }
 
@@ -155,9 +158,7 @@ export class TypeGenerator {
     }
 
     private shouldGenerateInterface(def: SwaggerDefinition): boolean {
-        // Unions must be Type Aliases
         if (def.anyOf || def.oneOf) return false;
-        // Objects with properties or inheritance are Interfaces
         return def.type === 'object' || !!def.properties || !!def.allOf || !!def.patternProperties;
     }
 
@@ -177,7 +178,6 @@ export class TypeGenerator {
 
         const allStrings = values.every(v => typeof v === 'string');
 
-        // Use Union Type if configured OR if contains non-string values
         if (enumStyle === 'union' || !allStrings) {
             sourceFile.addTypeAlias({
                 name: pascalCase(name),
@@ -212,8 +212,6 @@ export class TypeGenerator {
 
     private generateInterface(sourceFile: SourceFile, name: string, def: SwaggerDefinition): void {
         const modelName = pascalCase(name);
-
-        // Response Model
         const responseProps = this.getInterfaceProperties(def, { excludeWriteOnly: true });
         const interfaceDecl = sourceFile.addInterface({
             name: modelName,
@@ -224,7 +222,6 @@ export class TypeGenerator {
         this.applyComposition(interfaceDecl, def, { excludeWriteOnly: true });
         this.applyIndexSignature(interfaceDecl, def);
 
-        // Request Model
         if (this.needsRequestModel(def)) {
             const requestProps = this.getInterfaceProperties(def, { excludeReadOnly: true });
             const requestDecl = sourceFile.addInterface({
@@ -268,20 +265,17 @@ export class TypeGenerator {
 
     private applyIndexSignature(interfaceDecl: any, def: SwaggerDefinition): void {
         const returnTypes: string[] = [];
-
         if (def.additionalProperties) {
             const valueType = def.additionalProperties === true
                 ? 'any'
                 : getTypeScriptType(def.additionalProperties as SwaggerDefinition, this.config, this.parser.schemas.map(s => s.name));
             returnTypes.push(valueType);
         }
-
         if (def.patternProperties) {
             Object.values(def.patternProperties).forEach(p => {
                 returnTypes.push(getTypeScriptType(p, this.config, this.parser.schemas.map(s => s.name)));
             });
         }
-
         if (returnTypes.length > 0) {
             const distinct = Array.from(new Set(returnTypes));
             interfaceDecl.addIndexSignature({
@@ -338,7 +332,14 @@ export class TypeGenerator {
         const tags: OptionalKind<JSDocTagStructure>[] = [];
 
         if ((def as any).deprecated) tags.push({ tagName: 'deprecated' });
-        if (def.example) tags.push({ tagName: 'example', text: JSON.stringify(def.example, null, 2) });
+        if (def.example !== undefined) {
+            tags.push({ tagName: 'example', text: JSON.stringify(def.example, null, 2) });
+        }
+        if (def.examples && Array.isArray(def.examples)) {
+            def.examples.forEach(ex => {
+                tags.push({ tagName: 'example', text: JSON.stringify(ex, null, 2) });
+            });
+        }
         if (def.default !== undefined) tags.push({ tagName: 'default', text: JSON.stringify(def.default) });
         if (def.externalDocs?.url) {
             const desc = def.externalDocs.description ? ` - ${def.externalDocs.description}` : '';
@@ -346,7 +347,6 @@ export class TypeGenerator {
         }
 
         if (!description && tags.length === 0) return [];
-
         return [{ description, tags }];
     }
 }

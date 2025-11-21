@@ -25,24 +25,36 @@ export function mapSchemaToFormControl(schema: SwaggerDefinition): FormControlIn
     if (schema.maxLength) {
         validators.push(`Validators.maxLength(${schema.maxLength})`);
     }
-    if (schema.minimum !== undefined && !schema.exclusiveMinimum) {
-        validators.push(`Validators.min(${schema.minimum})`);
-    }
-    if (schema.maximum !== undefined && !schema.exclusiveMaximum) {
-        validators.push(`Validators.max(${schema.maximum})`);
-    }
     if (schema.pattern) {
         validators.push(`Validators.pattern(/${schema.pattern.replace(/\\\\/g, '\\')}/)`);
     }
     if (schema.format === 'email') {
         validators.push('Validators.email');
     }
-    if (schema.exclusiveMinimum) {
-        validators.push(`CustomValidators.exclusiveMinimum(${schema.minimum})`);
+
+    // Support for 2020-12 / OAS 3.2 numeric exclusive constraints
+    // min / exclusiveMin
+    if (typeof schema.exclusiveMinimum === 'number') {
+        validators.push(`CustomValidators.exclusiveMinimum(${schema.exclusiveMinimum})`);
+    } else if (schema.minimum !== undefined) {
+        if (schema.exclusiveMinimum === true) {
+            validators.push(`CustomValidators.exclusiveMinimum(${schema.minimum})`);
+        } else {
+            validators.push(`Validators.min(${schema.minimum})`);
+        }
     }
-    if (schema.exclusiveMaximum) {
-        validators.push(`CustomValidators.exclusiveMaximum(${schema.maximum})`);
+
+    // max / exclusiveMax
+    if (typeof schema.exclusiveMaximum === 'number') {
+        validators.push(`CustomValidators.exclusiveMaximum(${schema.exclusiveMaximum})`);
+    } else if (schema.maximum !== undefined) {
+        if (schema.exclusiveMaximum === true) {
+            validators.push(`CustomValidators.exclusiveMaximum(${schema.maximum})`);
+        } else {
+            validators.push(`Validators.max(${schema.maximum})`);
+        }
     }
+
     if (schema.multipleOf) {
         validators.push(`CustomValidators.multipleOf(${schema.multipleOf})`);
     }

@@ -67,21 +67,29 @@ export class ServiceMethodGenerator {
     }
 
     private getResponseType(operation: PathInfo, knownTypes: string[]): string {
-        if (operation.responses?.['204']) return 'void';
-        const successCode = Object.keys(operation.responses ?? {}).find(code => code.startsWith('2'));
-        if (successCode) {
-            const responseSchema = operation.responses![successCode]?.content?.['application/json']?.schema;
+        if (!operation.responses) return 'any';
+
+        const responses = operation.responses;
+        if (responses['204']) return 'void';
+
+        const specificCode = Object.keys(responses).find(code => /^2\d{2}$/.test(code));
+        const rangeCode = responses['2XX'] ? '2XX' : undefined;
+        const defaultCode = responses['default'] ? 'default' : undefined;
+
+        const targetCode = specificCode || rangeCode || defaultCode;
+
+        if (targetCode) {
+            const responseSchema = responses[targetCode]?.content?.['application/json']?.schema;
             if (responseSchema) {
                 return getTypeScriptType(responseSchema as SwaggerDefinition, this.config, knownTypes);
             }
         }
-        const httpMethod = operation.method.toLowerCase();
-        if (httpMethod === 'post' || httpMethod === 'put') {
-            const requestSchema = operation.requestBody?.content?.['application/json']?.schema;
-            if (requestSchema) {
-                return getTypeScriptType(requestSchema as SwaggerDefinition, this.config, knownTypes);
-            }
+
+        const requestSchema = operation.requestBody?.content?.['application/json']?.schema;
+        if (requestSchema) {
+            return getTypeScriptType(requestSchema as SwaggerDefinition, this.config, knownTypes);
         }
+
         return 'any';
     }
 
@@ -102,7 +110,6 @@ export class ServiceMethodGenerator {
                 name: paramName,
                 type: paramType,
                 hasQuestionToken: !param.required,
-                // Cast undefined to satisfy strict exactOptionalPropertyTypes
                 leadingTrivia: param.deprecated ? [`/** @deprecated */ `] : (undefined as unknown as string | WriterFunction | (string | WriterFunction)[])
             });
         });
@@ -162,19 +169,14 @@ export class ServiceMethodGenerator {
             lines.push(`console.warn('The following querystring parameters are not automatically handled:', ${JSON.stringify(querystringParams.map(p => p.name))});`);
         }
 
-        // OAS 3.0 Support: Operation-Level Servers Override
         if (operation.servers && operation.servers.length > 0) {
             const serverUrl = operation.servers[0].url;
-            // We apply simple substitution for variables if defaults exist in the spec,
-            // but typically we just use the raw URL from the spec if it's absolute.
-            // A more advanced implementation would allow runtime selection of servers.
             let resolvedUrl = serverUrl;
             if (operation.servers[0].variables) {
                 Object.entries(operation.servers[0].variables).forEach(([key, variable]) => {
                     resolvedUrl = resolvedUrl.replace(`{${key}}`, variable.default);
                 });
             }
-            // We treat this as a literal string since it comes from the spec
             lines.push(`const basePath = '${resolvedUrl}';`);
         } else {
             lines.push(`const basePath = this.basePath;`);
@@ -199,13 +201,19 @@ export class ServiceMethodGenerator {
 
         if (headerParams.length > 0 || cookieParams.length > 0) {
             lines.push(`let headers = options?.headers instanceof HttpHeaders ? options.headers : new HttpHeaders(options?.headers ?? {});`);
+
             headerParams.forEach(p => {
                 const paramName = camelCase(p.name);
                 const explode = p.explode ?? false;
                 const serializationArg = this.isJsonContent(p) ? ", 'json'" : "";
                 lines.push(`if (${paramName} != null) { headers = headers.set('${p.name}', HttpParamsBuilder.serializeHeaderParam('${p.name}', ${paramName}, ${explode}${serializationArg})); }`);
             });
+
             if (cookieParams.length > 0) {
+                console.warn(`[ServiceMethodGenerator] Warning: Operation '${operation.methodName}' (Path: ${operation.path}) defines parameters with 'in: cookie'. Setting the 'Cookie' header manually is forbidden in standard browser environments.`);
+                lines.push(`// WARNING: Setting 'Cookie' headers manually is forbidden in browsers.`);
+                lines.push(`console.warn('Operation ${operation.methodName} attempts to set "Cookie" header manually. This will fail in browsers.');`);
+
                 lines.push(`const __cookies: string[] = [];`);
                 cookieParams.forEach(p => {
                     const paramName = camelCase(p.name);
@@ -280,16 +288,41 @@ export class ServiceMethodGenerator {
         } else if (hasOas3MultipartBody) {
             const bodyName = bodyParam!.name;
             lines.push(`const formData = new FormData();`);
+
+            // Build the JSON structure mapping property names to their schema types
+            const propertyTypes: Record<string, string> = {};
+            const bodySchemaRef = multipartContent!.schema;
+            const bodySchema = this.parser.resolve(bodySchemaRef);
+
+            if (bodySchema && bodySchema.properties) {
+                Object.entries(bodySchema.properties).forEach(([key, subSchema]) => {
+                    const resolvedSub = this.parser.resolve(subSchema);
+                    if (resolvedSub) {
+                        propertyTypes[key] = Array.isArray(resolvedSub.type) ? resolvedSub.type[0] : (resolvedSub.type || 'unknown');
+                    }
+                });
+            }
+
             lines.push(`if (${bodyName}) {`);
             const encodings = multipartContent!.encoding || {};
             const encodingMapString = JSON.stringify(encodings);
+            const typesMapString = JSON.stringify(propertyTypes);
+
             lines.push(` const encodings = ${encodingMapString} as Record<string, { contentType?: string }>;`);
+            lines.push(` const propertyTypes = ${typesMapString} as Record<string, string>;`);
+
             lines.push(` Object.entries(${bodyName}).forEach(([key, value]) => {`);
             lines.push(`  if (value === undefined || value === null) return;`);
             lines.push(`  const encoding = encodings[key];`);
-            lines.push(`  if (encoding?.contentType) {`);
-            lines.push(`    const content = encoding.contentType.includes('application/json') ? JSON.stringify(value) : String(value);`);
-            lines.push(`    const blob = new Blob([content], { type: encoding.contentType });`);
+            lines.push(`  const propType = propertyTypes[key];`);
+
+            // Enhanced Logic: Check both explicit encoding AND default complex type behavior
+            lines.push(`  const isComplex = propType === 'object' || propType === 'array';`);
+
+            lines.push(`  if (encoding?.contentType || isComplex) {`);
+            lines.push(`    const contentType = encoding?.contentType || 'application/json';`);
+            lines.push(`    const content = contentType.includes('application/json') ? JSON.stringify(value) : String(value);`);
+            lines.push(`    const blob = new Blob([content], { type: contentType });`);
             lines.push(`    formData.append(key, blob);`);
             lines.push(`  } else {`);
             lines.push(`    if (value instanceof Blob || value instanceof File) { formData.append(key, value); }`);
@@ -310,10 +343,17 @@ export class ServiceMethodGenerator {
         }
 
         const httpMethod = operation.method.toLowerCase();
-        if (['post', 'put', 'patch'].includes(httpMethod)) {
+        const isStandardBodyMethod = ['post', 'put', 'patch'].includes(httpMethod);
+        const isStandardNonBodyMethod = ['get', 'delete', 'head', 'options', 'jsonp'].includes(httpMethod);
+
+        if (isStandardBodyMethod) {
             lines.push(`return this.http.${httpMethod}(url, ${bodyArgument}, requestOptions as any);`);
-        } else {
+        } else if (bodyArgument !== 'null') {
+            lines.push(`return this.http.request('${operation.method.toUpperCase()}', url, { ...requestOptions, body: ${bodyArgument} } as any);`);
+        } else if (isStandardNonBodyMethod) {
             lines.push(`return this.http.${httpMethod}(url, requestOptions as any);`);
+        } else {
+            lines.push(`return this.http.request('${operation.method.toUpperCase()}', url, requestOptions as any);`);
         }
 
         return lines.join('\n');
@@ -386,8 +426,6 @@ export class ServiceMethodGenerator {
             }
         ].map(o => {
             if (parameters.some(p => p.hasQuestionToken)) o.parameters.find(p => p.name === 'options')!.hasQuestionToken = true;
-            // When spreading overloads, leading trivia in parameters needs to be preserved by ts-morph automatically,
-            // but if ts-morph reconstructs nodes, it generally preserves property values including leadingTrivia strings.
             return o;
         });
     }

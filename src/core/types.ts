@@ -17,7 +17,7 @@ import { ModuleKind, ScriptTarget } from "ts-morph";
 
 /**
  * License information for the exposed API.
- * @see https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.1.0.md#licenseObject
+ * @see https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.2.0.md#licenseObject
  */
 export interface LicenseObject {
     /** The license name used for the API. */
@@ -30,7 +30,7 @@ export interface LicenseObject {
 
 /**
  * Contact information for the exposed API.
- * @see https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.1.0.md#contactObject
+ * @see https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.2.0.md#contactObject
  */
 export interface ContactObject {
     /** The identifying name of the contact person/organization. */
@@ -43,7 +43,7 @@ export interface ContactObject {
 
 /**
  * The object provides metadata about the API.
- * @see https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.1.0.md#infoObject
+ * @see https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.2.0.md#infoObject
  */
 export interface InfoObject {
     /** The title of the API. */
@@ -60,6 +60,32 @@ export interface InfoObject {
     license?: LicenseObject;
     /** The version of the OpenAPI document. */
     version: string;
+}
+
+/**
+ * Allows referencing an external resource for extended documentation.
+ * @see https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.2.0.md#externalDocumentationObject
+ */
+export interface ExternalDocumentationObject {
+    /** A description of the target documentation. */
+    description?: string;
+    /** The URL for the target documentation. */
+    url: string;
+}
+
+/**
+ * Adds metadata to a single tag that is used by the Operation Object.
+ * @see https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.2.0.md#tagObject
+ */
+export interface TagObject {
+    /** The name of the tag. */
+    name: string;
+    /** A short summary of the tag. (OAS 3.1+) */
+    summary?: string;
+    /** A description for the tag. */
+    description?: string;
+    /** Additional external documentation for this tag. */
+    externalDocs?: ExternalDocumentationObject;
 }
 
 /**
@@ -100,7 +126,7 @@ export interface DiscriminatorObject {
 
 /**
  * Metadata object that allows for more fine-tuned XML model definitions.
- * @see https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.1.0.md#xmlObject
+ * @see https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.2.0.md#xmlObject
  */
 export interface XmlObject {
     /** Replaces the name of the element/attribute used for the described schema property. */
@@ -109,28 +135,26 @@ export interface XmlObject {
     namespace?: string;
     /** The prefix to be used for the name. */
     prefix?: string;
-    /** Declares whether the property definition translates to an attribute instead of an element. */
+    /**
+     * Declares whether the property definition translates to an attribute instead of an element.
+     * @deprecated Use `nodeType: 'attribute'` instead.
+     */
     attribute?: boolean;
-    /** MAY be used only for an array definition. Signifies whether the array is wrapped. */
+    /**
+     * MAY be used only for an array definition. Signifies whether the array is wrapped.
+     * @deprecated Use `nodeType: 'element'` (on the array) for wrapping, partial/implicit 'none' for unwrapped.
+     */
     wrapped?: boolean;
-    /** Node type for XML mapping (OpenAPI 3.2.0 / Extended spec). */
-    nodeType?: string;
-}
-
-/**
- * Allows referencing an external resource for extended documentation.
- * @see https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.1.0.md#externalDocumentationObject
- */
-export interface ExternalDocumentationObject {
-    /** A description of the target documentation. */
-    description?: string;
-    /** The URL for the target documentation. */
-    url: string;
+    /**
+     * Node type for XML mapping (OpenAPI 3.2.0).
+     * Values: 'element' | 'attribute' | 'text' | 'cdata' | 'none'.
+     */
+    nodeType?: 'element' | 'attribute' | 'text' | 'cdata' | 'none' | string;
 }
 
 /**
  * The Link Object represents a possible design-time link for a response.
- * @see https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.1.0.md#linkObject
+ * @see https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.2.0.md#linkObject
  */
 export interface LinkObject {
     /** A URI reference to an OAS operation. Mutually exclusive with operationId. */
@@ -151,7 +175,7 @@ export interface LinkObject {
  * The Header Object follows the structure of the Parameter Object with the following changes:
  *   1. `name` MUST NOT be specified, it is given in the corresponding `headers` map.
  *   2. `in` MUST NOT be specified, it is implicitly in `header`.
- * @see https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.1.0.md#headerObject
+ * @see https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.2.0.md#headerObject
  */
 export interface HeaderObject {
     description?: string;
@@ -236,9 +260,9 @@ export interface PathInfo {
     /** Security requirements specific to this operation. keys are definitions, values are scopes. */
     security?: { [key: string]: string[] }[];
     /** An alternate server array to service this operation. (OAS 3+) */
-    servers?: ServerObject[] | undefined; // Allow undefined explicit assignment
+    servers?: ServerObject[] | undefined;
     /** A map of possible out-of band callbacks related to the parent operation. (OAS 3+) */
-    callbacks?: Record<string, PathItem | { $ref: string }> | undefined; // Allow undefined explicit assignment
+    callbacks?: Record<string, PathItem | { $ref: string }>;
 }
 
 /** A single encoding definition for a multipart property. */
@@ -282,20 +306,30 @@ export interface SwaggerResponse {
 /**
  * A normalized and extended interface representing an OpenAPI Schema Object.
  * This is the core structure for defining data models.
+ *
+ * @see https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.2.0.md#schemaObject
  */
 export interface SwaggerDefinition {
     type?: "string" | "number" | "integer" | "boolean" | "object" | "array" | "file" | "null" | ("string" | "number" | "integer" | "boolean" | "object" | "array" | "null")[];
     format?: string;
     description?: string;
     default?: unknown;
+    /** Specifies that a parameter is deprecated and SHOULD be transitioned out of usage. */
+    deprecated?: boolean;
     /** JSON Schema `const` keyword. (OAS 3.1 / JSON Schema 2020-12) */
     const?: unknown;
     maximum?: number;
-    /** If true, the `maximum` is exclusive. */
-    exclusiveMaximum?: boolean;
+    /**
+     * If boolean (OAS 3.0/Swagger 2): If true, `maximum` is exclusive.
+     * If number (OAS 3.1+/JSON Schema 2020-12): The exclusive maximum value.
+     */
+    exclusiveMaximum?: boolean | number;
     minimum?: number;
-    /** If true, the `minimum` is exclusive. */
-    exclusiveMinimum?: boolean;
+    /**
+     * If boolean (OAS 3.0/Swagger 2): If true, `minimum` is exclusive.
+     * If number (OAS 3.1+/JSON Schema 2020-12): The exclusive minimum value.
+     */
+    exclusiveMinimum?: boolean | number;
     maxLength?: number;
     minLength?: number;
     pattern?: string;
@@ -328,8 +362,15 @@ export interface SwaggerDefinition {
     writeOnly?: boolean;
     nullable?: boolean;
     required?: string[];
-    /** An example of the schema representation. */
+    /**
+     * An example of the schema representation.
+     * @deprecated exist in OAS 3.2 in favor of `examples`
+     */
     example?: unknown;
+    /**
+     * Free-form field to include examples of instances for this schema. (OAS 3.1+)
+     */
+    examples?: unknown[];
 
     xml?: XmlObject;
     externalDocs?: ExternalDocumentationObject;
@@ -383,17 +424,30 @@ export interface PathItem {
     patch?: SpecOperation;
     trace?: SpecOperation;
     query?: SpecOperation; // OAS 3.2 draft
+    /**
+     * A map of additional operations on this path (OAS 3.2).
+     * Keys are HTTP methods (e.g., COPY, LOCK).
+     */
+    additionalOperations?: Record<string, SpecOperation>;
     parameters?: any[];
     servers?: ServerObject[]; // OAS 3 (Path-level override)
     [key: string]: any;
 }
 
-/** The root object of a parsed OpenAPI/Swagger specification. */
+/**
+ * The root object of a parsed OpenAPI/Swagger specification.
+ * @see https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.2.0.md#oasObject
+ */
 export interface SwaggerSpec {
     openapi?: string;
     swagger?: string;
     $self?: string;
     info: InfoObject;
+    /** Additional external documentation. */
+    externalDocs?: ExternalDocumentationObject;
+    /** A list of tags used by the OpenAPI Description with additional metadata. */
+    tags?: TagObject[];
+
     paths: { [pathName: string]: PathItem };
     /** The incoming webhooks that MAY be received as part of this API. */
     webhooks?: { [name: string]: PathItem };
@@ -408,6 +462,7 @@ export interface SwaggerSpec {
         schemas?: Record<string, SwaggerDefinition>;
         securitySchemes?: Record<string, SecurityScheme>;
         pathItems?: Record<string, PathItem>;
+        callbacks?: Record<string, PathItem | { $ref: string }>;
         links?: Record<string, LinkObject | { $ref: string }>;
         headers?: Record<string, HeaderObject | { $ref: string }>;
     };

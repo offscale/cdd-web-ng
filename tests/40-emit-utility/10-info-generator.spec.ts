@@ -17,16 +17,23 @@ describe('Emitter: InfoGenerator', () => {
     const compileGeneratedFile = (project: Project) => {
         const sourceFile = project.getSourceFileOrThrow('/out/info.ts');
         const fileContent = sourceFile.getText();
-        const jsCode = ts.transpile(fileContent.replace(/export /g, ''), {
-            target: ts.ScriptTarget.ESNext,
+
+        // Transpile the TypeScript source to CommonJS JavaScript.
+        // This converts 'export const X = ...' to 'exports.X = ...'
+        const jsCode = ts.transpile(fileContent, {
+            target: ts.ScriptTarget.ES5, // Use ES5 to ensure broader compatibility in the eval context
             module: ts.ModuleKind.CommonJS
         });
-        const moduleScope = { API_INFO: {} };
-        new Function('scope', `
-            ${jsCode} 
-            scope.API_INFO = API_INFO; 
-        `)(moduleScope);
-        return moduleScope.API_INFO as any;
+
+        // Create a mock 'exports' object to capture the output
+        const moduleHelper = { exports: {} as any };
+
+        // Execute the code within a function to simulate a module scope.
+        // Pass our mock 'exports' object.
+        new Function('exports', jsCode)(moduleHelper.exports);
+
+        // Return the populated exports object
+        return moduleHelper.exports;
     };
 
     it('should generate info.ts based on the spec', () => {
@@ -40,11 +47,11 @@ describe('Emitter: InfoGenerator', () => {
             paths: {}
         };
         const project = runGenerator(spec);
-        const info = compileGeneratedFile(project);
+        const { API_INFO } = compileGeneratedFile(project);
 
-        expect(info.title).toBe('My Test API');
-        expect(info.version).toBe('2.0.0-beta');
-        expect(info.description).toBe('A description of the API');
+        expect(API_INFO.title).toBe('My Test API');
+        expect(API_INFO.version).toBe('2.0.0-beta');
+        expect(API_INFO.description).toBe('A description of the API');
     });
 
     it('should generate correct structure for contact and license', () => {
@@ -67,46 +74,78 @@ describe('Emitter: InfoGenerator', () => {
             paths: {}
         };
         const project = runGenerator(spec);
-        const info = compileGeneratedFile(project);
+        const { API_INFO } = compileGeneratedFile(project);
 
-        expect(info.contact).toEqual({
+        expect(API_INFO.contact).toEqual({
             name: 'Support',
             email: 'support@example.com',
             url: 'https://example.com/support'
         });
-        expect(info.license).toEqual({
+        expect(API_INFO.license).toEqual({
             name: 'Apache 2.0',
             identifier: 'Apache-2.0'
         });
-        expect(info.termsOfService).toBe('https://example.com/terms');
+        expect(API_INFO.termsOfService).toBe('https://example.com/terms');
     });
 
-    it('should define the ApiInfo interface in the file', () => {
-        const project = runGenerator(emptySpec);
-        const sourceFile = project.getSourceFileOrThrow('/out/info.ts');
-        const interfaceDecl = sourceFile.getInterfaceOrThrow('ApiInfo');
-
-        expect(interfaceDecl).toBeDefined();
-        expect(interfaceDecl.isExported()).toBe(true);
-        expect(interfaceDecl.getProperty('title')).toBeDefined();
-        expect(interfaceDecl.getProperty('version')).toBeDefined();
-        expect(interfaceDecl.getProperty('license')?.hasQuestionToken()).toBe(true);
-    });
-
-    it('should work with minimal info object (Swagger 2.0 compatible)', () => {
+    it('should export API tags', () => {
         const spec = {
-            swagger: '2.0',
-            info: {
-                title: 'Minimal API',
-                version: '1.0'
+            openapi: '3.2.0',
+            info: { title: 'Tagged API', version: '1.0' },
+            tags: [
+                { name: 'Admin', description: 'Administrative operations' },
+                { name: 'Users', externalDocs: { url: 'https://users.doc', description: 'User Guide' } }
+            ],
+            paths: {}
+        };
+        const project = runGenerator(spec);
+        const { API_TAGS } = compileGeneratedFile(project);
+
+        expect(API_TAGS).toHaveLength(2);
+        expect(API_TAGS[0]).toEqual({ name: 'Admin', description: 'Administrative operations' });
+        expect(API_TAGS[1].externalDocs.url).toBe('https://users.doc');
+    });
+
+    it('should export global External Docs', () => {
+        const spec = {
+            openapi: '3.2.0',
+            info: { title: 'Docs API', version: '1.0' },
+            externalDocs: {
+                description: 'Full Documentation',
+                url: 'https://api.docs.com'
             },
             paths: {}
         };
         const project = runGenerator(spec);
-        const info = compileGeneratedFile(project);
+        const { API_EXTERNAL_DOCS } = compileGeneratedFile(project);
 
-        expect(info.title).toBe('Minimal API');
-        expect(info.version).toBe('1.0');
-        expect(info.description).toBeUndefined();
+        expect(API_EXTERNAL_DOCS.url).toBe('https://api.docs.com');
+        expect(API_EXTERNAL_DOCS.description).toBe('Full Documentation');
+    });
+
+    it('should handle missing optional root metadata', () => {
+        const spec = {
+            swagger: '2.0',
+            info: { title: 'Minimal API', version: '1.0' },
+            paths: {}
+        };
+        const project = runGenerator(spec);
+        const { API_TAGS, API_EXTERNAL_DOCS } = compileGeneratedFile(project);
+
+        expect(API_TAGS).toEqual([]);
+        expect(API_EXTERNAL_DOCS).toBeUndefined();
+    });
+
+    it('should define the ApiInfo and ApiTag interfaces', () => {
+        const project = runGenerator(emptySpec);
+        const sourceFile = project.getSourceFileOrThrow('/out/info.ts');
+
+        const apiInfo = sourceFile.getInterfaceOrThrow('ApiInfo');
+        expect(apiInfo.isExported()).toBe(true);
+        expect(apiInfo.getProperty('title')).toBeDefined();
+
+        const apiTag = sourceFile.getInterfaceOrThrow('ApiTag');
+        expect(apiTag.isExported()).toBe(true);
+        expect(apiTag.getProperty('externalDocs')).toBeDefined();
     });
 });

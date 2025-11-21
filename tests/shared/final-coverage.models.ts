@@ -10,6 +10,16 @@ export const finalCoveragePushSpec = {
     openapi: '3.0.0',
     info,
     paths: {
+        // OAS 3.2 additionalOperations
+        '/custom-verb-resource': {
+            additionalOperations: {
+                LOCK: {
+                    tags: ['CustomVerbs'],
+                    operationId: 'lockResource',
+                    responses: { '200': {} }
+                }
+            }
+        },
         '/no-security': {
             get: {
                 tags: ['NoSecurity'],
@@ -154,6 +164,24 @@ export const finalCoveragePushSpec = {
                 tags: ['ServerOverride'],
                 operationId: 'getWithServerOverride',
                 servers: [{ url: 'https://custom.api.com', description: 'Custom Server' }],
+                responses: { '200': {} }
+            }
+        },
+        // OAS 3.2 Support: GET with body
+        '/get-with-body': {
+            get: {
+                tags: ['OAS32'],
+                operationId: 'getWithBody',
+                requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
+                responses: { '200': {} }
+            }
+        },
+        // OAS 3.2 Support: DELETE with body
+        '/delete-with-body': {
+            delete: {
+                tags: ['OAS32'],
+                operationId: 'deleteWithBody',
+                requestBody: { content: { 'application/json': { schema: { type: 'string' } } } },
                 responses: { '200': {} }
             }
         }

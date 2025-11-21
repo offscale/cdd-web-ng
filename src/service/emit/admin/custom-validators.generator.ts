@@ -42,9 +42,11 @@ export class CustomValidatorsGenerator {
                 scope: Scope.Public,
                 parameters: [{ name: 'min', type: 'number' }],
                 returnType: 'ValidatorFn',
+                docs: ['Validator determining if value is strictly greater than min.'],
                 statements: writer => writer
                     .writeLine('return (control: AbstractControl): ValidationErrors | null => {')
                     .indent(() => {
+                        // Validation failure if value <= min
                         writer.writeLine('if (control.value === null || control.value === undefined || control.value <= min) {');
                         writer.indent(() => writer.writeLine('return { exclusiveMinimum: { min, actual: control.value } };'));
                         writer.writeLine('}');
@@ -58,9 +60,11 @@ export class CustomValidatorsGenerator {
                 scope: Scope.Public,
                 parameters: [{ name: 'max', type: 'number' }],
                 returnType: 'ValidatorFn',
+                docs: ['Validator determining if value is strictly less than max.'],
                 statements: writer => writer
                     .writeLine('return (control: AbstractControl): ValidationErrors | null => {')
                     .indent(() => {
+                        // Validation failure if value >= max
                         writer.writeLine('if (control.value === null || control.value === undefined || control.value >= max) {');
                         writer.indent(() => writer.writeLine('return { exclusiveMaximum: { max, actual: control.value } };'));
                         writer.writeLine('}');

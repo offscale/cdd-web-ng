@@ -23,8 +23,8 @@ describe('Admin: mapSchemaToFormControl', () => {
             type: 'string',
             minLength: 3,
             maxLength: 10,
-            minimum: 0,
-            maximum: 100,
+            minimum: 0, // inclusive
+            maximum: 100, // inclusive
             pattern: '^\\d+$',
             format: 'email'
         };
@@ -39,19 +39,53 @@ describe('Admin: mapSchemaToFormControl', () => {
         ]));
     });
 
+    it('should map OAS 3.0 boolean exclusive constraints to CustomValidators', () => {
+        const schema: SwaggerDefinition = {
+            type: 'number',
+            minimum: 10,
+            exclusiveMinimum: true,
+            maximum: 50,
+            exclusiveMaximum: true
+        };
+        const { validators } = mapSchemaToFormControl(schema)!;
+        expect(validators).toContain('CustomValidators.exclusiveMinimum(10)');
+        expect(validators).toContain('CustomValidators.exclusiveMaximum(50)');
+        // Should NOT contain inclusive validators
+        expect(validators).not.toContain('Validators.min(10)');
+        expect(validators).not.toContain('Validators.max(50)');
+    });
+
+    it('should map OAS 3.1 numeric exclusive constraints to CustomValidators', () => {
+        const schema: SwaggerDefinition = {
+            type: 'number',
+            exclusiveMinimum: 10,
+            exclusiveMaximum: 50
+        };
+        const { validators } = mapSchemaToFormControl(schema)!;
+        expect(validators).toContain('CustomValidators.exclusiveMinimum(10)');
+        expect(validators).toContain('CustomValidators.exclusiveMaximum(50)');
+    });
+
+    it('should handle mixed inclusive and exclusive constraints', () => {
+        const schema: SwaggerDefinition = {
+            type: 'number',
+            minimum: 5, // Inclusive min
+            exclusiveMaximum: 10 // Exclusive max (OAS 3.1 style)
+        };
+        const { validators } = mapSchemaToFormControl(schema)!;
+        expect(validators).toContain('Validators.min(5)');
+        expect(validators).toContain('CustomValidators.exclusiveMaximum(10)');
+    });
+
     it('should map advanced validation keywords to CustomValidators', () => {
         const schema: SwaggerDefinition = {
             type: 'number',
-            exclusiveMinimum: true, minimum: 10,
-            exclusiveMaximum: true, maximum: 50,
             multipleOf: 5,
             uniqueItems: true, // This applies to arrays but should be handled
             minItems: 2 // This applies to arrays and should map to minLength
         };
         const { validators } = mapSchemaToFormControl(schema)!;
         expect(validators).toEqual(expect.arrayContaining([
-            'CustomValidators.exclusiveMinimum(10)',
-            'CustomValidators.exclusiveMaximum(50)',
             'CustomValidators.multipleOf(5)',
             'CustomValidators.uniqueItems()',
             'Validators.minLength(2)' // For FormArray

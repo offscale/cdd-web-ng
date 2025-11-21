@@ -12,7 +12,7 @@ describe('Emitter: ServerUrlGenerator', () => {
     const runGenerator = (servers: any[]) => {
         const project = createTestProject();
         const parser = new SwaggerParser({
-            openapi: '3.0.0',
+            openapi: '3.2.0',
             info: { title: 'Test', version: '1.0' },
             paths: {},
             servers
@@ -45,13 +45,14 @@ describe('Emitter: ServerUrlGenerator', () => {
         expect(project.getSourceFile('/out/utils/server-url.ts')).toBeUndefined();
     });
 
-    it('should generate API_SERVERS constant', () => {
+    it('should generate API_SERVERS constant checking OAS 3.2 name property', () => {
         const project = runGenerator([
-            { url: 'https://api.example.com', description: 'Production' }
+            { url: 'https://api.example.com', name: 'production', description: 'Production' }
         ]);
         const text = project.getSourceFileOrThrow('/out/utils/server-url.ts').getText();
         expect(text).toContain('export const API_SERVERS: ServerConfiguration[] = [');
         expect(text).toContain('"url": "https://api.example.com"');
+        expect(text).toContain('"name": "production"');
     });
 
     it('should generate logic to substitute simple variables', () => {
@@ -70,7 +71,39 @@ describe('Emitter: ServerUrlGenerator', () => {
         expect(getServerUrl(0, { env: 'prod' })).toBe('https://prod.example.com/v1');
     });
 
-    it('should generate logic to look up server by description', () => {
+    it('should throw error if variable value is not in enum', () => {
+        const project = runGenerator([
+            {
+                url: 'https://{region}.api.com',
+                variables: {
+                    region: { default: 'us', enum: ['us', 'eu', 'asia'] }
+                }
+            }
+        ]);
+
+        const { getServerUrl } = compileHelper(project);
+
+        // Valid
+        expect(getServerUrl(0, { region: 'eu' })).toBe('https://eu.api.com');
+        // Invalid
+        expect(() => getServerUrl(0, { region: 'mars' })).toThrow(
+            'Value "mars" for variable "region" is not in the allowed enum: us, eu, asia'
+        );
+    });
+
+    it('should generate logic to look up server by name (OAS 3.2)', () => {
+        const project = runGenerator([
+            { url: 'https://dev.api.com', name: 'dev', description: 'Development' },
+            { url: 'https://prod.api.com', name: 'prod', description: 'Production' }
+        ]);
+
+        const { getServerUrl } = compileHelper(project);
+
+        expect(getServerUrl('prod')).toBe('https://prod.api.com');
+        expect(getServerUrl('dev')).toBe('https://dev.api.com');
+    });
+
+    it('should generate logic to look up server by description (Legacy fallback)', () => {
         const project = runGenerator([
             { url: 'https://dev.api.com', description: 'Development' },
             { url: 'https://prod.api.com', description: 'Production' }

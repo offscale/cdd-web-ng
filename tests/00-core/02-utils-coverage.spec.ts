@@ -130,8 +130,6 @@ describe('Core: utils.ts (Coverage)', () => {
             expect(utils.getTypeScriptType(schema, config, [])).toBe('number');
         });
 
-        // NEW TESTS FOR ADVANCED JSON SCHEMA SUPPORT
-
         it('should handle "const" keyword for string literals', () => {
             const schema: SwaggerDefinition = { const: 'Success' };
             expect(utils.getTypeScriptType(schema, config, [])).toBe("'Success'");
@@ -190,7 +188,6 @@ describe('Core: utils.ts (Coverage)', () => {
                 },
                 additionalProperties: { type: 'boolean' }
             };
-            // Should be string | boolean
             const type = utils.getTypeScriptType(schema, config, []);
             expect(type).toContain('string');
             expect(type).toContain('boolean');
@@ -203,7 +200,6 @@ describe('Core: utils.ts (Coverage)', () => {
             expect(utils.extractPaths(undefined)).toEqual([]);
         });
 
-        // New test for QUERY method support
         it('should extract the QUERY method from paths', () => {
             const swaggerPaths = {
                 '/search': {
@@ -213,11 +209,27 @@ describe('Core: utils.ts (Coverage)', () => {
                     }
                 }
             };
-            // Cast to any because standard Swagger types don't include 'query' yet
             const [pathInfo] = utils.extractPaths(swaggerPaths as any);
             expect(pathInfo).toBeDefined();
             expect(pathInfo.method).toBe('QUERY');
             expect(pathInfo.operationId).toBe('querySearch');
+        });
+
+        it('should extract "additionalOperations" (OAS 3.2)', () => {
+            const swaggerPaths = {
+                '/resource': {
+                    additionalOperations: {
+                        COPY: {
+                            operationId: 'copyResource',
+                            responses: { '200': { description: 'Copied' } }
+                        }
+                    }
+                }
+            };
+            const [pathInfo] = utils.extractPaths(swaggerPaths as any);
+            expect(pathInfo).toBeDefined();
+            expect(pathInfo.method).toBe('COPY');
+            expect(pathInfo.operationId).toBe('copyResource');
         });
 
         it('should handle operations with no request body or body param', () => {

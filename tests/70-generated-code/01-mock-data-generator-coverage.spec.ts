@@ -19,6 +19,7 @@ const mockDataGenSpec = {
             ObjectNoProps: { type: 'object' },
             NullType: { type: 'null' },
             WithExample: { type: 'string', example: 'hello from example' },
+            WithExamplesFallback: { type: 'string', examples: ['fallback example 1', 'fallback example 2'] },
             CircularA: { properties: { b: { $ref: '#/components/schemas/CircularB' } } },
             CircularB: { properties: { a: { $ref: '#/components/schemas/CircularA' } } },
             OneOfNoType: { oneOf: [{ type: 'string' }, { type: 'number' }] },
@@ -145,6 +146,11 @@ describe('Generated Code: MockDataGenerator (Coverage)', () => {
     it('should use example property if present', () => {
         const mockString = generator.generate('WithExample');
         expect(JSON.parse(mockString)).toBe('hello from example');
+    });
+
+    it('should check examples array if example property is missing (e.g. OAS 3.1)', () => {
+        const mockString = generator.generate('WithExamplesFallback');
+        expect(JSON.parse(mockString)).toBe('fallback example 1');
     });
 
     it('should handle circular references gracefully', () => {

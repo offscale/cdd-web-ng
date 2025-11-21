@@ -22,25 +22,37 @@ function buildErrorMessages(prop: FormProperty): HtmlElementBuilder[] {
     if (schema.maxLength) {
         errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${prop.name}')?.hasError('maxlength')) { Cannot exceed ${schema.maxLength} characters. }`));
     }
-    if (schema.minimum !== undefined) {
-        errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${prop.name}')?.hasError('min')) { Value must be at least ${schema.minimum}. }`));
+
+    // Handle OAS 3.0 vs 3.1 numeric constraints logic
+    // Minimum
+    if (typeof schema.exclusiveMinimum === 'number') {
+        errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${prop.name}')?.hasError('exclusiveMinimum')) { Value must be greater than ${schema.exclusiveMinimum}. }`));
+    } else if (schema.minimum !== undefined) {
+        if (schema.exclusiveMinimum === true) {
+            errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${prop.name}')?.hasError('exclusiveMinimum')) { Value must be greater than ${schema.minimum}. }`));
+        } else {
+            errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${prop.name}')?.hasError('min')) { Value must be at least ${schema.minimum}. }`));
+        }
     }
-    if (schema.maximum !== undefined) {
-        errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${prop.name}')?.hasError('max')) { Value cannot exceed ${schema.maximum}. }`));
+
+    // Maximum
+    if (typeof schema.exclusiveMaximum === 'number') {
+        errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${prop.name}')?.hasError('exclusiveMaximum')) { Value must be less than ${schema.exclusiveMaximum}. }`));
+    } else if (schema.maximum !== undefined) {
+        if (schema.exclusiveMaximum === true) {
+            errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${prop.name}')?.hasError('exclusiveMaximum')) { Value must be less than ${schema.maximum}. }`));
+        } else {
+            errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${prop.name}')?.hasError('max')) { Value cannot exceed ${schema.maximum}. }`));
+        }
     }
+
     if (schema.pattern) {
         errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${prop.name}')?.hasError('pattern')) { Invalid format. }`));
     }
     if (schema.format === 'email') {
         errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${prop.name}')?.hasError('email')) { Please enter a valid email address. }`));
     }
-    // Custom Validators
-    if (schema.exclusiveMinimum) {
-        errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${prop.name}')?.hasError('exclusiveMinimum')) { Value must be greater than ${schema.minimum}. }`));
-    }
-    if (schema.exclusiveMaximum) {
-        errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${prop.name}')?.hasError('exclusiveMaximum')) { Value must be less than ${schema.maximum}. }`));
-    }
+
     if (schema.multipleOf !== undefined) {
         errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${prop.name}')?.hasError('multipleOf')) { Value must be a multiple of ${schema.multipleOf}. }`));
     }
@@ -86,6 +98,8 @@ export function buildFormControl(prop: FormProperty): HtmlElementBuilder | null 
             return createToggle(prop, labelText);
         case 'integer':
         case 'number':
+            // Generate a slider ONLY if we have concrete inclusive min/max AND no exclusive constraints
+            // Slider libraries generally prefer inclusive bounds.
             if (prop.schema.minimum !== undefined && prop.schema.maximum !== undefined && !prop.schema.exclusiveMinimum && !prop.schema.exclusiveMaximum) {
                 return createSlider(prop, labelText, prop.schema.minimum, prop.schema.maximum);
             }

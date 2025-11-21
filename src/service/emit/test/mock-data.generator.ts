@@ -80,8 +80,14 @@ export class MockDataGenerator {
                 return resolved ? this.generateValue(resolved, visited, maxDepth - 1) : { id: 'string-value' }; // Fallback for unresolvable ref
             }
 
+            // Use deprecated 'example' if defined
             if (schema.example !== undefined) {
                 return schema.example;
+            }
+
+            // Fallback to 'examples' array (OAS 3.1+) if available, picking the first one
+            if (schema.examples && schema.examples.length > 0) {
+                return schema.examples[0];
             }
 
             if (schema.allOf) {

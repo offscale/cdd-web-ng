@@ -194,6 +194,15 @@ const serviceMethodGenSpec = {
                 responses: {}
             }
         },
+        '/cookie-test': {
+            get: {
+                operationId: 'getWithCookies',
+                parameters: [
+                    { name: 'session_id', in: 'cookie', schema: { type: 'string' } }
+                ],
+                responses: { '200': {} }
+            }
+        },
         '/public-endpoint': {
             get: {
                 operationId: 'getPublic',
@@ -237,10 +246,18 @@ const serviceMethodGenSpec = {
                 servers: [{ url: 'https://custom.api.com', description: 'Custom Server' }],
                 responses: { '200': {} }
             }
+        },
+        '/copy-resource': {
+            additionalOperations: {
+                COPY: {
+                    operationId: 'copyResource',
+                    responses: { '200': { description: 'Copied' } }
+                }
+            }
         }
     },
     components: {
-        securitySchemes: { Basic: { type: 'http', scheme: 'basic' } },
+        securitySchemes: { Basic: { type: 'http', scheme: 'bearer' } },
         schemas: {
             ...finalCoverageSpec.components?.schemas,
             ReadOnlyModel: {
@@ -284,9 +301,7 @@ describe('Emitter: ServiceMethodGenerator', () => {
         methodGen.addServiceMethod(serviceClass, op);
 
         const body = serviceClass.getMethodOrThrow('postXml').getBodyText()!;
-        // Check signature
         expect(body).toContain(`const xmlBody = XmlBuilder.serialize(body, 'RequestRoot',`);
-        // Check config generation (id as attribute)
         expect(body).toContain(`"id":{"attribute":true}`);
         expect(body).toContain(`return this.http.post(url, xmlBody`);
     });
@@ -303,9 +318,11 @@ describe('Emitter: ServiceMethodGenerator', () => {
         methodGen.addServiceMethod(serviceClass, op);
 
         const body = serviceClass.getMethodOrThrow('postEncoded').getBodyText()!;
-        // Check that the JSON strategy is used for application/json
-        expect(body).toContain(`content = encoding.contentType.includes('application/json') ? JSON.stringify(value) : String(value)`);
-        expect(body).toContain(`new Blob([content], { type: encoding.contentType })`);
+
+        // Asserting the new logic using variable references
+        expect(body).toContain(`const contentType = encoding?.contentType || 'application/json';`);
+        expect(body).toContain(`const content = contentType.includes('application/json') ? JSON.stringify(value) : String(value);`);
+        expect(body).toContain(`new Blob([content], { type: contentType })`);
     });
 
     it('should generate HttpParams builder calls for encoded url-encoded bodies', () => {
@@ -320,7 +337,6 @@ describe('Emitter: ServiceMethodGenerator', () => {
         methodGen.addServiceMethod(serviceClass, op);
 
         const body = serviceClass.getMethodOrThrow('postUrlEncoded').getBodyText()!;
-        // Note the JSON serialization of the encoding config object
         expect(body).toContain('const formBody = HttpParamsBuilder.serializeUrlEncodedBody(body, {"tags":{"style":"spaceDelimited","explode":false}});');
         expect(body).toContain('return this.http.post(url, formBody, requestOptions as any);');
     });
@@ -463,5 +479,36 @@ describe('Emitter: ServiceMethodGenerator', () => {
         const body = serviceClass.getMethodOrThrow('getWithServerOverride').getBodyText()!;
         expect(body).toContain("const basePath = 'https://custom.api.com';");
         expect(body).not.toContain('const basePath = this.basePath;');
+    });
+
+    it('should generate generic request call for custom HTTP methods from additionalOperations', () => {
+        const { methodGen, serviceClass, parser } = createTestEnvironment();
+        // Find the OP via parser, which uses the updated `extractPaths` logic
+        const copyOp = parser.operations.find(op => op.method === 'COPY')!;
+        copyOp.methodName = 'copyResource';
+
+        methodGen.addServiceMethod(serviceClass, copyOp);
+
+        const body = serviceClass.getMethodOrThrow('copyResource').getBodyText()!;
+        expect(body).toContain("return this.http.request('COPY', url, requestOptions as any);");
+    });
+
+    it('should warn about forbidden Cookie headers during generation and in runtime code', () => {
+        const { methodGen, serviceClass, parser } = createTestEnvironment();
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+        const op = parser.operations.find(o => o.operationId === 'getWithCookies')!;
+        op.methodName = 'getWithCookies';
+        methodGen.addServiceMethod(serviceClass, op);
+
+        // Check build-time warning
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("forbidden in standard browser environments"));
+
+        // Check generated code warning
+        const body = serviceClass.getMethodOrThrow('getWithCookies').getBodyText()!;
+        expect(body).toContain("console.warn('Operation getWithCookies attempts to set \"Cookie\" header manually");
+        expect(body).toContain("headers = headers.set('Cookie'");
+
+        warnSpy.mockRestore();
     });
 });

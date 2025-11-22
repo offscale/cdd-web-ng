@@ -85,6 +85,52 @@ describe('Core: utils.ts', () => {
             expect(paths.length).toBe(1);
             expect(paths[0].parameters).toEqual([]); // Should default to empty array
         });
+
+        it('should normalize Security Requirement keys defined as URI pointers', () => {
+            const swaggerPaths = {
+                '/secure': {
+                    get: {
+                        operationId: 'getSecure',
+                        // Specifying security using a ref pointer instead of direct name
+                        security: [{ '#/components/securitySchemes/MyAuth': ['read:scope'] }],
+                        responses: {}
+                    }
+                }
+            };
+            const [pathInfo] = utils.extractPaths(swaggerPaths as any);
+
+            expect(pathInfo.security).toBeDefined();
+            expect(pathInfo.security![0]).toHaveProperty('MyAuth');
+            expect(pathInfo.security![0]['MyAuth']).toEqual(['read:scope']);
+            expect(pathInfo.security![0]).not.toHaveProperty('#/components/securitySchemes/MyAuth');
+        });
+
+        it('should extract and merge Path Item $ref properties', () => {
+            const resolveRef = (ref: string) => {
+                if (ref === '#/components/pathItems/StandardOp') {
+                    return {
+                        summary: 'Original Summary',
+                        get: { operationId: 'getStandard', responses: {} }
+                    };
+                }
+                return undefined;
+            };
+
+            const swaggerPaths = {
+                '/merged': {
+                    $ref: '#/components/pathItems/StandardOp',
+                    summary: 'Overridden Summary', // Local override
+                    description: 'New Description' // Local addition
+                }
+            };
+
+            const [pathInfo] = utils.extractPaths(swaggerPaths as any, resolveRef as any);
+
+            expect(pathInfo).toBeDefined();
+            expect(pathInfo.summary).toBe('Overridden Summary');
+            expect(pathInfo.description).toBe('New Description');
+            expect(pathInfo.operationId).toBe('getStandard');
+        });
     });
 
     describe('Token Name Generation', () => {

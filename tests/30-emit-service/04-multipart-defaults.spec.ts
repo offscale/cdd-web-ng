@@ -53,7 +53,7 @@ describe('Emitter: ServiceMethodGenerator (Multipart Defaults)', () => {
         return { methodGen, serviceClass, parser };
     };
 
-    it('should serialize object properties in multipart as application/json Blob by default', () => {
+    it('should serialize object properties in multipart using MultipartBuilder defaults', () => {
         const { methodGen, serviceClass, parser } = createTestEnv();
         const op = parser.operations.find(o => o.operationId === 'uploadComplex')!;
 
@@ -64,19 +64,9 @@ describe('Emitter: ServiceMethodGenerator (Multipart Defaults)', () => {
 
         const body = serviceClass.getMethodOrThrow('uploadComplex').getBodyText()!;
 
-        // It should detect 'metadata' is an object and treat it as complex
-        // We expect it to NOT trust simple string conversion, but use Blob + JSON
-        expect(body).toContain(`const propertyTypes = {"id":"string","metadata":"object","tags":"array"}`);
-
-        // The generated logic loop
-        expect(body).toContain(`const isComplex = propType === 'object' || propType === 'array';`);
-        expect(body).toContain(`if (encoding?.contentType || isComplex) {`);
-
-        // Default content type assignment
-        expect(body).toContain(`const contentType = encoding?.contentType || 'application/json';`);
-
-        // Serialization checks
-        expect(body).toContain(`JSON.stringify(value)`);
-        expect(body).toContain(`new Blob([content], { type: contentType })`);
+        // Updated Expectation: Logic delegated to MultipartBuilder
+        expect(body).toContain('const multipartConfig = {};');
+        expect(body).toContain('const multipartResult = MultipartBuilder.serialize(body, multipartConfig);');
+        expect(body).toContain('return this.http.post(url, multipartResult.content, requestOptions as any);');
     });
 });

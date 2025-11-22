@@ -22,4 +22,13 @@ describe('Emitter: AuthTokensGenerator', () => {
         expect(fileContent).toContain('export const SKIP_AUTH_CONTEXT_TOKEN');
         expect(fileContent).toContain('new HttpContextToken<boolean>(() => false)');
     });
+
+    it('should generate AUTH_SCOPES_CONTEXT_TOKEN', () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        new AuthTokensGenerator(project).generate('/out');
+        const fileContent = project.getSourceFileOrThrow('/out/auth/auth.tokens.ts').getText();
+
+        expect(fileContent).toContain('export const AUTH_SCOPES_CONTEXT_TOKEN');
+        expect(fileContent).toContain('new HttpContextToken<string[]>(() => [])');
+    });
 });

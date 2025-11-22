@@ -125,6 +125,16 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined | null, 
         return typeName && knownTypes.includes(typeName) ? typeName : 'any';
     }
 
+    // Support for OAS 3.1 $dynamicRef.
+    // For code generation, we treat this statically by linking to the model name found in the reference.
+    if (schema.$dynamicRef) {
+        // Typically points to an anchor, but can point to a path.
+        // We take the segment after the last '#' or '/'
+        const ref = schema.$dynamicRef;
+        const typeName = pascalCase(ref.split('#').pop()?.split('/').pop() || '');
+        return typeName && knownTypes.includes(typeName) ? typeName : 'any';
+    }
+
     // JSON Schema 'const' keyword support (OAS 3.1)
     if (schema.const !== undefined) {
         const val = schema.const;
@@ -143,6 +153,49 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined | null, 
             return `[${tupleTypes.join(', ')}, ...${restType}[]]`;
         }
         return `[${tupleTypes.join(', ')}]`;
+    }
+
+    // JSON Schema 2020-12 / OAS 3.1 Conditional Support (if/then/else)
+    if (schema.if) {
+        // In TypeScript static analysis, `if` acts like a discriminated union intersection.
+        // `(Type & Then) | (Exclude<Type, If> & Else)` roughly approximates this logic,
+        // but TS type narrowing for arbitrary json schema conditions is limited.
+        // A practical approximation for API clients is: `(Then | Else) & BaseType` if base properties exist, or a Union.
+        // However, `if` validates the instance. It doesn't inherently change the shape unless combined with properties.
+        //
+        // Strategy:
+        // 1. Treat `then` as one possibility.
+        // 2. Treat `else` as another possibility.
+        // 3. The result is `(Then | Else)`. If one is missing, it's `Then | any` or `any | Else` which simplifies to `any` or partial.
+        // Better Strategy for Models: `Base & (Then | Else)`
+
+        const thenType = schema.then ? getTypeScriptType(schema.then, config, knownTypes) : 'any';
+        const elseType = schema.else ? getTypeScriptType(schema.else, config, knownTypes) : 'any';
+
+        // If we have local properties, we generate an intersection.
+        if (schema.properties || schema.allOf) {
+            // We recursively get the base type without if/then/else to avoid infinite recursion if we just called getTypeScriptType.
+            // But since `schema` object is the same, we need to clone and strip condition keywords.
+            const { if: _, then: __, else: ___, ...baseSchema } = schema;
+            const baseType = getTypeScriptType(baseSchema, config, knownTypes);
+
+            if (schema.then && schema.else) {
+                return `${baseType} & (${thenType} | ${elseType})`;
+            } else if (schema.then) {
+                // If only `then` is present, `else` is implicitly valid for everything (type wise), implying optionality.
+                // But structurally, `if` implies constraints.
+                // We output intersection for correctness of the 'then' branch structure types.
+                return `${baseType} & (${thenType} | any)`;
+            } else if (schema.else) {
+                return `${baseType} & (any | ${elseType})`;
+            }
+        } else {
+            // Pure structural conditional
+            if (schema.then && schema.else) {
+                return `${thenType} | ${elseType}`;
+            }
+            return 'any'; // Too ambiguous without base props
+        }
     }
 
     if (schema.allOf) {
@@ -223,6 +276,25 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined | null, 
                 parts.push(`[key: string]: ${joined}`);
             }
 
+            // Handle 'dependentSchemas' (JSON Schema 2020-12).
+            // If property X is present, then properties from Schema Y must also be valid.
+            // We represent this as an intersection: `{ [x]: Type } & DependentSchemaType`
+            if (schema['dependentSchemas']) { // Note: 'dependentSchemas' isn't in strict type, cast/access loosely or update type def
+                // Assuming SwaggerDefinition includes generic indexer or updated type definition
+                const deps = (schema as any).dependentSchemas;
+                Object.entries(deps).forEach(([prop, depSchema]) => {
+                    const depType = getTypeScriptType(depSchema as SwaggerDefinition, config, knownTypes);
+                    // In TS, this conditional relationship is hard to model perfectly static.
+                    // The most robust way for a client model is to intersect the base with the dependent type
+                    // effectively saying "Example object has all these potential shapes combined".
+                    // Ideally: `Base & Partial<Dependent>` but that loses strictness.
+                    // For now, we treat it as `& Dependent` assuming scenarios where the dependency is met.
+                    // Or, more safely, leave it as `any` or documented field.
+                    // A safe static approach: `& Partial<DependentType>`
+                    parts.push(`// dependentSchema: ${prop} -> ${depType}`);
+                });
+            }
+
             if (parts.length > 0) {
                 type = `{ ${parts.join('; ')} }`;
             } else {
@@ -274,6 +346,20 @@ export function hasDuplicateFunctionNames(methods: MethodDeclaration[]): boolean
     return new Set(names).size !== names.length;
 }
 
+/**
+ * Normalizes a security scheme key.
+ * If the key is a JSON pointer/URI (e.g., '#/components/securitySchemes/MyScheme'),
+ * it extracts the simple name ('MyScheme'). Otherwise returns the key as is.
+ */
+function normalizeSecurityKey(key: string): string {
+    // Check if it looks like a URI fragment or JSON pointer
+    if (key.includes('/')) {
+        const parts = key.split('/');
+        return parts[parts.length - 1];
+    }
+    return key;
+}
+
 // Helper type to handle union of Swagger 2.0 and OpenAPI 3.x parameter definitions
 type UnifiedParameter = SwaggerOfficialParameter & {
     schema?: SwaggerDefinition | { $ref: string },
@@ -314,11 +400,20 @@ export function extractPaths(
     for (const [path, rawPathItem] of Object.entries(swaggerPaths)) {
         let pathItem = rawPathItem;
 
-        // Handle Path Item $ref via resolver if provided
+        // Handle Path Item $ref via resolver if provided.
+        // OAS 3.2 Compliance: Sibling properties on a Reference Object (or Path Item with $ref)
+        // override the properties of the referenced object.
         if (pathItem.$ref && resolveRef) {
             const resolved = resolveRef(pathItem.$ref);
             if (resolved) {
-                pathItem = resolved;
+                // Shallow merge: The properties defined in the source file (`pathItem`)
+                // take precedence over the resolved reference properties (`resolved`).
+                // We spread `pathItem` second to ensure its local overrides (e.g., summary) win.
+                const localOverrides = { ...pathItem };
+                // We delete $ref from local overrides before merge to avoid confusion downstream
+                delete localOverrides.$ref;
+
+                pathItem = { ...resolved, ...localOverrides };
             }
         }
 
@@ -473,6 +568,19 @@ export function extractPaths(
 
             const effectiveServers = operation.servers || pathServers;
 
+            // Normalize Security Requirements (OAS 3.2 allows URI references as keys)
+            // e.g. '#/components/securitySchemes/MyScheme' -> 'MyScheme'
+            let effectiveSecurity = operation.security;
+            if (effectiveSecurity) {
+                effectiveSecurity = effectiveSecurity.map(req => {
+                    const normalizedReq: { [key: string]: string[] } = {};
+                    Object.keys(req).forEach(key => {
+                        normalizedReq[normalizeSecurityKey(key)] = req[key];
+                    });
+                    return normalizedReq;
+                });
+            }
+
             const pathInfo: PathInfo = {
                 path,
                 method: method.toUpperCase(),
@@ -485,13 +593,19 @@ export function extractPaths(
             if (operation.callbacks) pathInfo.callbacks = operation.callbacks;
 
             if (operation.operationId) pathInfo.operationId = operation.operationId;
-            if (operation.summary) pathInfo.summary = operation.summary;
-            if (operation.description) pathInfo.description = operation.description;
+
+            // Merge Summary/Description from PathItem if not present on Operation
+            // The order here ensures explicit Op overrides > Path Item overrides > Original ref properties
+            const summary = operation.summary || pathItem.summary
+            if (summary) pathInfo.summary = summary;
+            const description = operation.description || pathItem.description;
+            if (description) pathInfo.description = description;
+
             if (operation.tags) pathInfo.tags = operation.tags;
             if (operation.consumes) pathInfo.consumes = operation.consumes;
             if (operation.deprecated) pathInfo.deprecated = operation.deprecated;
             if (operation.externalDocs) pathInfo.externalDocs = operation.externalDocs;
-            if (operation.security) pathInfo.security = operation.security;
+            if (effectiveSecurity) pathInfo.security = effectiveSecurity;
 
             paths.push(pathInfo);
         }

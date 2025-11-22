@@ -83,14 +83,30 @@ export class ServiceGenerator {
             { moduleSpecifier: `../utils/http-params-builder`, namedImports: ['HttpParamsBuilder'] },
         ]);
 
+        // Logic to determine which auth tokens are needed
+        const authTokensToImport = new Set<string>();
+
         // If any operation has securityOverride (empty security list) AND global security exists
         const hasSecurityOverrides = operations.some(op => op.security && op.security.length === 0);
         const hasGlobalSecurity = Object.keys(this.parser.getSecuritySchemes()).length > 0;
 
         if (hasSecurityOverrides && hasGlobalSecurity) {
+            authTokensToImport.add('SKIP_AUTH_CONTEXT_TOKEN');
+        }
+
+        // data structure of op.security: { [schemeName: string]: string[] }[]
+        const hasScopes = operations.some(op =>
+            op.security?.some(s => Object.values(s).some(scopes => scopes.length > 0))
+        );
+
+        if (hasScopes) {
+            authTokensToImport.add('AUTH_SCOPES_CONTEXT_TOKEN');
+        }
+
+        if (authTokensToImport.size > 0) {
             sourceFile.addImportDeclaration({
                 moduleSpecifier: `../auth/auth.tokens`,
-                namedImports: ['SKIP_AUTH_CONTEXT_TOKEN']
+                namedImports: Array.from(authTokensToImport)
             });
         }
     }

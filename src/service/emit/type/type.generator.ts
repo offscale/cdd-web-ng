@@ -118,8 +118,21 @@ export class TypeGenerator {
                             const resolvedHeader = this.parser.resolve(headerObj) as HeaderObject;
                             if (!resolvedHeader) continue;
 
-                            const schema = resolvedHeader.schema as SwaggerDefinition ||
-                                { type: resolvedHeader.type, format: resolvedHeader.format };
+                            // Logic updated to support 'content' map in Header Object (OAS 3.x)
+                            let schema = resolvedHeader.schema as SwaggerDefinition;
+
+                            if (!schema && resolvedHeader.content) {
+                                // Headers usually have one content-type defined if using 'content'
+                                const firstContentType = Object.keys(resolvedHeader.content)[0];
+                                if (firstContentType && resolvedHeader.content[firstContentType].schema) {
+                                    schema = resolvedHeader.content[firstContentType].schema as SwaggerDefinition;
+                                }
+                            }
+
+                            // Fallback to Swagger 2.0 style flat properties if no schema found
+                            if (!schema) {
+                                schema = { type: resolvedHeader.type, format: resolvedHeader.format } as any;
+                            }
 
                             const type = getTypeScriptType(schema, this.config, this.parser.schemas.map(s => s.name));
                             const safeName = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(headerName) ? headerName : `'${headerName}'`;

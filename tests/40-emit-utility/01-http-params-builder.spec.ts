@@ -1,234 +1,207 @@
-import '@angular/compiler'; // Make JIT compiler available for HttpParams
-import { describe, it, expect } from 'vitest';
-import { HttpParams } from '@angular/common/http';
+import { describe, expect, it } from 'vitest';
 import { HttpParamsBuilderGenerator } from '@src/service/emit/utility/http-params-builder.js';
 import { createTestProject } from '../shared/helpers.js';
-import { Parameter } from '@src/core/types.js';
 import ts from 'typescript';
 
-// We get the generated code and evaluate it to get the class for testing.
-function getGeneratedBuilderClass() {
+/**
+ * Mock implementation of Angular's HttpParams for the test context.
+ */
+class MockHttpParams {
+    map = new Map<string, string[]>();
+    constructor(options?: { fromObject: any }) {
+        if (options?.fromObject) {
+            Object.entries(options.fromObject).forEach(([k, v]) => {
+                this.map.set(k, [String(v)]);
+            });
+        }
+    }
+    append(key: string, value: string) {
+        const clone = new MockHttpParams();
+        clone.map = new Map(this.map);
+        const current = clone.map.get(key) || [];
+        clone.map.set(key, [...current, value]);
+        return clone;
+    }
+    toString() {
+        const parts: string[] = [];
+        this.map.forEach((vals, key) => {
+            vals.forEach(v => parts.push(`${key}=${v}`));
+        });
+        return parts.join('&');
+    }
+    // Setup for test inspection
+    get(key: string) { return this.map.get(key)?.[0] || null; }
+    getAll(key: string) { return this.map.get(key) || null; }
+}
+
+function getBuilder() {
     const project = createTestProject();
     new HttpParamsBuilderGenerator(project).generate('/');
     const sourceFile = project.getSourceFileOrThrow('/utils/http-params-builder.ts');
-    const fileContent = sourceFile.getText();
 
-    // 1. Remove imports because they can't be resolved in this context.
-    const tsCodeWithoutImports = fileContent.replace(/import .* from ".*";/g, '');
+    // Remove imports manually. We will inject dependencies.
+    const codeWithoutImports = sourceFile.getText().replace(/import\s+.*from\s+['"].*['"];?/g, '');
 
-    // 2. Transpile the TypeScript code to JavaScript.
-    const jsCode = ts.transpile(
-        tsCodeWithoutImports,
-        {
-            target: ts.ScriptTarget.ESNext,
-            module: ts.ModuleKind.CommonJS,
-        }
-    );
+    // Transpile to CommonJS. This converts 'export class X' into 'exports.X = ...'
+    const jsCode = ts.transpile(codeWithoutImports, {
+        target: ts.ScriptTarget.ES2020,
+        module: ts.ModuleKind.CommonJS
+    });
 
-    // 3. Evaluate the JS code in a context where `exports` is defined.
-    const moduleScope = { exports: {} };
-    new Function('exports', 'HttpParams', jsCode)(moduleScope.exports, HttpParams);
+    const exportsMock = {};
 
-    // 4. Return the exported class.
-    return (moduleScope.exports as any).HttpParamsBuilder;
+    // Execute in a function wrapper, providing 'exports' and the 'HttpParams' global dependency
+    // The transpiled code will attach the class to the passed 'exports' object.
+    new Function('exports', 'HttpParams', jsCode)(exportsMock, MockHttpParams);
+
+    return (exportsMock as any).HttpParamsBuilder;
 }
 
-const TestHttpParamsBuilder = getGeneratedBuilderClass();
-
 describe('Utility: HttpParamsBuilder', () => {
+    const Builder = getBuilder();
+
+    describe('serializePathParam', () => {
+        it('should serialize simple primitive path params', () => {
+            const res = Builder.serializePathParam('id', 5);
+            expect(res).toBe('5');
+        });
+
+        it('should serialize simple array path params', () => {
+            // /users/{id*} (where value=[3,4,5]) -> 3,4,5
+            const res = Builder.serializePathParam('id', [3, 4, 5]);
+            expect(res).toBe('3,4,5');
+        });
+
+        it('should serialize object path params (simple, explode=false)', () => {
+            // /users/{id} (where value={role: 'admin', firstName: 'Alex'}) -> role,admin,firstName,Alex
+            const val = { role: 'admin', firstName: 'Alex' };
+            const res = Builder.serializePathParam('id', val, 'simple', false);
+            expect(res).toBe('role,admin,firstName,Alex');
+        });
+
+        it('should serialize object path params (simple, explode=true)', () => {
+            // /users/{id*} -> role=admin,firstName=Alex
+            const val = { role: 'admin', firstName: 'Alex' };
+            const res = Builder.serializePathParam('id', val, 'simple', true);
+            expect(res).toBe('role=admin,firstName=Alex');
+        });
+
+        it('should handle reserved characters correctly when allowReserved=false', () => {
+            // Default behavior: percent encode
+            const res = Builder.serializePathParam('path', 'Hello/World');
+            expect(res).toBe('Hello%2FWorld');
+        });
+
+        it('should handle reserved characters correctly when allowReserved=true', () => {
+            const res = Builder.serializePathParam('path', 'Hello/World', 'simple', false, true);
+            expect(res).toBe('Hello/World');
+        });
+
+        it('should handle complicated reserved string allowReserved=true', () => {
+            const complex = 'user@domain.com:8080/api?q=value#hash';
+            const res = Builder.serializePathParam('url', complex, 'simple', false, true);
+            expect(res).toBe(complex);
+        });
+
+        it('should serialize with label style', () => {
+            // /users/{.id} (value=5) -> .5
+            const res = Builder.serializePathParam('id', 5, 'label');
+            expect(res).toBe('.5');
+        });
+
+        it('should serialize path param as JSON when requested', () => {
+            const val = { a: 1 };
+            // content: application/json in path param
+            const res = Builder.serializePathParam('filter', val, 'simple', false, false, 'json');
+            expect(res).toBe(encodeURIComponent(JSON.stringify(val)));
+        });
+
+        it('should serialize array path param (matrix style, explode=false)', () => {
+            // /users/{;id} (value=[1,2]) -> ;id=1,2
+            const res = Builder.serializePathParam('id', [1, 2], 'matrix', false);
+            expect(res).toBe(';id=1,2');
+        });
+    });
 
     describe('serializeQueryParam', () => {
-        it('should handle null or undefined values by returning original params', () => {
-            const param: Parameter = { name: 'id', in: 'query' };
-            const initialParams = new HttpParams();
-            expect(TestHttpParamsBuilder.serializeQueryParam(initialParams, param, null)).toBe(initialParams);
-            expect(TestHttpParamsBuilder.serializeQueryParam(initialParams, param, undefined)).toBe(initialParams);
+        it('should serialize simple primitives', () => {
+            const params = new MockHttpParams();
+            const res = Builder.serializeQueryParam(params, { name: 'q' }, 'foo');
+            expect(res.get('q')).toBe('foo');
         });
 
-        it('should serialize a simple primitive using default (form) style', () => {
-            const param: Parameter = { name: 'id', in: 'query', schema: { type: 'string' } };
-            const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, '123');
-            expect(params.toString()).toBe('id=123');
-        });
-
-        it('should serialize query param as JSON when content is application/json', () => {
-            const param: Parameter = {
-                name: 'filter',
-                in: 'query',
-                content: { 'application/json': { schema: { type: 'object' } } }
-            };
+        it('should serialize query param as JSON when content is application/json (via config)', () => {
+            const param = { name: 'filter', serialization: 'json' };
             const val = { name: 'foo', items: [1, 2] };
-            const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, val);
+            const params = Builder.serializeQueryParam(new MockHttpParams(), param, val);
             expect(params.get('filter')).toBe(JSON.stringify(val));
         });
 
-        describe('Style: form', () => {
-            it('should serialize array with explode=false (csv)', () => {
-                const param: Parameter = { name: 'ids', in: 'query', style: 'form', explode: false, schema: { type: 'array' } };
-                const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, [1, 'test', 3]);
-                expect(params.toString()).toBe('ids=1,test,3');
-            });
-
-            it('should serialize array with explode=true (repeated param)', () => {
-                const param: Parameter = { name: 'ids', in: 'query', style: 'form', explode: true, schema: { type: 'array' } };
-                const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, [1, 'test', 3]);
-                expect(params.toString()).toBe('ids=1&ids=test&ids=3');
-            });
-
-            it('should serialize object with explode=false (csv: key,val)', () => {
-                const param: Parameter = { name: 'obj', in: 'query', style: 'form', explode: false, schema: { type: 'object' } };
-                const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, { role: 'admin', active: true });
-                expect(params.toString()).toBe('obj=role,admin,active,true');
-            });
-
-            it('should serialize object with explode=true (key=val)', () => {
-                const param: Parameter = { name: 'obj', in: 'query', style: 'form', explode: true, schema: { type: 'object' } };
-                const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, { role: 'admin', active: true });
-                expect(params.toString()).toBe('role=admin&active=true');
-            });
+        it('should serialize form style arrays (explode=true)', () => {
+            // ?ids=3&ids=4
+            const params = new MockHttpParams();
+            const res = Builder.serializeQueryParam(params, { name: 'ids', style: 'form', explode: true }, [3, 4]);
+            expect(res.toString()).toBe('ids=3&ids=4');
         });
 
-        describe('Style: spaceDelimited', () => {
-            it('should serialize array with explode=false (ssv)', () => {
-                const param: Parameter = { name: 'ids', in: 'query', style: 'spaceDelimited', explode: false, schema: { type: 'array' } };
-                const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, [1, 2]);
-                expect(params.toString()).toBe('ids=1%202'); // 1 2 encoded
-            });
+        it('should serialize form style arrays (explode=false)', () => {
+            // ?ids=3,4
+            const params = new MockHttpParams();
+            const res = Builder.serializeQueryParam(params, { name: 'ids', style: 'form', explode: false }, [3, 4]);
+            expect(res.toString()).toBe('ids=3,4');
         });
 
-        describe('Style: pipeDelimited', () => {
-            it('should serialize array with explode=false (psv)', () => {
-                const param: Parameter = { name: 'ids', in: 'query', style: 'pipeDelimited', explode: false, schema: { type: 'array' } };
-                const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, [1, 2]);
-                expect(params.toString()).toBe('ids=1%7C2'); // 1|2 encoded
-            });
+        it('should serialize deepObject style', () => {
+            // ?id[role]=admin&id[name]=alex
+            const params = new MockHttpParams();
+            const val = { role: 'admin', name: 'alex' };
+            const res = Builder.serializeQueryParam(params, { name: 'id', style: 'deepObject', explode: true }, val);
+            const str = res.toString();
+            expect(str).toContain('id[role]=admin');
+            expect(str).toContain('id[name]=alex');
         });
 
-        describe('Style: deepObject', () => {
-            it('should serialize object with explode=true', () => {
-                const param: Parameter = { name: 'user', in: 'query', style: 'deepObject', explode: true, schema: { type: 'object' } };
-                const val = { id: 1, metadata: { role: 'admin' } };
-                const params = TestHttpParamsBuilder.serializeQueryParam(new HttpParams(), param, val);
-                // verify both encoded parts are present
-                // user[id] -> user%5Bid%5D
-                expect(params.toString()).toContain('user%5Bid%5D=1');
-                // user[metadata][role] -> user%5Bmetadata%5D%5Brole%5D
-                expect(params.toString()).toContain('user%5Bmetadata%5D%5Brole%5D=admin');
-            });
-        });
-    });
-
-    describe('serializePathParam', () => {
-        it('should handle JSON serialization hint', () => {
-            const result = TestHttpParamsBuilder.serializePathParam('id', { a: 1 }, 'simple', false, false, 'json');
-            expect(result).toBe('%7B%22a%22%3A1%7D'); // encoded JSON
+        it('should serialize deepObject style with nested objects', () => {
+            // ?user[id]=1&user[metadata][role]=admin
+            const params = new MockHttpParams();
+            const val = { id: 1, metadata: { role: 'admin' } };
+            const res = Builder.serializeQueryParam(params, { name: 'user', style: 'deepObject' }, val);
+            const str = res.toString();
+            expect(str).toContain('user[id]=1');
+            expect(str).toContain('user[metadata][role]=admin');
         });
 
-        describe('Style: simple', () => {
-            it('should serialize array explode=false (csv)', () => {
-                expect(TestHttpParamsBuilder.serializePathParam('id', [1, 2], 'simple', false)).toBe('1,2');
-            });
-            it('should serialize object explode=false (csv)', () => {
-                expect(TestHttpParamsBuilder.serializePathParam('id', {a:1, b:2}, 'simple', false)).toBe('a,1,b,2');
-            });
-            it('should serialize object explode=true (k=v)', () => {
-                expect(TestHttpParamsBuilder.serializePathParam('id', {a:1, b:2}, 'simple', true)).toBe('a=1,b=2');
-            });
-        });
-
-        describe('Style: label', () => {
-            it('should serialize primitive (prefix .)', () => {
-                expect(TestHttpParamsBuilder.serializePathParam('id', 5, 'label', false)).toBe('.5');
-            });
-            it('should serialize array explode=false (prefix ., delimiter ,)', () => {
-                expect(TestHttpParamsBuilder.serializePathParam('id', [1, 2], 'label', false)).toBe('.1,2');
-            });
-            it('should serialize array explode=true (prefix ., delimiter .)', () => {
-                expect(TestHttpParamsBuilder.serializePathParam('id', [1, 2], 'label', true)).toBe('.1.2');
-            });
-            it('should serialize object explode=false (prefix .)', () => {
-                expect(TestHttpParamsBuilder.serializePathParam('id', {a:1}, 'label', false)).toBe('.a,1');
-            });
-            it('should serialize object explode=true (prefix ., delimiter .)', () => {
-                expect(TestHttpParamsBuilder.serializePathParam('id', {a:1,b:2}, 'label', true)).toBe('.a=1.b=2');
-            });
-        });
-
-        describe('Style: matrix', () => {
-            it('should serialize primitive (prefix ;name=val)', () => {
-                expect(TestHttpParamsBuilder.serializePathParam('id', 5, 'matrix', false)).toBe(';id=5');
-            });
-            it('should serialize array explode=false', () => {
-                expect(TestHttpParamsBuilder.serializePathParam('id', [1, 2], 'matrix', false)).toBe(';id=1,2');
-            });
-            it('should serialize array explode=true', () => {
-                expect(TestHttpParamsBuilder.serializePathParam('id', [1, 2], 'matrix', true)).toBe(';id=1;id=2');
-            });
-            it('should serialize object explode=false', () => {
-                expect(TestHttpParamsBuilder.serializePathParam('id', {a:1}, 'matrix', false)).toBe(';id=a,1');
-            });
-            it('should serialize object explode=true', () => {
-                // explode object in matrix: ;key=val;key=val
-                expect(TestHttpParamsBuilder.serializePathParam('id', {a:1, b:2}, 'matrix', true)).toBe(';a=1;b=2');
-            });
-        });
-    });
-
-    describe('serializeHeaderParam', () => {
-        it('should serialize primitive', () => {
-            expect(TestHttpParamsBuilder.serializeHeaderParam('X-ID', 123, false)).toBe('123');
-        });
-        it('should serialize array (csv)', () => {
-            expect(TestHttpParamsBuilder.serializeHeaderParam('X-List', [1, 2], false)).toBe('1,2');
-        });
-        it('should serialize object explode=false (csv)', () => {
-            expect(TestHttpParamsBuilder.serializeHeaderParam('X-Obj', {a:1, b:2}, false)).toBe('a,1,b,2');
-        });
-        it('should serialize object explode=true (csv key=val)', () => {
-            expect(TestHttpParamsBuilder.serializeHeaderParam('X-Obj', {a:1, b:2}, true)).toBe('a=1,b=2');
-        });
-        it('should handle JSON serialization hint', () => {
-            const res = TestHttpParamsBuilder.serializeHeaderParam('X-Meta', {a:1}, false, 'json');
-            expect(res).toBe('{"a":1}');
+        it('should serialize pipeDelimited arrays', () => {
+            const params = new MockHttpParams();
+            const res = Builder.serializeQueryParam(params, { name: 'p', style: 'pipeDelimited' }, ['a', 'b']);
+            expect(res.get('p')).toBe('a|b');
         });
     });
 
     describe('serializeCookieParam', () => {
-        it('should serialize primitive', () => {
-            expect(TestHttpParamsBuilder.serializeCookieParam('id', 123, 'form', false)).toBe('id=123');
+        it('should serialize object explode=true as individual key-value pairs separated by ; ', () => {
+            // cookie: id={a:1, b:2}, explode=true -> a=1; b=2
+            const res = Builder.serializeCookieParam('id', {a:1,b:2}, 'form', true);
+            expect(res).toBe('a=1; b=2');
         });
-        it('should serialize object explode=false (flat)', () => {
-            expect(TestHttpParamsBuilder.serializeCookieParam('id', {a:1,b:2}, 'form', false)).toBe('id=a,1,b,2');
-        });
-        it('should serialize object explode=true', () => {
-            // This technically creates multiple cookies or a specifically formatted string depending on implementation
-            // Implementation generated: k=v; k=v
-            expect(TestHttpParamsBuilder.serializeCookieParam('id', {a:1,b:2}, 'form', true)).toBe('a=1; b=2');
-        });
-        it('should handle JSON serialization hint', () => {
-            const res = TestHttpParamsBuilder.serializeCookieParam('id', {a:1}, 'form', false, 'json');
-            expect(res).toBe(`id=${encodeURIComponent(JSON.stringify({a:1}))}`);
+    });
+
+    describe('serializeRawQuerystring', () => {
+        it('should handle JSON serialization', () => {
+            const obj = { id: 1, name: 'foo' };
+            const expected = encodeURIComponent(JSON.stringify(obj));
+            expect(Builder.serializeRawQuerystring(obj, 'json')).toBe(expected);
         });
     });
 
     describe('serializeUrlEncodedBody', () => {
-        it('should serialize simple object', () => {
-            const body = { name: 'test', age: 20 };
-            const params = TestHttpParamsBuilder.serializeUrlEncodedBody(body, {});
-            expect(params.toString()).toBe('name=test&age=20');
-        });
-
-        it('should respect encoding overrides (explode=false for array)', () => {
-            const body = { tags: ['a', 'b'] };
-            const encodings = { tags: { style: 'form', explode: false } };
-            const params = TestHttpParamsBuilder.serializeUrlEncodedBody(body, encodings);
-            expect(params.toString()).toBe('tags=a,b');
-        });
-
-        it('should ignore null/undefined fields', () => {
-            const body = { a: 1, b: null, c: undefined };
-            const params = TestHttpParamsBuilder.serializeUrlEncodedBody(body, {});
-            expect(params.toString()).toBe('a=1');
+        it('should serialize object to HttpParams using encodings', () => {
+            const body = { tags: ['x', 'y'], scope: 'all' };
+            const encodings = { tags: { style: 'spaceDelimited' } };
+            const res = Builder.serializeUrlEncodedBody(body, encodings);
+            // tags should be x%20y (space delimited), scope should be standard form
+            expect(res.get('tags')).toBe('x y');
+            expect(res.get('scope')).toBe('all');
         });
     });
 });

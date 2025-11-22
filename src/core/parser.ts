@@ -21,9 +21,18 @@ import { extractPaths, isUrl, pascalCase } from './utils.js';
 import { validateSpec } from './validator.js';
 import { JSON_SCHEMA_2020_12_DIALECT, OAS_3_1_DIALECT } from './constants.js';
 
-/** Represents a `$ref` object in a JSON Schema. */
+/** Represents a `$ref` object in a JSON Schema with optional sibling overrides. */
 interface RefObject {
     $ref: string;
+    summary?: string;
+    description?: string;
+}
+
+/** Represents a `$dynamicRef` object in OAS 3.1 / JSON Schema 2020-12 with optional sibling overrides. */
+interface DynamicRefObject {
+    $dynamicRef: string;
+    summary?: string;
+    description?: string;
 }
 
 /**
@@ -33,6 +42,14 @@ interface RefObject {
  */
 const isRefObject = (obj: unknown): obj is RefObject =>
     typeof obj === 'object' && obj !== null && '$ref' in obj && typeof (obj as { $ref: unknown }).$ref === 'string';
+
+/**
+ * A type guard to safely check if an object is a `$dynamicRef` object.
+ * @param obj The object to check.
+ * @returns True if the object is a valid `$dynamicRef` object.
+ */
+const isDynamicRefObject = (obj: unknown): obj is DynamicRefObject =>
+    typeof obj === 'object' && obj !== null && '$dynamicRef' in obj && typeof (obj as { $dynamicRef: unknown }).$dynamicRef === 'string';
 
 /**
  * Represents a resolved option for a polymorphic (`oneOf`) schema,
@@ -175,9 +192,9 @@ export class SwaggerParser {
     }
 
     /**
-     * Recursively finds all unique `$ref` values within a given object.
+     * Recursively finds all unique `$ref` and `$dynamicRef` values within a given object.
      * @param obj The object to search.
-     * @returns An array of unique `$ref` strings.
+     * @returns An array of unique reference strings.
      * @private
      */
     private static findRefs(obj: unknown): string[] {
@@ -190,6 +207,10 @@ export class SwaggerParser {
 
             if (isRefObject(current)) {
                 refs.add(current.$ref);
+            }
+
+            if (isDynamicRefObject(current)) {
+                refs.add(current.$dynamicRef);
             }
 
             for (const key in current as object) {
@@ -289,19 +310,51 @@ export class SwaggerParser {
     }
 
     /**
-     * Synchronously resolves a JSON reference (`$ref`) object to its definition.
-     * If the provided object is not a `$ref`, it is returned as is.
+     * Synchronously resolves a JSON reference (`$ref` or `$dynamicRef`) object to its definition.
+     * If the provided object is not a reference, it is returned as is.
      * This method assumes all necessary files have been pre-loaded into the cache.
+     *
+     * It also supports Overrides: If the Reference Object contains sibling properties 'summary' or 'description',
+     * these will be merged into the resolved object, overriding the original values (OAS 3.1+).
+     *
      * @template T The expected type of the resolved object.
      * @param obj The object to resolve.
      * @returns The resolved definition, the original object if not a ref, or `undefined` if the reference is invalid.
      */
-    public resolve<T>(obj: T | { $ref: string } | null | undefined): T | undefined {
+    public resolve<T>(obj: T | { $ref: string } | { $dynamicRef: string } | null | undefined): T | undefined {
         if (obj === null || obj === undefined) return undefined;
+
+        let resolved: T | undefined;
+        let refObj: RefObject | DynamicRefObject | null = null;
+
         if (isRefObject(obj)) {
-            return this.resolveReference(obj.$ref);
+            resolved = this.resolveReference<T>(obj.$ref);
+            refObj = obj;
+        } else if (isDynamicRefObject(obj)) {
+            // For static code generation purposes, $dynamicRef is treated largely like $ref
+            // Real runtime behavior would depend on dynamic scopes, but here we resolve to the target.
+            resolved = this.resolveReference<T>(obj.$dynamicRef);
+            refObj = obj;
+        } else {
+            return obj as T;
         }
-        return obj as T;
+
+        // Handle Reference Object Overrides (OAS 3.1 Feature)
+        if (resolved && typeof resolved === 'object' && refObj) {
+            const { summary, description } = refObj;
+            if (summary !== undefined || description !== undefined) {
+                // We must shallow copy the resolved object to define the overrides without mutating the shared definition.
+                resolved = { ...resolved };
+                if (summary !== undefined) {
+                    (resolved as any).summary = summary;
+                }
+                if (description !== undefined) {
+                    (resolved as any).description = description;
+                }
+            }
+        }
+
+        return resolved;
     }
 
     /**
@@ -361,6 +414,11 @@ export class SwaggerParser {
             return this.resolveReference(result.$ref, targetFileUri);
         }
 
+        // Handle nested $dynamicRefs recursively
+        if (isDynamicRefObject(result)) {
+            return this.resolveReference(result.$dynamicRef, targetFileUri);
+        }
+
         return result as T;
     }
 
@@ -389,8 +447,14 @@ export class SwaggerParser {
 
         // Strategy 2: Infer from the `oneOf` array directly by resolving each ref and reading its discriminator property.
         return schema.oneOf.map(refSchema => {
-            if (!refSchema.$ref) return null;
-            const resolvedSchema = this.resolveReference(refSchema.$ref);
+            // Check for $ref, but in OAS 3.1 it could also be $dynamicRef
+            let ref: string | undefined;
+            if (refSchema.$ref) ref = refSchema.$ref;
+            else if (refSchema.$dynamicRef) ref = refSchema.$dynamicRef;
+
+            if (!ref) return null;
+
+            const resolvedSchema = this.resolveReference(ref);
             if (!resolvedSchema || !resolvedSchema.properties || !resolvedSchema.properties[dPropName]?.enum) {
                 return null;
             }

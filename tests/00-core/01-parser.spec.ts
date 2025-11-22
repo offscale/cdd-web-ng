@@ -122,6 +122,11 @@ describe('Core: SwaggerParser', () => {
             expect(result).toEqual({ type: 'string' });
         });
 
+        it('should resolve a valid $dynamicRef object (OAS 3.1)', () => {
+            const result = parser.resolve<{ type: string }>({ $dynamicRef: '#/components/schemas/User' });
+            expect(result).toEqual({ type: 'string' });
+        });
+
         it('should return the object itself if it is not a reference', () => {
             const obj = { type: 'number' };
             const result = parser.resolve(obj);

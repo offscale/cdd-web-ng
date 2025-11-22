@@ -3,8 +3,10 @@ import { Project, Scope } from "ts-morph";
 import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../../core/constants.js";
 
 /**
- * Generates the `http-params-builder.ts` file. This file contains a static utility class
- * for building HttpParams from complex objects and arrays according to OpenAPI serialization rules.
+ * Generates the `utils/http-params-builder.ts` file.
+ * This utility handles the complex serialization logic required by OpenAPI 3.x/Swagger 2.0 parameters.
+ * It implements RFC 6570 style expansions (simple, label, matrix, form, etc.),
+ * arrays/objects explosion, and the `allowReserved` flag for path parameters.
  */
 export class HttpParamsBuilderGenerator {
     constructor(private project: Project) {
@@ -18,473 +20,320 @@ export class HttpParamsBuilderGenerator {
 
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
-        sourceFile.addImportDeclarations([
-            {
-                namedImports: ["HttpParams"],
-                moduleSpecifier: "@angular/common/http",
-            }
-        ]);
-
-        sourceFile.addInterface({
-            name: "ParameterStub",
-            isExported: true,
-            properties: [
-                { name: "name", type: "string" },
-                { name: "in", type: "string" },
-                { name: "style", type: "string", hasQuestionToken: true },
-                { name: "explode", type: "boolean", hasQuestionToken: true },
-                { name: "allowEmptyValue", type: "boolean", hasQuestionToken: true },
-                { name: "content", type: "Record<string, any>", hasQuestionToken: true },
-                { name: "schema", type: "any", hasQuestionToken: true }
-            ]
-        });
-
-        sourceFile.addInterface({
-            name: "EncodingConfig",
-            isExported: true,
-            properties: [
-                { name: "contentType", type: "string", hasQuestionToken: true },
-                { name: "style", type: "string", hasQuestionToken: true },
-                { name: "explode", type: "boolean", hasQuestionToken: true },
-                { name: "allowReserved", type: "boolean", hasQuestionToken: true }
-            ]
+        // Imports
+        sourceFile.addImportDeclaration({
+            moduleSpecifier: "@angular/common/http",
+            namedImports: ["HttpParams"]
         });
 
         const classDeclaration = sourceFile.addClass({
             name: "HttpParamsBuilder",
             isExported: true,
-            docs: ["A utility class for building HttpParams and serializing parameters according to OpenAPI rules."],
+            docs: ["Utility to serialize parameters (Path, Query, Header, Cookie) according to OpenAPI style/explode rules."],
         });
 
+        // --- Path Parameter Serialization ---
+        classDeclaration.addMethod({
+            name: "serializePathParam",
+            isStatic: true,
+            scope: Scope.Public,
+            parameters: [
+                { name: "key", type: "string" },
+                { name: "value", type: "any" },
+                { name: "style", type: "string", initializer: "'simple'" },
+                { name: "explode", type: "boolean", initializer: "false" },
+                { name: "allowReserved", type: "boolean", initializer: "false" },
+                { name: "serialization", type: "'json' | undefined", hasQuestionToken: true }
+            ],
+            returnType: "string",
+            statements: `
+        if (value === null || value === undefined) return ''; 
+
+        if (serialization === 'json' && typeof value !== 'string') {
+            value = JSON.stringify(value);
+        }
+
+        const encode = (v: string) => allowReserved ? this.encodeReserved(v) : encodeURIComponent(v); 
+
+        if (style === 'simple') { 
+             // Path: /users/{id*} 
+            if (Array.isArray(value)) { 
+                return value.map(v => encode(String(v))).join(','); 
+            } else if (typeof value === 'object') { 
+                if (explode) { 
+                    return Object.entries(value).map(([k, v]) => \`\${encode(k)}=\${encode(String(v))}\`).join(','); 
+                } else { 
+                    return Object.entries(value).map(([k, v]) => \`\${encode(k)},\${encode(String(v))}\`).join(','); 
+                } 
+            } 
+            return encode(String(value)); 
+        } 
+
+        if (style === 'label') { 
+            // Path: /users/{.id*} 
+            const prefix = '.'; 
+            if (Array.isArray(value)) { 
+                return prefix + value.map(v => encode(String(v))).join(explode ? prefix : ','); 
+            } else if (typeof value === 'object') { 
+                if (explode) { 
+                    return prefix + Object.entries(value).map(([k, v]) => \`\${encode(k)}=\${encode(String(v))}\`).join(prefix); 
+                } else { 
+                    return prefix + Object.entries(value).map(([k, v]) => \`\${encode(k)},\${encode(String(v))}\`).join(','); 
+                } 
+            } 
+            return prefix + encode(String(value)); 
+        } 
+
+        if (style === 'matrix') { 
+            // Path: /users/{;id*} 
+            const prefix = ';'; 
+            if (Array.isArray(value)) { 
+                if (explode) {
+                   return prefix + value.map(v => \`\${encode(key)}=\${encode(String(v))}\`).join(prefix); 
+                } else {
+                   return prefix + \`\${encode(key)}=\` + value.map(v => encode(String(v))).join(',');
+                }
+            } else if (typeof value === 'object') { 
+                if (explode) { 
+                    return prefix + Object.entries(value).map(([k, v]) => \`\${encode(k)}=\${encode(String(v))}\`).join(prefix); 
+                } else { 
+                    return prefix + \`\${encode(key)}=\` + Object.entries(value).map(([k, v]) => \`\${encode(k)},\${encode(String(v))}\`).join(','); 
+                } 
+            } 
+            return prefix + \`\${encode(key)}=\${encode(String(value))}\`; 
+        } 
+
+        // Default fallback 
+        return encode(String(value));`
+        });
+
+        // --- Query Parameter Serialization ---
         classDeclaration.addMethod({
             name: "serializeQueryParam",
             isStatic: true,
             scope: Scope.Public,
             parameters: [
                 { name: "params", type: "HttpParams" },
-                { name: "parameter", type: "ParameterStub" },
-                { name: "value", type: "any" },
+                { name: "config", type: "any" }, // Parameter Object
+                { name: "value", type: "any" }
             ],
             returnType: "HttpParams",
-            docs: [
-                "Serializes a query parameter based on its OpenAPI definition (style, explode, content).",
-                "@param params The current HttpParams instance to append to.",
-                "@param parameter The OpenAPI parameter definition.",
-                "@param value The actual value of the parameter.",
-                "@returns The updated HttpParams instance."
-            ],
-            statements: this.getSerializeQueryParamBody(),
+            statements: `
+        if (value === null || value === undefined) return params; 
+        
+        // Pass-through check if 'serialization' key is present in config (extended config from generator)
+        if (config.serialization === 'json' && typeof value !== 'string') {
+            value = JSON.stringify(value);
+        }
+
+        const name = config.name; 
+        const style = config.style || 'form'; 
+        const explode = config.explode ?? true; 
+        
+        if (style === 'deepObject' && typeof value === 'object') { 
+             // Recursive flattening could be implemented here, but for standard compliance:
+             const processDeep = (obj: any, prefix: string) => {
+                 Object.keys(obj).forEach(k => {
+                     const keyPath = \`\${prefix}[\${k}]\`;
+                     const v = obj[k];
+                     if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+                         processDeep(v, keyPath);
+                     } else {
+                         params = params.append(keyPath, String(v));
+                     }
+                 });
+             };
+             processDeep(value, name);
+             return params;
+        } 
+
+        if (Array.isArray(value)) { 
+            if (style === 'form' && explode) { 
+                value.forEach(v => params = params.append(name, String(v))); 
+            } else if (style === 'spaceDelimited') {
+                // Encoded space
+                params = params.append(name, value.join(' '));
+            } else if (style === 'pipeDelimited') {
+                params = params.append(name, value.join('|'));
+            } else { 
+                // form, explode: false (comma separated)
+                params = params.append(name, value.join(',')); 
+            } 
+            return params; 
+        } 
+
+        if (typeof value === 'object') { 
+             if (style === 'form') { 
+                 if (explode) { 
+                     Object.entries(value).forEach(([k, v]) => params = params.append(k, String(v))); 
+                 } else { 
+                     const flattened = Object.entries(value).map(([k, v]) => \`\${k},\${v}\`).join(','); 
+                     params = params.append(name, flattened); 
+                 } 
+                 return params; 
+             } 
+        } 
+
+        return params.append(name, String(value));`
         });
 
+        // --- Header Parameter Serialization ---
+        classDeclaration.addMethod({
+            name: "serializeHeaderParam",
+            isStatic: true,
+            scope: Scope.Public,
+            parameters: [
+                { name: "key", type: "string" },
+                { name: "value", type: "any" },
+                { name: "explode", type: "boolean", initializer: "false" },
+                { name: "serialization", type: "'json' | undefined", hasQuestionToken: true }
+            ],
+            returnType: "string",
+            statements: `
+        if (value === null || value === undefined) return ''; 
+        if (serialization === 'json') return JSON.stringify(value);
+
+        if (Array.isArray(value)) { 
+            return value.join(','); 
+        } 
+        if (typeof value === 'object') { 
+            if (explode) {
+                // This case is ambiguous in spec for headers, commonly toString or custom 
+                return Object.entries(value).map(([k, v]) => \`\${k}=\${v}\`).join(',');
+            }
+            return Object.entries(value).map(([k, v]) => \`\${k},\${v}\`).join(','); 
+        } 
+        return String(value);`
+        });
+
+        // --- Cookie Parameter Serialization ---
+        classDeclaration.addMethod({
+            name: "serializeCookieParam",
+            isStatic: true,
+            scope: Scope.Public,
+            parameters: [
+                { name: "key", type: "string" },
+                { name: "value", type: "any" },
+                { name: "style", type: "string", initializer: "'form'" },
+                { name: "explode", type: "boolean", initializer: "true" },
+                { name: "serialization", type: "'json' | undefined", hasQuestionToken: true }
+            ],
+            returnType: "string",
+            statements: `
+        if (value === null || value === undefined) return ''; 
+        // Cookies with OAS 'json' content mapping usually imply encoding the whole JSON string
+        if (serialization === 'json') {
+             return \`\${key}=\${encodeURIComponent(JSON.stringify(value))}\`;
+        }
+        
+        let valStr = '';
+        if (Array.isArray(value)) { 
+            valStr = value.map(v => encodeURIComponent(String(v))).join(explode ? ',' : ','); // Cookies usually ignore explode for arrays in simple form 
+        } else if (typeof value === 'object') { 
+            if (style === 'form') {
+                if (explode) {
+                    // Spec allows expanding key=val pair for each prop? 
+                    // Standard cookie structure is name=value; name2=value2. 
+                    // If one cookie param expands to multiple cookies, we return joined with '; ' 
+                    // BUT key here is the cookie name. If explode, valid prop becomes separate cookie? 
+                    // Ambiguous. Usually interpreted as flat string key=val1,val2 or flattened object.
+                    // We will return key=value; key2=value2 style without the prefix 'key=' if fully exploded for the set?
+                    // No, 'serializeCookieParam' is called for *one* defined cookie parameter.
+                    // If explode is true, we might emit multiple key=value pairs separated by '; ' 
+                    // e.g. cookie "id" exploded with {a:1, b:2} -> "a=1; b=2" (The 'id' name is ignored!)
+                    return Object.entries(value).map(([k, v]) => \`\${k}=\${v}\`).join('; ');
+                } else {
+                    valStr = Object.entries(value).map(([k, v]) => \`\${k},\${v}\`).join(',');
+                }
+            }
+        } else { 
+            valStr = encodeURIComponent(String(value)); 
+        } 
+        
+        // If we didn't explode top-level (returning multiple cookies), wrap in name=val
+        return \`\${key}=\${valStr}\`;`
+        });
+
+        // --- Raw Querystring (OAS 3.2) ---
+        classDeclaration.addMethod({
+            name: "serializeRawQuerystring",
+            isStatic: true,
+            scope: Scope.Public,
+            parameters: [
+                { name: "value", type: "any" },
+                { name: "serialization", type: "'json' | undefined", hasQuestionToken: true }
+            ],
+            returnType: "string",
+            statements: `
+        if (value === null || value === undefined) return ''; 
+        if (serialization === 'json') return encodeURIComponent(JSON.stringify(value));
+        if (typeof value === 'object') { 
+            return Object.entries(value).map(([k, v]) => \`\${k}=\${v}\`).join('&'); 
+        } 
+        return String(value);`
+        });
+
+        // --- URL Encoded Body ---
         classDeclaration.addMethod({
             name: "serializeUrlEncodedBody",
             isStatic: true,
             scope: Scope.Public,
             parameters: [
                 { name: "body", type: "any" },
-                { name: "encodings", type: "Record<string, EncodingConfig>", initializer: "{}" }
-            ],
-            returnType: "HttpParams",
-            docs: [
-                "Serializes a body object into HttpParams for application/x-www-form-urlencoded requests.",
-                "Applies OpenAPI 'encoding' rules (style, explode) per property.",
-                "@param body The object to serialize.",
-                "@param encodings A map of property names to encoding configurations.",
-                "@returns An HttpParams object representing the form body."
-            ],
-            statements: this.getSerializeUrlEncodedBodyBody()
-        });
-
-        classDeclaration.addMethod({
-            name: "serializePathParam",
-            isStatic: true,
-            scope: Scope.Public,
-            parameters: [
-                { name: "name", type: "string" },
-                { name: "value", type: "any" },
-                { name: "style", type: "string" },
-                { name: "explode", type: "boolean" },
-                { name: "allowReserved", type: "boolean", initializer: "false" },
-                { name: "serializationType", type: "'json' | 'text'", hasQuestionToken: true }
-            ],
-            returnType: "string",
-            docs: [
-                "Serializes a path parameter based on style and explode options (simple, label, matrix).",
-                "@param name The name of the parameter.",
-                "@param value The value of the parameter.",
-                "@param style The OpenAPI style (simple, label, matrix).",
-                "@param explode Whether to explode arrays/objects.",
-                "@param allowReserved Whether to allow reserved characters like '/' and '?' in the value.",
-                "@param serializationType Optional hint to force JSON serialization (for 'content' based params)."
-            ],
-            statements: this.getSerializePathParamBody()
-        });
-
-        classDeclaration.addMethod({
-            name: "serializeHeaderParam",
-            isStatic: true,
-            scope: Scope.Public,
-            parameters: [
-                { name: "name", type: "string" },
-                { name: "value", type: "any" },
-                { name: "explode", type: "boolean" },
-                { name: "serializationType", type: "'json' | 'text'", hasQuestionToken: true }
-            ],
-            returnType: "string",
-            docs: [
-                "Serializes a header parameter. Headers always use 'simple' style.",
-                "@param name The name of the parameter.",
-                "@param value The value of the parameter.",
-                "@param explode Whether to explode objects (key=val,key=val) vs (key,val,key,val).",
-                "@param serializationType Optional hint to force JSON serialization (for 'content' based params)."
-            ],
-            statements: this.getSerializeHeaderParamBody()
-        });
-
-        classDeclaration.addMethod({
-            name: "serializeCookieParam",
-            isStatic: true,
-            scope: Scope.Public,
-            parameters: [
-                { name: "name", type: "string" },
-                { name: "value", type: "any" },
-                { name: "style", type: "string" },
-                { name: "explode", type: "boolean" },
-                { name: "serializationType", type: "'json' | 'text'", hasQuestionToken: true }
-            ],
-            returnType: "string",
-            docs: [
-                "Serializes a cookie parameter.",
-                "@param name The name of the parameter.",
-                "@param value The value of the parameter.",
-                "@param style The OpenAPI style (usually 'form').",
-                "@param explode Whether to explode arrays/objects.",
-                "@param serializationType Optional hint to force JSON serialization (for 'content' based params)."
-            ],
-            statements: this.getSerializeCookieParamBody()
-        });
-
-        classDeclaration.addMethod({
-            name: "formatValue",
-            isStatic: true,
-            scope: Scope.Private,
-            parameters: [
-                { name: "value", type: "unknown" },
-            ],
-            returnType: "string",
-            docs: ["Formats a value into a string suitable for URL parameters."],
-            statements: `
-if (value instanceof Date) { 
-    return value.toISOString(); 
-} 
-return String(value);`,
-        });
-
-        classDeclaration.addMethod({
-            name: "encode",
-            isStatic: true,
-            scope: Scope.Private,
-            parameters: [
-                { name: "value", type: "string" },
-                { name: "allowReserved", type: "boolean" }
-            ],
-            returnType: "string",
-            docs: ["Encodes a value for use in a URL path segment, optionally allowing reserved characters."],
-            statements: `
-if (allowReserved) { 
-    // Encode everything, then decode the reserved characters 
-    // Reserved chars: ! * ' ( ) ; : @ & = + $ , / ? % # [ ] 
-    return encodeURIComponent(value).replace(/%[0-9A-F]{2}/g, (match) => { 
-        if (match.match(/%(?:21|2A|27|28|29|3B|3A|40|26|3D|2B|24|2C|2F|3F|25|23|5B|5D)/i)) { 
-            return decodeURIComponent(match); 
-        } 
-        return match; 
-    }); 
-} 
-return encodeURIComponent(value); 
-`
-        });
-
-        // Add private helper for recursive deepObject serialization
-        // OAS 3.2 requires keys to be percent-encoded if they contain brackets or other reserved chars logic.
-        // For deepObject, we construct keys like `key[prop]`.
-        // Angular's HttpParams automatically encodes keys and values.
-        // However, for strict OpenAPI deepObject compliance (e.g., `color%5BR%5D=100`),
-        // we may need to pre-encode the key structure if HttpParams doesn't match the spec exactly.
-        // Angular's standard encoding might not encode `[` and `]` in keys by default.
-        classDeclaration.addMethod({
-            name: "appendDeepObject",
-            isStatic: true,
-            scope: Scope.Private,
-            parameters: [
-                { name: "params", type: "HttpParams" },
-                { name: "key", type: "string" },
-                { name: "value", type: "any" }
+                { name: "encodings", type: "Record<string, any>", initializer: "{}" }
             ],
             returnType: "HttpParams",
             statements: `
-    if (value === null || value === undefined) { 
-        return params; 
-    } 
-    
-    if (Array.isArray(value)) { 
-        value.forEach((item, index) => { 
-            params = this.appendDeepObject(params, \`\${key}[\${index}]\`, item); 
-        }); 
-    } else if (typeof value === 'object' && !(value instanceof Date)) { 
-        Object.entries(value).forEach(([prop, val]) => { 
-            params = this.appendDeepObject(params, \`\${key}[\${prop}]\`, val); 
-        }); 
-    } else { 
-        // Manually encode brackets in the key to ensure strict OAS deepObject compliance 
-        // color[R] -> color%5BR%5D 
-        // Angular's HttpParams.append() will encode the key again, but we want to force these specific chars. 
-        // Actually, Angular's HttpParams stores keys as-is and encodes them on toString(). 
-        // If we pass "color[R]", Angular turns it into "color%5BR%5D" IF using standard encoder. 
-        // But strict deepObject allows ONLY the brackets to be encoded structure-wise. 
-        // If we rely on Angular to encode, it usually works. 
-        // However, this implementation ensures recursion works down the tree. 
-        params = params.append(key, this.formatValue(value)); 
-    } 
-    return params;`
+            let params = new HttpParams();
+            if (!body || typeof body !== 'object') return params;
+
+            Object.entries(body).forEach(([key, value]) => {
+                if (value === undefined || value === null) return;
+                const config = encodings[key] || { style: 'form', explode: true };
+                // Re-use query param logic by fabricating a config object
+                const paramConfig = { name: key, in: 'query', ...config };
+                params = this.serializeQueryParam(params, paramConfig, value);
+            });
+            return params;
+            `
+        });
+
+        // --- Helper: allowReserved Encoding ---
+        // Encodes everything EXCEPT the reserved set: :/?#[]@!$&'()*+,;=
+        classDeclaration.addMethod({
+            name: "encodeReserved",
+            isStatic: true,
+            scope: Scope.Private,
+            parameters: [{ name: "value", type: "string" }],
+            returnType: "string",
+            statements: `
+        // First standard encode 
+        const encoded = encodeURIComponent(value); 
+        
+        // Then revert reserved characters 
+        // RFC 3986 Reserved: : / ? # [ ] @ ! $ & ' ( ) * + , ; = 
+        // Corresponding percent-encodings to revert: 
+        return encoded 
+            .replace(/%3A/gi, ':') 
+            .replace(/%2F/gi, '/') 
+            .replace(/%3F/gi, '?') 
+            .replace(/%23/gi, '#') 
+            .replace(/%5B/gi, '[') 
+            .replace(/%5D/gi, ']') 
+            .replace(/%40/gi, '@') 
+            .replace(/%21/gi, '!') 
+            .replace(/%24/gi, '$') 
+            .replace(/%26/gi, '&') 
+            .replace(/%27/gi, "'") 
+            .replace(/%28/gi, '(') 
+            .replace(/%29/gi, ')') 
+            .replace(/%2A/gi, '*') 
+            .replace(/%2B/gi, '+') 
+            .replace(/%2C/gi, ',') 
+            .replace(/%3B/gi, ';') 
+            .replace(/%3D/gi, '=');`
         });
 
         sourceFile.formatText();
-    }
-
-    private getSerializeQueryParamBody(): string {
-        return `
-    if (value == null) { 
-        return params; 
-    } 
-
-    const name = parameter.name; 
-
-    // Handle content-based serialization (JSON) 
-    if (parameter.content) { 
-        const contentTypes = Object.keys(parameter.content); 
-        if (contentTypes.some(t => t.includes('application/json') || t.includes('*/*'))) { 
-            return params.append(name, JSON.stringify(value)); 
-        } 
-    } 
-
-    if (value === '' && parameter.allowEmptyValue === false) { 
-        return params; 
-    } 
-
-    const style = parameter.style ?? 'form'; 
-    const explode = parameter.explode ?? (style === 'form'); 
-
-    const isArray = Array.isArray(value); 
-    const isObject = typeof value === 'object' && value !== null && !isArray && !(value instanceof Date); 
-
-    switch (style) { 
-        case 'form': 
-            if (isArray) { 
-                const arrValue = value as any[]; 
-                if (explode) { 
-                    arrValue.forEach(item => { 
-                        if (item != null) { 
-                            params = params.append(name, this.formatValue(item)); 
-                        } 
-                    }); 
-                } else { 
-                    const csv = arrValue.map(item => this.formatValue(item)).join(','); 
-                    params = params.append(name, csv); 
-                } 
-            } else if (isObject) { 
-                const objValue = value as Record<string, any>; 
-                if (explode) { 
-                    Object.entries(objValue).forEach(([key, propValue]) => { 
-                       if (propValue != null) params = params.append(key, this.formatValue(propValue)); 
-                    }); 
-                } else { 
-                    const csv = Object.entries(objValue).flatMap(([k, v]) => [k, this.formatValue(v)]).join(','); 
-                    params = params.append(name, csv); 
-                } 
-            } else { 
-                params = params.append(name, this.formatValue(value)); 
-            } 
-            return params; 
-
-        case 'spaceDelimited': 
-            if (isArray && !explode) { 
-                const ssv = (value as any[]).map(item => this.formatValue(item)).join(' '); 
-                params = params.append(name, ssv); 
-                return params; 
-            } 
-            break; 
-
-        case 'pipeDelimited': 
-             if (isArray && !explode) { 
-                const psv = (value as any[]).map(item => this.formatValue(item)).join('|'); 
-                params = params.append(name, psv); 
-                return params; 
-            } 
-            break; 
-
-        case 'deepObject': 
-            if (isObject && explode) { 
-                 return this.appendDeepObject(params, name, value); 
-            } 
-            break; 
-    } 
-
-    // Fallback default serialization (form style) 
-    if (Array.isArray(value)) { 
-        value.forEach(item => { 
-            if (item != null) params = params.append(name, this.formatValue(item)); 
-        }); 
-    } else { 
-        params = params.append(name, this.formatValue(value)); 
-    } 
-    return params;`;
-    }
-
-    private getSerializeUrlEncodedBodyBody(): string {
-        return `
-    let params = new HttpParams(); 
-    if (body === null || body === undefined) return params; 
-
-    Object.entries(body).forEach(([key, value]) => { 
-        if (value === undefined || value === null) return; 
-        
-        const encoding = encodings[key] || {}; 
-        const style = encoding.style ?? 'form'; 
-        const explode = encoding.explode ?? true; 
-        
-        const paramDef: ParameterStub = { 
-            name: key, 
-            in: 'query', 
-            style, 
-            explode, 
-            schema: { type: typeof value } 
-        }; 
-        
-        params = this.serializeQueryParam(params, paramDef, value); 
-    }); 
-
-    return params; 
-        `;
-    }
-
-    private getSerializePathParamBody(): string {
-        return `
-    if (value === null || value === undefined) return ''; 
-
-    if (serializationType === 'json') { 
-        return this.encode(JSON.stringify(value), allowReserved); 
-    } 
-
-    const effectiveStyle = style || 'simple'; 
-    
-    const isArray = Array.isArray(value); 
-    const isObject = typeof value === 'object' && value !== null && !isArray && !(value instanceof Date); 
-
-    if (effectiveStyle === 'simple') { 
-        if (isArray) { 
-            return (value as any[]).map(v => this.encode(this.formatValue(v), allowReserved)).join(','); 
-        } 
-        if (isObject) { 
-            if (explode) { 
-               return Object.entries(value).map(([k, v]) => \`\${this.encode(k, allowReserved)}=\${this.encode(this.formatValue(v), allowReserved)}\`).join(','); 
-            } 
-            return Object.entries(value).flatMap(([k, v]) => [this.encode(k, allowReserved), this.encode(this.formatValue(v), allowReserved)]).join(','); 
-        } 
-        return this.encode(this.formatValue(value), allowReserved); 
-    } 
-
-    if (effectiveStyle === 'label') { 
-        const prefix = '.'; 
-        if (isArray) { 
-            const joiner = explode ? '.' : ','; 
-            return \`\${prefix}\${(value as any[]).map(v => this.encode(this.formatValue(v), allowReserved)).join(joiner)}\`; 
-        } 
-        if (isObject) { 
-            if (explode) { 
-                return \`\${prefix}\${Object.entries(value).map(([k, v]) => \`\${this.encode(k, allowReserved)}=\${this.encode(this.formatValue(v), allowReserved)}\`).join(prefix)}\`; 
-            } 
-            return \`\${prefix}\${Object.entries(value).flatMap(([k, v]) => [this.encode(k, allowReserved), this.encode(this.formatValue(v), allowReserved)]).join(',')}\`; 
-        } 
-        return \`\${prefix}\${this.encode(this.formatValue(value), allowReserved)}\`; 
-    } 
-
-    if (effectiveStyle === 'matrix') { 
-        const prefix = ';'; 
-        if (isArray) { 
-            if (explode) { 
-                return (value as any[]).map(v => \`\${prefix}\${name}=\${this.encode(this.formatValue(v), allowReserved)}\`).join(''); 
-            } 
-            return \`\${prefix}\${name}=\${(value as any[]).map(v => this.encode(this.formatValue(v), allowReserved)).join(',')}\`; 
-        } 
-        if (isObject) { 
-            if (explode) { 
-                 return Object.entries(value).map(([k, v]) => \`\${prefix}\${this.encode(k, allowReserved)}=\${this.encode(this.formatValue(v), allowReserved)}\`).join(''); 
-            } 
-            const flat = Object.entries(value).flatMap(([k, v]) => [this.encode(k, allowReserved), this.encode(this.formatValue(v), allowReserved)]).join(','); 
-            return \`\${prefix}\${name}=\${flat}\`; 
-        } 
-        return \`\${prefix}\${name}=\${this.encode(this.formatValue(value), allowReserved)}\`; 
-    } 
-
-    return this.encode(this.formatValue(value), allowReserved);`;
-    }
-
-    private getSerializeCookieParamBody(): string {
-        return `
-    if (value === null || value === undefined) return ''; 
-    
-    if (serializationType === 'json') { 
-        return \`\${name}=\${encodeURIComponent(JSON.stringify(value))}\`; 
-    } 
-
-    const effectiveStyle = style || 'form'; 
-
-    const isArray = Array.isArray(value); 
-    const isObject = typeof value === 'object' && value !== null && !isArray && !(value instanceof Date); 
-
-    if (effectiveStyle === 'form') { 
-        if (isArray) { 
-             if (explode) { 
-                 return (value as any[]).map(v => \`\${name}=\${this.formatValue(v)}\`).join('; '); 
-             } 
-             const joined = (value as any[]).map(v => this.formatValue(v)).join(','); 
-             return \`\${name}=\${joined}\`; 
-        } 
-        if (isObject) { 
-             if (explode) { 
-                 return Object.entries(value).map(([k, v]) => \`\${k}=\${this.formatValue(v)}\`).join('; '); 
-             } 
-             const flat = Object.entries(value).flatMap(([k, v]) => [k, this.formatValue(v)]).join(','); 
-             return \`\${name}=\${flat}\`; 
-        } 
-        return \`\${name}=\${this.formatValue(value)}\`; 
-    } 
-    
-    return \`\${name}=\${this.formatValue(value)}\`; 
-    `;
-    }
-
-    private getSerializeHeaderParamBody(): string {
-        return `
-    if (value === null || value === undefined) return ''; 
-
-    if (serializationType === 'json') { 
-        return JSON.stringify(value); 
-    } 
-
-    if (Array.isArray(value)) { 
-        return (value as any[]).map(v => this.formatValue(v)).join(','); 
-    } 
-    
-    if (typeof value === 'object' && value !== null && !(value instanceof Date)) { 
-        if (explode) { 
-             return Object.entries(value).map(([k, v]) => \`\${k}=\${this.formatValue(v)}\`).join(','); 
-        } 
-        return Object.entries(value).flatMap(([k, v]) => [k, this.formatValue(v)]).join(','); 
-    } 
-
-    return this.formatValue(value); 
-    `;
     }
 }

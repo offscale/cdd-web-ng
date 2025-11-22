@@ -20,6 +20,7 @@ import { ServiceTestGenerator } from "./test/service-test-generator.js";
 import { ServerUrlGenerator } from './utility/server-url.generator.js';
 import { XmlBuilderGenerator } from './utility/xml-builder.generator.js';
 import { InfoGenerator } from "./utility/info.generator.js";
+import { MultipartBuilderGenerator } from "./utility/multipart-builder.generator.js";
 
 export async function emitClientLibrary(outputRoot: string, parser: SwaggerParser, config: GeneratorConfig, project: Project): Promise<void> {
     new TypeGenerator(parser, project, config).generate(outputRoot);
@@ -44,6 +45,7 @@ export async function emitClientLibrary(outputRoot: string, parser: SwaggerParse
         new FileDownloadGenerator(project).generate(outputRoot);
         new ServerUrlGenerator(parser, project).generate(outputRoot);
         new XmlBuilderGenerator(project).generate(outputRoot);
+        new MultipartBuilderGenerator(project).generate(outputRoot);
 
         if (config.options.dateType === 'Date') {
             new DateTransformerGenerator(project).generate(outputRoot);

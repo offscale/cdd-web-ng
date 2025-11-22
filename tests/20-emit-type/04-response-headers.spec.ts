@@ -22,6 +22,14 @@ const headerSpec = {
                             'X-Rate-Limit': {
                                 schema: { type: 'integer' }
                             },
+                            'X-Complex-Header': {
+                                description: 'Header defined via content map',
+                                content: {
+                                    'application/json': {
+                                        schema: { type: 'object', properties: { id: { type: 'string' } } }
+                                    }
+                                }
+                            },
                             'X-Old-Header': {
                                 description: 'An old header',
                                 schema: { type: 'string' },
@@ -61,6 +69,20 @@ describe('Emitter: Response Header Type Generation', () => {
 
         const totalCount = headersInterface.getPropertyOrThrow("'X-Total-Count'");
         expect(totalCount.getJsDocs()[0].getDescription().trim()).toBe('Total number of items');
+    });
+
+    it('should handle headers defined via content map (OAS 3.x)', () => {
+        const sourceFile = runGenerator(headerSpec);
+        const headersInterface = sourceFile.getInterfaceOrThrow('GetUsers200Headers');
+
+        // X-Complex-Header is defined via content: { 'application/json': { schema: { type: object, properties: { id: string } } } }
+        const complexHeader = headersInterface.getPropertyOrThrow("'X-Complex-Header'");
+
+        // Verify generated type matches the schema inside the content map
+        // { id?: string }
+        const typeText = complexHeader.getType().getText();
+        expect(typeText).toContain('{ id?: string; }'); // or just check for structure
+        expect(complexHeader.getJsDocs()[0].getDescription().trim()).toBe('Header defined via content map');
     });
 
     it('should include @deprecated tag for deprecated headers', () => {

@@ -1,7 +1,8 @@
 import * as path from "node:path";
 import { Project, VariableDeclarationKind } from "ts-morph";
-import { UTILITY_GENERATOR_HEADER_COMMENT } from "@src/core/constants.js";
-import { SwaggerParser } from "@src/core/parser.js";
+import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../../core/constants.js";
+import { SwaggerParser } from "../../../core/parser.js";
+import { pascalCase } from "../../../core/utils.js";
 
 /**
  * Generates the `discriminators.ts` file.
@@ -51,8 +52,9 @@ export class DiscriminatorGenerator {
                 if (rawDiscriminator.mapping) {
                     mapping = {};
                     Object.entries(rawDiscriminator.mapping).forEach(([key, refValue]) => {
-                        // Resolve Ref to Model Name
+                        // Resolve Ref/URI to Model Name
                         // e.g. "#/components/schemas/Cat" -> "Cat"
+                        // e.g. "https://example.com/schemas/cat.json" -> "Cat"
                         const childModelName = this.resolveModelNameFromRef(refValue as string);
                         if (childModelName) {
                             mapping![key] = childModelName;
@@ -93,19 +95,40 @@ export class DiscriminatorGenerator {
     }
 
     /**
-     * Helper to extract the simple model name from a reference string.
-     * Falls back to basic string manipulation if reference resolution is complex.
+     * Helper to extract the generator's Model Name from a reference string.
+     * It attempts to resolve the reference to an actual schema definition object
+     * managed by the parser, and then finds the name assigned to that definition.
+     *
+     * This supports:
+     * 1. Local References (e.g. #/components/schemas/Pet)
+     * 2. External URIs (e.g. https://api.com/models/Pet)
+     * 3. Fallbacks for unresolvable types.
      */
     private resolveModelNameFromRef(ref: string): string {
-        // 1. Try standard Ref resolution if the parser supports looking up names
-        // (Often the parser resolves to the object, but we need the Name key)
+        // 1. Try to resolve the reference to the actual schema object in memory
+        const resolvedSchema = this.parser.resolveReference(ref);
 
-        // 2. Heuristic extraction (standard OpenAPI paths)
-        // #/components/schemas/Name
-        // #/definitions/Name
+        if (resolvedSchema) {
+            // 2. Look up this definition object in the parser's normalized schemas list
+            // to find the friendly Model Name (e.g. "Cat").
+            // The parser schemas array maps names to the actual definition objects.
+            const found = this.parser.schemas.find(entry => entry.definition === resolvedSchema);
+            if (found) {
+                return found.name;
+            }
+        }
+
+        // 3. Fallback: Heuristic extraction if resolution fails or reference is not a registered model
+        // (standard OpenAPI paths or file names)
         const parts = ref.split('/');
-        const candidate = parts[parts.length - 1];
+        let candidate = parts[parts.length - 1];
 
-        return candidate; // Simple extraction is sufficient for 99% of gen cases where ref matches model name
+        // Remove query params or fragments if something went wrong with splitting
+        candidate = candidate.split('?')[0].split('#')[0];
+
+        // Remove file extension if present (e.g. user.json -> user)
+        candidate = candidate.replace(/\.[^/.]+$/, "");
+
+        return pascalCase(candidate);
     }
 }

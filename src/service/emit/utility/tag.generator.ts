@@ -22,17 +22,17 @@ export class TagGenerator {
         const sourceFile = this.project.createSourceFile(filePath, "", { overwrite: true });
 
         // OpenAPI spec has tags at the root level
-        // Both Swagger 2.0 and OpenAPI 3.x support this structure identically
         const tagsFound = this.parser.spec.tags || [];
 
         // Transform to a normalized structure matching our TagObject interface
         // We map explicitly to avoid leaking internal parser properties if any
-        // Using conditional spread validation to satisfy exactOptionalPropertyTypes
-        const registry: TagObject[] = tagsFound.map(t => ({
+        const registry: TagObject[] = tagsFound.map((t: any) => ({
             name: t.name,
-            ...(t.summary ? { summary: t.summary } : {}), // OAS 3.1+
+            ...(t.summary ? { summary: t.summary } : {}),
             ...(t.description ? { description: t.description } : {}),
-            ...(t.externalDocs ? { externalDocs: t.externalDocs } : {})
+            ...(t.externalDocs ? { externalDocs: t.externalDocs } : {}),
+            ...(t.parent ? { parent: t.parent } : {}), // OAS 3.2
+            ...(t.kind ? { kind: t.kind } : {}) // OAS 3.2
         }));
 
         // Create a lookup map for O(1) access by tag name

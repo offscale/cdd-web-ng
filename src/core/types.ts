@@ -86,6 +86,10 @@ export interface TagObject {
     description?: string;
     /** Additional external documentation for this tag. */
     externalDocs?: ExternalDocumentationObject;
+    /** The name of a tag that this tag is nested under. (OAS 3.2+) */
+    parent?: string;
+    /** A machine-readable string to categorize what sort of tag it is. (OAS 3.2+) */
+    kind?: string;
 }
 
 /**
@@ -350,6 +354,11 @@ export interface SwaggerDefinition {
     contentMediaType?: string;
 
     $ref?: string;
+    /** Dynamic Reference used in OpenAPI 3.1 (JSON Schema 2020-12) */
+    $dynamicRef?: string;
+    /** Dynamic Anchor used in OpenAPI 3.1 (JSON Schema 2020-12) */
+    $dynamicAnchor?: string;
+
     allOf?: SwaggerDefinition[];
     oneOf?: SwaggerDefinition[];
     anyOf?: SwaggerDefinition[];

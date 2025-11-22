@@ -19,7 +19,6 @@ export class InfoGenerator {
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
         // Define a runtime interface for the Info object so the constant is typed.
-        // We reproduce the structure here to keep the generated code self-contained.
         sourceFile.addInterface({
             name: "ApiInfo",
             isExported: true,
@@ -50,6 +49,8 @@ export class InfoGenerator {
                 { name: "name", type: "string" },
                 { name: "description", type: "string", hasQuestionToken: true },
                 { name: "summary", type: "string", hasQuestionToken: true },
+                { name: "parent", type: "string", hasQuestionToken: true },
+                { name: "kind", type: "string", hasQuestionToken: true },
                 {
                     name: "externalDocs",
                     type: "{ description?: string; url: string; }",
@@ -66,7 +67,7 @@ export class InfoGenerator {
             declarations: [{
                 name: "API_INFO",
                 type: "ApiInfo",
-                initializer: JSON.stringify(this.parser.spec.info, null, 2)
+                initializer: JSON.stringify(this.parser.getSpec().info, null, 2)
             }],
             docs: ["Metadata about the API defined in the OpenAPI specification."]
         });
@@ -78,7 +79,7 @@ export class InfoGenerator {
             declarations: [{
                 name: "API_TAGS",
                 type: "ApiTag[]",
-                initializer: JSON.stringify(this.parser.spec.tags || [], null, 2)
+                initializer: JSON.stringify(this.parser.getSpec().tags || [], null, 2)
             }],
             docs: ["List of tags defined in the OpenAPI specification."]
         });
@@ -90,7 +91,7 @@ export class InfoGenerator {
             declarations: [{
                 name: "API_EXTERNAL_DOCS",
                 type: "{ description?: string; url: string; } | undefined",
-                initializer: JSON.stringify(this.parser.spec.externalDocs, null, 2)
+                initializer: JSON.stringify(this.parser.getSpec().externalDocs, null, 2)
             }],
             docs: ["Global external documentation defined in the OpenAPI specification."]
         });

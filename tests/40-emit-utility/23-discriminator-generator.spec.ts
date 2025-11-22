@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
 import { DiscriminatorGenerator } from '@src/service/emit/utility/discriminator.generator.js';
@@ -30,13 +30,13 @@ const oas3Spec: SwaggerSpec = {
             },
             Cat: {
                 allOf: [
-                    { $ref: '#/components/schemas/Pet' },
+                    { $ref: '#/components/schemas/BasePet' },
                     { type: 'object', properties: { meow: { type: 'boolean' } } }
                 ]
             },
             Dog: {
                 allOf: [
-                    { $ref: '#/components/schemas/Pet' },
+                    { $ref: '#/components/schemas/BasePet' },
                     { type: 'object', properties: { bark: { type: 'boolean' } } }
                 ]
             }
@@ -139,5 +139,78 @@ describe('Emitter: DiscriminatorGenerator', () => {
         const project = runGenerator(emptySpec);
         const sourceFile = project.getSourceFileOrThrow('/out/discriminators.ts');
         expect(sourceFile.getText()).toContain('export { };');
+    });
+
+    it('should correctly map full URI references to internal model names', () => {
+        const uriSpec: SwaggerSpec = {
+            openapi: '3.0.0',
+            info: { title: 'URI Mapping', version: '1' },
+            paths: {},
+            components: {
+                schemas: {
+                    Context: {
+                        type: 'object',
+                        discriminator: {
+                            propertyName: 'type',
+                            mapping: {
+                                'external': 'https://schemas.example.com/models/ExternalModel'
+                            }
+                        }
+                    },
+                    ExternalModel: {
+                        type: 'object',
+                        properties: { type: { type: 'string' } }
+                    }
+                }
+            }
+        };
+
+        // Setup mocks to simulate resolution without actual HTTP request
+        const project = createTestProject();
+        const config: GeneratorConfig = { output: '/out', options: {} } as any;
+        const parser = new SwaggerParser(uriSpec, config);
+
+        const externalDef = uriSpec.components!.schemas!.ExternalModel;
+        const contextDef = uriSpec.components!.schemas!.Context;
+
+        parser.schemas.push({ name: 'ExternalModel', definition: externalDef });
+        parser.schemas.push({ name: 'Context', definition: contextDef });
+
+        // Spy on resolveReference. When asked for the URL, return the object memory ref.
+        vi.spyOn(parser, 'resolveReference').mockImplementation((ref) => {
+            if (ref === 'https://schemas.example.com/models/ExternalModel') return externalDef;
+            return undefined;
+        });
+
+        new DiscriminatorGenerator(parser, project).generate('/out');
+        const { API_DISCRIMINATORS } = compileGeneratedFile(project);
+
+        expect(API_DISCRIMINATORS['Context'].mapping['external']).toBe('ExternalModel');
+    });
+
+    it('should use pascalCase fallback for unresolvable references', () => {
+        const fallbackSpec: SwaggerSpec = {
+            openapi: '3.2.0',
+            info: { title: 'Fallback', version: '1' },
+            paths: {},
+            components: {
+                schemas: {
+                    Item: {
+                        discriminator: {
+                            propertyName: 'k',
+                            mapping: {
+                                'remote': 'https://remote.org/definitions/weird-name.json'
+                            }
+                        }
+                    }
+                }
+            }
+        } as any;
+
+        const project = runGenerator(fallbackSpec);
+        const { API_DISCRIMINATORS } = compileGeneratedFile(project);
+
+        // Should extract "weird-name", strip json, and PascalCase it -> WeirdName
+        expect(API_DISCRIMINATORS['Item'].mapping['remote']).toBe('WeirdName');
     });
 });

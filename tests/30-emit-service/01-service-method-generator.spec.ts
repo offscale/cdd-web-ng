@@ -203,6 +203,34 @@ const serviceMethodGenSpec = {
                 responses: { '200': {} }
             }
         },
+        '/query-search': {
+            query: {
+                operationId: 'querySearch',
+                requestBody: {
+                    content: {
+                        'application/json': {
+                            schema: { type: 'object', properties: { query: { type: 'string' } } }
+                        }
+                    }
+                },
+                responses: { '200': {} }
+            }
+        },
+        '/query-string': {
+            get: {
+                operationId: 'getWithQuerystring',
+                parameters: [
+                    {
+                        name: 'filter',
+                        in: 'querystring',
+                        content: {
+                            'application/json': { schema: { type: 'object' } }
+                        }
+                    }
+                ],
+                responses: { '200': {} }
+            }
+        },
         '/public-endpoint': {
             get: {
                 operationId: 'getPublic',
@@ -254,10 +282,23 @@ const serviceMethodGenSpec = {
                     responses: { '200': { description: 'Copied' } }
                 }
             }
+        },
+        // NEW: Test path for security scopes
+        '/oauth-protected': {
+            get: {
+                operationId: 'getOauthProtected',
+                security: [
+                    { 'OAuth2': ['read:admin', 'write:admin'] }
+                ],
+                responses: { '200': {} }
+            }
         }
     },
     components: {
-        securitySchemes: { Basic: { type: 'http', scheme: 'bearer' } },
+        securitySchemes: {
+            Basic: { type: 'http', scheme: 'bearer' },
+            OAuth2: { type: 'oauth2', flows: {} }
+        },
         schemas: {
             ...finalCoverageSpec.components?.schemas,
             ReadOnlyModel: {
@@ -306,7 +347,7 @@ describe('Emitter: ServiceMethodGenerator', () => {
         expect(body).toContain(`return this.http.post(url, xmlBody`);
     });
 
-    it('should generate blob wrapping for encoded multipart fields', () => {
+    it('should generate blob wrapping for encoded multipart fields using accurate OAS 3.2 default logic', () => {
         const { methodGen, serviceClass } = createTestEnvironment();
         const op: PathInfo = {
             ...serviceMethodGenSpec.paths['/multipart-encoding'].post,
@@ -319,10 +360,11 @@ describe('Emitter: ServiceMethodGenerator', () => {
 
         const body = serviceClass.getMethodOrThrow('postEncoded').getBodyText()!;
 
-        // Asserting the new logic using variable references
-        expect(body).toContain(`const contentType = encoding?.contentType || 'application/json';`);
-        expect(body).toContain(`const content = contentType.includes('application/json') ? JSON.stringify(value) : String(value);`);
-        expect(body).toContain(`new Blob([content], { type: contentType })`);
+        // Updated Expectation: Code now delegates to MultipartBuilder and sets correct config
+        expect(body).toContain('const multipartConfig = {"profile":{"contentType":"application/json"},"avatar":{"contentType":"image/png"}};');
+        expect(body).toContain('const multipartResult = MultipartBuilder.serialize(body, multipartConfig);');
+        expect(body).toContain('if (multipartResult.headers) {');
+        expect(body).toContain('requestOptions = { ...requestOptions, headers: newHeaders };');
     });
 
     it('should generate HttpParams builder calls for encoded url-encoded bodies', () => {
@@ -438,6 +480,17 @@ describe('Emitter: ServiceMethodGenerator', () => {
         expect(body).toContain('.set(SKIP_AUTH_CONTEXT_TOKEN, true)');
     });
 
+    it('should generate context with AUTH_SCOPES_CONTEXT_TOKEN when security scopes are present', () => {
+        const { methodGen, serviceClass, parser } = createTestEnvironment();
+        const op = parser.operations.find((o: any) => o.operationId === 'getOauthProtected')!;
+        op.methodName = 'getOauthProtected';
+        methodGen.addServiceMethod(serviceClass, op);
+
+        const body = serviceClass.getMethodOrThrow('getOauthProtected').getBodyText()!;
+        // Expected scopes from spec: ['read:admin', 'write:admin']
+        expect(body).toContain('.set(AUTH_SCOPES_CONTEXT_TOKEN, ["read:admin","write:admin"])');
+    });
+
     it('should generate @deprecated JSDoc for deprecated operations', () => {
         const { methodGen, serviceClass } = createTestEnvironment();
         const op: PathInfo = {
@@ -490,6 +543,9 @@ describe('Emitter: ServiceMethodGenerator', () => {
         methodGen.addServiceMethod(serviceClass, copyOp);
 
         const body = serviceClass.getMethodOrThrow('copyResource').getBodyText()!;
+
+        // UPDATED Expectation: The new implementation falls through to generic request without explicit body argument injection
+        // if bodyArgument is treated as 'null'.
         expect(body).toContain("return this.http.request('COPY', url, requestOptions as any);");
     });
 
@@ -510,5 +566,46 @@ describe('Emitter: ServiceMethodGenerator', () => {
         expect(body).toContain("headers = headers.set('Cookie'");
 
         warnSpy.mockRestore();
+    });
+
+    it('should generate logic for in: "querystring" parameters', () => {
+        const { methodGen, serviceClass } = createTestEnvironment();
+        const op: PathInfo = {
+            method: 'GET', path: '/query-string', methodName: 'getWithQuerystring',
+            parameters: serviceMethodGenSpec.paths['/query-string'].get.parameters
+        } as any;
+
+        methodGen.addServiceMethod(serviceClass, op);
+
+        const body = serviceClass.getMethodOrThrow('getWithQuerystring').getBodyText()!;
+        expect(body).toContain("const queryString = HttpParamsBuilder.serializeRawQuerystring(filter, 'json');");
+        expect(body).toContain("const url = `${basePath}/query-string${queryString ? '?' + queryString : ''}`;");
+    });
+
+    it('should handle HTTP QUERY method with request body using generic request override', () => {
+        const { methodGen, serviceClass } = createTestEnvironment();
+
+        // Manually mock the expected parser behavior for the QUERY method from our spec
+        const op: PathInfo = {
+            method: 'QUERY',
+            path: '/query-search',
+            methodName: 'querySearch',
+            requestBody: {
+                content: {
+                    'application/json': {
+                        schema: { type: 'object', properties: { query: { type: 'string' } } }
+                    }
+                }
+            },
+            responses: { '200': {} }
+        };
+
+        methodGen.addServiceMethod(serviceClass, op);
+
+        const body = serviceClass.getMethodOrThrow('querySearch').getBodyText()!;
+
+        // NOTE: `let` vs `const` due to multipart header support
+        expect(body).toContain("let requestOptions: HttpRequestOptions = {");
+        expect(body).toContain("return this.http.request('QUERY', url, { ...requestOptions, body: body } as any);");
     });
 });

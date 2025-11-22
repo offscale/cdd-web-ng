@@ -98,6 +98,49 @@ describe('Core: SwaggerParser (Coverage)', () => {
         );
     });
 
+    describe('Reference Override Support (OAS 3.1+)', () => {
+        const REF_TARGET = { type: 'string', description: 'Original' };
+        const specWithOverrides = {
+            ...validSpecBase,
+            components: {
+                schemas: {
+                    Target: REF_TARGET,
+                    WithOverride: {
+                        $ref: '#/components/schemas/Target',
+                        description: 'Overridden Description',
+                        summary: 'New Summary'
+                    },
+                    WithoutOverride: {
+                        $ref: '#/components/schemas/Target'
+                    }
+                }
+            }
+        };
+
+        it('should merge sibling description into resolved object', () => {
+            const parser = new SwaggerParser(specWithOverrides as any, { options: {} } as GeneratorConfig);
+            // We resolve the wrapper object itself that has $ref + description
+            const refObj = specWithOverrides.components.schemas.WithOverride;
+            const resolved = parser.resolve(refObj);
+
+            expect(resolved).not.toBe(REF_TARGET); // Should be a new object reference (clone)
+            expect(resolved?.type).toBe('string');
+            expect(resolved?.description).toBe('Overridden Description');
+            expect((resolved as any).summary).toBe('New Summary');
+        });
+
+        it('should return standard resolution if no overrides are present within the ref definition', () => {
+            const parser = new SwaggerParser(specWithOverrides as any, { options: {} } as GeneratorConfig);
+            const refObj = specWithOverrides.components.schemas.WithoutOverride;
+            const resolved = parser.resolve(refObj);
+
+            // When no overrides, it might return the original reference if optimization allows,
+            // but our implementation currently delegates logic.
+            expect(resolved?.description).toBe('Original');
+            expect((resolved as any).summary).toBeUndefined();
+        });
+    });
+
     describe('Dialect Validation', () => {
         it('should accept OAS 3.1 default dialect silently', () => {
             const spec = {

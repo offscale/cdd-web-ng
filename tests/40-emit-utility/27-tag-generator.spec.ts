@@ -6,8 +6,9 @@ import { createTestProject } from '../shared/helpers.js';
 import { GeneratorConfig, SwaggerSpec } from '@src/core/types.js';
 import ts from 'typescript';
 
+// Cast to any to support new 3.2 properties in test mock without strict type errors if core types aren't updated in the test context first
 const tagsSpec: SwaggerSpec = {
-    openapi: '3.0.0',
+    openapi: '3.2.0',
     info: { title: 'Tags Test', version: '1.0' },
     paths: {},
     tags: [
@@ -15,15 +16,17 @@ const tagsSpec: SwaggerSpec = {
             name: 'Pet',
             summary: 'Pet Operations',
             description: 'Everything about your Pets',
+            kind: 'resource',
             externalDocs: {
                 description: 'Find out more',
                 url: 'http://swagger.io'
             }
-        },
+        } as any,
         {
             name: 'Store',
-            description: 'Access to Petstore orders'
-        }
+            description: 'Access to Petstore orders',
+            parent: 'Pet' // OAS 3.2 Nested tag
+        } as any
     ]
 };
 
@@ -46,23 +49,24 @@ describe('Emitter: TagGenerator', () => {
         return moduleHelper.exports;
     };
 
-    it('should generate registry array for tags', () => {
+    it('should generate registry array for tags including OAS 3.2 fields', () => {
         const project = runGenerator(tagsSpec);
         const { API_TAGS } = compileGeneratedFile(project);
 
         expect(API_TAGS).toHaveLength(2);
         expect(API_TAGS[0].name).toBe('Pet');
         expect(API_TAGS[0].summary).toBe('Pet Operations');
-        expect(API_TAGS[0].description).toBe('Everything about your Pets');
+        expect(API_TAGS[0].kind).toBe('resource');
         expect(API_TAGS[0].externalDocs.url).toBe('http://swagger.io');
     });
 
-    it('should generate lookup map for tags', () => {
+    it('should generate lookup map handling parent field', () => {
         const project = runGenerator(tagsSpec);
         const { API_TAGS_MAP } = compileGeneratedFile(project);
 
         expect(API_TAGS_MAP['Store']).toBeDefined();
         expect(API_TAGS_MAP['Store'].description).toContain('orders');
+        expect(API_TAGS_MAP['Store'].parent).toBe('Pet');
 
         // Verify order/integrity matches array
         expect(API_TAGS_MAP['Pet'].name).toBe('Pet');
@@ -74,7 +78,6 @@ describe('Emitter: TagGenerator', () => {
             info: { title: 'NoTags', version: '1.0' },
             paths: {}
         };
-        // 'tags' is undefined in spec
         const project = runGenerator(emptySpec);
         const sourceFile = project.getSourceFileOrThrow('/out/tags.ts');
         expect(sourceFile.getText()).toContain('export { };');

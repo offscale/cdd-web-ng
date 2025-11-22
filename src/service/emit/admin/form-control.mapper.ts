@@ -32,6 +32,17 @@ export function mapSchemaToFormControl(schema: SwaggerDefinition): FormControlIn
         validators.push('Validators.email');
     }
 
+    // OAS 3.1 / JSON Schema 2020-12 contentEncoding validation
+    if (schema.contentEncoding) {
+        if (schema.contentEncoding === 'base64') {
+            // Standard Base64 regex (RFC 4648 section 4)
+            validators.push(`Validators.pattern(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/)`);
+        } else if (schema.contentEncoding === 'base64url') {
+            // Base64url regex (RFC 4648 section 5) - URL-safe chars, no padding usually, but simple validation checks char class
+            validators.push(`Validators.pattern(/^[A-Za-z0-9\\-_]*$/)`);
+        }
+    }
+
     // Support for 2020-12 / OAS 3.2 numeric exclusive constraints
     // min / exclusiveMin
     if (typeof schema.exclusiveMinimum === 'number') {

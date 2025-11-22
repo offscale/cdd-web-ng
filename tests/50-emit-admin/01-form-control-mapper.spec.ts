@@ -39,6 +39,26 @@ describe('Admin: mapSchemaToFormControl', () => {
         ]));
     });
 
+    it('should add regex pattern validator for contentEncoding: base64', () => {
+        const schema: SwaggerDefinition = {
+            type: 'string',
+            contentEncoding: 'base64'
+        };
+        const { validators } = mapSchemaToFormControl(schema)!;
+        // Verify it generates a string containing the pattern regex for base64
+        expect(validators.some(v => v.includes('Validators.pattern') && v.includes('A-Za-z0-9+/'))).toBe(true);
+    });
+
+    it('should add regex pattern validator for contentEncoding: base64url', () => {
+        const schema: SwaggerDefinition = {
+            type: 'string',
+            contentEncoding: 'base64url'
+        };
+        const { validators } = mapSchemaToFormControl(schema)!;
+        // Verify it generates a string containing the pattern regex for base64url (with hyphen and underscore, no plus/slash)
+        expect(validators.some(v => v.includes('Validators.pattern') && v.includes('A-Za-z0-9\\-_'))).toBe(true);
+    });
+
     it('should map OAS 3.0 boolean exclusive constraints to CustomValidators', () => {
         const schema: SwaggerDefinition = {
             type: 'number',

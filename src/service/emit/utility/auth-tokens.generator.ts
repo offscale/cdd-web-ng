@@ -70,6 +70,19 @@ export class AuthTokensGenerator {
             docs: ["Context token to skip authentication for specific requests that override global security."]
         });
 
+        // Auth Scopes Token
+        sourceFile.addVariableStatement({
+            isExported: true,
+            declarationKind: VariableDeclarationKind.Const,
+            declarations: [
+                {
+                    name: 'AUTH_SCOPES_CONTEXT_TOKEN',
+                    initializer: `new HttpContextToken<string[]>(() => [])`,
+                },
+            ],
+            docs: ["Context token containing the OAuth2/OIDC scopes required for the request."]
+        });
+
         sourceFile.formatText();
     }
 }

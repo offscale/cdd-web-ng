@@ -163,10 +163,16 @@ export class ServiceMethodGenerator {
 
         const lines: string[] = [];
 
+        // OAS 3.2 `in: querystring` Support
         const querystringParams = operation.parameters?.filter(p => p.in === 'querystring') ?? [];
+        let queryStringVariable = '';
+
         if (querystringParams.length > 0) {
-            lines.push(`// TODO: querystring parameters are not handled by Angular's HttpClient.`);
-            lines.push(`console.warn('The following querystring parameters are not automatically handled:', ${JSON.stringify(querystringParams.map(p => p.name))});`);
+            const p = querystringParams[0]; // OAS Note: MUST NOT appear more than once
+            const paramName = camelCase(p.name);
+            const serializationHint = this.isJsonContent(p) ? ", 'json'" : "";
+            lines.push(`const queryString = HttpParamsBuilder.serializeRawQuerystring(${paramName}${serializationHint});`);
+            queryStringVariable = "${queryString ? '?' + queryString : ''}";
         }
 
         if (operation.servers && operation.servers.length > 0) {
@@ -182,9 +188,8 @@ export class ServiceMethodGenerator {
             lines.push(`const basePath = this.basePath;`);
         }
 
-        lines.push(`const url = \`\${basePath}${urlTemplate}\`;`);
+        lines.push(`const url = \`\${basePath}${urlTemplate}${queryStringVariable}\`;`);
 
-        const requestOptions: HttpRequestOptions = {};
         const queryParams = operation.parameters?.filter(p => p.in === 'query') ?? [];
         if (queryParams.length > 0) {
             lines.push(`let params = new HttpParams({ fromObject: options?.params ?? {} });`);
@@ -193,45 +198,59 @@ export class ServiceMethodGenerator {
                 const paramDefJson = JSON.stringify(p);
                 lines.push(`if (${paramName} != null) { params = HttpParamsBuilder.serializeQueryParam(params, ${paramDefJson}, ${paramName}); }`);
             });
-            requestOptions.params = 'params' as any;
         }
 
         const headerParams = operation.parameters?.filter(p => p.in === 'header') ?? [];
         const cookieParams = operation.parameters?.filter(p => p.in === 'cookie') ?? [];
 
-        if (headerParams.length > 0 || cookieParams.length > 0) {
-            lines.push(`let headers = options?.headers instanceof HttpHeaders ? options.headers : new HttpHeaders(options?.headers ?? {});`);
+        lines.push(`let headers = options?.headers instanceof HttpHeaders ? options.headers : new HttpHeaders(options?.headers ?? {});`);
 
+        if (headerParams.length > 0) {
             headerParams.forEach(p => {
                 const paramName = camelCase(p.name);
                 const explode = p.explode ?? false;
                 const serializationArg = this.isJsonContent(p) ? ", 'json'" : "";
                 lines.push(`if (${paramName} != null) { headers = headers.set('${p.name}', HttpParamsBuilder.serializeHeaderParam('${p.name}', ${paramName}, ${explode}${serializationArg})); }`);
             });
+        }
 
-            if (cookieParams.length > 0) {
-                console.warn(`[ServiceMethodGenerator] Warning: Operation '${operation.methodName}' (Path: ${operation.path}) defines parameters with 'in: cookie'. Setting the 'Cookie' header manually is forbidden in standard browser environments.`);
-                lines.push(`// WARNING: Setting 'Cookie' headers manually is forbidden in browsers.`);
-                lines.push(`console.warn('Operation ${operation.methodName} attempts to set "Cookie" header manually. This will fail in browsers.');`);
+        if (cookieParams.length > 0) {
+            console.warn(`[ServiceMethodGenerator] Warning: Operation '${operation.methodName}' (Path: ${operation.path}) defines parameters with 'in: cookie'. Setting the 'Cookie' header manually is forbidden in standard browser environments.`);
+            lines.push(`// WARNING: Setting 'Cookie' headers manually is forbidden in browsers.`);
+            lines.push(`console.warn('Operation ${operation.methodName} attempts to set "Cookie" header manually. This will fail in browsers.');`);
 
-                lines.push(`const __cookies: string[] = [];`);
-                cookieParams.forEach(p => {
-                    const paramName = camelCase(p.name);
-                    const style = p.style || 'form';
-                    const explode = p.explode ?? true;
-                    const serializationArg = this.isJsonContent(p) ? ", 'json'" : "";
-                    lines.push(`if (${paramName} != null) { __cookies.push(HttpParamsBuilder.serializeCookieParam('${p.name}', ${paramName}, '${style}', ${explode}${serializationArg})); }`);
-                });
-                lines.push(`if (__cookies.length > 0) { headers = headers.set('Cookie', __cookies.join('; ')); }`);
-            }
-            requestOptions.headers = 'headers' as any;
+            lines.push(`const __cookies: string[] = [];`);
+            cookieParams.forEach(p => {
+                const paramName = camelCase(p.name);
+                const style = p.style || 'form';
+                const explode = p.explode ?? true;
+                const serializationArg = this.isJsonContent(p) ? ", 'json'" : "";
+                lines.push(`if (${paramName} != null) { __cookies.push(HttpParamsBuilder.serializeCookieParam('${p.name}', ${paramName}, '${style}', ${explode}${serializationArg})); }`);
+            });
+            lines.push(`if (__cookies.length > 0) { headers = headers.set('Cookie', __cookies.join('; ')); }`);
         }
 
         const hasGlobalSecurity = Object.keys(this.parser.getSecuritySchemes()).length > 0;
         const hasSecurityOverride = operation.security && operation.security.length === 0;
         let contextConstruction = `this.createContextWithClientId(options?.context)`;
+
         if (hasGlobalSecurity && hasSecurityOverride) {
             contextConstruction += `.set(SKIP_AUTH_CONTEXT_TOKEN, true)`;
+        }
+
+        // Security Scopes Collection
+        if (operation.security && operation.security.length > 0) {
+            const distinctScopes = new Set<string>();
+            operation.security.forEach(requirement => {
+                Object.values(requirement).forEach(scopes => {
+                    scopes.forEach(scope => distinctScopes.add(scope));
+                });
+            });
+
+            if (distinctScopes.size > 0) {
+                const scopesArrayString = JSON.stringify(Array.from(distinctScopes));
+                contextConstruction += `.set(AUTH_SCOPES_CONTEXT_TOKEN, ${scopesArrayString})`;
+            }
         }
 
         let optionProperties = `
@@ -241,9 +260,11 @@ export class ServiceMethodGenerator {
   withCredentials: options?.withCredentials, 
   context: ${contextConstruction}`;
 
-        if (requestOptions.params) optionProperties += `,\n  params`;
-        if (requestOptions.headers) optionProperties += `,\n  headers`;
-        lines.push(`const requestOptions: HttpRequestOptions = {${optionProperties}\n};`);
+        // Always include headers, but params only if defined.
+        if (queryParams.length > 0) optionProperties += `,\n  params`;
+        optionProperties += `,\n  headers`;
+
+        lines.push(`let requestOptions: HttpRequestOptions = {${optionProperties}\n};`);
 
         let bodyArgument = 'null';
         const nonBodyOpParams = new Set((operation.parameters ?? []).map(p => camelCase(p.name)));
@@ -286,51 +307,22 @@ export class ServiceMethodGenerator {
             });
             bodyArgument = 'formData';
         } else if (hasOas3MultipartBody) {
+            // Implement MultipartBuilder for OAS 3.x support with custom headers
             const bodyName = bodyParam!.name;
-            lines.push(`const formData = new FormData();`);
-
-            // Build the JSON structure mapping property names to their schema types
-            const propertyTypes: Record<string, string> = {};
-            const bodySchemaRef = multipartContent!.schema;
-            const bodySchema = this.parser.resolve(bodySchemaRef);
-
-            if (bodySchema && bodySchema.properties) {
-                Object.entries(bodySchema.properties).forEach(([key, subSchema]) => {
-                    const resolvedSub = this.parser.resolve(subSchema);
-                    if (resolvedSub) {
-                        propertyTypes[key] = Array.isArray(resolvedSub.type) ? resolvedSub.type[0] : (resolvedSub.type || 'unknown');
-                    }
-                });
-            }
-
-            lines.push(`if (${bodyName}) {`);
             const encodings = multipartContent!.encoding || {};
             const encodingMapString = JSON.stringify(encodings);
-            const typesMapString = JSON.stringify(propertyTypes);
 
-            lines.push(` const encodings = ${encodingMapString} as Record<string, { contentType?: string }>;`);
-            lines.push(` const propertyTypes = ${typesMapString} as Record<string, string>;`);
+            lines.push(`const multipartConfig = ${encodingMapString};`);
+            lines.push(`const multipartResult = MultipartBuilder.serialize(${bodyName}, multipartConfig);`);
 
-            lines.push(` Object.entries(${bodyName}).forEach(([key, value]) => {`);
-            lines.push(`  if (value === undefined || value === null) return;`);
-            lines.push(`  const encoding = encodings[key];`);
-            lines.push(`  const propType = propertyTypes[key];`);
-
-            // Enhanced Logic: Check both explicit encoding AND default complex type behavior
-            lines.push(`  const isComplex = propType === 'object' || propType === 'array';`);
-
-            lines.push(`  if (encoding?.contentType || isComplex) {`);
-            lines.push(`    const contentType = encoding?.contentType || 'application/json';`);
-            lines.push(`    const content = contentType.includes('application/json') ? JSON.stringify(value) : String(value);`);
-            lines.push(`    const blob = new Blob([content], { type: contentType });`);
-            lines.push(`    formData.append(key, blob);`);
-            lines.push(`  } else {`);
-            lines.push(`    if (value instanceof Blob || value instanceof File) { formData.append(key, value); }`);
-            lines.push(`    else { formData.append(key, String(value)); }`);
-            lines.push(`  }`);
-            lines.push(` });`);
+            // If manual serialization (Blob) is used due to custom headers, we must merge the Content-Type header
+            lines.push(`if (multipartResult.headers) {`);
+            lines.push(`  const newHeaders = requestOptions.headers instanceof HttpHeaders ? requestOptions.headers : new HttpHeaders(requestOptions.headers || {});`);
+            lines.push(`  Object.entries(multipartResult.headers).forEach(([k, v]) => newHeaders.set(k, v));`);
+            lines.push(`  requestOptions = { ...requestOptions, headers: newHeaders };`);
             lines.push(`}`);
-            bodyArgument = 'formData';
+
+            bodyArgument = 'multipartResult.content';
         } else if (hasOas3XmlBody) {
             const bodyName = bodyParam!.name;
             const schema = xmlContent!.schema as SwaggerDefinition;
@@ -343,11 +335,15 @@ export class ServiceMethodGenerator {
         }
 
         const httpMethod = operation.method.toLowerCase();
-        const isStandardBodyMethod = ['post', 'put', 'patch'].includes(httpMethod);
+        const isStandardBodyMethod = ['post', 'put', 'patch', 'query'].includes(httpMethod);
         const isStandardNonBodyMethod = ['get', 'delete', 'head', 'options', 'jsonp'].includes(httpMethod);
 
         if (isStandardBodyMethod) {
-            lines.push(`return this.http.${httpMethod}(url, ${bodyArgument}, requestOptions as any);`);
+            if (httpMethod === 'query') {
+                lines.push(`return this.http.request('QUERY', url, { ...requestOptions, body: ${bodyArgument} } as any);`);
+            } else {
+                lines.push(`return this.http.${httpMethod}(url, ${bodyArgument}, requestOptions as any);`);
+            }
         } else if (bodyArgument !== 'null') {
             lines.push(`return this.http.request('${operation.method.toUpperCase()}', url, { ...requestOptions, body: ${bodyArgument} } as any);`);
         } else if (isStandardNonBodyMethod) {

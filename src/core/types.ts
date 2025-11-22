@@ -366,6 +366,7 @@ export interface SwaggerDefinition {
     properties?: { [propertyName: string]: SwaggerDefinition };
     /** A map of regex patterns to schemas for properties key validation. */
     patternProperties?: { [pattern: string]: SwaggerDefinition };
+    dependentSchemas?: Record<string, SwaggerDefinition>;
     discriminator?: DiscriminatorObject;
     readOnly?: boolean;
     writeOnly?: boolean;

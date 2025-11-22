@@ -279,9 +279,8 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined | null, 
             // Handle 'dependentSchemas' (JSON Schema 2020-12).
             // If property X is present, then properties from Schema Y must also be valid.
             // We represent this as an intersection: `{ [x]: Type } & DependentSchemaType`
-            if (schema['dependentSchemas']) { // Note: 'dependentSchemas' isn't in strict type, cast/access loosely or update type def
-                // Assuming SwaggerDefinition includes generic indexer or updated type definition
-                const deps = (schema as any).dependentSchemas;
+            if (schema.dependentSchemas) {
+                const deps = schema.dependentSchemas;
                 Object.entries(deps).forEach(([prop, depSchema]) => {
                     const depType = getTypeScriptType(depSchema as SwaggerDefinition, config, knownTypes);
                     // In TS, this conditional relationship is hard to model perfectly static.

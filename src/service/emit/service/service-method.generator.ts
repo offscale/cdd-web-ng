@@ -7,19 +7,7 @@ import {
 } from 'ts-morph';
 import { GeneratorConfig, Parameter, PathInfo, SwaggerDefinition } from '@src/core/types.js';
 import { camelCase, getTypeScriptType, isDataTypeInterface } from '@src/core/utils.js';
-import { HttpContext, HttpHeaders, HttpParams } from '@angular/common/http';
 import { SwaggerParser } from "@src/core/parser.js";
-
-/** A strongly-typed representation of Angular's HttpRequest options. */
-interface HttpRequestOptions {
-    headers?: HttpHeaders;
-    context?: HttpContext;
-    params?: HttpParams;
-    reportProgress?: boolean;
-    responseType?: 'arraybuffer' | 'blob' | 'json' | 'text';
-    withCredentials?: boolean;
-    observe?: 'body' | 'events' | 'response';
-}
 
 export class ServiceMethodGenerator {
     constructor(

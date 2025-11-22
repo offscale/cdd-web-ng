@@ -121,7 +121,7 @@ describe('Core: SwaggerParser (Coverage)', () => {
             const parser = new SwaggerParser(specWithOverrides as any, { options: {} } as GeneratorConfig);
             // We resolve the wrapper object itself that has $ref + description
             const refObj = specWithOverrides.components.schemas.WithOverride;
-            const resolved = parser.resolve(refObj);
+            const resolved = parser.resolve<any>(refObj);
 
             expect(resolved).not.toBe(REF_TARGET); // Should be a new object reference (clone)
             expect(resolved?.type).toBe('string');
@@ -132,7 +132,7 @@ describe('Core: SwaggerParser (Coverage)', () => {
         it('should return standard resolution if no overrides are present within the ref definition', () => {
             const parser = new SwaggerParser(specWithOverrides as any, { options: {} } as GeneratorConfig);
             const refObj = specWithOverrides.components.schemas.WithoutOverride;
-            const resolved = parser.resolve(refObj);
+            const resolved = parser.resolve<any>(refObj);
 
             // When no overrides, it might return the original reference if optimization allows,
             // but our implementation currently delegates logic.

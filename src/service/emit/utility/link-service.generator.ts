@@ -7,7 +7,9 @@ import { SwaggerParser } from "@src/core/parser.js";
  * Generates the `link.service.ts` file.
  * This service bridges the static `API_LINKS` registry and runtime expression evaluation.
  * It allows consumers to pass an HTTP Response and a Link Name to automatically derive
- * the parameters/body needed for the next request defined by the Link relations.
+ * the parameters/body/server needed for the next request defined by the Link relations.
+ *
+ * Updates: Now supports $request context via optional HttpRequest argument.
  */
 export class LinkServiceGenerator {
     constructor(
@@ -35,7 +37,7 @@ export class LinkServiceGenerator {
 
         sourceFile.addImportDeclarations([
             { moduleSpecifier: "@angular/core", namedImports: ["Injectable"] },
-            { moduleSpecifier: "@angular/common/http", namedImports: ["HttpResponse"] },
+            { moduleSpecifier: "@angular/common/http", namedImports: ["HttpResponse", "HttpRequest"] },
             { moduleSpecifier: "../links", namedImports: ["API_LINKS"] },
         ]);
 
@@ -54,7 +56,8 @@ export class LinkServiceGenerator {
                 { name: "targetOperationId", type: "string", hasQuestionToken: true },
                 { name: "operationRef", type: "string", hasQuestionToken: true },
                 { name: "parameters", type: "Record<string, any>" },
-                { name: "body", type: "any", hasQuestionToken: true }
+                { name: "body", type: "any", hasQuestionToken: true },
+                { name: "targetServer", type: "string", hasQuestionToken: true, docs: ["The target server URL if defined in the Link, with variables substituted."] }
             ]
         });
 
@@ -64,49 +67,78 @@ export class LinkServiceGenerator {
             parameters: [
                 { name: "operationId", type: "string" },
                 { name: "response", type: "HttpResponse<any>" },
-                { name: "linkName", type: "string" }
+                { name: "linkName", type: "string" },
+                { name: "request", type: "HttpRequest<any>", hasQuestionToken: true }
             ],
             returnType: "ResolvedLink | null",
             statements: `
-        const status = response.status.toString();
+        const status = response.status.toString(); 
         // @ts-ignore: API_LINKS is generated based on the spec structure
-        const opLinks = API_LINKS[operationId];
-        if (!opLinks) return null;
+        const opLinks = API_LINKS[operationId]; 
+        if (!opLinks) return null; 
 
-        // Fallback to 'default' if specific status not found, match simple status codes (e.g. 200)
-        const linksForStatus = opLinks[status] || opLinks['default'];
-        if (!linksForStatus) return null;
+        // Fallback to 'default' if specific status not found, match simple status codes (e.g. 200) 
+        const linksForStatus = opLinks[status] || opLinks['default']; 
+        if (!linksForStatus) return null; 
 
-        const linkDef = linksForStatus[linkName];
-        if (!linkDef) return null;
+        const linkDef = linksForStatus[linkName]; 
+        if (!linkDef) return null; 
 
         // Context for runtime expression evaluation.
-        // Note: $url, $method, $request.* are not fully available from HttpResponse alone.
-        // This limited implementation focuses on $statusCode, $response.body, and $response.header
-        // which satisfy the majority of Link traversal use cases (using response data to drive next request).
-        const context: any = {
-            statusCode: response.status,
-            response: {
-                headers: this.extractHeaders(response.headers),
+        const context: any = { 
+            statusCode: response.status, 
+            response: { 
+                headers: this.extractHeaders(response.headers), 
                 body: response.body
-            }
-        };
+            } 
+        }; 
 
-        const parameters: Record<string, any> = {};
-        if (linkDef.parameters) {
-            Object.entries(linkDef.parameters).forEach(([key, expr]) => {
-                parameters[key] = this.evaluate(expr, context);
-            });
+        if (request) {
+            context.url = request.url;
+            context.method = request.method;
+            context.request = {
+                headers: this.extractHeaders(request.headers),
+                query: this.extractQueryParams(request.params),
+                body: request.body
+                // path parameters are not easily extraction from HttpRequest object without routing context
+            };
         }
 
-        const body = linkDef.requestBody ? this.evaluate(linkDef.requestBody, context) : undefined;
+        const parameters: Record<string, any> = {}; 
+        if (linkDef.parameters) { 
+            Object.entries(linkDef.parameters).forEach(([key, expr]) => { 
+                parameters[key] = this.evaluate(expr, context); 
+            }); 
+        } 
 
-        return {
-            targetOperationId: linkDef.operationId,
-            operationRef: linkDef.operationRef,
-            parameters,
-            body
+        const body = linkDef.requestBody ? this.evaluate(linkDef.requestBody, context) : undefined; 
+        const targetServer = linkDef.server ? this.resolveServer(linkDef.server) : undefined; 
+
+        return { 
+            targetOperationId: linkDef.operationId, 
+            operationRef: linkDef.operationRef, 
+            parameters, 
+            body, 
+            targetServer
         };`
+        });
+
+        // Helper to resolve server object
+        linkServiceClass.addMethod({
+            name: "resolveServer",
+            scope: Scope.Private,
+            parameters: [{ name: "server", type: "any" }],
+            returnType: "string",
+            statements: `
+        let url = server.url; 
+        if (server.variables) { 
+            Object.keys(server.variables).forEach(key => { 
+                const variable = server.variables[key]; 
+                // Use default value
+                url = url.replace(new RegExp('{' + key + '}', 'g'), variable.default || ''); 
+            }); 
+        } 
+        return url;`
         });
 
         // Helper to extract headers to simple object
@@ -115,14 +147,32 @@ export class LinkServiceGenerator {
             scope: Scope.Private,
             parameters: [{ name: "headers", type: "any" }], // HttpHeaders type is inferred from usage or any
             statements: `
-        const result: Record<string, string> = {};
-        if (!headers) return result;
+        const result: Record<string, string> = {}; 
+        if (!headers) return result; 
         
         // Handle Angular HttpHeaders object
-        const keys = typeof headers.keys === 'function' ? headers.keys() : Object.keys(headers);
+        const keys = typeof headers.keys === 'function' ? headers.keys() : Object.keys(headers); 
+        keys.forEach((key: string) => { 
+            const val = typeof headers.get === 'function' ? headers.get(key) : headers[key]; 
+            if (val !== null && val !== undefined) result[key.toLowerCase()] = String(val); 
+        }); 
+        return result;`
+        });
+
+        // Helper to extract query params
+        linkServiceClass.addMethod({
+            name: "extractQueryParams",
+            scope: Scope.Private,
+            parameters: [{ name: "params", type: "any" }],
+            statements: `
+        const result: Record<string, string> = {};
+        if (!params) return result;
+
+        // Handle Angular HttpParams
+        const keys = typeof params.keys === 'function' ? params.keys() : Object.keys(params);
         keys.forEach((key: string) => {
-            const val = typeof headers.get === 'function' ? headers.get(key) : headers[key];
-            if (val !== null && val !== undefined) result[key.toLowerCase()] = String(val);
+            const val = typeof params.get === 'function' ? params.get(key) : params[key];
+            if (val !== null && val !== undefined) result[key] = String(val);
         });
         return result;`
         });
@@ -137,20 +187,20 @@ export class LinkServiceGenerator {
                 { name: "context", type: "any" }
             ],
             statements: `
-        if (typeof expression !== 'string') return expression;
+        if (typeof expression !== 'string') return expression; 
         
         // 1. Constant string
-        if (!expression.startsWith('$') && !expression.includes('{')) return expression;
+        if (!expression.startsWith('$') && !expression.includes('{')) return expression; 
 
-        // 2. Embedded template string "foo_{$response.body#id}"
-        if (expression.includes('{') && expression.includes('}')) {
-            return expression.replace(/\\{([^}]+)\\}/g, (_, inner) => {
-                const val = this.evaluateExpression(inner.trim(), context);
-                return val !== undefined ? String(val) : '';
-            });
-        }
+        // 2. Embedded template string "foo_{$response.body#id}" 
+        if (expression.includes('{') && expression.includes('}')) { 
+            return expression.replace(/\\{([^}]+)\\}/g, (_, inner) => { 
+                const val = this.evaluateExpression(inner.trim(), context); 
+                return val !== undefined ? String(val) : ''; 
+            }); 
+        } 
 
-        // 3. Direct expression "$response.body#id"
+        // 3. Direct expression "$response.body#id" 
         return this.evaluateExpression(expression, context);`
         });
 
@@ -162,23 +212,42 @@ export class LinkServiceGenerator {
                 { name: "context", type: "any" }
             ],
             statements: `
-        if (expr === '$statusCode') return context.statusCode;
+        if (expr === '$statusCode') return context.statusCode; 
+        if (expr === '$url') return context.url;
+        if (expr === '$method') return context.method;
 
-        if (expr.startsWith('$response.body')) {
-            if (expr === '$response.body') return context.response.body;
-            if (expr.startsWith('$response.body#')) {
-                return this.resolvePointer(context.response.body, expr.substring(15)); // len('$response.body#')
+        // Response 
+        if (expr.startsWith('$response.body')) { 
+            if (expr === '$response.body') return context.response.body; 
+            if (expr.startsWith('$response.body#')) { 
+                return this.resolvePointer(context.response.body, expr.substring(15)); // len('$response.body#') 
+            } 
+        } 
+        if (expr.startsWith('$response.header.')) { 
+            const token = expr.substring(17).toLowerCase(); 
+            return context.response.headers[token]; 
+        } 
+
+        // Request
+        if (context.request) {
+            if (expr.startsWith('$request.body')) {
+                if (expr === '$request.body') return context.request.body;
+                if (expr.startsWith('$request.body#')) {
+                    return this.resolvePointer(context.request.body, expr.substring(14)); // len('$request.body#')
+                }
             }
-        }
-        
-        if (expr.startsWith('$response.header.')) {
-            const token = expr.substring(17).toLowerCase();
-            return context.response.headers[token];
+            if (expr.startsWith('$request.header.')) {
+                const token = expr.substring(16).toLowerCase();
+                return context.request.headers[token];
+            }
+            if (expr.startsWith('$request.query.')) {
+                const token = expr.substring(15);
+                return context.request.query[token];
+            }
+            // Path parameters not supported in this generated implementation (require template matching)
         }
 
-        // $request and $url expressions are not supported in this lightweight implementation
-        // as they require Request context access which provided via HTTP Interceptors usually.
-        console.warn(\`LinkService: Expression '\${expr}' cannot be evaluated in this context.\`);
+        console.warn(\`LinkService: Expression '\${expr}' cannot be evaluated in this context.\`); 
         return undefined;`
         });
 
@@ -190,24 +259,24 @@ export class LinkServiceGenerator {
                 { name: "pointer", type: "string" }
             ],
             statements: `
-        if (obj === null || obj === undefined) return undefined;
-        if (pointer === '' || pointer === '/') return obj;
+        if (obj === null || obj === undefined) return undefined; 
+        if (pointer === '' || pointer === '/') return obj; 
         
-        const parts = pointer.split('/').filter(p => p.length > 0);
-        let current = obj;
+        const parts = pointer.split('/').filter(p => p.length > 0); 
+        let current = obj; 
         
-        for (const part of parts) {
-            if (current === null || current === undefined) return undefined;
+        for (const part of parts) { 
+            if (current === null || current === undefined) return undefined; 
             // RFC 6901 unescape
-            const unescaped = part.replace(/~1/g, '/').replace(/~0/g, '~');
-            if (Array.isArray(current)) {
-                const idx = parseInt(unescaped, 10);
-                if (isNaN(idx)) return undefined;
-                current = current[idx];
-            } else {
-                current = current[unescaped];
-            }
-        }
+            const unescaped = part.replace(/~1/g, '/').replace(/~0/g, '~'); 
+            if (Array.isArray(current)) { 
+                const idx = parseInt(unescaped, 10); 
+                if (isNaN(idx)) return undefined; 
+                current = current[idx]; 
+            } else { 
+                current = current[unescaped]; 
+            } 
+        } 
         return current;`
         });
 

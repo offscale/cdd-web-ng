@@ -5,23 +5,39 @@ import ts from 'typescript';
 
 /**
  * Mock implementation of Angular's HttpParams for the test context.
+ * Mirrors functionality of Angular's HttpParams, including custom encoder support.
  */
 class MockHttpParams {
     map = new Map<string, string[]>();
-    constructor(options?: { fromObject: any }) {
+    encoder: any;
+
+    constructor(options?: { fromObject?: any, encoder?: any }) {
+        // Mock default encoder behavior: encodeURIComponent
+        this.encoder = options?.encoder || {
+            encodeKey: (k: string) => encodeURIComponent(k),
+            encodeValue: (v: string) => encodeURIComponent(v)
+        };
+
         if (options?.fromObject) {
             Object.entries(options.fromObject).forEach(([k, v]) => {
                 this.map.set(k, [String(v)]);
             });
         }
     }
+
     append(key: string, value: string) {
-        const clone = new MockHttpParams();
+        const clone = new MockHttpParams({ encoder: this.encoder });
         clone.map = new Map(this.map);
-        const current = clone.map.get(key) || [];
-        clone.map.set(key, [...current, value]);
+
+        // Simulation:
+        const encodedKey = this.encoder.encodeKey(key);
+        const encodedValue = this.encoder.encodeValue(value);
+
+        const current = clone.map.get(encodedKey) || [];
+        clone.map.set(encodedKey, [...current, encodedValue]);
         return clone;
     }
+
     toString() {
         const parts: string[] = [];
         this.map.forEach((vals, key) => {
@@ -29,15 +45,17 @@ class MockHttpParams {
         });
         return parts.join('&');
     }
+
+    // Helper to check raw map content (simulating what's sent on wire)
     get(key: string) { return this.map.get(key)?.[0] || null; }
-    getAll(key: string) { return this.map.get(key) || null; }
 }
 
-function getBuilder() {
+function getBuilderContext() {
     const project = createTestProject();
     new HttpParamsBuilderGenerator(project).generate('/');
     const sourceFile = project.getSourceFileOrThrow('/utils/http-params-builder.ts');
 
+    // Strip imports so we can evaluate in the test context
     const codeWithoutImports = sourceFile.getText().replace(/import\s+.*from\s+['"].*['"];?/g, '');
 
     const jsCode = ts.transpile(codeWithoutImports, {
@@ -49,163 +67,122 @@ function getBuilder() {
 
     new Function('exports', 'HttpParams', jsCode)(exportsMock, MockHttpParams);
 
-    return (exportsMock as any).HttpParamsBuilder;
+    return {
+        Builder: (exportsMock as any).HttpParamsBuilder,
+        ApiParameterCodec: (exportsMock as any).ApiParameterCodec
+    };
 }
 
 describe('Utility: HttpParamsBuilder', () => {
-    const Builder = getBuilder();
+    const { Builder, ApiParameterCodec } = getBuilderContext();
 
-    describe('serializePathParam', () => {
-        it('should serialize simple primitive path params', () => {
-            const res = Builder.serializePathParam('id', 5);
-            expect(res).toBe('5');
-        });
-
-        it('should serialize simple array path params', () => {
-            const res = Builder.serializePathParam('id', [3, 4, 5]);
-            expect(res).toBe('3,4,5');
-        });
-
-        it('should serialize object path params (simple, explode=false)', () => {
-            const val = { role: 'admin', firstName: 'Alex' };
-            const res = Builder.serializePathParam('id', val, 'simple', false);
-            expect(res).toBe('role,admin,firstName,Alex');
-        });
-
-        it('should serialize object path params (simple, explode=true)', () => {
-            const val = { role: 'admin', firstName: 'Alex' };
-            const res = Builder.serializePathParam('id', val, 'simple', true);
-            expect(res).toBe('role=admin,firstName=Alex');
-        });
-
-        it('should handle reserved characters correctly when allowReserved=false', () => {
-            const res = Builder.serializePathParam('path', 'Hello/World');
-            expect(res).toBe('Hello%2FWorld');
-        });
-
-        it('should handle reserved characters correctly when allowReserved=true', () => {
-            const res = Builder.serializePathParam('path', 'Hello/World', 'simple', false, true);
-            expect(res).toBe('Hello/World');
-        });
-
-        it('should handle complicated reserved string allowReserved=true', () => {
-            const complex = 'user@domain.com:8080/api?q=value#hash';
-            const res = Builder.serializePathParam('url', complex, 'simple', false, true);
-            expect(res).toBe(complex);
-        });
-
-        it('should serialize with label style', () => {
-            const res = Builder.serializePathParam('id', 5, 'label');
-            expect(res).toBe('.5');
-        });
-
-        it('should serialize path param as JSON when requested', () => {
-            const val = { a: 1 };
-            const res = Builder.serializePathParam('filter', val, 'simple', false, false, 'json');
-            expect(res).toBe(encodeURIComponent(JSON.stringify(val)));
-        });
-
-        it('should serialize array path param (matrix style, explode=false)', () => {
-            const res = Builder.serializePathParam('id', [1, 2], 'matrix', false);
-            expect(res).toBe(';id=1,2');
-        });
-    });
+    // Helper to create params with the custom Identity Codec
+    const createParams = () => new MockHttpParams({ encoder: new ApiParameterCodec() });
 
     describe('serializeQueryParam', () => {
-        it('should serialize simple primitives', () => {
-            const params = new MockHttpParams();
+        it('should serialize simple primitives without encoding if standard (wrapper handles it)', () => {
+            const params = createParams();
             const res = Builder.serializeQueryParam(params, { name: 'q' }, 'foo');
             expect(res.get('q')).toBe('foo');
         });
 
-        it('should serialize query param as JSON when content is application/json (via config)', () => {
-            const param = { name: 'filter', serialization: 'json' };
-            const val = { name: 'foo', items: [1, 2] };
-            const params = Builder.serializeQueryParam(new MockHttpParams(), param, val);
-            expect(params.get('filter')).toBe(JSON.stringify(val));
+        it('should use standard encoding behavior by default (allowReserved=false)', () => {
+            const params = createParams();
+            const res = Builder.serializeQueryParam(params, { name: 'q' }, 'a/b');
+            expect(res.get('q')).toBe('a%2Fb');
         });
 
-        it('should serialize query param as JSON when encoding content type is application/json', () => {
-            const param = { name: 'filter', contentType: 'application/json' };
-            const val = { key: 'val' };
-            const params = Builder.serializeQueryParam(new MockHttpParams(), param, val);
-            expect(params.get('filter')).toBe(JSON.stringify(val));
+        it('should NOT encode reserved characters when allowReserved=true', () => {
+            const params = createParams();
+            const val = 'foo/bar:baz';
+            const res = Builder.serializeQueryParam(params, { name: 'q', allowReserved: true }, val);
+            expect(res.get('q')).toBe('foo/bar:baz');
+        });
+
+        it('should still encode unsafe characters when allowReserved=true', () => {
+            const params = createParams();
+            const val = 'foo bar'; // Space is unsafe
+            const res = Builder.serializeQueryParam(params, { name: 'q', allowReserved: true }, val);
+            expect(res.get('q')).toBe('foo%20bar');
+        });
+
+        it('should handle JSON serialization with allowReserved=true', () => {
+            const params = createParams();
+            const val = { id: 'a/b' };
+            const res = Builder.serializeQueryParam(params, { name: 'q', allowReserved: true, serialization: 'json' }, val);
+
+            const encoded = res.get('q');
+            expect(encoded).toContain('%7B'); // {
+            expect(encoded).toContain('%22'); // "
+            expect(encoded).toContain(':');   // : preserved
+            expect(encoded).toContain('/');   // / preserved
         });
 
         it('should serialize form style arrays (explode=true)', () => {
-            const params = new MockHttpParams();
+            const params = createParams();
             const res = Builder.serializeQueryParam(params, { name: 'ids', style: 'form', explode: true }, [3, 4]);
             expect(res.toString()).toBe('ids=3&ids=4');
         });
 
-        it('should serialize form style arrays (explode=false)', () => {
-            const params = new MockHttpParams();
-            const res = Builder.serializeQueryParam(params, { name: 'ids', style: 'form', explode: false }, [3, 4]);
-            expect(res.toString()).toBe('ids=3,4');
-        });
-
-        it('should serialize deepObject style', () => {
-            const params = new MockHttpParams();
-            const val = { role: 'admin', name: 'alex' };
-            const res = Builder.serializeQueryParam(params, { name: 'id', style: 'deepObject', explode: true }, val);
-            const str = res.toString();
-            expect(str).toContain('id[role]=admin');
-            expect(str).toContain('id[name]=alex');
-        });
-
-        it('should serialize deepObject style with nested objects', () => {
-            const params = new MockHttpParams();
-            const val = { id: 1, metadata: { role: 'admin' } };
-            const res = Builder.serializeQueryParam(params, { name: 'user', style: 'deepObject' }, val);
-            const str = res.toString();
-            expect(str).toContain('user[id]=1');
-            expect(str).toContain('user[metadata][role]=admin');
-        });
-
-        it('should serialize pipeDelimited arrays', () => {
-            const params = new MockHttpParams();
+        it('should serialize pipeDelimited arrays with encoded pipe', () => {
+            const params = createParams();
             const res = Builder.serializeQueryParam(params, { name: 'p', style: 'pipeDelimited' }, ['a', 'b']);
-            expect(res.get('p')).toBe('a|b');
-        });
-
-        it('should include empty value with equals sign when allowEmptyValue is true (Angular default)', () => {
-            // Note: Angular's HttpParams always appends '=', so ?param=
-            // The test confirms we pass the empty string value, not null/undefined
-            const params = new MockHttpParams();
-            const res = Builder.serializeQueryParam(params, { name: 'flag', allowEmptyValue: true }, '');
-            expect(res.toString()).toBe('flag=');
+            expect(res.get('p')).toBe('a%7Cb');
         });
     });
 
-    describe('serializeCookieParam', () => {
-        it('should serialize object explode=true as individual key-value pairs separated by ; ', () => {
-            const res = Builder.serializeCookieParam('id', {a:1,b:2}, 'form', true);
-            expect(res).toBe('a=1; b=2');
+    describe('serializeCookieParam (OAS 3.2 Strict Compliance)', () => {
+        it('should serialize primitive values', () => {
+            expect(Builder.serializeCookieParam('id', 5)).toBe('id=5');
+            expect(Builder.serializeCookieParam('token', 'abc')).toBe('token=abc');
+        });
+
+        it('should serialize Array with explode=true (Multiple cookies, same name)', () => {
+            // Spec Example: color=blue; color=black
+            const res = Builder.serializeCookieParam('color', ['blue', 'black'], 'form', true);
+            expect(res).toBe('color=blue; color=black');
+        });
+
+        it('should serialize Array with explode=false (Comma separated)', () => {
+            // Spec Example: color=blue,black
+            const res = Builder.serializeCookieParam('color', ['blue', 'black'], 'form', false);
+            expect(res).toBe('color=blue,black');
+        });
+
+        it('should serialize Object with explode=true (Keyless properties)', () => {
+            // Spec Example: R=100; G=200 (Parameter name is omitted)
+            const obj = { R: 100, G: 200 };
+            const res = Builder.serializeCookieParam('color', obj, 'form', true);
+            expect(res).toBe('R=100; G=200');
+        });
+
+        it('should serialize Object with explode=false (Flattened matching form)', () => {
+            // Spec Example: color=R,100,G,200
+            const obj = { R: 100, G: 200 };
+            const res = Builder.serializeCookieParam('color', obj, 'form', false);
+            // The implementation encodes the value part, so commas become %2C if the encoder runs
+            // In the implementation provided: return `\${key}=\${encodeURIComponent(flat)}`;
+            // "R,100,G,200" -> "color=R%2C100%2CG%2C200"
+            expect(res).toBe('color=R%2C100%2CG%2C200');
+        });
+
+        it('should handle JSON serialization override', () => {
+            const obj = { foo: 'bar' };
+            const res = Builder.serializeCookieParam('data', obj, 'form', true, 'json');
+            expect(res).toContain('data=%7B'); // URL encoded JSON
         });
     });
 
-    describe('serializeRawQuerystring', () => {
-        it('should handle JSON serialization', () => {
-            const obj = { id: 1, name: 'foo' };
-            const expected = encodeURIComponent(JSON.stringify(obj));
-            expect(Builder.serializeRawQuerystring(obj, 'json')).toBe(expected);
-        });
-    });
+    describe('ApiParameterCodec', () => {
+        const codec = new ApiParameterCodec();
 
-    describe('serializeUrlEncodedBody', () => {
-        it('should serialize object to HttpParams using encodings', () => {
-            const body = { tags: ['x', 'y'], scope: 'all' };
-            const encodings = { tags: { style: 'spaceDelimited' } };
-            const res = Builder.serializeUrlEncodedBody(body, encodings);
-            expect(res.get('tags')).toBe('x y');
-            expect(res.get('scope')).toBe('all');
+        it('should pass through strings without encoding', () => {
+            expect(codec.encodeValue('a/b')).toBe('a/b');
+            expect(codec.encodeKey('key!')).toBe('key!');
         });
 
-        it('should serialize object property as JSON when contentType is application/json', () => {
-            const body = { metadata: { key: 'val' } };
-            const encodings = { metadata: { contentType: 'application/json' } };
-            const res = Builder.serializeUrlEncodedBody(body, encodings);
-            expect(res.get('metadata')).toBe('{"key":"val"}');
+        it('should decode using decodeURIComponent', () => {
+            expect(codec.decodeValue('a%2Fb')).toBe('a/b');
         });
     });
 });

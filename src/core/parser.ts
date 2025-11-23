@@ -89,7 +89,7 @@ export class SwaggerParser {
     /** A normalized record of all reusable links defined in the entry specification. */
     public readonly links: Record<string, LinkObject>;
 
-    /** A cache of all loaded specifications, keyed by their absolute URI. */
+    /** A cache of all loaded specifications (and sub-schemas with $id), keyed by their absolute URI. */
     private readonly specCache: Map<string, SwaggerSpec>;
 
     /**
@@ -132,6 +132,11 @@ export class SwaggerParser {
         // If a cache isn't provided, create one with just the entry spec.
         this.specCache = specCache || new Map<string, SwaggerSpec>([[this.documentUri, spec]]);
 
+        // Ensure the entry spec's internal $ids are indexed if constructed manually without the factory
+        if (!specCache) {
+            SwaggerParser.indexSchemaIds(spec, documentUri, this.specCache);
+        }
+
         this.schemas = Object.entries(this.getDefinitions()).map(([name, definition]) => ({
             name: pascalCase(name),
             definition
@@ -172,7 +177,8 @@ export class SwaggerParser {
      * @private
      */
     private static async loadAndCacheSpecRecursive(uri: string, cache: Map<string, SwaggerSpec>, visited: Set<string>): Promise<void> {
-        if (visited.has(uri)) return;
+        // If we've visited this URI, or it's already in cache (possibly explicitly added via $id index), skip.
+        if (visited.has(uri) || cache.has(uri)) return;
         visited.add(uri);
 
         const content = await this.loadContent(uri);
@@ -181,14 +187,72 @@ export class SwaggerParser {
 
         const baseUri = spec.$self ? new URL(spec.$self, uri).href : uri;
 
+        // Important: Index any `$id` properties within the document immediately.
+        // This allows internal sub-schemas to be referenced by their global URI (OAS 3.1 / JSON Schema).
+        this.indexSchemaIds(spec, baseUri, cache);
+
         const refs = this.findRefs(spec);
         for (const ref of refs) {
             const [filePath] = ref.split('#', 2);
-            if (filePath) { // It's a reference to another document
-                const nextUri = new URL(filePath, baseUri).href;
-                await this.loadAndCacheSpecRecursive(nextUri, cache, visited);
+            if (filePath) { // It's a reference to another document or an absolute URI ID
+                try {
+                    const nextUri = new URL(filePath, baseUri).href;
+                    await this.loadAndCacheSpecRecursive(nextUri, cache, visited);
+                } catch (e) {
+                    console.warn(`[Parser] Failed to resolve referenced URI: ${filePath}. Skipping.`);
+                }
             }
         }
+    }
+
+    /**
+     * Traverses a document structure to find JSON Schema `$id` keywords.
+     * Maps the resolved absolute URI of the ID to the schema configuration object in the cache.
+     * This creates "virtual" documents in the cache, supporting `$ref` resolution by ID.
+     *
+     * @param spec The document root or fragment to traverse.
+     * @param baseUri The current base URI of the scope.
+     * @param cache The specification cache.
+     * @private
+     */
+    private static indexSchemaIds(spec: any, baseUri: string, cache: Map<string, SwaggerSpec>) {
+        if (!spec || typeof spec !== 'object') return;
+
+        // Helper function to recursively traverse and update base URI context
+        const traverse = (obj: any, currentBase: string, visited: Set<any>) => {
+            if (!obj || typeof obj !== 'object' || visited.has(obj)) return;
+            visited.add(obj);
+
+            let nextBase = currentBase;
+
+            // Check for $id (OAS 3.1 / JSON Schema definition)
+            if ('$id' in obj && typeof obj.$id === 'string') {
+                try {
+                    // Resolve $id against the current base.
+                    // $id can be relative or absolute.
+                    // If absolute, it resets the base.
+                    nextBase = new URL(obj.$id, currentBase).href;
+
+                    // Cache this object as a distinct "document" at this URI
+                    // We use cast because cache expects SwaggerSpec, but these are Schema definitions.
+                    // Our resolution logic handles both.
+                    if (!cache.has(nextBase)) {
+                        cache.set(nextBase, obj as SwaggerSpec);
+                    }
+                } catch (e) {
+                    // Ignore invalid $id values
+                }
+            }
+
+            // Recurse into children
+            for (const key in obj) {
+                if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                    traverse(obj[key], nextBase, visited);
+                }
+            }
+        };
+
+        traverse(spec, baseUri, new Set());
     }
 
     /**
@@ -375,17 +439,13 @@ export class SwaggerParser {
         // Get the specification for the current document context to determine its logical base URI.
         const currentDocSpec = this.specCache.get(currentDocUri);
 
-        // This can happen if an invalid URI is somehow passed as the context.
-        if (!currentDocSpec) {
-            console.warn(`[Parser] Unresolved document URI in cache: ${currentDocUri}. Cannot resolve reference "${ref}".`);
-            return undefined;
-        }
+        // logicalBaseUri calculation: checks $self first, then falls back to current physical URI.
+        // NOTE: For $id resolution, the cache key IS the $id (resolved), so looking up by URI works
+        // naturally if `indexSchemaIds` has populated the cache.
+        const logicalBaseUri = currentDocSpec?.$self ? new URL(currentDocSpec.$self, currentDocUri).href : currentDocUri;
 
-        // The base for resolving relative file paths is the document's logical URI, derived from its $self,
-        // falling back to its physical URI.
-        const logicalBaseUri = currentDocSpec.$self ? new URL(currentDocSpec.$self, currentDocUri).href : currentDocUri;
-
-        // The target file's physical URI is resolved using the logical base. If the ref is local, it's just the current doc's physical URI.
+        // The target file's physical URI is resolved using the logical base.
+        // If ref is absolute (e.g. based on $id), URL construction handles it correctly.
         const targetFileUri = filePath ? new URL(filePath, logicalBaseUri).href : currentDocUri;
 
         const targetSpec = this.specCache.get(targetFileUri);

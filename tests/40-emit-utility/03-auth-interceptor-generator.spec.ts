@@ -21,7 +21,7 @@ describe('Emitter: AuthInterceptorGenerator', () => {
         expect(project.getSourceFile('/out/auth/auth.interceptor.ts')).toBeUndefined();
     });
 
-    it('should generate logic for mixed security schemes and deduplicate logic for same types', () => {
+    it('should generate logic for mixed security schemes using applicators map', () => {
         const { tokenNames, project } = runGenerator(securitySpec);
         const file = project.getSourceFileOrThrow('/out/auth/auth.interceptor.ts');
         const interceptorMethod = file.getClassOrThrow('AuthInterceptor').getMethodOrThrow('intercept');
@@ -29,13 +29,18 @@ describe('Emitter: AuthInterceptorGenerator', () => {
 
         expect(tokenNames).toEqual(['apiKey', 'bearerToken']);
 
-        expect(body).toContain('if (this.apiKey) { authReq = authReq.clone({ setParams');
-        expect(body).toContain('if (this.apiKey) { authReq = authReq.clone({ setHeaders');
+        // Check schema applicator definitions
+        // Note: 'ApiKeyQuery' should be in there
+        expect(body).toContain("'ApiKeyHeader': (req) => this.apiKey ? req.clone({ headers: req.headers.set('X-API-KEY', this.apiKey) }) : null");
+        expect(body).toContain("'ApiKeyQuery': (req) => this.apiKey ? req.clone({ params: req.params.set('api_key_query', this.apiKey) }) : null");
 
-        // This is the key check: ensure the bearer logic appears exactly once.
-        const bearerMatches = body.match(/if \(this.bearerToken\)/g);
-        expect(bearerMatches).not.toBeNull();
-        expect(bearerMatches!.length).toBe(1);
+        // Check Bearer
+        expect(body).toContain("'BearerAuth': (req) => {");
+        expect(body).toContain("req.clone({ headers: req.headers.set('Authorization', `Bearer ${token}`) })");
+
+        // Check iterating logic
+        expect(body).toContain('const requirements = req.context.get(SECURITY_CONTEXT_TOKEN);');
+        expect(body).toContain('for (const requirement of requirements)');
     });
 
     it('should generate correct logic for ONLY bearer/oauth2', () => {
@@ -54,8 +59,9 @@ describe('Emitter: AuthInterceptorGenerator', () => {
             .getMethodOrThrow('intercept')!
             .getBodyText()!;
         expect(tokenNames).toEqual(['bearerToken']);
-        expect(body).toContain('if (this.bearerToken)');
-        expect(body).not.toContain('if (this.apiKey)');
+        expect(body).toContain("'BearerAuth':");
+        expect(body).toContain("'OAuth2Flow':");
+        expect(body).not.toContain('this.apiKey');
     });
 
     it('should handle openIdConnect as a bearer token scheme', () => {
@@ -76,8 +82,7 @@ describe('Emitter: AuthInterceptorGenerator', () => {
             .getMethodOrThrow('intercept')!
             .getBodyText()!;
         expect(tokenNames).toEqual(['bearerToken']);
-        expect(body).toContain('if (this.bearerToken)');
-        expect(body).not.toContain('if (this.apiKey)');
+        expect(body).toContain("'OIDC':");
     });
 
     it('should ignore apiKey in cookie', () => {
@@ -94,39 +99,7 @@ describe('Emitter: AuthInterceptorGenerator', () => {
         expect(project.getSourceFile('/out/auth/auth.interceptor.ts')).toBeUndefined();
     });
 
-    it('should handle bearerToken as a simple string', () => {
-        const { project } = runGenerator({
-            ...emptySpec,
-            components: {
-                securitySchemes: { BearerTokenSimple: { type: 'http', scheme: 'bearer' } },
-            },
-        });
-        const body = project.getSourceFileOrThrow('/out/auth/auth.interceptor.ts').getText();
-        // This ensures the `typeof this.bearerToken === 'function'` branch is fully covered
-        expect(body).toContain(`const token = typeof this.bearerToken === 'function' ? this.bearerToken() : this.bearerToken;`);
-    });
-
-    it('should ignore unsupported schemes when generating the intercept method body', () => {
-        const mixedSpec = {
-            ...emptySpec,
-            components: {
-                securitySchemes: {
-                    ApiKey: { type: 'apiKey', in: 'header', name: 'X-API-KEY' }, // Supported
-                    BasicAuth: { type: 'http', scheme: 'basic' } // Unsupported
-                },
-            },
-        };
-        const { project } = runGenerator(mixedSpec);
-        const body = project.getSourceFileOrThrow('/out/auth/auth.interceptor.ts')
-            .getClassOrThrow('AuthInterceptor')!
-            .getMethodOrThrow('intercept')!
-            .getBodyText()!;
-
-        expect(body).toContain('if (this.apiKey)'); // Logic for api key exists
-        expect(body).not.toContain('Authorization'); // No logic for basic auth is added
-    });
-
-    it('should handle mutualTLS by generating a comment', () => {
+    it('should handle mutualTLS by generating a pass-through applicator', () => {
         const specWithMtls = {
             ...emptySpec,
             components: {
@@ -141,17 +114,18 @@ describe('Emitter: AuthInterceptorGenerator', () => {
             .getMethodOrThrow('intercept')!
             .getBodyText()!;
 
-        expect(body).toContain("// Security Scheme 'MyCert' (mutualTLS) is assumed to be handled by the browser/client configuration.");
+        expect(body).toContain("'MyCert': (req) => req");
     });
 
-    it('should check for SKIP_AUTH_CONTEXT_TOKEN at the start of intercept', () => {
+    it('should check context requirements before iterating', () => {
         const { project } = runGenerator(securitySpec);
         const body = project.getSourceFileOrThrow('/out/auth/auth.interceptor.ts')
             .getClassOrThrow('AuthInterceptor')!
             .getMethodOrThrow('intercept')!
             .getBodyText()!;
 
-        expect(body).toContain('if (req.context.get(SKIP_AUTH_CONTEXT_TOKEN))');
+        // If requirements array is empty (default), skip auth
+        expect(body).toContain('if (requirements.length === 0)');
         expect(body).toContain('return next.handle(req);');
     });
 });

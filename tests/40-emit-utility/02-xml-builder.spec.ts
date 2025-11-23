@@ -179,4 +179,75 @@ describe('Utility: XmlBuilder', () => {
             expect(xml).toBe('<R attr="&quot;quotes&quot;"></R>');
         });
     });
+
+    describe('Namespaces and Prefixes (OAS 3.2)', () => {
+        it('should apply default namespace to root element', () => {
+            const data = { id: 1 };
+            const config = {
+                namespace: 'http://example.com/schema',
+                name: 'Root'
+            };
+            const xml = XmlBuilder.serialize(data, 'Root', config);
+            expect(xml).toBe('<Root xmlns="http://example.com/schema"><id>1</id></Root>');
+        });
+
+        it('should apply prefix and namespace to root element', () => {
+            const data = { id: 1 };
+            const config = {
+                namespace: 'http://example.com/schema',
+                prefix: 'ex',
+                name: 'Root'
+            };
+            const xml = XmlBuilder.serialize(data, 'Root', config);
+            expect(xml).toBe('<ex:Root xmlns:ex="http://example.com/schema"><id>1</id></ex:Root>');
+        });
+
+        it('should apply prefix to nested elements', () => {
+            const data = {
+                nested: { val: 'test' }
+            };
+            const config = {
+                properties: {
+                    nested: {
+                        prefix: 'ns',
+                        name: 'Nested'
+                    }
+                }
+            };
+            // Note: namespace is not declared here, just prefix used in tag name
+            const xml = XmlBuilder.serialize(data, 'Root', config);
+            expect(xml).toBe('<Root><ns:Nested><val>test</val></ns:Nested></Root>');
+        });
+
+        it('should apply prefix to attributes', () => {
+            const data = { id: 123 };
+            const config = {
+                properties: {
+                    id: {
+                        attribute: true,
+                        prefix: 'xsi'
+                    }
+                }
+            };
+            const xml = XmlBuilder.serialize(data, 'Item', config);
+            expect(xml).toBe('<Item xsi:id="123"></Item>');
+        });
+
+        it('should apply namespaces to wrapped array elements', () => {
+            const data = { items: [1, 2] };
+            const config = {
+                properties: {
+                    items: {
+                        wrapped: true,
+                        prefix: 'list',
+                        namespace: 'http://lists.com',
+                        items: { name: 'i' }
+                    }
+                }
+            };
+            const xml = XmlBuilder.serialize(data, 'Root', config);
+            // The wrapper gets the namespace definition
+            expect(xml).toBe('<Root><list:items xmlns:list="http://lists.com"><i>1</i><i>2</i></list:items></Root>');
+        });
+    });
 });

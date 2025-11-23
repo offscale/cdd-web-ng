@@ -256,6 +256,38 @@ describe('Core: utils.ts (Coverage)', () => {
             expect(type).toContain('boolean');
             expect(type).toContain('[key: string]:');
         });
+
+        it('should support int64Type="string" config option', () => {
+            const schema: SwaggerDefinition = { type: 'integer', format: 'int64' };
+            const configAsString: GeneratorConfig = {
+                ...config,
+                options: { ...config.options, int64Type: 'string' }
+            };
+            expect(utils.getTypeScriptType(schema, configAsString, [])).toBe('string');
+        });
+
+        it('should support int64Type="bigint" config option', () => {
+            const schema: SwaggerDefinition = { type: 'integer', format: 'int64' };
+            const configAsBigInt: GeneratorConfig = {
+                ...config,
+                options: { ...config.options, int64Type: 'bigint' }
+            };
+            expect(utils.getTypeScriptType(schema, configAsBigInt, [])).toBe('bigint');
+        });
+
+        it('should default int64 to number if no config provided', () => {
+            const schema: SwaggerDefinition = { type: 'integer', format: 'int64' };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('number');
+        });
+
+        it('should treat standard integers as numbers regardless of int64 config', () => {
+            const schema: SwaggerDefinition = { type: 'integer', format: 'int32' };
+            const configAsBigInt: GeneratorConfig = {
+                ...config,
+                options: { ...config.options, int64Type: 'bigint' }
+            };
+            expect(utils.getTypeScriptType(schema, configAsBigInt, [])).toBe('number');
+        });
     });
 
     describe('extractPaths', () => {
@@ -509,5 +541,9 @@ describe('Core: utils.ts (Coverage)', () => {
     it('should handle single quotes in enum values', () => {
         const schema: SwaggerDefinition = { type: 'string', enum: ["it's a value"] };
         expect(utils.getTypeScriptType(schema, config, [])).toBe(`'it\\'s a value'`);
+    });
+
+    it('isDataTypeInterface should return false for bigint', () => {
+        expect(utils.isDataTypeInterface('bigint')).toBe(false);
     });
 });

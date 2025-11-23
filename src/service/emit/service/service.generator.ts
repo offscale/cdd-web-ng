@@ -62,7 +62,6 @@ export class ServiceGenerator {
         this.addPropertiesAndHelpers(serviceClass);
 
         operations.forEach(op => {
-            // Method name de-duplication and assignment is now handled in `groupPathsByController`
             this.methodGenerator.addServiceMethod(serviceClass, op);
         });
     }
@@ -80,33 +79,47 @@ export class ServiceGenerator {
                 moduleSpecifier: `../tokens`,
                 namedImports: [getBasePathTokenName(this.config.clientName), getClientContextTokenName(this.config.clientName)]
             },
-            { moduleSpecifier: `../utils/http-params-builder`, namedImports: ['HttpParamsBuilder'] },
+            // REQUIRED: Import ApiParameterCodec here so synthesized method bodies can reference it
+            { moduleSpecifier: `../utils/http-params-builder`, namedImports: ['HttpParamsBuilder', 'ApiParameterCodec'] },
         ]);
 
-        // Logic to determine which auth tokens are needed
-        const authTokensToImport = new Set<string>();
-
-        // If any operation has securityOverride (empty security list) AND global security exists
-        const hasSecurityOverrides = operations.some(op => op.security && op.security.length === 0);
-        const hasGlobalSecurity = Object.keys(this.parser.getSecuritySchemes()).length > 0;
-
-        if (hasSecurityOverrides && hasGlobalSecurity) {
-            authTokensToImport.add('SKIP_AUTH_CONTEXT_TOKEN');
-        }
-
-        // data structure of op.security: { [schemeName: string]: string[] }[]
-        const hasScopes = operations.some(op =>
-            op.security?.some(s => Object.values(s).some(scopes => scopes.length > 0))
+        // Detect if XmlBuilder or MultipartBuilder are needed
+        const needsXmlBuilder = operations.some(op =>
+            !!op.requestBody?.content?.['application/xml'] ||
+            (op.parameters && op.parameters.some(p => !!p.content?.['application/xml']))
         );
 
-        if (hasScopes) {
-            authTokensToImport.add('AUTH_SCOPES_CONTEXT_TOKEN');
+        const needsMultipartBuilder = operations.some(op => !!op.requestBody?.content?.['multipart/form-data']);
+
+        if (needsXmlBuilder) {
+            sourceFile.addImportDeclaration({
+                moduleSpecifier: `../utils/xml-builder`,
+                namedImports: ['XmlBuilder']
+            });
         }
 
-        if (authTokensToImport.size > 0) {
+        if (needsMultipartBuilder) {
+            sourceFile.addImportDeclaration({
+                moduleSpecifier: `../utils/multipart-builder`,
+                namedImports: ['MultipartBuilder']
+            });
+        }
+
+        // Check if ANY operation requires security.
+        // If an operation's effective security is non-empty, it will generate a `.set(SECURITY_CONTEXT_TOKEN, ...)` call.
+        // If effective security is empty (default or explicit override []), no call is generated, so no import needed.
+        const globalSecurity = this.parser.getSpec().security || [];
+
+        const needsSecurityToken = operations.some(op => {
+            // Calculate effective security for this operation as ServiceMethodGenerator does
+            const effectiveSecurity = op.security !== undefined ? op.security : globalSecurity;
+            return effectiveSecurity.length > 0;
+        });
+
+        if (needsSecurityToken) {
             sourceFile.addImportDeclaration({
                 moduleSpecifier: `../auth/auth.tokens`,
-                namedImports: Array.from(authTokensToImport)
+                namedImports: ['SECURITY_CONTEXT_TOKEN']
             });
         }
     }

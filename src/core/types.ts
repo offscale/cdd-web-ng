@@ -528,6 +528,11 @@ export interface SwaggerSpec {
 export interface GeneratorConfigOptions {
     /** The TypeScript type to use for properties with `format: "date"` or `"date-time"`. */
     dateType?: 'string' | 'Date';
+    /**
+     * The TypeScript type to use for `integer` types with `format: "int64"`.
+     * Default is 'number', but 'string' is often safer for browser JS due to precision limit (2^53).
+     */
+    int64Type?: 'number' | 'string' | 'bigint';
     /** How to generate types for schemas with an `enum` list. */
     enumStyle?: 'enum' | 'union';
     /** If true, generates Angular services for API operations. */
@@ -540,6 +545,12 @@ export interface GeneratorConfigOptions {
     generateAdminTests?: boolean;
     /** A record of static headers to be added to every generated service request. */
     customHeaders?: Record<string, string>;
+    /**
+     * Target runtime platform for the generated code.
+     * - 'browser': (Default) Assumes standard browser environment. Cookie setting in headers will emit warnings.
+     * - 'node': Assumes Node.js/SSR environment. Cookie setting is allowed without warnings.
+     */
+    platform?: 'browser' | 'node';
     /** A callback to provide a custom method name for an operation. */
     customizeMethodName?: ((operationId: string) => string);
 }

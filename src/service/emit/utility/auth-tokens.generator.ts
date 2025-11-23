@@ -1,5 +1,3 @@
-// src/service/emit/utility/auth-tokens.generator.ts
-
 import * as path from 'node:path';
 import { Project, VariableDeclarationKind } from 'ts-morph';
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '@src/core/constants.js';
@@ -57,30 +55,23 @@ export class AuthTokensGenerator {
             docs: ["Injection token for providing a bearer token or a function that returns a bearer token."]
         });
 
-        // Skip Auth Token
+        // Security Context Token (Replaces SKIP_AUTH and AUTH_SCOPES)
+        // Type matches: Record<string, string[]>[]
+        // This represents: [ { SchemeA: [Scope1], SchemeB: [] }, { SchemeC: [] } ] (OR conditions of AND groups)
         sourceFile.addVariableStatement({
             isExported: true,
             declarationKind: VariableDeclarationKind.Const,
             declarations: [
                 {
-                    name: 'SKIP_AUTH_CONTEXT_TOKEN',
-                    initializer: `new HttpContextToken<boolean>(() => false)`,
+                    name: 'SECURITY_CONTEXT_TOKEN',
+                    initializer: `new HttpContextToken<Record<string, string[]>[]>(() => [])`,
                 },
             ],
-            docs: ["Context token to skip authentication for specific requests that override global security."]
-        });
-
-        // Auth Scopes Token
-        sourceFile.addVariableStatement({
-            isExported: true,
-            declarationKind: VariableDeclarationKind.Const,
-            declarations: [
-                {
-                    name: 'AUTH_SCOPES_CONTEXT_TOKEN',
-                    initializer: `new HttpContextToken<string[]>(() => [])`,
-                },
-            ],
-            docs: ["Context token containing the OAuth2/OIDC scopes required for the request."]
+            docs: [
+                "Context token containing the full Security Requirement Object for the request.",
+                "It represents logical OR conditions, where each item is a logical AND of security schemes.",
+                "Example: `[{ 'basic': [] }, { 'oauth': ['read'] }]` means Basic OR OAuth(read)."
+            ]
         });
 
         sourceFile.formatText();

@@ -14,21 +14,12 @@ describe('Emitter: AuthTokensGenerator', () => {
         expect(fileContent).toContain("new InjectionToken<string | (() => string)>('BEARER_TOKEN')");
     });
 
-    it('should generate SKIP_AUTH_CONTEXT_TOKEN', () => {
+    it('should generate SECURITY_CONTEXT_TOKEN', () => {
         const project = new Project({ useInMemoryFileSystem: true });
         new AuthTokensGenerator(project).generate('/out');
         const fileContent = project.getSourceFileOrThrow('/out/auth/auth.tokens.ts').getText();
 
-        expect(fileContent).toContain('export const SKIP_AUTH_CONTEXT_TOKEN');
-        expect(fileContent).toContain('new HttpContextToken<boolean>(() => false)');
-    });
-
-    it('should generate AUTH_SCOPES_CONTEXT_TOKEN', () => {
-        const project = new Project({ useInMemoryFileSystem: true });
-        new AuthTokensGenerator(project).generate('/out');
-        const fileContent = project.getSourceFileOrThrow('/out/auth/auth.tokens.ts').getText();
-
-        expect(fileContent).toContain('export const AUTH_SCOPES_CONTEXT_TOKEN');
-        expect(fileContent).toContain('new HttpContextToken<string[]>(() => [])');
+        expect(fileContent).toContain('export const SECURITY_CONTEXT_TOKEN');
+        expect(fileContent).toContain('new HttpContextToken<Record<string, string[]>[]>(() => [])');
     });
 });

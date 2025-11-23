@@ -10,6 +10,7 @@ import { groupPathsByController } from '@src/service/parse.js';
 import { TypeGenerator } from '@src/service/emit/type/type.generator.js';
 import { TokenGenerator } from '@src/service/emit/utility/token.generator.js';
 import { HttpParamsBuilderGenerator } from '@src/service/emit/utility/http-params-builder.js';
+import { AuthTokensGenerator } from '@src/service/emit/utility/auth-tokens.generator.js';
 
 describe('Emitter: ServiceGenerator', () => {
 
@@ -33,6 +34,8 @@ describe('Emitter: ServiceGenerator', () => {
         new TypeGenerator(parser, project, config).generate('/out');
         new TokenGenerator(project, config.clientName).generate('/out');
         new HttpParamsBuilderGenerator(project).generate('/out');
+        // Ensure auth tokens are generated so imports resolve logically in our checks
+        new AuthTokensGenerator(project).generate('/out');
 
         const serviceGen = new ServiceGenerator(parser, project, config);
         const controllerGroups = groupPathsByController(parser);
@@ -123,7 +126,7 @@ describe('Emitter: ServiceGenerator', () => {
         expect(body).toContain(`return context.set(this.clientContextToken, 'default');`);
     });
 
-    it('should add SKIP_AUTH import only if security override is present AND global security exists', () => {
+    it('should add SECURITY_CONTEXT_TOKEN import only if security override is present AND global security exists', () => {
         const specWithOverride = {
             ...coverageSpec,
             components: {
@@ -136,8 +139,16 @@ describe('Emitter: ServiceGenerator', () => {
                         security: [], // Override
                         responses: { '200': {} }
                     }
+                },
+                '/protected': {
+                    get: {
+                        tags: ['Public'],
+                        // Inherits global security effectively
+                        responses: { '200': {} }
+                    }
                 }
-            }
+            },
+            security: [{ Basic: [] }]
         };
 
         const project = createTestEnvironment(specWithOverride);
@@ -148,10 +159,11 @@ describe('Emitter: ServiceGenerator', () => {
         });
 
         expect(authImport).toBeDefined();
-        expect(authImport!.getNamedImports().map(i => i.getName())).toContain('SKIP_AUTH_CONTEXT_TOKEN');
+        // Logic has changed: We import SECURITY_CONTEXT_TOKEN for all security handling
+        expect(authImport!.getNamedImports().map(i => i.getName())).toContain('SECURITY_CONTEXT_TOKEN');
     });
 
-    it('should NOT add SKIP_AUTH import if no global security exists', () => {
+    it('should NOT add SECURITY_CONTEXT_TOKEN import if no security requirements exist (empty global + local override)', () => {
         const specWithoutGlobalSec = {
             openapi: '3.0.0',
             info: { title: 'Public API', version: '1.0' },
@@ -159,13 +171,17 @@ describe('Emitter: ServiceGenerator', () => {
                 '/public': {
                     get: {
                         tags: ['Public'],
-                        security: [], // Override (technically redundant here)
+                        security: [], // Local override to empty
                         responses: { '200': {} }
                     }
                 }
             },
             components: {}
         };
+
+        // Effective security for 'get' is []. Length is 0.
+        // Generator logic now checks effective security > 0.
+        // So no import should be generated.
 
         const project = createTestEnvironment(specWithoutGlobalSec);
         const serviceFile = project.getSourceFileOrThrow('/out/services/public.service.ts');

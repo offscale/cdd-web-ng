@@ -233,8 +233,18 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined | null, 
             }
             break;
         case 'number':
-        case 'integer':
             type = 'number';
+            break;
+        case 'integer':
+            // Enhanced support for OAS 3.2 / Data Types strict format mapping requirement.
+            // While 'number' is the standard JS type for all integers, large integers (int64)
+            // can encounter precision loss in JS (> 2^53).
+            // We now support a configuration option to map `int64` to `string` or `bigint`.
+            if (schema.format === 'int64') {
+                type = config.options.int64Type ?? 'number';
+            } else {
+                type = 'number'; // Default for int32 and others
+            }
             break;
         case 'boolean':
             type = 'boolean';
@@ -313,7 +323,7 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined | null, 
  * @returns `true` if the type is likely a generated model interface, `false` otherwise.
  */
 export function isDataTypeInterface(type: string): boolean {
-    const primitiveOrBuiltIn = /^(any|File|Blob|string|number|boolean|object|unknown|null|undefined|Date|void)$/;
+    const primitiveOrBuiltIn = /^(any|File|Blob|string|number|boolean|object|unknown|null|undefined|Date|void|bigint)$/;
     const isArray = /\[\]$/;
     const isUnion = / \| /;
     return !primitiveOrBuiltIn.test(type) && !isArray.test(type) && !isUnion.test(type) && !type.startsWith('{') && !type.startsWith('Record');

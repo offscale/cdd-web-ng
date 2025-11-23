@@ -10,6 +10,9 @@ import { SecurityScheme } from '@src/core/types.js';
  * attaching API keys and/or Bearer tokens to outgoing HTTP requests based on the
  * security schemes defined in the OpenAPI specification.
  * It supports `apiKey`, `http` (Bearer), `oauth2`, `openIdConnect`, and recognizes `mutualTLS`.
+ *
+ * UPDATED: Supports Advanced Auth Scope Logic (OAS 3.2).
+ * It evaluates the `SECURITY_CONTEXT_TOKEN` to find the first satisfiable Security Requirement set.
  */
 export class AuthInterceptorGenerator {
     /**
@@ -47,8 +50,8 @@ export class AuthInterceptorGenerator {
         const tokenImports: string[] = [];
         const tokenNames: string[] = [];
 
-        // Ensure SKIP_AUTH_CONTEXT_TOKEN is imported
-        tokenImports.push('SKIP_AUTH_CONTEXT_TOKEN');
+        // Import the single unified security token
+        tokenImports.push('SECURITY_CONTEXT_TOKEN');
 
         if (hasSupportedApiKey) {
             tokenImports.push('API_KEY_TOKEN');
@@ -96,33 +99,84 @@ export class AuthInterceptorGenerator {
             });
         }
 
-        let statementsBody = `// Check for the skip auth token in the request context
-if (req.context.get(SKIP_AUTH_CONTEXT_TOKEN)) {
-    return next.handle(req);
-}\n`;
-        statementsBody += 'let authReq = req;';
-        let bearerLogicAdded = false;
+        // Generate mappings for scheme -> application logic
+        // This creates a map of functions where keys are the scheme names defined in OAS components
+        const schemeLogicParts: string[] = [];
+        const uniqueSchemesMap = this.parser.getSecuritySchemes();
 
-        const uniqueSchemes = Array.from(new Set(securitySchemes.map(s => JSON.stringify(s)))).map(s => JSON.parse(s) as SecurityScheme);
-
-        for (const scheme of uniqueSchemes) {
+        Object.entries(uniqueSchemesMap).forEach(([name, scheme]) => {
             if (scheme.type === 'apiKey' && scheme.name) {
                 if (scheme.in === 'header') {
-                    statementsBody += `\nif (this.apiKey) { authReq = authReq.clone({ setHeaders: { ...authReq.headers.keys().reduce((acc, key) => ({ ...acc, [key]: authReq.headers.getAll(key) }), {}), '${scheme.name}': this.apiKey } }); }`;
+                    schemeLogicParts.push(`'${name}': (req) => this.apiKey ? req.clone({ headers: req.headers.set('${scheme.name}', this.apiKey) }) : null`);
                 } else if (scheme.in === 'query') {
-                    statementsBody += `\nif (this.apiKey) { authReq = authReq.clone({ setParams: { ...authReq.params.keys().reduce((acc, key) => ({ ...acc, [key]: authReq.params.getAll(key) }), {}), '${scheme.name}': this.apiKey } }); }`;
+                    schemeLogicParts.push(`'${name}': (req) => this.apiKey ? req.clone({ params: req.params.set('${scheme.name}', this.apiKey) }) : null`);
                 }
             } else if (this.isBearerScheme(scheme)) {
-                if (!bearerLogicAdded) {
-                    statementsBody += `\nif (this.bearerToken) { const token = typeof this.bearerToken === 'function' ? this.bearerToken() : this.bearerToken; if (token) { authReq = authReq.clone({ setHeaders: { ...authReq.headers.keys().reduce((acc, key) => ({ ...acc, [key]: authReq.headers.getAll(key) }), {}), 'Authorization': \`Bearer \${token}\` } }); } }`;
-                    bearerLogicAdded = true;
-                }
+                schemeLogicParts.push(`'${name}': (req) => {
+                    const token = typeof this.bearerToken === 'function' ? this.bearerToken() : this.bearerToken;
+                    return token ? req.clone({ headers: req.headers.set('Authorization', \`Bearer \${token}\`) }) : null;
+                }`);
             } else if (scheme.type === 'mutualTLS') {
-                statementsBody += `\n// Security Scheme '${scheme.name || 'MutualTLS'}' (mutualTLS) is assumed to be handled by the browser/client configuration.`;
+                // MTLS is usually handled at the connection level by the browser/OS, so we pass it through effectively "satisfied"
+                // Return req as-is to indicate satisfaction without modification.
+                schemeLogicParts.push(`'${name}': (req) => req`);
+            }
+        });
+
+        // Build the intercept method body
+        const statementsBody = `
+        const requirements = req.context.get(SECURITY_CONTEXT_TOKEN);
+
+        // Map of Security Scheme Name -> Application Logic
+        const applicators: Record<string, (r: HttpRequest<unknown>, scopes?: string[]) => HttpRequest<unknown> | null> = {
+            ${schemeLogicParts.join(',\n            ')}
+        };
+
+        // If no requirements defined (or empty array from generator defaults), pass through.
+        // Default behavior: If security IS in context but empty list, it means defaults.
+        // If security token is populated, it's authoritative. 
+        // We assume generator populates it with [] if no security.
+        if (requirements.length === 0) {
+            return next.handle(req);
+        }
+
+        // Iterate over the logical OR requirements (e.g. [ { APIKey: [] }, { OAuth: [] } ])
+        for (const requirement of requirements) {
+            let clone: HttpRequest<unknown> | null = req;
+            let satisfied = true;
+
+            // Check if the empty requirement {} (Anonymous) is present
+            if (Object.keys(requirement).length === 0) {
+                return next.handle(req);
+            }
+
+            // Iterate over logical AND requirements (e.g. { APIKey: [], OAuth: [] })
+            for (const [scheme, scopes] of Object.entries(requirement)) {
+                const apply = applicators[scheme];
+                if (!apply) {
+                    // Scheme defined in spec but not supported/configured in client
+                    satisfied = false; 
+                    break;
+                }
+                
+                // Attempt to apply credentials
+                clone = apply(clone!, scopes);
+                if (!clone) {
+                    // Credential missing
+                    satisfied = false;
+                    break;
+                }
+            }
+
+            if (satisfied && clone) {
+                return next.handle(clone);
             }
         }
 
-        statementsBody += '\nreturn next.handle(authReq);';
+        // If we reach here, no security requirement was fully satisfied.
+        // We pass the original request. The server will likely return 401/403.
+        return next.handle(req);
+        `;
 
         interceptorClass.addMethod({
             name: 'intercept',

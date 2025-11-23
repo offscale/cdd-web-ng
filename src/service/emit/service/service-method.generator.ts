@@ -138,10 +138,36 @@ export class ServiceMethodGenerator {
         return keys.some(k => k.includes('application/json') || k.includes('*/*'));
     }
 
+    private isXmlContent(p: Parameter): boolean {
+        if (!p.content) return false;
+        const keys = Object.keys(p.content);
+        return keys.some(k => k.includes('application/xml'));
+    }
+
     private buildMethodBody(operation: PathInfo, parameters: OptionalKind<ParameterDeclarationStructure>[]): string {
+        const lines: string[] = [];
+
+        // 1. Pre-serialize XML Parameters
+        const xmlParams = operation.parameters?.filter(p => this.isXmlContent(p)) ?? [];
+        xmlParams.forEach(p => {
+            const paramName = camelCase(p.name);
+            const schema = p.content!['application/xml'].schema as SwaggerDefinition;
+            const rootName = schema.xml?.name || p.name;
+            const xmlConfig = this.getXmlConfig(schema, 5);
+            lines.push(`let ${paramName}Serialized: any = ${paramName};`);
+            lines.push(`if (${paramName} !== null && ${paramName} !== undefined) {`);
+            lines.push(`  ${paramName}Serialized = XmlBuilder.serialize(${paramName}, '${rootName}', ${JSON.stringify(xmlConfig)});`);
+            lines.push(`}`);
+        });
+
+        const getParamVar = (p: Parameter) => {
+            const baseName = camelCase(p.name);
+            return this.isXmlContent(p) ? `${baseName}Serialized` : baseName;
+        };
+
         let urlTemplate = operation.path;
         operation.parameters?.filter(p => p.in === 'path').forEach(p => {
-            const jsParam = camelCase(p.name);
+            const jsParam = getParamVar(p);
             const style = p.style || 'simple';
             const explode = p.explode ?? false;
             const allowReserved = p.allowReserved ?? false;
@@ -149,15 +175,12 @@ export class ServiceMethodGenerator {
             urlTemplate = urlTemplate.replace(`{${p.name}}`, `\${HttpParamsBuilder.serializePathParam('${p.name}', ${jsParam}, '${style}', ${explode}, ${allowReserved}${serializationArg})}`);
         });
 
-        const lines: string[] = [];
-
-        // OAS 3.2 `in: querystring` Support
         const querystringParams = operation.parameters?.filter(p => p.in === 'querystring') ?? [];
         let queryStringVariable = '';
 
         if (querystringParams.length > 0) {
-            const p = querystringParams[0]; // OAS Note: MUST NOT appear more than once
-            const paramName = camelCase(p.name);
+            const p = querystringParams[0];
+            const paramName = getParamVar(p);
             const serializationHint = this.isJsonContent(p) ? ", 'json'" : "";
             lines.push(`const queryString = HttpParamsBuilder.serializeRawQuerystring(${paramName}${serializationHint});`);
             queryStringVariable = "${queryString ? '?' + queryString : ''}";
@@ -180,9 +203,9 @@ export class ServiceMethodGenerator {
 
         const queryParams = operation.parameters?.filter(p => p.in === 'query') ?? [];
         if (queryParams.length > 0) {
-            lines.push(`let params = new HttpParams({ fromObject: options?.params ?? {} });`);
+            lines.push(`let params = new HttpParams({ encoder: new ApiParameterCodec(), fromObject: options?.params ?? {} });`);
             queryParams.forEach(p => {
-                const paramName = camelCase(p.name);
+                const paramName = getParamVar(p);
                 const paramDefJson = JSON.stringify(p);
                 lines.push(`if (${paramName} != null) { params = HttpParamsBuilder.serializeQueryParam(params, ${paramDefJson}, ${paramName}); }`);
             });
@@ -195,7 +218,7 @@ export class ServiceMethodGenerator {
 
         if (headerParams.length > 0) {
             headerParams.forEach(p => {
-                const paramName = camelCase(p.name);
+                const paramName = getParamVar(p);
                 const explode = p.explode ?? false;
                 const serializationArg = this.isJsonContent(p) ? ", 'json'" : "";
                 lines.push(`if (${paramName} != null) { headers = headers.set('${p.name}', HttpParamsBuilder.serializeHeaderParam('${p.name}', ${paramName}, ${explode}${serializationArg})); }`);
@@ -203,13 +226,14 @@ export class ServiceMethodGenerator {
         }
 
         if (cookieParams.length > 0) {
-            console.warn(`[ServiceMethodGenerator] Warning: Operation '${operation.methodName}' (Path: ${operation.path}) defines parameters with 'in: cookie'. Setting the 'Cookie' header manually is forbidden in standard browser environments.`);
-            lines.push(`// WARNING: Setting 'Cookie' headers manually is forbidden in browsers.`);
-            lines.push(`console.warn('Operation ${operation.methodName} attempts to set "Cookie" header manually. This will fail in browsers.');`);
+            if (this.config.options.platform !== 'node') {
+                lines.push(`// WARNING: Setting 'Cookie' headers manually is forbidden in browsers.`);
+                lines.push(`if (typeof window !== 'undefined') { console.warn('Operation ${operation.methodName} attempts to set "Cookie" header manually. This will fail in browsers.'); }`);
+            }
 
             lines.push(`const __cookies: string[] = [];`);
             cookieParams.forEach(p => {
-                const paramName = camelCase(p.name);
+                const paramName = getParamVar(p);
                 const style = p.style || 'form';
                 const explode = p.explode ?? true;
                 const serializationArg = this.isJsonContent(p) ? ", 'json'" : "";
@@ -218,37 +242,27 @@ export class ServiceMethodGenerator {
             lines.push(`if (__cookies.length > 0) { headers = headers.set('Cookie', __cookies.join('; ')); }`);
         }
 
-        const hasGlobalSecurity = Object.keys(this.parser.getSecuritySchemes()).length > 0;
-        const hasSecurityOverride = operation.security && operation.security.length === 0;
+        // --- Security Context Logic ---
+        // Resolve valid security requirements (OR conditions of AND groups).
+        // Priority: Operation Level -> Global Level -> Empty (Anonymous)
+        const specSecurity = this.parser.getSpec().security;
+        const opSecurity = operation.security;
+        const effectiveSecurity = opSecurity !== undefined ? opSecurity : (specSecurity || []);
+
+        // Only inject context if there are security requirements
         let contextConstruction = `this.createContextWithClientId(options?.context)`;
-
-        if (hasGlobalSecurity && hasSecurityOverride) {
-            contextConstruction += `.set(SKIP_AUTH_CONTEXT_TOKEN, true)`;
-        }
-
-        // Security Scopes Collection
-        if (operation.security && operation.security.length > 0) {
-            const distinctScopes = new Set<string>();
-            operation.security.forEach(requirement => {
-                Object.values(requirement).forEach(scopes => {
-                    scopes.forEach(scope => distinctScopes.add(scope));
-                });
-            });
-
-            if (distinctScopes.size > 0) {
-                const scopesArrayString = JSON.stringify(Array.from(distinctScopes));
-                contextConstruction += `.set(AUTH_SCOPES_CONTEXT_TOKEN, ${scopesArrayString})`;
-            }
+        if (effectiveSecurity.length > 0) {
+            const secJson = JSON.stringify(effectiveSecurity);
+            contextConstruction += `.set(SECURITY_CONTEXT_TOKEN, ${secJson})`;
         }
 
         let optionProperties = `
-  observe: options?.observe, 
-  reportProgress: options?.reportProgress, 
-  responseType: options?.responseType, 
-  withCredentials: options?.withCredentials, 
+  observe: options?.observe,
+  reportProgress: options?.reportProgress,
+  responseType: options?.responseType,
+  withCredentials: options?.withCredentials,
   context: ${contextConstruction}`;
 
-        // Always include headers, but params only if defined.
         if (queryParams.length > 0) optionProperties += `,\n  params`;
         optionProperties += `,\n  headers`;
 
@@ -295,7 +309,6 @@ export class ServiceMethodGenerator {
             });
             bodyArgument = 'formData';
         } else if (hasOas3MultipartBody) {
-            // Implement MultipartBuilder for OAS 3.x support with custom headers
             const bodyName = bodyParam!.name;
             const encodings = multipartContent!.encoding || {};
             const encodingMapString = JSON.stringify(encodings);
@@ -303,7 +316,6 @@ export class ServiceMethodGenerator {
             lines.push(`const multipartConfig = ${encodingMapString};`);
             lines.push(`const multipartResult = MultipartBuilder.serialize(${bodyName}, multipartConfig);`);
 
-            // If manual serialization (Blob) is used due to custom headers, we must merge the Content-Type header
             lines.push(`if (multipartResult.headers) {`);
             lines.push(`  const newHeaders = requestOptions.headers instanceof HttpHeaders ? requestOptions.headers : new HttpHeaders(requestOptions.headers || {});`);
             lines.push(`  Object.entries(multipartResult.headers).forEach(([k, v]) => newHeaders.set(k, v));`);
@@ -347,13 +359,19 @@ export class ServiceMethodGenerator {
         if (!schema || depth <= 0) return {};
         const resolved = this.parser.resolve(schema);
         if (!resolved) return {};
+
         const config: any = {};
         if (resolved.xml?.name) config.name = resolved.xml.name;
         if (resolved.xml?.attribute) config.attribute = true;
         if (resolved.xml?.wrapped) config.wrapped = true;
+        if (resolved.xml?.prefix) config.prefix = resolved.xml.prefix;
+        if (resolved.xml?.namespace) config.namespace = resolved.xml.namespace;
+        if (resolved.xml?.nodeType) config.nodeType = resolved.xml.nodeType;
+
         if (resolved.type === 'array' && resolved.items) {
             config.items = this.getXmlConfig(resolved.items as SwaggerDefinition, depth - 1);
         }
+
         if (resolved.properties) {
             config.properties = {};
             Object.entries(resolved.properties).forEach(([propName, propSchema]) => {
@@ -363,6 +381,7 @@ export class ServiceMethodGenerator {
                 }
             });
         }
+
         if (resolved.allOf) {
             resolved.allOf.forEach(sub => {
                 const subConfig = this.getXmlConfig(sub, depth - 1);

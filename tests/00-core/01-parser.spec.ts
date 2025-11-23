@@ -19,7 +19,7 @@ vi.mock('node:url', () => ({
 describe('Core: SwaggerParser', () => {
     let config: GeneratorConfig;
     const originalJsonParse = JSON.parse;
-    const validInfo = { title: 'Test API', version: '1.0.0' }; // Added valid info
+    const validInfo = { title: 'Test API', version: '1.0.0' };
 
     beforeEach(() => {
         config = {
@@ -37,6 +37,7 @@ describe('Core: SwaggerParser', () => {
         mockFetch.mockReset();
     });
 
+    // ... [Existing tests start] ...
     it('should create parser from local JSON file', async () => {
         (fs.existsSync as Mock).mockReturnValue(true);
         (fs.readFileSync as Mock).mockReturnValue(JSON.stringify({ openapi: "3.0.0", info: validInfo, paths: {} }));
@@ -105,6 +106,7 @@ describe('Core: SwaggerParser', () => {
         const fullPath = `file://${path.resolve(process.cwd(), 'spec.json').replace(/\\/g, '/')}`;
         await expect(SwaggerParser.create('spec.json', config)).rejects.toThrow(`Failed to parse content from ${fullPath}. Error: a string error`);
     });
+    // ... [End Existing Tests] ...
 
     describe('resolve() and resolveReference()', () => {
         const spec = {
@@ -243,6 +245,67 @@ describe('Core: SwaggerParser', () => {
         });
     });
 
+    describe('$id Resolution Support', () => {
+        it('should index internal schemas with absolute $id so they can be resolved URL-style', () => {
+            const spec = {
+                openapi: '3.1.0',
+                info: validInfo,
+                paths: {},
+                components: {
+                    schemas: {
+                        User: {
+                            $id: 'https://example.com/schemas/user',
+                            type: 'object',
+                            properties: { name: { type: 'string' } }
+                        },
+                        RefUser: {
+                            $ref: 'https://example.com/schemas/user'
+                        }
+                    }
+                }
+            };
+            const parser = new SwaggerParser(spec as any, config);
+
+            // Resolve via the absolute URI defined in $id
+            const resolvedViaUri = parser.resolveReference('https://example.com/schemas/user');
+            // Resolve via internal structure to verify it matches
+            const resolvedViaRef = parser.resolveReference('#/components/schemas/RefUser');
+
+            expect(resolvedViaUri).toBeDefined();
+            expect((resolvedViaUri as any).type).toBe('object');
+            expect(resolvedViaRef).toBe(resolvedViaUri); // Object equality check
+        });
+
+        it('should handle nested $id references correctly', () => {
+            const spec = {
+                openapi: '3.1.0',
+                info: validInfo,
+                paths: {},
+                components: {
+                    schemas: {
+                        Parent: {
+                            $id: 'http://api.example.com/root.json',
+                            definitions: {
+                                Child: {
+                                    $id: 'http://api.example.com/child.json',
+                                    type: 'string'
+                                }
+                            }
+                        },
+                        Usage: {
+                            $ref: 'http://api.example.com/child.json'
+                        }
+                    }
+                }
+            };
+            const parser = new SwaggerParser(spec as any, config);
+            const resolved = parser.resolveReference('#/components/schemas/Usage');
+
+            expect(resolved).toBeDefined();
+            expect((resolved as any).type).toBe('string');
+        });
+    });
+
     it('should resolve references via resolveReference', async () => {
         const spec = {
             openapi: '3.0.0', info: validInfo, paths: {},
@@ -252,6 +315,7 @@ describe('Core: SwaggerParser', () => {
         expect(parser.resolveReference('#/components/schemas/User')).toEqual({ type: 'string' });
     });
 
+    // ... [Resume Existing Tests] ...
     it('should warn and return undefined for un-cached external references', () => {
         const spec = { openapi: '3.0.0', info: validInfo, paths: {} } as any;
         const cache = new Map<string, any>([['file:///entry.json', spec]]);
@@ -278,20 +342,9 @@ describe('Core: SwaggerParser', () => {
     it('should validate spec versions correctly', () => {
         expect(new SwaggerParser({ openapi: '3.1.0', info: validInfo, paths: {} } as any, config).isValidSpec()).toBe(true);
         expect(new SwaggerParser({ swagger: '2.0', info: validInfo, paths: {} } as any, config).isValidSpec()).toBe(true);
-        // Note: isValidSpec() logic is lenient, but now constructor validation prevents invalid specs.
-        // This test checks the helper method itself, assuming it doesn't throw first.
-        // Since the constructor throws now, we can't easily test an invalid spec with `new`.
-        // But for `isSwag2`, we can pass valid properties.
     });
 
     it('should return null for getSpecVersion on invalid spec', () => {
-        // Bypassing validation for unit testing internal method (unsafe cast)
-        // or testing a spec that passes initial validation but misses specific version fields?
-        // Actually, validation ensures version string exists.
-        // This legacy test might be redundant or need adjustment. Defaults to a valid but unknown version?
-        // Since we want to test "unknown type returns null", let's simulate an internal call.
-        // However, we can't construct it invalidly.
-        // We'll update this to test a valid one.
         const parser = new SwaggerParser({ openapi: '3.0.0', info: validInfo, paths: {} } as any, config);
         expect(parser.getSpecVersion()).toEqual({ type: 'openapi', version: '3.0.0' });
     });

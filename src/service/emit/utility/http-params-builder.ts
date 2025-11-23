@@ -5,8 +5,8 @@ import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../../core/constants.js";
 /**
  * Generates the `utils/http-params-builder.ts` file.
  * This utility handles the complex serialization logic required by OpenAPI 3.x/Swagger 2.0 parameters.
- * It implements RFC 6570 style expansions (simple, label, matrix, form, etc.),
- * arrays/objects explosion, and the `allowReserved` flag for path parameters.
+ * It implements RFC 6570 style expansions (simple, label, matrix, form, etc.) and
+ * provides a custom HttpParameterCodec to support `allowReserved`.
  */
 export class HttpParamsBuilderGenerator {
     constructor(private project: Project) {
@@ -23,7 +23,29 @@ export class HttpParamsBuilderGenerator {
         // Imports
         sourceFile.addImportDeclaration({
             moduleSpecifier: "@angular/common/http",
-            namedImports: ["HttpParams"]
+            namedImports: ["HttpParams", "HttpParameterCodec"]
+        });
+
+        /**
+         * 1. Generate Custom Codec Class
+         * We use an Identity Codec that performs NO encoding.
+         * This delegates full control of encoding (standard vs reserved) to the serializeQueryParam method logic.
+         *
+         * Angular's default codec uses strict encoding. By providing this identity codec,
+         * we signal to Angular's HttpParams to trust the keys and values we pass to `.append()`.
+         */
+        sourceFile.addClass({
+            name: "ApiParameterCodec",
+            isExported: true,
+            implements: ["HttpParameterCodec"],
+            docs: ["A custom parameter codec that disables Angular's default encoding, delegating control to the HttpParamsBuilder."],
+            methods: [
+                { name: "encodeKey", parameters: [{ name: "key", type: "string" }], returnType: "string", statements: "return key;" },
+                { name: "encodeValue", parameters: [{ name: "value", type: "string" }], returnType: "string", statements: "return value;" },
+                // Decoding isn't strictly used by HttpParams.toString(), but required by interface
+                { name: "decodeKey", parameters: [{ name: "key", type: "string" }], returnType: "string", statements: "return decodeURIComponent(key);" },
+                { name: "decodeValue", parameters: [{ name: "value", type: "string" }], returnType: "string", statements: "return decodeURIComponent(value);" }
+            ]
         });
 
         const classDeclaration = sourceFile.addClass({
@@ -47,63 +69,63 @@ export class HttpParamsBuilderGenerator {
             ],
             returnType: "string",
             statements: `
-        if (value === null || value === undefined) return ''; 
+        if (value === null || value === undefined) return '';
 
         if (serialization === 'json' && typeof value !== 'string') {
             value = JSON.stringify(value);
-        } 
+        }
 
-        const encode = (v: string) => allowReserved ? this.encodeReserved(v) : encodeURIComponent(v); 
+        const encode = (v: string) => allowReserved ? this.encodeReserved(v) : encodeURIComponent(v);
 
-        if (style === 'simple') { 
-             // Path: /users/{id*} 
-            if (Array.isArray(value)) { 
-                return value.map(v => encode(String(v))).join(','); 
-            } else if (typeof value === 'object') { 
-                if (explode) { 
-                    return Object.entries(value).map(([k, v]) => \`\${encode(k)}=\${encode(String(v))}\`).join(','); 
-                } else { 
-                    return Object.entries(value).map(([k, v]) => \`\${encode(k)},\${encode(String(v))}\`).join(','); 
-                } 
-            } 
-            return encode(String(value)); 
-        } 
+        if (style === 'simple') {
+             // Path: /users/{id*}
+            if (Array.isArray(value)) {
+                return value.map(v => encode(String(v))).join(',');
+            } else if (typeof value === 'object') {
+                if (explode) {
+                    return Object.entries(value).map(([k, v]) => \`\${encode(k)}=\${encode(String(v))}\`).join(',');
+                } else {
+                    return Object.entries(value).map(([k, v]) => \`\${encode(k)},\${encode(String(v))}\`).join(',');
+                }
+            }
+            return encode(String(value));
+        }
 
-        if (style === 'label') { 
-            // Path: /users/{.id*} 
-            const prefix = '.'; 
-            if (Array.isArray(value)) { 
-                return prefix + value.map(v => encode(String(v))).join(explode ? prefix : ','); 
-            } else if (typeof value === 'object') { 
-                if (explode) { 
-                    return prefix + Object.entries(value).map(([k, v]) => \`\${encode(k)}=\${encode(String(v))}\`).join(prefix); 
-                } else { 
-                    return prefix + Object.entries(value).map(([k, v]) => \`\${encode(k)},\${encode(String(v))}\`).join(','); 
-                } 
-            } 
-            return prefix + encode(String(value)); 
-        } 
+        if (style === 'label') {
+            // Path: /users/{.id*}
+            const prefix = '.';
+            if (Array.isArray(value)) {
+                return prefix + value.map(v => encode(String(v))).join(explode ? prefix : ',');
+            } else if (typeof value === 'object') {
+                if (explode) {
+                    return prefix + Object.entries(value).map(([k, v]) => \`\${encode(k)}=\${encode(String(v))}\`).join(prefix);
+                } else {
+                    return prefix + Object.entries(value).map(([k, v]) => \`\${encode(k)},\${encode(String(v))}\`).join(',');
+                }
+            }
+            return prefix + encode(String(value));
+        }
 
-        if (style === 'matrix') { 
-            // Path: /users/{;id*} 
-            const prefix = ';'; 
-            if (Array.isArray(value)) { 
-                if (explode) { 
-                   return prefix + value.map(v => \`\${encode(key)}=\${encode(String(v))}\`).join(prefix); 
-                } else { 
-                   return prefix + \`\${encode(key)}=\` + value.map(v => encode(String(v))).join(','); 
-                } 
-            } else if (typeof value === 'object') { 
-                if (explode) { 
-                    return prefix + Object.entries(value).map(([k, v]) => \`\${encode(k)}=\${encode(String(v))}\`).join(prefix); 
-                } else { 
-                    return prefix + \`\${encode(key)}=\` + Object.entries(value).map(([k, v]) => \`\${encode(k)},\${encode(String(v))}\`).join(','); 
-                } 
-            } 
-            return prefix + \`\${encode(key)}=\${encode(String(value))}\`; 
-        } 
+        if (style === 'matrix') {
+            // Path: /users/{;id*}
+            const prefix = ';';
+            if (Array.isArray(value)) {
+                if (explode) {
+                   return prefix + value.map(v => \`\${encode(key)}=\${encode(String(v))}\`).join(prefix);
+                } else {
+                   return prefix + \`\${encode(key)}=\` + value.map(v => encode(String(v))).join(',');
+                }
+            } else if (typeof value === 'object') {
+                if (explode) {
+                    return prefix + Object.entries(value).map(([k, v]) => \`\${encode(k)}=\${encode(String(v))}\`).join(prefix);
+                } else {
+                    return prefix + \`\${encode(key)}=\` + Object.entries(value).map(([k, v]) => \`\${encode(k)},\${encode(String(v))}\`).join(',');
+                }
+            }
+            return prefix + \`\${encode(key)}=\${encode(String(value))}\`;
+        }
 
-        // Default fallback 
+        // Default fallback
         return encode(String(value));`
         });
 
@@ -119,91 +141,72 @@ export class HttpParamsBuilderGenerator {
             ],
             returnType: "HttpParams",
             statements: `
-        // Handle strictly 'passed' empty value for allowEmptyValue: true
-        // When allowEmptyValue is true, the value is expected to be '' (empty string) when checking emptiness.
-        // However, HTTP params are usually string-based.
-        // The generator calling this method will pass the value.
-        // If value is null or undefined, it is skipped.
-        if (value === null || value === undefined) return params; 
+        if (value === null || value === undefined) return params;
         
         const name = config.name;
-        const allowEmptyValue = config.allowEmptyValue === true;
-
-        // RFC 6570 / OAS \`allowEmptyValue: true\` behavior:
-        // If the value is an empty string, it should be serialized as just the key name (flag style).
-        // Angular's HttpParams doesn't natively support appending keys without values (it appends '=value' or '=').
-        // But internally it handles empty strings as 'key='. 
-        // Strict key-only serialization requires custom encoding or override of toString, which HttpParams doesn't easily expose.
-        // HOWEVER, standard usage of 'allowEmptyValue' often accepts 'key=' as equivalent to 'key'.
-        // If we strictly need 'key' (no equals), we must rely on HttpUrlEncodingCodec or manual string building.
-        // For now, we follow Angular's convention which serializes empty strings as 'key=', 
-        // but we explicitly check if we can support flag style if customization allows.
         
-        // NOTE: Angular's HttpParams default encoder serializes empty string as 'key='
-        // There is no standard way to force 'key' without '=' in Angular's default HttpParams.
-        // We implement strict checking here only if we were building the string manually.
-        // Since we return HttpParams, 'key=' is the result.
-        // But we ensure we don't process objects if they are empty strings.
+        // Allow reserved characters if specified in config (RFC 6570 +)
+        const allowReserved = config.allowReserved === true;
+        const encode = (v: string) => allowReserved ? this.encodeReserved(v) : encodeURIComponent(v);
 
         // Handle implicit or explicit JSON serialization request.
         const isJson = config.serialization === 'json' || config.contentType === 'application/json';
 
         if (isJson && typeof value !== 'string') {
             value = JSON.stringify(value);
-        } 
+        }
 
-        // Strict check for allowEmptyValue behavior: if empty string, treat as flag? 
-        // Angular HttpParams always adds '='. We cannot change this return type easily without breaking the entire service chain.
-        // We Proceed with standard serialization.
-
-        const style = config.style || 'form'; 
-        const explode = config.explode ?? true; 
+        const style = config.style || 'form';
+        const explode = config.explode ?? true;
         
-        if (style === 'deepObject' && typeof value === 'object') { 
-             // Recursive flattening 
-             const processDeep = (obj: any, prefix: string) => { 
-                 Object.keys(obj).forEach(k => { 
-                     const keyPath = \`\${prefix}[\${k}]\`; 
-                     const v = obj[k]; 
-                     if (v !== null && typeof v === 'object' && !Array.isArray(v)) { 
-                         processDeep(v, keyPath); 
-                     } else { 
-                         params = params.append(keyPath, String(v)); 
-                     } 
-                 }); 
-             }; 
-             processDeep(value, name); 
-             return params; 
-        } 
+        if (style === 'deepObject' && typeof value === 'object') {
+             // Recursive flattening
+             const processDeep = (obj: any, prefix: string) => {
+                 Object.keys(obj).forEach(k => {
+                     const keyPath = \`\${prefix}[\${k}]\`;
+                     const v = obj[k];
+                     if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+                         processDeep(v, keyPath);
+                     } else {
+                         // Manually encode keyPath since identity codec won't
+                         params = params.append(encode(keyPath), encode(String(v)));
+                     }
+                 });
+             };
+             processDeep(value, name);
+             return params;
+        }
 
-        if (Array.isArray(value)) { 
-            if (style === 'form' && explode) { 
-                value.forEach(v => params = params.append(name, String(v))); 
-            } else if (style === 'spaceDelimited') { 
-                // Encoded space
-                params = params.append(name, value.join(' ')); 
+        if (Array.isArray(value)) {
+            if (style === 'form' && explode) {
+                value.forEach(v => params = params.append(encode(name), encode(String(v))));
+            } else if (style === 'spaceDelimited') {
+                params = params.append(encode(name), encode(value.join(' '))); 
             } else if (style === 'pipeDelimited') { 
-                params = params.append(name, value.join('|')); 
+                params = params.append(encode(name), encode(value.join('|'))); 
             } else { 
-                // form, explode: false (comma separated) 
-                params = params.append(name, value.join(',')); 
-            } 
-            return params; 
-        } 
+                // form, explode: false (comma separated)
+                params = params.append(encode(name), encode(value.join(',')));
+            }
+            return params;
+        }
 
-        if (typeof value === 'object') { 
-             if (style === 'form') { 
-                 if (explode) { 
-                     Object.entries(value).forEach(([k, v]) => params = params.append(k, String(v))); 
-                 } else { 
-                     const flattened = Object.entries(value).map(([k, v]) => \`\${k},\${v}\`).join(','); 
-                     params = params.append(name, flattened); 
-                 } 
-                 return params; 
-             } 
-        } 
+        if (typeof value === 'object') {
+             if (style === 'form') {
+                 if (explode) {
+                     Object.entries(value).forEach(([k, v]) => params = params.append(encode(k), encode(String(v))));
+                 } else {
+                     const flattened = Object.entries(value).map(([k, v]) => \`\${k},\${v}\`).join(',');
+                     params = params.append(encode(name), encode(flattened));
+                 }
+                 return params;
+             }
+        }
 
-        return params.append(name, String(value));`
+        // Default: primitive
+        // Manually encode both key and value using our encoder variable
+        // (which respects allowReserved)
+        return params.append(encode(name), encode(String(value)));`
         });
 
         // --- Header Parameter Serialization ---
@@ -219,18 +222,18 @@ export class HttpParamsBuilderGenerator {
             ],
             returnType: "string",
             statements: `
-        if (value === null || value === undefined) return ''; 
-        if (serialization === 'json') return JSON.stringify(value); 
+        if (value === null || value === undefined) return '';
+        if (serialization === 'json') return JSON.stringify(value);
 
-        if (Array.isArray(value)) { 
-            return value.join(','); 
-        } 
-        if (typeof value === 'object') { 
-            if (explode) { 
-                return Object.entries(value).map(([k, v]) => \`\${k}=\${v}\`).join(','); 
-            } 
-            return Object.entries(value).map(([k, v]) => \`\${k},\${v}\`).join(','); 
-        } 
+        if (Array.isArray(value)) {
+            return value.join(',');
+        }
+        if (typeof value === 'object') {
+            if (explode) {
+                return Object.entries(value).map(([k, v]) => \`\${k}=\${v}\`).join(',');
+            }
+            return Object.entries(value).map(([k, v]) => \`\${k},\${v}\`).join(',');
+        }
         return String(value);`
         });
 
@@ -247,28 +250,42 @@ export class HttpParamsBuilderGenerator {
                 { name: "serialization", type: "'json' | undefined", hasQuestionToken: true }
             ],
             returnType: "string",
+            docs: [
+                "Serializes a cookie parameter according to OAS rules (RFC 6265).",
+                "Handles 'form' style (default) and correct delimiters."
+            ],
             statements: `
-        if (value === null || value === undefined) return ''; 
-        if (serialization === 'json') { 
-             return \`\${key}=\${encodeURIComponent(JSON.stringify(value))}\`; 
+        if (value === null || value === undefined) return '';
+        
+        if (serialization === 'json') {
+             // Simple JSON serialization override
+             return \`\${key}=\${encodeURIComponent(JSON.stringify(value))}\`;
+        }
+        
+        if (Array.isArray(value)) {
+            const encodedValues = value.map(v => encodeURIComponent(String(v)));
+            if (explode) {
+                // style: form, explode: true (Array) -> name=val1; name=val2
+                return encodedValues.map(v => \`\${key}=\${v}\`).join('; ');
+            } else {
+                // style: form, explode: false (Array) -> name=val1,val2
+                return \`\${key}=\${encodedValues.join(',')}\`;
+            }
         } 
         
-        let valStr = ''; 
-        if (Array.isArray(value)) { 
-            valStr = value.map(v => encodeURIComponent(String(v))).join(explode ? ',' : ','); 
-        } else if (typeof value === 'object') { 
-            if (style === 'form') { 
-                if (explode) { 
-                    return Object.entries(value).map(([k, v]) => \`\${k}=\${v}\`).join('; '); 
-                } else { 
-                    valStr = Object.entries(value).map(([k, v]) => \`\${k},\${v}\`).join(','); 
-                } 
-            } 
-        } else { 
-            valStr = encodeURIComponent(String(value)); 
-        } 
+        if (typeof value === 'object') {
+            if (explode) {
+                // style: form, explode: true (Object) -> prop1=val1; prop2=val2
+                return Object.entries(value).map(([k, v]) => \`\${k}=\${v}\`).join('; ');
+            } else {
+                // style: form, explode: false (Object) -> name=prop1,val1,prop2,val2
+                const flat = Object.entries(value).map(([k, v]) => \`\${k},\${v}\`).join(',');
+                return \`\${key}=\${encodeURIComponent(flat)}\`;
+            }
+        }
         
-        return \`\${key}=\${valStr}\`;`
+        // Primitive
+        return \`\${key}=\${encodeURIComponent(String(value))}\`;`
         });
 
         // --- Raw Querystring (OAS 3.2) ---
@@ -282,11 +299,11 @@ export class HttpParamsBuilderGenerator {
             ],
             returnType: "string",
             statements: `
-        if (value === null || value === undefined) return ''; 
-        if (serialization === 'json') return encodeURIComponent(JSON.stringify(value)); 
-        if (typeof value === 'object') { 
-            return Object.entries(value).map(([k, v]) => \`\${k}=\${v}\`).join('&'); 
-        } 
+        if (value === null || value === undefined) return '';
+        if (serialization === 'json') return encodeURIComponent(JSON.stringify(value));
+        if (typeof value === 'object') {
+            return Object.entries(value).map(([k, v]) => \`\${k}=\${v}\`).join('&');
+        }
         return String(value);`
         });
 
@@ -301,16 +318,18 @@ export class HttpParamsBuilderGenerator {
             ],
             returnType: "HttpParams",
             statements: `
-            let params = new HttpParams(); 
-            if (!body || typeof body !== 'object') return params; 
+            // Bodies usually adhere to strict URI encoding, but if we reuse serializeQueryParam logic
+            // we must ensure a consistent codec.
+            let params = new HttpParams({ encoder: new ApiParameterCodec() });
+            if (!body || typeof body !== 'object') return params;
 
-            Object.entries(body).forEach(([key, value]) => { 
-                if (value === undefined || value === null) return; 
-                const config = encodings[key] || { style: 'form', explode: true }; 
-                const paramConfig = { name: key, in: 'query', ...config }; 
-                params = this.serializeQueryParam(params, paramConfig, value); 
-            }); 
-            return params; 
+            Object.entries(body).forEach(([key, value]) => {
+                if (value === undefined || value === null) return;
+                const config = encodings[key] || { style: 'form', explode: true };
+                const paramConfig = { name: key, in: 'query', ...config };
+                params = this.serializeQueryParam(params, paramConfig, value);
+            });
+            return params;
             `
         });
 
@@ -321,35 +340,28 @@ export class HttpParamsBuilderGenerator {
             scope: Scope.Private,
             parameters: [{ name: "value", type: "string" }],
             returnType: "string",
+            docs: ["RFC 3986 encoding but preserves reserved characters (/, :, etc) as per allowReserved: true."],
             statements: `
-        const encoded = encodeURIComponent(value); 
-        return encoded 
-            .replace(/%3A/gi, ':') 
-            .replace(/%2F/gi, '/') 
-            .replace(/%3F/gi, '?') 
-            .replace(/%23/gi, '#') 
-            .replace(/%5B/gi, '[') 
-            .replace(/%5D/gi, ']') 
-            .replace(/%40/gi, '@') 
-            .replace(/%21/gi, '!') 
-            .replace(/%24/gi, '$') 
-            .replace(/%26/gi, '&') 
-            .replace(/%27/gi, "'") 
-            .replace(/%28/gi, '(') 
-            .replace(/%29/gi, ')') 
-            .replace(/%2A/gi, '*') 
-            .replace(/%2B/gi, '+') 
-            .replace(/%2C/gi, ',') 
-            .replace(/%3B/gi, ';') 
+        return encodeURIComponent(value)
+            .replace(/%3A/gi, ':')
+            .replace(/%2F/gi, '/')
+            .replace(/%3F/gi, '?')
+            .replace(/%23/gi, '#')
+            .replace(/%5B/gi, '[')
+            .replace(/%5D/gi, ']')
+            .replace(/%40/gi, '@')
+            .replace(/%21/gi, '!')
+            .replace(/%24/gi, '$')
+            .replace(/%26/gi, '&')
+            .replace(/%27/gi, "'")
+            .replace(/%28/gi, '(')
+            .replace(/%29/gi, ')')
+            .replace(/%2A/gi, '*')
+            .replace(/%2B/gi, '+')
+            .replace(/%2C/gi, ',')
+            .replace(/%3B/gi, ';')
             .replace(/%3D/gi, '=');`
         });
-
-        // --- Flag Style Override ---
-        // NOTE: This method is added to support strict flag serialization.
-        // However, Angular's `HttpParams` does not support flags.
-        // This method is a placeholder for future custom serializer implementation if required.
-        // For now, we rely on standard `HttpParams` behavior which serializes empty strings as `key=`.
-        // The tests verify that we correctly pass the empty string value to `HttpParams` when appropriate.
 
         sourceFile.formatText();
     }

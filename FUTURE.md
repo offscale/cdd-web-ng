@@ -1,18 +1,48 @@
-### Roadmap & Feature Compliance
+Future
+======
 
-This project already implements a vast and powerful set of features from the OpenAPI specification, focusing on the most common use cases for modern Angular applications. The table below outlines features from the standard that are not yet implemented, ordered by priority. This can serve as a roadmap for future development.
+This project could go in multiple directions.
 
-| Priority                                   | Feature                                                                          | Description & Justification                                                                                                                                                                                                                                                              |
-| :----------------------------------------- | :------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 🚀 **High**                                  | Multi-Document Support (`$ref` to external files)                                | **What:** Allow `$ref` to point to external local or remote files (e.g., `./schemas/User.yaml`). <br/> **Why:** This is crucial for large, real-world APIs where the specification is split across multiple files for maintainability. Implementing this would dramatically increase the generator's utility for enterprise-scale projects. |
-| 🚀 **High**                                  | Server Configuration (`servers` array & `variables`)                             | **What:** Support for the top-level `servers` array, including URL variables for templating hosts, ports, or base paths. <br/> **Why:** This is the standard way to define different environments (dev, staging, prod) and is more flexible than a single `basePath` injection token. |
-| 🚀 **High**                                  | Advanced Parameter Serialization (`style`/`explode`)                             | **What:** Fully support the `style` and `explode` keywords on `Parameter Object`s to control how arrays and objects are formatted in query strings and paths. <br/> **Why:** Correctly handling common patterns like `?ids=1&ids=2` (`style: 'form', explode: true`) is a fundamental part of spec compliance. |
-| 🚀 **High**                                  | Support for Other Media Types (`application/x-www-form-urlencoded`, `multipart/form-data`) | **What:** Parse schemas for common media types beyond `application/json`. <br/> **Why:** Many APIs use `x-www-form-urlencoded` for simple forms (like OAuth) and `multipart/form-data` for file uploads with associated metadata. This would make the generator much more versatile. |
-| 🚀 **High**                                  | Modern Binary Data Representation (`contentMediaType`/`contentEncoding`)         | **What:** Support the OpenAPI 3.1+ approach to defining binary data using JSON Schema's `contentMediaType` and `contentEncoding`. <br/> **Why:** While your current `format: 'binary'` works for OAS 3.0, adopting the modern standard ensures future-proofing and better spec alignment. |
-| 🔧 **Medium**                                | Links & Hypermedia (`Link Object`)                                               | **What:** Parse the `links` object in responses to understand HATEOAS relationships between operations. <br/> **Why:** This would enable the generation of "smarter" client libraries with helper methods on models to navigate the API, elevating the developer experience. |
-| 🔧 **Medium**                                | Expanded Security Schemes (`openIdConnect`)                                      | **What:** Add support for the `openIdConnect` security scheme, which includes a `openIdConnectUrl` for auto-discovery. <br/> **Why:** This is a natural and valuable extension of your existing OAuth2 support, common in modern authentication setups. |
-| 🔧 **Medium**                                | Callbacks (`Callback Object`)                                                    | **What:** Support the `callbacks` field on operations for defining out-of-band, asynchronous responses to an API call. <br/> **Why:** This is essential for APIs with long-running processes or asynchronous workflows where the server calls back to the client. |
-| 🔧 **Medium**                                | Additional `in` Locations (`cookie`, `querystring`)                              | **What:** Handle parameters located `in: "cookie"` or the special `in: "querystring"` which treats the entire query string as a single value. <br/> **Why:** Improves completeness of parameter handling, although these are less common than path, query, and header. |
-| 📚 **Low**                                   | Webhooks (`webhooks` object)                                                     | **What:** Support the top-level `webhooks` field for defining completely out-of-band events sent from the provider to the consumer. <br/> **Why:** This is a different paradigm from a client library making requests. It's a large feature better suited for generating server-side stubs. |
-| 📚 **Low**                                   | XML Modeling (`xml` object)                                                      | **What:** Parse the `xml` object within schemas to understand how a model should be represented as XML. <br/> **Why:** Your generator is clearly focused on the JSON/TypeScript ecosystem. XML support is a very heavy lift for a different data paradigm and is a low priority. |
-| 📚 **Low**                                   | Metadata in `Tag`, `ExternalDocs`, etc.                                          | **What:** Use descriptive metadata from `Tag Object`s or `External Documentation Object`s. <br/> **Why:** This is a "nice-to-have" polishing step to add richer JSDoc comments to the generated services and models, improving developer experience but not affecting runtime. |
+One idea I've been playing with is to focus on interoperability. This is out-of-scope for cdd-web-_ng_ as the _ng_
+stands for Angular… but this repo could be split up into base/`abstract` `class`es whence this repo has the Angular
+specific tech… or even rename this repo and this package handles all Angular and non-Angular solutions (in the
+TypeScript web-frontend framework space).
+
+## Full OpenAPI 3.2.0 + Swagger 2 compatibility
+
+- [ ] Full OpenAPI 3.2.0 + Swagger 2 compatibility
+
+## HTTP client interoperability
+
+Add support for:
+
+- [ ] [Fetch API (builtin)](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API)
+- [ ] [Axios](https://axios-http.com)
+
+## Framework interoperability
+
+Add support for creating an auto-admin UI for/with:
+
+- [ ] [Web components (builtin)](https://developer.mozilla.org/en-US/docs/Web/API/Web_components)
+- [ ] [Qwik](https://qwik.dev)
+- [ ] [React](https://react.dev)
+- [ ] [Svelte](https://svelte.dev)
+- [ ] [Vue](https://vuejs.org)
+
+## Sync within codebase
+
+- [ ] Modify mock can update client can update admin UI.
+- [ ] Modify admin UI can update mock can update client.
+
+## FROM codebase TO OpenAPI
+
+- [ ] Bidirectionality is what distinctly makes it _cdd_: **C**ompiler **D**riven **D**evelopment.
+
+## CI/CD
+
+GitHub Actions for:
+
+- [ ] tests
+- [ ] linting and other code-quality checks
+- [ ] release to npmjs
+- [ ] release hosted HTML API docs

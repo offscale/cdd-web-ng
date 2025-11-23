@@ -77,6 +77,33 @@ const serviceMethodGenSpec = {
                 responses: { '200': {} }
             }
         },
+        '/xml-params/{xmlId}': {
+            get: {
+                operationId: 'getXmlParams',
+                parameters: [
+                    {
+                        name: 'filter',
+                        in: 'query',
+                        content: {
+                            'application/xml': {
+                                schema: {
+                                    type: 'object',
+                                    properties: { active: { type: 'boolean', xml: { attribute: true } } }
+                                }
+                            }
+                        }
+                    },
+                    {
+                        name: 'xmlId',
+                        in: 'path',
+                        content: {
+                            'application/xml': { schema: { type: 'string' } }
+                        }
+                    }
+                ],
+                responses: { '200': {} }
+            }
+        },
         '/readonly-test': {
             post: {
                 operationId: 'postReadOnly',
@@ -314,9 +341,13 @@ const serviceMethodGenSpec = {
 
 describe('Emitter: ServiceMethodGenerator', () => {
 
-    const createTestEnvironment = (spec: object = serviceMethodGenSpec) => {
+    const createTestEnvironment = (spec: object = serviceMethodGenSpec, configOverrides: Partial<GeneratorConfig['options']> = {}) => {
         const project = new Project({ useInMemoryFileSystem: true });
-        const config: GeneratorConfig = { input: '', output: '/out', options: { dateType: 'Date', enumStyle: 'enum' } };
+        const config: GeneratorConfig = {
+            input: '',
+            output: '/out',
+            options: { dateType: 'Date', enumStyle: 'enum', ...configOverrides }
+        };
         const parser = new SwaggerParser(spec as any, config);
         new TypeGenerator(parser, project, config).generate('/out');
         new HttpParamsBuilderGenerator(project).generate('/out');
@@ -325,9 +356,9 @@ describe('Emitter: ServiceMethodGenerator', () => {
         const methodGen = new ServiceMethodGenerator(config, parser);
         const sourceFile = project.createSourceFile('/out/tmp.service.ts');
         const serviceClass = sourceFile.addClass({ name: 'TmpService' });
-        sourceFile.addImportDeclaration({ moduleSpecifier: '@angular/common/http', namedImports: ['HttpHeaders', 'HttpContext', 'HttpParams'] });
+        // Mock the http property
+        serviceClass.addProperty({ name: 'http', scope: Scope.Private, isReadonly: true, type: 'any' });
         serviceClass.addProperty({ name: 'basePath', isReadonly: true, scope: Scope.Private, type: 'string', initializer: "''" });
-        serviceClass.addProperty({ name: 'http', isReadonly: true, scope: Scope.Private, type: 'any', initializer: "{}" });
         serviceClass.addMethod({ name: 'createContextWithClientId', scope: Scope.Private, returnType: 'any', statements: 'return {};' });
         return { methodGen, serviceClass, parser };
     };
@@ -347,6 +378,28 @@ describe('Emitter: ServiceMethodGenerator', () => {
         expect(body).toContain(`return this.http.post(url, xmlBody`);
     });
 
+    it('should detect application/xml parameters and generate xml serialization logic', () => {
+        const { methodGen, serviceClass } = createTestEnvironment();
+        const opKey = '/xml-params/{xmlId}';
+        const op: PathInfo = {
+            ...serviceMethodGenSpec.paths[opKey].get,
+            method: 'GET', path: opKey, methodName: 'getXmlParams'
+        } as any;
+
+        methodGen.addServiceMethod(serviceClass, op);
+
+        const body = serviceClass.getMethodOrThrow('getXmlParams').getBodyText()!;
+
+        expect(body).toContain(`let filterSerialized: any = filter;`);
+        expect(body).toContain(`filterSerialized = XmlBuilder.serialize(filter, 'filter',`);
+        expect(body).toContain(`"active":{"attribute":true}`);
+        expect(body).toContain(`HttpParamsBuilder.serializeQueryParam(params, {"name":"filter","in":"query",`);
+        expect(body).toContain(`, filterSerialized);`);
+        expect(body).toContain(`let xmlIdSerialized: any = xmlId;`);
+        expect(body).toContain(`xmlIdSerialized = XmlBuilder.serialize(xmlId, 'xmlId',`);
+        expect(body).toContain(`serializePathParam('xmlId', xmlIdSerialized,`);
+    });
+
     it('should generate blob wrapping for encoded multipart fields using accurate OAS 3.2 default logic', () => {
         const { methodGen, serviceClass } = createTestEnvironment();
         const op: PathInfo = {
@@ -360,7 +413,6 @@ describe('Emitter: ServiceMethodGenerator', () => {
 
         const body = serviceClass.getMethodOrThrow('postEncoded').getBodyText()!;
 
-        // Updated Expectation: Code now delegates to MultipartBuilder and sets correct config
         expect(body).toContain('const multipartConfig = {"profile":{"contentType":"application/json"},"avatar":{"contentType":"image/png"}};');
         expect(body).toContain('const multipartResult = MultipartBuilder.serialize(body, multipartConfig);');
         expect(body).toContain('if (multipartResult.headers) {');
@@ -470,25 +522,26 @@ describe('Emitter: ServiceMethodGenerator', () => {
         });
     });
 
-    it('should apply SKIP_AUTH_CONTEXT_TOKEN to requests with security: []', () => {
+    it('should NOT apply SECURITY_CONTEXT_TOKEN for explicit skip (default behavior)', () => {
         const { methodGen, serviceClass, parser } = createTestEnvironment();
         const op = parser.operations.find((o: any) => o.operationId === 'getPublic')!;
         op.methodName = 'getPublic';
         methodGen.addServiceMethod(serviceClass, op);
 
         const body = serviceClass.getMethodOrThrow('getPublic').getBodyText()!;
-        expect(body).toContain('.set(SKIP_AUTH_CONTEXT_TOKEN, true)');
+        // Expect NO context setting because effective security is [], which means we don't inject the token.
+        // The absence of the token in the context is interpreted by the interceptor as "skip/anonymous".
+        expect(body).not.toContain('SECURITY_CONTEXT_TOKEN');
     });
 
-    it('should generate context with AUTH_SCOPES_CONTEXT_TOKEN when security scopes are present', () => {
+    it('should generate context with SECURITY_CONTEXT_TOKEN when security scopes are present', () => {
         const { methodGen, serviceClass, parser } = createTestEnvironment();
         const op = parser.operations.find((o: any) => o.operationId === 'getOauthProtected')!;
         op.methodName = 'getOauthProtected';
         methodGen.addServiceMethod(serviceClass, op);
 
         const body = serviceClass.getMethodOrThrow('getOauthProtected').getBodyText()!;
-        // Expected scopes from spec: ['read:admin', 'write:admin']
-        expect(body).toContain('.set(AUTH_SCOPES_CONTEXT_TOKEN, ["read:admin","write:admin"])');
+        expect(body).toContain('.set(SECURITY_CONTEXT_TOKEN, [{"OAuth2":["read:admin","write:admin"]}])');
     });
 
     it('should generate @deprecated JSDoc for deprecated operations', () => {
@@ -515,10 +568,8 @@ describe('Emitter: ServiceMethodGenerator', () => {
         methodGen.addServiceMethod(serviceClass, op);
 
         const method = serviceClass.getMethodOrThrow('getDeprecatedParam');
-        // We check the overloads effectively because JSDoc for consumers is on the overloads
         const overload = method.getOverloads()[0];
         const param = overload.getParameters()[0];
-        // getFullText() captures the leading trivia (JSDoc comments) attached to the parameter node, which we injected via 'leadingTrivia'
         expect(param.getFullText()).toContain('@deprecated');
     });
 
@@ -544,12 +595,10 @@ describe('Emitter: ServiceMethodGenerator', () => {
 
         const body = serviceClass.getMethodOrThrow('copyResource').getBodyText()!;
 
-        // UPDATED Expectation: The new implementation falls through to generic request without explicit body argument injection
-        // if bodyArgument is treated as 'null'.
         expect(body).toContain("return this.http.request('COPY', url, requestOptions as any);");
     });
 
-    it('should warn about forbidden Cookie headers during generation and in runtime code', () => {
+    it('should warn about forbidden Cookie headers during generation and in runtime code (Browser Default)', () => {
         const { methodGen, serviceClass, parser } = createTestEnvironment();
         const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
@@ -557,15 +606,24 @@ describe('Emitter: ServiceMethodGenerator', () => {
         op.methodName = 'getWithCookies';
         methodGen.addServiceMethod(serviceClass, op);
 
-        // Check build-time warning
-        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("forbidden in standard browser environments"));
-
-        // Check generated code warning
         const body = serviceClass.getMethodOrThrow('getWithCookies').getBodyText()!;
-        expect(body).toContain("console.warn('Operation getWithCookies attempts to set \"Cookie\" header manually");
+        expect(body).toContain("if (typeof window !== 'undefined') { console.warn");
         expect(body).toContain("headers = headers.set('Cookie'");
 
         warnSpy.mockRestore();
+    });
+
+    it('should NOT emit runtime warning logic for cookies if platform is "node"', () => {
+        const { methodGen, serviceClass, parser } = createTestEnvironment(serviceMethodGenSpec, { platform: 'node' });
+        const op = parser.operations.find(o => o.operationId === 'getWithCookies')!;
+        op.methodName = 'getWithCookiesNode';
+
+        methodGen.addServiceMethod(serviceClass, op);
+        const body = serviceClass.getMethodOrThrow('getWithCookiesNode').getBodyText()!;
+
+        expect(body).not.toContain('console.warn');
+        expect(body).not.toContain('typeof window');
+        expect(body).toContain("headers = headers.set('Cookie'");
     });
 
     it('should generate logic for in: "querystring" parameters', () => {
@@ -585,7 +643,6 @@ describe('Emitter: ServiceMethodGenerator', () => {
     it('should handle HTTP QUERY method with request body using generic request override', () => {
         const { methodGen, serviceClass } = createTestEnvironment();
 
-        // Manually mock the expected parser behavior for the QUERY method from our spec
         const op: PathInfo = {
             method: 'QUERY',
             path: '/query-search',
@@ -604,7 +661,6 @@ describe('Emitter: ServiceMethodGenerator', () => {
 
         const body = serviceClass.getMethodOrThrow('querySearch').getBodyText()!;
 
-        // NOTE: `let` vs `const` due to multipart header support
         expect(body).toContain("let requestOptions: HttpRequestOptions = {");
         expect(body).toContain("return this.http.request('QUERY', url, { ...requestOptions, body: body } as any);");
     });

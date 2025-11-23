@@ -1,11 +1,11 @@
 import { ClassDeclaration, Project, Scope, SourceFile } from 'ts-morph';
-import { FormProperty, Resource, SwaggerDefinition } from '../../../core/types.js';
-import { camelCase, getTypeScriptType, pascalCase, singular } from '../../../core/utils.js';
+import { FormProperty, Resource, SwaggerDefinition } from '@src/core/types.js';
+import { camelCase, getTypeScriptType, pascalCase, singular } from '@src/core/utils.js';
 import { commonStandaloneImports } from './common-imports.js';
 import { mapSchemaToFormControl } from './form-control.mapper.js';
 import { generateFormComponentHtml } from './html/form-component-html.builder.js';
 import { generateFormComponentScss } from './html/form-component-scss.builder.js';
-import { SwaggerParser } from '../../../core/parser.js';
+import { SwaggerParser } from '@src/core/parser.js';
 
 /**
  * Orchestrates the generation of a complete Angular standalone form component,

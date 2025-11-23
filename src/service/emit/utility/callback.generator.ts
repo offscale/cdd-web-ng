@@ -1,9 +1,9 @@
 import * as path from "node:path";
 import { Project, VariableDeclarationKind } from "ts-morph";
-import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../../core/constants.js";
-import { SwaggerParser } from "../../../core/parser.js";
-import { extractPaths, getRequestBodyType, getResponseType, pascalCase } from "../../../core/utils.js";
-import { PathInfo, PathItem } from "../../../core/types.js";
+import { UTILITY_GENERATOR_HEADER_COMMENT } from "@src/core/constants.js";
+import { SwaggerParser } from "@src/core/parser.js";
+import { extractPaths, getRequestBodyType, getResponseType, pascalCase } from "@src/core/utils.js";
+import { PathInfo, PathItem } from "@src/core/types.js";
 
 /**
  * Generates the `callbacks.ts` file.

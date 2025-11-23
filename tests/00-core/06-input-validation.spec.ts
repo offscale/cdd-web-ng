@@ -85,6 +85,68 @@ describe('Core: Input Spec Validation', () => {
         });
     });
 
+    describe('License Object Validation', () => {
+        it('should throw if License contains both url and identifier (Mutually Exclusive)', () => {
+            const spec: any = {
+                openapi: '3.1.0',
+                info: {
+                    ...validInfo,
+                    license: {
+                        name: 'Apache 2.0',
+                        url: 'https://apache.org',
+                        identifier: 'Apache-2.0'
+                    }
+                },
+                paths: {}
+            };
+            expect(() => validateSpec(spec)).toThrow(/mutually exclusive/);
+        });
+
+        it('should accept License with only url', () => {
+            const spec: any = {
+                openapi: '3.0.0',
+                info: {
+                    ...validInfo,
+                    license: {
+                        name: 'MIT',
+                        url: 'https://opensource.org/licenses/MIT'
+                    }
+                },
+                paths: {}
+            };
+            expect(() => validateSpec(spec)).not.toThrow();
+        });
+
+        it('should accept License with only identifier (OAS 3.1+)', () => {
+            const spec: any = {
+                openapi: '3.1.0',
+                info: {
+                    ...validInfo,
+                    license: {
+                        name: 'MIT',
+                        identifier: 'MIT'
+                    }
+                },
+                paths: {}
+            };
+            expect(() => validateSpec(spec)).not.toThrow();
+        });
+
+        it('should accept License with neither url nor identifier (just name)', () => {
+            const spec: any = {
+                openapi: '3.0.0',
+                info: {
+                    ...validInfo,
+                    license: {
+                        name: 'Proprietary'
+                    }
+                },
+                paths: {}
+            };
+            expect(() => validateSpec(spec)).not.toThrow();
+        });
+    });
+
     describe('Integration with SwaggerParser', () => {
         it('should validate spec upon construction', () => {
             const invalidSpec: any = { openapi: '3.0.0' }; // No info

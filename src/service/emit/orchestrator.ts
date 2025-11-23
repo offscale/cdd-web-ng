@@ -1,3 +1,5 @@
+// src/service/emit/orchestrator.ts
+
 import { Project } from 'ts-morph';
 import { posix as path } from 'node:path';
 import { groupPathsByController } from '../parse.js';
@@ -21,6 +23,9 @@ import { ServerUrlGenerator } from './utility/server-url.generator.js';
 import { XmlBuilderGenerator } from './utility/xml-builder.generator.js';
 import { InfoGenerator } from "./utility/info.generator.js";
 import { MultipartBuilderGenerator } from "./utility/multipart-builder.generator.js";
+import { LinkServiceGenerator } from "./utility/link-service.generator.js";
+import { ResponseHeaderRegistryGenerator } from "./utility/response-header-registry.generator.js";
+import { ResponseHeaderParserGenerator } from "./utility/response-header-parser.generator.js";
 
 export async function emitClientLibrary(outputRoot: string, parser: SwaggerParser, config: GeneratorConfig, project: Project): Promise<void> {
     new TypeGenerator(parser, project, config).generate(outputRoot);
@@ -46,6 +51,9 @@ export async function emitClientLibrary(outputRoot: string, parser: SwaggerParse
         new ServerUrlGenerator(parser, project).generate(outputRoot);
         new XmlBuilderGenerator(project).generate(outputRoot);
         new MultipartBuilderGenerator(project).generate(outputRoot);
+        new LinkServiceGenerator(parser, project).generate(outputRoot);
+        new ResponseHeaderRegistryGenerator(parser, project).generate(outputRoot);
+        new ResponseHeaderParserGenerator(project).generate(outputRoot);
 
         if (config.options.dateType === 'Date') {
             new DateTransformerGenerator(project).generate(outputRoot);

@@ -373,6 +373,7 @@ type UnifiedParameter = SwaggerOfficialParameter & {
     allowEmptyValue?: boolean,
     content?: Record<string, { schema?: SwaggerDefinition }>,
     deprecated?: boolean
+    [key: string]: any; // Allow extensions on parameter objects
 };
 
 /**
@@ -536,6 +537,13 @@ export function extractPaths(
                     param.description = p.description;
                 }
 
+                // Propagate extensions like x-codegen-param-name from parameter object to normalized Parameter
+                Object.keys(p).forEach(key => {
+                    if (key.startsWith('x-')) {
+                        (param as any)[key] = (p as any)[key];
+                    }
+                });
+
                 return param;
             });
 
@@ -605,6 +613,14 @@ export function extractPaths(
             if (operation.deprecated) pathInfo.deprecated = operation.deprecated;
             if (operation.externalDocs) pathInfo.externalDocs = operation.externalDocs;
             if (effectiveSecurity) pathInfo.security = effectiveSecurity;
+
+            // Propagate custom extensions (x-custom-field) from the operation to PathInfo
+            // This allows generators to access vendor specific metadata on the operation level
+            Object.keys(operation).forEach(key => {
+                if (key.startsWith('x-') && !(key in pathInfo)) {
+                    pathInfo[key] = operation[key];
+                }
+            });
 
             paths.push(pathInfo);
         }

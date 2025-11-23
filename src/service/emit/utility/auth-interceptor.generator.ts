@@ -1,9 +1,9 @@
 // src/service/emit/utility/auth-interceptor.generator.ts
 import * as path from 'node:path';
 import { Project, Scope } from 'ts-morph';
-import { SwaggerParser } from '../../../core/parser.js';
-import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
-import { SecurityScheme } from '../../../core/types.js';
+import { SwaggerParser } from '@src/core/parser.js';
+import { UTILITY_GENERATOR_HEADER_COMMENT } from '@src/core/constants.js';
+import { SecurityScheme } from '@src/core/types.js';
 
 /**
  * Generates the `auth.interceptor.ts` file. This interceptor is responsible for

@@ -1,5 +1,5 @@
-import { SwaggerParser } from '../../../core/parser.js';
-import { SwaggerDefinition } from '../../../core/types.js';
+import { SwaggerParser } from '@src/core/parser.js';
+import { SwaggerDefinition } from '@src/core/types.js';
 
 /** The subset of JSON schema types handled by the mock data generator. */
 type JsonSchemaType = 'object' | 'array' | 'string' | 'number' | 'integer' | 'boolean' | 'null';

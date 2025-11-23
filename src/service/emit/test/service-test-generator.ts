@@ -2,15 +2,15 @@
 
 import * as path from 'node:path';
 import { Project, SourceFile } from 'ts-morph';
-import { SwaggerParser } from '../../../core/parser.js';
-import { GeneratorConfig, PathInfo, SwaggerDefinition } from '../../../core/types.js';
+import { SwaggerParser } from '@src/core/parser.js';
+import { GeneratorConfig, PathInfo, SwaggerDefinition } from '@src/core/types.js';
 import {
     camelCase,
     getBasePathTokenName,
     getTypeScriptType,
     isDataTypeInterface,
     pascalCase,
-} from '../../../core/utils.js';
+} from '@src/core/utils.js';
 import { MockDataGenerator } from './mock-data.generator.js';
 
 export class ServiceTestGenerator {

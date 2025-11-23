@@ -1,6 +1,6 @@
 // src/service/emit/admin/resource-discovery.ts
 
-import { SwaggerParser } from '../../../core/parser.js';
+import { SwaggerParser } from '@src/core/parser.js';
 import {
     DiscriminatorObject,
     FormProperty,
@@ -8,8 +8,8 @@ import {
     Resource,
     ResourceOperation,
     SwaggerDefinition,
-} from '../../../core/types.js';
-import { camelCase, pascalCase, singular } from '../../../core/utils.js';
+} from '@src/core/types.js';
+import { camelCase, pascalCase, singular } from '@src/core/utils.js';
 
 function getMethodName(op: PathInfo): string {
     const pathToMethodName = (path: string): string =>

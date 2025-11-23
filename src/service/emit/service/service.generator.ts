@@ -2,8 +2,8 @@
 
 import { ClassDeclaration, Project, Scope, SourceFile } from 'ts-morph';
 import * as path from 'node:path';
-import { SwaggerParser } from '../../../core/parser.js';
-import { GeneratorConfig, PathInfo } from '../../../core/types.js';
+import { SwaggerParser } from '@src/core/parser.js';
+import { GeneratorConfig, PathInfo } from '@src/core/types.js';
 import {
     camelCase,
     getBasePathTokenName,
@@ -11,8 +11,8 @@ import {
     getTypeScriptType,
     isDataTypeInterface,
     pascalCase
-} from '../../../core/utils.js';
-import { SERVICE_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
+} from '@src/core/utils.js';
+import { SERVICE_GENERATOR_HEADER_COMMENT } from '@src/core/constants.js';
 import { ServiceMethodGenerator } from './service-method.generator.js';
 
 export class ServiceGenerator {

@@ -1,12 +1,12 @@
 // src/service/emit/utility/index.generator.ts
 import { Project } from "ts-morph";
 import * as path from "node:path";
-import { GeneratorConfig } from '../../../core/types.js';
+import { GeneratorConfig } from '@src/core/types.js';
 import {
     MAIN_INDEX_GENERATOR_HEADER_COMMENT,
     SERVICE_INDEX_GENERATOR_HEADER_COMMENT
-} from "../../../core/constants.js";
-import { SwaggerParser } from "../../../core/parser.js";
+} from "@src/core/constants.js";
+import { SwaggerParser } from "@src/core/parser.js";
 
 export class MainIndexGenerator {
     constructor(private project: Project, private config: GeneratorConfig, private parser: SwaggerParser) {
@@ -32,12 +32,31 @@ export class MainIndexGenerator {
                 { moduleSpecifier: "./tokens" },
                 { moduleSpecifier: "./providers" },
                 { moduleSpecifier: "./utils/file-download" },
+                { moduleSpecifier: "./utils/response-header.service" },
             ]);
+
+            // Export Registry if populated
+            const hasResponseHeaders = this.parser.operations.some(op =>
+                op.responses && Object.values(op.responses).some(r => r.headers && Object.keys(r.headers).length > 0)
+            );
+            if (hasResponseHeaders) {
+                sourceFile.addExportDeclaration({ moduleSpecifier: "./response-headers" });
+            }
 
             if (this.parser.servers.length > 0) {
                 sourceFile.addExportDeclaration({
                     moduleSpecifier: "./utils/server-url",
                 });
+            }
+
+            const hasLinks = this.parser.links && Object.keys(this.parser.links).length > 0;
+            const hasOpLinks = this.parser.operations.some(op =>
+                op.responses && Object.values(op.responses).some(r => r.links && Object.keys(r.links).length > 0)
+            );
+
+            if (hasLinks || hasOpLinks) {
+                sourceFile.addExportDeclaration({ moduleSpecifier: "./links" });
+                sourceFile.addExportDeclaration({ moduleSpecifier: "./utils/link.service" });
             }
 
             if (this.config.options.dateType === "Date") {
@@ -57,7 +76,6 @@ export class MainIndexGenerator {
     }
 }
 
-// ... ServiceIndexGenerator remains unchanged
 export class ServiceIndexGenerator {
     constructor(private project: Project) {
     }

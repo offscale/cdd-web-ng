@@ -1,6 +1,6 @@
 import * as path from 'node:path';
 import { ClassDeclaration, Project, Scope } from 'ts-morph';
-import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
+import { UTILITY_GENERATOR_HEADER_COMMENT } from '@src/core/constants.js';
 
 /**
  * Generates the `auth-helper.service.ts` file using ts-morph. This service provides a simplified

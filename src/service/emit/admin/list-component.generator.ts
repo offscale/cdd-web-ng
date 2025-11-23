@@ -1,6 +1,6 @@
 import { ClassDeclaration, Project, Scope } from 'ts-morph';
-import { FormProperty, Resource } from '../../../core/types.js';
-import { camelCase, pascalCase } from '../../../core/utils.js';
+import { FormProperty, Resource } from '@src/core/types.js';
+import { camelCase, pascalCase } from '@src/core/utils.js';
 import { commonStandaloneImports } from './common-imports.js';
 import { generateListComponentHtml } from './html/list-component-html.builder.js';
 import { generateListComponentScss } from './html/list-component-scss.builder.js';

@@ -1,8 +1,8 @@
 // src/service/emit/admin/routing.generator.ts
 
 import { Project, VariableDeclarationKind } from 'ts-morph';
-import { Resource } from '../../../core/types.js';
-import { camelCase, pascalCase } from '../../../core/utils.js';
+import { Resource } from '@src/core/types.js';
+import { camelCase, pascalCase } from '@src/core/utils.js';
 
 /**
  * Generates the Angular routing configuration for the admin UI.

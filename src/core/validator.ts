@@ -18,6 +18,7 @@ export class SpecValidationError extends Error {
  * - Valid version string ('swagger: "2.x"' or 'openapi: "3.x"')
  * - "info" object with "title" and "version"
  * - At least one functional root property ("paths", "components", or "webhooks")
+ * - License Object constraints (mutually exclusive `url` and `identifier`)
  *
  * @param spec The parsed specification object.
  * @throws {SpecValidationError} if the specification is invalid.
@@ -46,7 +47,20 @@ export function validateSpec(spec: SwaggerSpec): void {
         throw new SpecValidationError("Specification info object must contain a required string field: 'version'.");
     }
 
-    // 3. Check Structural Root
+    // 3. Check License Object Constraints (OAS 3.1+)
+    // "The `identifier` field is mutually exclusive of the `url` field."
+    if (spec.info.license) {
+        // OAS 3.2/3.1 Strictness: checking logical existence rather than falsy values to avoid edge cases with empty strings,
+        // though empty strings would be invalid URIs anyway.
+        const hasUrl = spec.info.license.url !== undefined && spec.info.license.url !== null;
+        const hasIdentifier = spec.info.license.identifier !== undefined && spec.info.license.identifier !== null;
+
+        if (hasUrl && hasIdentifier) {
+            throw new SpecValidationError("License object cannot contain both 'url' and 'identifier' fields. They are mutually exclusive.");
+        }
+    }
+
+    // 4. Check Structural Root
     // Per OAS 3.2: "at least one of the components, paths, or webhooks fields MUST be present."
     // For Swagger 2.0: 'paths' is technically required.
 

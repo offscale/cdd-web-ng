@@ -29,7 +29,6 @@ class MockHttpParams {
         });
         return parts.join('&');
     }
-    // Setup for test inspection
     get(key: string) { return this.map.get(key)?.[0] || null; }
     getAll(key: string) { return this.map.get(key) || null; }
 }
@@ -39,10 +38,8 @@ function getBuilder() {
     new HttpParamsBuilderGenerator(project).generate('/');
     const sourceFile = project.getSourceFileOrThrow('/utils/http-params-builder.ts');
 
-    // Remove imports manually. We will inject dependencies.
     const codeWithoutImports = sourceFile.getText().replace(/import\s+.*from\s+['"].*['"];?/g, '');
 
-    // Transpile to CommonJS. This converts 'export class X' into 'exports.X = ...'
     const jsCode = ts.transpile(codeWithoutImports, {
         target: ts.ScriptTarget.ES2020,
         module: ts.ModuleKind.CommonJS
@@ -50,8 +47,6 @@ function getBuilder() {
 
     const exportsMock = {};
 
-    // Execute in a function wrapper, providing 'exports' and the 'HttpParams' global dependency
-    // The transpiled code will attach the class to the passed 'exports' object.
     new Function('exports', 'HttpParams', jsCode)(exportsMock, MockHttpParams);
 
     return (exportsMock as any).HttpParamsBuilder;
@@ -67,27 +62,23 @@ describe('Utility: HttpParamsBuilder', () => {
         });
 
         it('should serialize simple array path params', () => {
-            // /users/{id*} (where value=[3,4,5]) -> 3,4,5
             const res = Builder.serializePathParam('id', [3, 4, 5]);
             expect(res).toBe('3,4,5');
         });
 
         it('should serialize object path params (simple, explode=false)', () => {
-            // /users/{id} (where value={role: 'admin', firstName: 'Alex'}) -> role,admin,firstName,Alex
             const val = { role: 'admin', firstName: 'Alex' };
             const res = Builder.serializePathParam('id', val, 'simple', false);
             expect(res).toBe('role,admin,firstName,Alex');
         });
 
         it('should serialize object path params (simple, explode=true)', () => {
-            // /users/{id*} -> role=admin,firstName=Alex
             const val = { role: 'admin', firstName: 'Alex' };
             const res = Builder.serializePathParam('id', val, 'simple', true);
             expect(res).toBe('role=admin,firstName=Alex');
         });
 
         it('should handle reserved characters correctly when allowReserved=false', () => {
-            // Default behavior: percent encode
             const res = Builder.serializePathParam('path', 'Hello/World');
             expect(res).toBe('Hello%2FWorld');
         });
@@ -104,20 +95,17 @@ describe('Utility: HttpParamsBuilder', () => {
         });
 
         it('should serialize with label style', () => {
-            // /users/{.id} (value=5) -> .5
             const res = Builder.serializePathParam('id', 5, 'label');
             expect(res).toBe('.5');
         });
 
         it('should serialize path param as JSON when requested', () => {
             const val = { a: 1 };
-            // content: application/json in path param
             const res = Builder.serializePathParam('filter', val, 'simple', false, false, 'json');
             expect(res).toBe(encodeURIComponent(JSON.stringify(val)));
         });
 
         it('should serialize array path param (matrix style, explode=false)', () => {
-            // /users/{;id} (value=[1,2]) -> ;id=1,2
             const res = Builder.serializePathParam('id', [1, 2], 'matrix', false);
             expect(res).toBe(';id=1,2');
         });
@@ -137,22 +125,26 @@ describe('Utility: HttpParamsBuilder', () => {
             expect(params.get('filter')).toBe(JSON.stringify(val));
         });
 
+        it('should serialize query param as JSON when encoding content type is application/json', () => {
+            const param = { name: 'filter', contentType: 'application/json' };
+            const val = { key: 'val' };
+            const params = Builder.serializeQueryParam(new MockHttpParams(), param, val);
+            expect(params.get('filter')).toBe(JSON.stringify(val));
+        });
+
         it('should serialize form style arrays (explode=true)', () => {
-            // ?ids=3&ids=4
             const params = new MockHttpParams();
             const res = Builder.serializeQueryParam(params, { name: 'ids', style: 'form', explode: true }, [3, 4]);
             expect(res.toString()).toBe('ids=3&ids=4');
         });
 
         it('should serialize form style arrays (explode=false)', () => {
-            // ?ids=3,4
             const params = new MockHttpParams();
             const res = Builder.serializeQueryParam(params, { name: 'ids', style: 'form', explode: false }, [3, 4]);
             expect(res.toString()).toBe('ids=3,4');
         });
 
         it('should serialize deepObject style', () => {
-            // ?id[role]=admin&id[name]=alex
             const params = new MockHttpParams();
             const val = { role: 'admin', name: 'alex' };
             const res = Builder.serializeQueryParam(params, { name: 'id', style: 'deepObject', explode: true }, val);
@@ -162,7 +154,6 @@ describe('Utility: HttpParamsBuilder', () => {
         });
 
         it('should serialize deepObject style with nested objects', () => {
-            // ?user[id]=1&user[metadata][role]=admin
             const params = new MockHttpParams();
             const val = { id: 1, metadata: { role: 'admin' } };
             const res = Builder.serializeQueryParam(params, { name: 'user', style: 'deepObject' }, val);
@@ -176,11 +167,18 @@ describe('Utility: HttpParamsBuilder', () => {
             const res = Builder.serializeQueryParam(params, { name: 'p', style: 'pipeDelimited' }, ['a', 'b']);
             expect(res.get('p')).toBe('a|b');
         });
+
+        it('should include empty value with equals sign when allowEmptyValue is true (Angular default)', () => {
+            // Note: Angular's HttpParams always appends '=', so ?param=
+            // The test confirms we pass the empty string value, not null/undefined
+            const params = new MockHttpParams();
+            const res = Builder.serializeQueryParam(params, { name: 'flag', allowEmptyValue: true }, '');
+            expect(res.toString()).toBe('flag=');
+        });
     });
 
     describe('serializeCookieParam', () => {
         it('should serialize object explode=true as individual key-value pairs separated by ; ', () => {
-            // cookie: id={a:1, b:2}, explode=true -> a=1; b=2
             const res = Builder.serializeCookieParam('id', {a:1,b:2}, 'form', true);
             expect(res).toBe('a=1; b=2');
         });
@@ -199,9 +197,15 @@ describe('Utility: HttpParamsBuilder', () => {
             const body = { tags: ['x', 'y'], scope: 'all' };
             const encodings = { tags: { style: 'spaceDelimited' } };
             const res = Builder.serializeUrlEncodedBody(body, encodings);
-            // tags should be x%20y (space delimited), scope should be standard form
             expect(res.get('tags')).toBe('x y');
             expect(res.get('scope')).toBe('all');
+        });
+
+        it('should serialize object property as JSON when contentType is application/json', () => {
+            const body = { metadata: { key: 'val' } };
+            const encodings = { metadata: { contentType: 'application/json' } };
+            const res = Builder.serializeUrlEncodedBody(body, encodings);
+            expect(res.get('metadata')).toBe('{"key":"val"}');
         });
     });
 });

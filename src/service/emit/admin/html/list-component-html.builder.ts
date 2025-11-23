@@ -5,8 +5,8 @@
  * with dynamic columns, action buttons, and pagination using the HtmlElementBuilder.
  */
 
-import { Resource } from '../../../../core/types.js';
-import { pascalCase, singular } from '../../../../core/utils.js';
+import { Resource } from '@src/core/types.js';
+import { pascalCase, singular } from '@src/core/utils.js';
 import { HtmlElementBuilder as _ } from '../html-element.builder.js';
 
 /**

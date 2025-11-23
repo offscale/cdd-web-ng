@@ -1,7 +1,7 @@
-import { Resource, SwaggerDefinition } from "../../../../core/types.js";
+import { Resource, SwaggerDefinition } from "@src/core/types.js";
 import { HtmlElementBuilder as _ } from '../html-element.builder.js';
 import { buildFormControl } from "./form-controls-html.builder.js";
-import { SwaggerParser } from "../../../../core/parser.js";
+import { SwaggerParser } from "@src/core/parser.js";
 
 /**
  * Generates the complete HTML content for a resource's form component template.

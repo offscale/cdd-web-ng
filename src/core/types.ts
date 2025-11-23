@@ -26,6 +26,8 @@ export interface LicenseObject {
     url?: string;
     /** An SPDX license identifier for the API. (OAS 3.1+) */
     identifier?: string;
+    /** Specification Extensions */
+    [key: string]: any;
 }
 
 /**
@@ -39,6 +41,8 @@ export interface ContactObject {
     url?: string;
     /** The email address of the contact person/organization. */
     email?: string;
+    /** Specification Extensions */
+    [key: string]: any;
 }
 
 /**
@@ -60,6 +64,8 @@ export interface InfoObject {
     license?: LicenseObject;
     /** The version of the OpenAPI document. */
     version: string;
+    /** Specification Extensions */
+    [key: string]: any;
 }
 
 /**
@@ -71,6 +77,8 @@ export interface ExternalDocumentationObject {
     description?: string;
     /** The URL for the target documentation. */
     url: string;
+    /** Specification Extensions */
+    [key: string]: any;
 }
 
 /**
@@ -90,6 +98,8 @@ export interface TagObject {
     parent?: string;
     /** A machine-readable string to categorize what sort of tag it is. (OAS 3.2+) */
     kind?: string;
+    /** Specification Extensions */
+    [key: string]: any;
 }
 
 /**
@@ -103,6 +113,8 @@ export interface ServerVariableObject {
     default: string;
     /** An optional description for the server variable. */
     description?: string;
+    /** Specification Extensions */
+    [key: string]: any;
 }
 
 /**
@@ -118,6 +130,8 @@ export interface ServerObject {
     name?: string;
     /** A map between a variable name and its value. */
     variables?: { [variable: string]: ServerVariableObject };
+    /** Specification Extensions */
+    [key: string]: any;
 }
 
 /** Represents the `discriminator` object used for polymorphism in OpenAPI schemas. */
@@ -126,6 +140,8 @@ export interface DiscriminatorObject {
     propertyName: string;
     /** An optional map from a value to a schema reference. */
     mapping?: { [key: string]: string };
+    /** Specification Extensions */
+    [key: string]: any;
 }
 
 /**
@@ -154,6 +170,8 @@ export interface XmlObject {
      * Values: 'element' | 'attribute' | 'text' | 'cdata' | 'none'.
      */
     nodeType?: 'element' | 'attribute' | 'text' | 'cdata' | 'none' | string;
+    /** Specification Extensions */
+    [key: string]: any;
 }
 
 /**
@@ -173,6 +191,8 @@ export interface LinkObject {
     description?: string;
     /** A server object to be used by the target operation. */
     server?: ServerObject;
+    /** Specification Extensions */
+    [key: string]: any;
 }
 
 /**
@@ -195,6 +215,8 @@ export interface HeaderObject {
     content?: Record<string, { schema?: SwaggerDefinition | { $ref: string } }>;
     example?: any;
     examples?: Record<string, any>;
+    /** Specification Extensions */
+    [key: string]: any;
 }
 
 /** A simplified, normalized representation of an operation parameter. */
@@ -228,6 +250,8 @@ export interface Parameter {
     content?: Record<string, { schema?: SwaggerDefinition | { $ref: string } }>;
     /** Specifies that a parameter is deprecated and SHOULD be transitioned out of usage. */
     deprecated?: boolean;
+    /** Specification Extensions */
+    [key: string]: any;
 }
 
 /** A processed, unified representation of a single API operation (e.g., GET /users/{id}). */
@@ -267,6 +291,8 @@ export interface PathInfo {
     servers?: ServerObject[] | undefined;
     /** A map of possible out-of band callbacks related to the parent operation. (OAS 3+) */
     callbacks?: Record<string, PathItem | { $ref: string }>;
+    /** Specification Extensions (e.g. x-codegen-extra) handled during extraction/normalization */
+    [key: string]: any;
 }
 
 /** A single encoding definition for a multipart property. */
@@ -281,6 +307,8 @@ export interface EncodingProperty {
     explode?: boolean;
     /** allow reserved characters */
     allowReserved?: boolean;
+    /** Specification Extensions */
+    [key: string]: any;
 }
 
 /** Represents the request body of an operation. */
@@ -293,6 +321,8 @@ export interface RequestBody {
         /** Encoding object for multipart/form-data definitions */
         encoding?: Record<string, EncodingProperty>;
     }>;
+    /** Specification Extensions */
+    [key: string]: any;
 }
 
 /** Represents a single response from an API Operation. */
@@ -305,6 +335,8 @@ export interface SwaggerResponse {
     links?: Record<string, LinkObject | { $ref: string }>;
     /** Maps a header name to its definition. */
     headers?: Record<string, HeaderObject | { $ref: string }>;
+    /** Specification Extensions */
+    [key: string]: any;
 }
 
 /**
@@ -384,6 +416,8 @@ export interface SwaggerDefinition {
 
     xml?: XmlObject;
     externalDocs?: ExternalDocumentationObject;
+    /** Specification Extensions */
+    [key: string]: any;
 }
 
 /** Represents a security scheme recognized by the API. */
@@ -394,6 +428,8 @@ export interface SecurityScheme {
     scheme?: 'bearer' | string;
     flows?: Record<string, unknown>;
     openIdConnectUrl?: string;
+    /** Specification Extensions */
+    [key: string]: any;
 }
 
 /**
@@ -478,6 +514,8 @@ export interface SwaggerSpec {
     };
     /** Security definitions (Swagger 2.0). */
     securityDefinitions?: { [securityDefinitionName: string]: SecurityScheme };
+    /** Specification Extensions */
+    [key: string]: any;
 }
 
 // ===================================================================================

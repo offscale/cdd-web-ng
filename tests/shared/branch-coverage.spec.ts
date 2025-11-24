@@ -1,11 +1,11 @@
 import { SwaggerParser } from "@src/core/parser.js";
 import { discoverAdminResources } from "@src/service/emit/admin/resource-discovery.js";
-import { ListComponentGenerator } from "@src/service/emit/admin/list-component.generator.js";
-import { FormComponentGenerator } from "@src/service/emit/admin/form-component.generator.js";
 import { createTestProject } from "./helpers.js";
 import { branchCoverageSpec } from "./specs.js";
 import { describe, expect, it } from "vitest";
 import { Resource } from "@src/core/types.js";
+import { ListComponentGenerator } from "@src/generators/angular/admin/list-component.generator.js";
+import { FormComponentGenerator } from "@src/generators/angular/admin/form-component.generator.js";
 
 /**
  * @fileoverview

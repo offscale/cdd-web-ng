@@ -1,12 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
-import { DiscriminatorGenerator } from '@src/service/emit/utility/discriminator.generator.js';
+import { DiscriminatorGenerator } from '@src/generators/shared/discriminator.generator.js';
 import { createTestProject } from '../shared/helpers.js';
 import { GeneratorConfig, SwaggerSpec } from '@src/core/types.js';
 import ts from 'typescript';
 
-// OpenAPI 3.0 Spec with Explicit Mapping
 const oas3Spec: SwaggerSpec = {
     openapi: '3.0.0',
     info: { title: 'Discrim Test', version: '1.0' },
@@ -44,7 +43,6 @@ const oas3Spec: SwaggerSpec = {
     }
 };
 
-// Swagger 2.0 Spec with Implicit Mapping (string discriminator)
 const swagger2Spec: SwaggerSpec = {
     swagger: '2.0',
     info: { title: 'Legacy Test', version: '1.0' },
@@ -63,7 +61,7 @@ const swagger2Spec: SwaggerSpec = {
             ]
         }
     }
-} as any; // Cast because strict types expect InfoObject oas3 style sometimes in test mocks
+} as any;
 
 describe('Emitter: DiscriminatorGenerator', () => {
 
@@ -72,8 +70,6 @@ describe('Emitter: DiscriminatorGenerator', () => {
         const config: GeneratorConfig = { output: '/out', options: {} } as any;
         const parser = new SwaggerParser(spec, config);
 
-        // Manually populate schemas in parser because extractSchemas isn't usually public or called in this partial test setup
-        // The generator iterates parser.schemas array
         if (spec.components?.schemas) {
             Object.entries(spec.components.schemas).forEach(([name, def]) => {
                 parser.schemas.push({ name, definition: def });
@@ -108,7 +104,6 @@ describe('Emitter: DiscriminatorGenerator', () => {
 
         const mapping = API_DISCRIMINATORS['Pet'].mapping;
         expect(mapping).toBeDefined();
-        // Should resolve the ref to the simple Model Name
         expect(mapping['cat_obj']).toBe('Cat');
         expect(mapping['dog_obj']).toBe('Dog');
     });
@@ -120,8 +115,6 @@ describe('Emitter: DiscriminatorGenerator', () => {
         expect(API_DISCRIMINATORS).toBeDefined();
         expect(API_DISCRIMINATORS['Animal']).toBeDefined();
         expect(API_DISCRIMINATORS['Animal'].propertyName).toBe('kind');
-        // Swagger 2 has no explicit mapping in the generic generator unless inferred.
-        // Expect mapping to be undefined.
         expect(API_DISCRIMINATORS['Animal'].mapping).toBeUndefined();
     });
 
@@ -165,7 +158,6 @@ describe('Emitter: DiscriminatorGenerator', () => {
             }
         };
 
-        // Setup mocks to simulate resolution without actual HTTP request
         const project = createTestProject();
         const config: GeneratorConfig = { output: '/out', options: {} } as any;
         const parser = new SwaggerParser(uriSpec, config);
@@ -176,7 +168,6 @@ describe('Emitter: DiscriminatorGenerator', () => {
         parser.schemas.push({ name: 'ExternalModel', definition: externalDef });
         parser.schemas.push({ name: 'Context', definition: contextDef });
 
-        // Spy on resolveReference. When asked for the URL, return the object memory ref.
         vi.spyOn(parser, 'resolveReference').mockImplementation((ref) => {
             if (ref === 'https://schemas.example.com/models/ExternalModel') return externalDef;
             return undefined;
@@ -210,7 +201,6 @@ describe('Emitter: DiscriminatorGenerator', () => {
         const project = runGenerator(fallbackSpec);
         const { API_DISCRIMINATORS } = compileGeneratedFile(project);
 
-        // Should extract "weird-name", strip json, and PascalCase it -> WeirdName
         expect(API_DISCRIMINATORS['Item'].mapping['remote']).toBe('WeirdName');
     });
 });

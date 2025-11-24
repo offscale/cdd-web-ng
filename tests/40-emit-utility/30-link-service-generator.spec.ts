@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LinkServiceGenerator } from '@src/service/emit/utility/link-service.generator.js';
+import { LinkServiceGenerator } from '@src/generators/angular/utils/link-service.generator.js';
 import { createTestProject } from '../shared/helpers.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import ts from 'typescript';

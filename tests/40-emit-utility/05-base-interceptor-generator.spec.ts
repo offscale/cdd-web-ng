@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
-import { BaseInterceptorGenerator } from '@src/service/emit/utility/base-interceptor.generator.js';
+import { BaseInterceptorGenerator } from "@src/generators/angular/utils/base-interceptor.generator.js";
 
 describe('Emitter: BaseInterceptorGenerator', () => {
     const runGenerator = (clientName?: string) => {

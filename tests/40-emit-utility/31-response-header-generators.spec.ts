@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ResponseHeaderRegistryGenerator } from '@src/service/emit/utility/response-header-registry.generator.js';
-import { ResponseHeaderParserGenerator } from '@src/service/emit/utility/response-header-parser.generator.js';
+import { ResponseHeaderRegistryGenerator } from '@src/generators/shared/response-header-registry.generator.js';
+import { ResponseHeaderParserGenerator } from '@src/generators/angular/utils/response-header-parser.generator.js';
 import { createTestProject } from '../shared/helpers.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import ts from 'typescript';

@@ -1,12 +1,12 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { FormComponentGenerator } from '@src/service/emit/admin/form-component.generator.js';
+import { FormComponentGenerator } from '@src/generators/angular/admin/form-component.generator.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { ClassDeclaration, Project } from 'ts-morph';
 import { createTestProject } from '../shared/helpers.js';
 import { adminFormSpec, coverageSpec } from '../shared/specs.js';
 import { discoverAdminResources } from '@src/service/emit/admin/resource-discovery.js';
 
-describe('Admin: FormComponentGenerator', () => {
+describe('Generators (Angular): FormComponentGenerator', () => {
     let project: Project;
     let parser: SwaggerParser;
 

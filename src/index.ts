@@ -4,8 +4,9 @@ import * as fs from 'node:fs';
 import { ModuleKind, Project, ScriptTarget } from 'ts-morph';
 import { GeneratorConfig, SwaggerSpec } from './core/types.js';
 import { SwaggerParser } from './core/parser.js';
-import { emitClientLibrary } from "@src/service/emit/index.js";
-import { isUrl } from "@src/core/utils.js";
+import { isUrl } from "./core/utils.js";
+import { AngularClientGenerator } from './generators/angular/angular-client.generator.js';
+import { IClientGenerator } from './core/generator.js';
 
 /**
  * For test environments, allows passing a pre-parsed OpenAPI specification object.
@@ -13,6 +14,20 @@ import { isUrl } from "@src/core/utils.js";
 export type TestGeneratorConfig = {
     /** The pre-parsed OpenAPI specification object. */
     spec: object;
+}
+
+function getGeneratorFactory(framework: string): IClientGenerator {
+    switch (framework) {
+        case 'angular':
+            return new AngularClientGenerator();
+        case 'react':
+            throw new Error("React generation is not yet implemented.");
+        case 'vue':
+            throw new Error("Vue generation is not yet implemented.");
+        default:
+            // Default to Angular for backward compatibility if undefined, though config defaults handle this
+            return new AngularClientGenerator();
+    }
 }
 
 /**
@@ -27,8 +42,6 @@ export async function generateFromConfig(
     project?: Project,
     testConfig?: TestGeneratorConfig
 ): Promise<void> {
-    // MODIFICATION: The save call is now ONLY skipped if testConfig is provided.
-    // This allows passing a project for in-memory use while still triggering save().
     const isTestEnv = !!testConfig;
 
     const activeProject = project || new Project({
@@ -60,7 +73,10 @@ export async function generateFromConfig(
             swaggerParser = await SwaggerParser.create(config.input, config);
         }
 
-        await emitClientLibrary(config.output, swaggerParser, config, activeProject);
+        const framework = config.options.framework || 'angular';
+        const generator = getGeneratorFactory(framework);
+
+        await generator.generate(activeProject, swaggerParser, config, config.output);
 
         // This block is now reachable in our test.
         if (!isTestEnv) {

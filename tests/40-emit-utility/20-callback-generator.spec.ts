@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
-import { CallbackGenerator } from '@src/service/emit/utility/callback.generator.js';
+import { CallbackGenerator } from '@src/generators/shared/callback.generator.js';
 import { createTestProject } from '../shared/helpers.js';
 import { GeneratorConfig, SwaggerSpec, SwaggerDefinition } from '@src/core/types.js';
 import ts from 'typescript';
@@ -15,9 +15,7 @@ const mockSpec: SwaggerSpec = {
                 operationId: 'subscribe',
                 responses: { '200': { description: 'ok' } },
                 callbacks: {
-                    // Callback Name
                     'onDataUpdate': {
-                        // Expression (the URL)
                         '{$request.query.callbackUrl}': {
                             post: {
                                 requestBody: {
@@ -89,7 +87,6 @@ describe('Emitter: CallbackGenerator', () => {
 
     const runGenerator = (spec: SwaggerSpec) => {
         const project = createTestProject();
-        // Ensure enumStyle is set, it's used inside getTypeScriptType which is called by getRequestBodyType
         const config: GeneratorConfig = {
             output: '/out',
             options: { dateType: 'string', enumStyle: 'enum', generateServices: true }
@@ -104,10 +101,8 @@ describe('Emitter: CallbackGenerator', () => {
     const compileGeneratedFile = (project: Project) => {
         const sourceFile = project.getSourceFileOrThrow('/out/callbacks.ts');
         const code = sourceFile.getText();
-        // Transpile to CJS
         const jsCode = ts.transpile(code, { target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS });
         const moduleHelper = { exports: {} as any };
-        // Execute
         new Function('exports', jsCode)(moduleHelper.exports);
         return moduleHelper.exports;
     };
@@ -116,11 +111,9 @@ describe('Emitter: CallbackGenerator', () => {
         const project = runGenerator(mockSpec);
         const sourceFile = project.getSourceFileOrThrow('/out/callbacks.ts');
 
-        // Check Type Alias existence
         const typeAlias = sourceFile.getTypeAliasOrThrow('OnDataUpdatePostPayload');
         expect(typeAlias.isExported()).toBe(true);
 
-        // Verify structure (simple object structure inline)
         const structure = typeAlias.getTypeNode()?.getText();
         expect(structure).toContain('timestamp?: string');
         expect(structure).toContain('data?: string');
@@ -142,12 +135,10 @@ describe('Emitter: CallbackGenerator', () => {
         const project = runGenerator(refCallbackSpec);
         const sourceFile = project.getSourceFileOrThrow('/out/callbacks.ts');
 
-        // Should import EventPayload
         const imports = sourceFile.getImportDeclarations();
         expect(imports.some(i => i.getModuleSpecifierValue() === './models')).toBe(true);
 
         const typeAlias = sourceFile.getTypeAliasOrThrow('MyWebhookPostPayload');
-        // Should point to the model ref
         expect(typeAlias.getTypeNode()?.getText()).toBe('EventPayload');
     });
 

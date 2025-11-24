@@ -1,24 +1,26 @@
 import { describe, expect, it, vi, afterAll } from 'vitest';
-import { OpenApiGenerator } from '@src/service/open-api.generator.js';
+import { AngularClientGenerator } from '@src/generators/angular/angular-client.generator.js';
 import { GeneratorConfig, SwaggerSpec } from '@src/core/types.js';
+import { Project } from 'ts-morph';
+import { SwaggerParser } from '@src/core/parser.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
-// Mock the Core Generators to focus tests on the orchestration logic and Utility wiring
-vi.mock('@src/service/emit/models.js', () => {
+// Mock the sub-generators to focus on orchestration wiring
+vi.mock('@src/service/emit/type/type.generator.js', () => {
     return {
-        ModelGenerator: class {
-            constructor(_p: any, _prj: any) {}
+        TypeGenerator: class {
+            constructor(_p: any, _prj: any, _c: any) {}
             generate(_out: string) { /* no-op */ }
         }
     };
 });
 
-vi.mock('@src/service/emit/angular-service.js', () => {
+vi.mock('@src/generators/angular/service/service.generator.js', () => {
     return {
         ServiceGenerator: class {
-            constructor(_p: any, _prj: any) {}
-            generate(_out: string) { /* no-op */ }
+            constructor(_p: any, _prj: any, _c: any) {}
+            generateServiceFile(_cName: string, _ops: any[], _out: string) { /* no-op */ }
         }
     };
 });
@@ -29,7 +31,7 @@ const fullSpec: SwaggerSpec = {
     paths: {
         '/users': {
             get: {
-                tags: ['User'], // References a tag
+                tags: ['User'],
                 responses: { '200': { description: 'ok' } },
                 callbacks: { 'onUser': { '{$request.query}': { post: { responses: {'200':{}} } } } }
             }
@@ -55,10 +57,9 @@ const fullSpec: SwaggerSpec = {
     }
 };
 
-describe('Service: OpenApiGenerator (Orchestrator)', () => {
+describe('Generators: AngularClientGenerator (Orchestrator)', () => {
     const testOutputDir = path.join(process.cwd(), 'temp_gen_out');
 
-    // Cleanup helper
     const cleanup = () => {
         if (fs.existsSync(testOutputDir)) {
             fs.rmSync(testOutputDir, { recursive: true, force: true });
@@ -70,45 +71,49 @@ describe('Service: OpenApiGenerator (Orchestrator)', () => {
     });
 
     it('should orchestrate the generation of all utility files including tags', async () => {
-        cleanup(); // Ensure clean start
+        cleanup();
 
         const config: GeneratorConfig = {
+            input: '',
             output: testOutputDir,
-            options: { dateType: 'string', enumStyle: 'enum' }
+            clientName: 'TestClient',
+            options: { dateType: 'string', enumStyle: 'enum', generateServices: true }
         } as any;
 
-        const generator = new OpenApiGenerator(fullSpec, config);
-        await generator.generate();
+        const project = new Project();
+        const parser = new SwaggerParser(fullSpec, config);
+        const generator = new AngularClientGenerator();
+
+        await generator.generate(project, parser, config, testOutputDir);
+        await project.save(); // Simulate save to disk
 
         // Verify Files Exist on Disk (Integration Check)
 
-        // Utilities
+        // Shared Utilities
         expect(fs.existsSync(path.join(testOutputDir, 'callbacks.ts'))).toBe(true);
         expect(fs.existsSync(path.join(testOutputDir, 'webhooks.ts'))).toBe(true);
         expect(fs.existsSync(path.join(testOutputDir, 'links.ts'))).toBe(true);
         expect(fs.existsSync(path.join(testOutputDir, 'discriminators.ts'))).toBe(true);
         expect(fs.existsSync(path.join(testOutputDir, 'security.ts'))).toBe(true);
         expect(fs.existsSync(path.join(testOutputDir, 'servers.ts'))).toBe(true);
-
-        // Verify Tags file specifically
         expect(fs.existsSync(path.join(testOutputDir, 'tags.ts'))).toBe(true);
+
+        // Framework Specifics
+        expect(fs.existsSync(path.join(testOutputDir, 'services/index.ts'))).toBe(true);
+        expect(fs.existsSync(path.join(testOutputDir, 'tokens/index.ts'))).toBe(true);
     });
 
-    it('should contain expected content in generated files', async () => {
-        // Check Servers
+    it('should contain expected content in framework agnostic files', async () => {
         const serverFile = fs.readFileSync(path.join(testOutputDir, 'servers.ts'), 'utf-8');
         expect(serverFile).toContain('API_SERVERS');
         expect(serverFile).toContain('https://api.test.com');
 
-        // Check Security
         const securityFile = fs.readFileSync(path.join(testOutputDir, 'security.ts'), 'utf-8');
         expect(securityFile).toContain('API_SECURITY_SCHEMES');
         expect(securityFile).toContain('ApiKey');
 
-        // Check Tags
         const tagsFile = fs.readFileSync(path.join(testOutputDir, 'tags.ts'), 'utf-8');
         expect(tagsFile).toContain('API_TAGS');
-        expect(tagsFile).toContain('API_TAGS_MAP');
         expect(tagsFile).toContain('User management');
     });
 });

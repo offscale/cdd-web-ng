@@ -1,0 +1,86 @@
+import * as path from "node:path";
+import { Project, Scope } from "ts-morph";
+import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../../core/constants.js";
+
+export class ResponseHeaderParserGenerator {
+    constructor(private project: Project) {
+    }
+
+    public generate(outputDir: string): void {
+        const utilsDir = path.join(outputDir, "utils");
+        const filePath = path.join(utilsDir, "response-header.service.ts");
+        const sourceFile = this.project.createSourceFile(filePath, "", { overwrite: true });
+
+        sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
+
+        sourceFile.addImportDeclarations([
+            { moduleSpecifier: "@angular/core", namedImports: ["Injectable"] },
+            { moduleSpecifier: "@angular/common/http", namedImports: ["HttpHeaders", "HttpResponse"] },
+            { moduleSpecifier: "../response-headers", namedImports: ["API_RESPONSE_HEADERS"] },
+        ]);
+
+        const serviceClass = sourceFile.addClass({
+            name: "ResponseHeaderService",
+            isExported: true,
+            decorators: [{ name: "Injectable", arguments: ["{ providedIn: 'root' }"] }],
+            docs: ["Service to parse and coerce response headers into typed objects based on API metadata."]
+        });
+
+        serviceClass.addMethod({
+            name: "parse",
+            typeParameters: [{ name: "T" }],
+            scope: Scope.Public,
+            parameters: [
+                { name: "headers", type: "HttpHeaders" },
+                { name: "operationId", type: "string" },
+                { name: "statusCode", type: "number | string" }
+            ],
+            returnType: "T",
+            statements: `
+        const result: any = {}; 
+        const opHeaders = (API_RESPONSE_HEADERS as any)[operationId]; 
+        if (!opHeaders) return result as T; 
+
+        const status = statusCode.toString(); 
+        const headerConfig = opHeaders[status] || opHeaders['default']; 
+        if (!headerConfig) return result as T; 
+
+        Object.entries(headerConfig).forEach(([headerName, typeHint]) => { 
+            if (!headers.has(headerName)) return; 
+
+            if (typeHint === 'array') { 
+                const values = headers.getAll(headerName); 
+                result[headerName] = values; 
+            } else { 
+                const val = headers.get(headerName); 
+                if (val !== null) { 
+                    result[headerName] = this.coerce(val, typeHint as string); 
+                } 
+            } 
+        }); 
+
+        return result as T;`
+        });
+
+        serviceClass.addMethod({
+            name: "coerce",
+            scope: Scope.Private,
+            parameters: [
+                { name: "value", type: "string" },
+                { name: "type", type: "string" }
+            ],
+            returnType: "any",
+            statements: `
+        switch (type) { 
+            case 'number': return parseFloat(value); 
+            case 'boolean': return value.toLowerCase() === 'true'; 
+            case 'json': 
+                try { return JSON.parse(value); } 
+                catch { return value; } 
+            default: return value; 
+        }`
+        });
+
+        sourceFile.formatText();
+    }
+}

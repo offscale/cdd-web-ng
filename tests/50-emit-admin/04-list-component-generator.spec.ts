@@ -1,12 +1,12 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
-import { ListComponentGenerator } from '@src/service/emit/admin/list-component.generator.js';
+import { ListComponentGenerator } from '@src/generators/angular/admin/list-component.generator.js';
 import { discoverAdminResources } from '@src/service/emit/admin/resource-discovery.js';
 import { createTestProject } from '../shared/helpers.js';
 import { coverageSpec, listComponentSpec } from '../shared/specs.js';
 import { SwaggerParser } from '@src/core/parser.js';
 
-describe('Admin: ListComponentGenerator', () => {
+describe('Generators (Angular): ListComponentGenerator', () => {
     let project: Project;
 
     beforeAll(() => {
@@ -78,20 +78,20 @@ describe('Admin: ListComponentGenerator', () => {
         it('should correctly map various action names to icons', () => {
             const html = localProject.getFileSystem().readFileSync('/admin/iconTests/iconTests-list/iconTests-list.component.html');
 
-            expect(html).toContain('<mat-icon>add</mat-icon>');        // From custom action 'addItem' -> 'add' icon
-            expect(html).toContain('<mat-icon>delete</mat-icon>');     // From standard 'delete' and custom 'removeItem'
-            expect(html).toContain('<mat-icon>edit</mat-icon>');       // From standard 'update'
-            expect(html).toContain('<mat-icon>play_arrow</mat-icon>'); // From 'startItem'
-            expect(html).toContain('<mat-icon>pause</mat-icon>');      // From 'pauseProcess'
-            expect(html).toContain('<mat-icon>refresh</mat-icon>');    // From 'syncAll'
-            expect(html).toContain('<mat-icon>check</mat-icon>');      // From 'approveItem'
-            expect(html).toContain('<mat-icon>block</mat-icon>');      // From 'blockUser'
+            expect(html).toContain('<mat-icon>add</mat-icon>');
+            expect(html).toContain('<mat-icon>delete</mat-icon>');
+            expect(html).toContain('<mat-icon>edit</mat-icon>');
+            expect(html).toContain('<mat-icon>play_arrow</mat-icon>');
+            expect(html).toContain('<mat-icon>pause</mat-icon>');
+            expect(html).toContain('<mat-icon>refresh</mat-icon>');
+            expect(html).toContain('<mat-icon>check</mat-icon>');
+            expect(html).toContain('<mat-icon>block</mat-icon>');
         });
 
         it('should generate an "id" column when a resource has no properties at all', () => {
             const listClass = localProject.getSourceFileOrThrow('/admin/noPropsResource/noPropsResource-list/noPropsResource-list.component.ts').getClassOrThrow('NoPropsResourceListComponent');
             const idProp = listClass.getPropertyOrThrow('idProperty').getInitializer()!.getText();
-            expect(idProp).toBe(`'id'`); // Covers the `allProps.length === 0` case
+            expect(idProp).toBe(`'id'`);
             const html = localProject.getFileSystem().readFileSync('/admin/noPropsResource/noPropsResource-list/noPropsResource-list.component.html');
             expect(html).toContain('<ng-container matColumnDef="id">');
         });

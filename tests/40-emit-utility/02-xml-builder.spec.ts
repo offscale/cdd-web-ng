@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { XmlBuilderGenerator } from '@src/service/emit/utility/xml-builder.generator.js';
 import { createTestProject } from '../shared/helpers.js';
 import ts from 'typescript';
+import { XmlBuilderGenerator } from "@src/generators/shared/xml-builder.generator.js";
 
 function getXmlBuilder() {
     const project = createTestProject();

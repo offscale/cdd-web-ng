@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
-import { RoutingGenerator } from '@src/service/emit/admin/routing.generator.js';
-import { discoverAdminResources } from '@src/service/emit/admin/resource-discovery.js';
+import { RoutingGenerator } from '@src/generators/angular/admin/routing.generator.js'; // Corrected Path
+import { discoverAdminResources } from '@src/generators/angular/admin/resource-discovery.js'; // Corrected Path
 import { createTestProject } from '../shared/helpers.js';
 import { coverageSpec } from '../shared/specs.js';
 import { SwaggerParser } from '@src/core/parser.js';

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
-import { AuthHelperGenerator } from '@src/service/emit/utility/auth-helper.generator.js';
-import { DateTransformerGenerator } from '@src/service/emit/utility/date-transformer.generator.js';
-import { FileDownloadGenerator } from '@src/service/emit/utility/file-download.generator.js';
+import { AuthHelperGenerator } from '@src/generators/angular/utils/auth-helper.generator.js';
+import { DateTransformerGenerator } from '@src/generators/angular/utils/date-transformer.generator.js';
+import { FileDownloadGenerator } from '@src/generators/angular/utils/file-download.generator.js';
 
 describe('Emitter: Miscellaneous Utility Generators', () => {
 
@@ -11,7 +11,6 @@ describe('Emitter: Miscellaneous Utility Generators', () => {
         new AuthHelperGenerator(project).generate('/out');
         const fileContent = project.getSourceFileOrThrow('/out/auth/auth-helper.service.ts').getText();
 
-        // Use less brittle checks
         expect(fileContent).toContain('export class AuthHelperService');
         expect(fileContent).toContain('inject(OAuthService)');
         expect(fileContent).toContain('async configure(): Promise<void>');

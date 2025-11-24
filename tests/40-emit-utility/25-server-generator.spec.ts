@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
-import { ServerGenerator } from '@src/service/emit/utility/server.generator.js';
+import { ServerGenerator } from '@src/generators/shared/server.generator.js';
 import { createTestProject } from '../shared/helpers.js';
-import { GeneratorConfig, SwaggerSpec } from '@src/core/types.js';
+import { SwaggerSpec } from '@src/core/types.js';
 import ts from 'typescript';
 
 const multiEnvSpec: SwaggerSpec = {
@@ -14,30 +14,13 @@ const multiEnvSpec: SwaggerSpec = {
         { url: 'https://api.production.com/v1', description: 'Production', name: 'prod' },
         { url: 'https://api.staging.com/v1', description: 'Staging', name: 'staging' }
     ]
-};
-
-const varSpec: SwaggerSpec = {
-    openapi: '3.0.0',
-    info: { title: 'Server Var Test', version: '1.0' },
-    paths: {},
-    servers: [
-        {
-            url: 'https://{region}.api.com/{version}',
-            description: 'Regional',
-            variables: {
-                region: { default: 'us-east', enum: ['us-east', 'eu-west'] },
-                version: { default: 'v1' }
-            }
-        }
-    ]
-};
+} as any;
 
 describe('Emitter: ServerGenerator', () => {
 
     const runGenerator = (spec: SwaggerSpec) => {
         const project = createTestProject();
-        const config: GeneratorConfig = { output: '/out', options: {} } as any;
-        const parser = new SwaggerParser(spec, config);
+        const parser = new SwaggerParser(spec, { options: {} } as any);
         new ServerGenerator(parser, project).generate('/out');
         return project;
     };
@@ -46,7 +29,6 @@ describe('Emitter: ServerGenerator', () => {
         const sourceFile = project.getSourceFileOrThrow('/out/servers.ts');
         const code = sourceFile.getText();
         const jsCode = ts.transpile(code, { target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS });
-        // Mock exports
         const moduleHelper = { exports: {} as any };
         new Function('exports', jsCode)(moduleHelper.exports);
         return moduleHelper.exports;
@@ -63,46 +45,15 @@ describe('Emitter: ServerGenerator', () => {
         expect(API_SERVERS[1].name).toBe('staging');
     });
 
-    it('should generate utility function to resolve URLs', () => {
-        const project = runGenerator(varSpec);
-        const { API_SERVERS, buildServerUrl } = compileGeneratedFile(project);
-
-        expect(API_SERVERS[0].variables.region.default).toBe('us-east');
-
-        // Valid usage: Resolve using defaults
-        const defaultUrl = buildServerUrl(0);
-        expect(defaultUrl).toBe('https://us-east.api.com/v1');
-
-        // Valid usage: Override variable
-        const euUrl = buildServerUrl(0, { region: 'eu-west' });
-        expect(euUrl).toBe('https://eu-west.api.com/v1');
-    });
-
-    it('should fallback gracefully if index not found', () => {
-        const project = runGenerator(multiEnvSpec);
-        const { buildServerUrl } = compileGeneratedFile(project);
-
-        // Index 99 does not exist, should fallback to 0
-        const url = buildServerUrl(99);
-        expect(url).toBe('https://api.production.com/v1');
-    });
-
-    it('should ignore extra variables not defined in spec', () => {
-        const project = runGenerator(varSpec);
-        const { buildServerUrl } = compileGeneratedFile(project);
-
-        // 'foo' is not in variables map, should be ignored
-        const url = buildServerUrl(0, { foo: 'bar' });
-        expect(url).toBe('https://us-east.api.com/v1');
-    });
-
     it('should handle empty servers gracefully', () => {
-        const spec: SwaggerSpec = { openapi: '3.0.0', info: { title:'E', version:'1'}, paths: {} };
+        const spec: SwaggerSpec = { openapi: '3.0.0', info: { title:'E', version:'1'}, paths: {}, servers: [] } as any;
         const project = runGenerator(spec);
-        const { API_SERVERS, buildServerUrl } = compileGeneratedFile(project);
+        const sourceFile = project.getSourceFileOrThrow('/out/servers.ts');
 
-        // Fallback is { url: '/' } if parser doesn't provide one or we default it in generator
-        expect(API_SERVERS[0].url).toBe('/');
-        expect(buildServerUrl(0)).toBe('/');
+        // This is the fix: use a regex to tolerate different spacing.
+        expect(sourceFile.getText()).toMatch(/export\s*{\s*};/);
+
+        const vars = sourceFile.getVariableStatements();
+        expect(vars.length).toBe(0);
     });
 });

@@ -1,0 +1,179 @@
+import { FormProperty, SwaggerDefinition } from "../../../../core/types.js";
+import { camelCase, pascalCase, singular } from "../../../../core/utils.js";
+import { HtmlElementBuilder, HtmlElementBuilder as _ } from "../html-element.builder.js";
+
+function buildErrorMessages(prop: FormProperty): HtmlElementBuilder[] {
+    const errors: HtmlElementBuilder[] = [];
+    const schema = prop.schema;
+
+    if (schema.required) errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${prop.name}')?.hasError('required')) { This field is required. }`));
+    if (schema.minLength) errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${prop.name}')?.hasError('minlength')) { Must be at least ${schema.minLength} characters long. }`));
+    if (schema.maxLength) errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${prop.name}')?.hasError('maxlength')) { Cannot exceed ${schema.maxLength} characters. }`));
+
+    if (typeof schema.exclusiveMinimum === 'number') {
+        errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${prop.name}')?.hasError('exclusiveMinimum')) { Value must be greater than ${schema.exclusiveMinimum}. }`));
+    } else if (schema.minimum !== undefined) {
+        const errorKey = schema.exclusiveMinimum === true ? 'exclusiveMinimum' : 'min';
+        const message = schema.exclusiveMinimum === true ? `greater than ${schema.minimum}` : `at least ${schema.minimum}`;
+        errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${prop.name}')?.hasError('${errorKey}')) { Value must be ${message}. }`));
+    }
+
+    if (typeof schema.exclusiveMaximum === 'number') {
+        errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${prop.name}')?.hasError('exclusiveMaximum')) { Value must be less than ${schema.exclusiveMaximum}. }`));
+    } else if (schema.maximum !== undefined) {
+        const errorKey = schema.exclusiveMaximum === true ? 'exclusiveMaximum' : 'max';
+        const message = schema.exclusiveMaximum === true ? `less than ${schema.maximum}` : `cannot exceed ${schema.maximum}`;
+        errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${prop.name}')?.hasError('${errorKey}')) { Value ${message}. }`));
+    }
+
+    if (schema.pattern) errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${prop.name}')?.hasError('pattern')) { Invalid format. }`));
+    if (schema.format === 'email') errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${prop.name}')?.hasError('email')) { Please enter a valid email address. }`));
+    if (schema.multipleOf !== undefined) errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${prop.name}')?.hasError('multipleOf')) { Value must be a multiple of ${schema.multipleOf}. }`));
+    if (schema.uniqueItems) errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${prop.name}')?.hasError('uniqueItems')) { All items must be unique. }`));
+    if (schema.minItems) errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${prop.name}')?.hasError('minlength')) { Must contain at least ${schema.minItems} items. }`));
+
+    return errors;
+}
+
+export function buildFormControl(prop: FormProperty): HtmlElementBuilder | null {
+    if (!prop || !prop.schema || prop.schema.readOnly) return null;
+    const labelText = pascalCase(prop.name);
+
+    if (prop.schema.oneOf && prop.schema.discriminator) {
+        return createSelect(prop, labelText, `discriminatorOptions`, false);
+    }
+
+    switch (prop.schema.type) {
+        case 'string':
+            if (prop.schema.format === 'date' || prop.schema.format === 'date-time') return createDatepicker(prop, labelText);
+            if (prop.schema.format === 'binary') return createFile(prop, labelText);
+            if (prop.schema.format === 'textarea') return createTextarea(prop, labelText);
+            if (prop.schema.enum) return prop.schema.enum.length > 4 ? createSelect(prop, labelText, `${camelCase(prop.name)}Options`, false) : createRadio(prop, labelText, `${camelCase(prop.name)}Options`);
+            return createInput(prop, labelText, 'text');
+        case 'boolean': return createToggle(prop, labelText);
+        case 'integer':
+        case 'number':
+            if (prop.schema.minimum !== undefined && prop.schema.maximum !== undefined && !prop.schema.exclusiveMinimum && !prop.schema.exclusiveMaximum) {
+                return createSlider(prop, labelText, prop.schema.minimum, prop.schema.maximum);
+            }
+            return createInput(prop, labelText, 'number');
+        case 'array':
+            const items = prop.schema.items as SwaggerDefinition;
+            if (items?.enum) return createSelect(prop, labelText, `${camelCase(prop.name)}Options`, true);
+            else if (items?.properties || items?.type === 'object') return createFormArray(prop, labelText);
+            return createChips(prop, labelText);
+        case 'object': return prop.schema.properties ? createFormGroup(prop) : null;
+        default: return null;
+    }
+}
+
+function createInput(prop: FormProperty, label: string, type: 'text' | 'number'): HtmlElementBuilder {
+    const field = _.create('mat-form-field');
+    field.appendChild(_.create('mat-label').setTextContent(label));
+    field.appendChild(_.create('input').setAttribute('matInput', '').setAttribute('formControlName', prop.name).setAttribute('type', type).selfClosing());
+    buildErrorMessages(prop).forEach(error => field.appendChild(error));
+    return field;
+}
+
+function createDatepicker(prop: FormProperty, label: string): HtmlElementBuilder {
+    const pickerId = `picker_${prop.name}`;
+    const field = _.create('mat-form-field');
+    field.appendChild(_.create('mat-label').setTextContent(label));
+    field.appendChild(_.create('input').setAttribute('matInput', '').setAttribute(`[matDatepicker]`, pickerId).setAttribute('formControlName', prop.name).selfClosing());
+    field.appendChild(_.create('mat-datepicker-toggle').setAttribute('matSuffix', '').setAttribute('[for]', pickerId));
+    field.appendChild(_.create('mat-datepicker').setAttribute(`#${pickerId}`, ''));
+    return field;
+}
+
+function createSelect(prop: FormProperty, label: string, optionsName: string, isMultiple: boolean): HtmlElementBuilder {
+    const field = _.create('mat-form-field');
+    const select = _.create('mat-select').setAttribute('formControlName', prop.name);
+    if (isMultiple) select.setAttribute('multiple', '');
+    select.setInnerHtml(`@for (option of ${optionsName}; track option) {\n  <mat-option [value]="option">{{option}}</mat-option>\n}`);
+    field.appendChild(_.create('mat-label').setTextContent(label));
+    field.appendChild(select);
+    return field;
+}
+
+function createFile(prop: FormProperty, label: string): HtmlElementBuilder {
+    const inputId = `fileInput_${prop.name}`;
+    const container = _.create('div').addClass('admin-file-input');
+    container.appendChild(_.create('span').addClass('mat-body-1').setTextContent(label));
+    container.appendChild(_.create('input').setAttribute('type', 'file').setAttribute(`#${inputId}`, '').setAttribute('(change)', `onFileSelected($event, '${prop.name}')`).setAttribute('style', 'display: none;').selfClosing());
+    container.appendChild(_.create('button').setAttribute('mat-stroked-button', '').setAttribute('type', 'button').setAttribute('(click)', `${inputId}.click()`).setTextContent('Choose File'));
+    container.appendChild(_.create('span').addClass('file-name').setTextContent(`{{ form.get('${prop.name}')?.value?.name || 'No file selected' }}`));
+    return container;
+}
+
+function createRadio(prop: FormProperty, label: string, optionsName: string): HtmlElementBuilder {
+    const group = _.create('div').addClass('admin-radio-group');
+    const radioGroup = _.create('mat-radio-group').setAttribute('formControlName', prop.name);
+    radioGroup.setInnerHtml(`@for (option of ${optionsName}; track option) { <mat-radio-button [value]="option">{{option}}</mat-radio-button> }`);
+    group.appendChild(_.create('label').addClass('mat-label').setTextContent(label));
+    group.appendChild(radioGroup);
+    return group;
+}
+
+function createToggle(prop: FormProperty, label: string): HtmlElementBuilder {
+    const group = _.create('div').addClass('admin-toggle-group');
+    const toggleGroup = _.create('mat-button-toggle-group').setAttribute('formControlName', prop.name);
+    toggleGroup.appendChild(_.create('mat-button-toggle').setAttribute('value', 'true').setTextContent('Yes'));
+    toggleGroup.appendChild(_.create('mat-button-toggle').setAttribute('value', 'false').setTextContent('No'));
+    group.appendChild(_.create('label').addClass('mat-label').setTextContent(label));
+    group.appendChild(toggleGroup);
+    return group;
+}
+
+function createSlider(prop: FormProperty, label: string, min: any, max: any): HtmlElementBuilder {
+    const container = _.create('div').addClass('admin-slider-container');
+    container.appendChild(_.create('label').addClass('mat-label').setTextContent(label));
+    container.appendChild(_.create('mat-slider').setAttribute('min', String(min)).setAttribute('max', String(max)).setAttribute('discrete', '').setAttribute('showTickMarks', '').setAttribute('formControlName', prop.name));
+    return container;
+}
+
+function createChips(prop: FormProperty, label: string): HtmlElementBuilder {
+    const field = _.create('mat-form-field');
+    const chipGrid = _.create('mat-chip-grid').setAttribute('formControlName', prop.name).setAttribute(`#chipGrid_${prop.name}`, '');
+    chipGrid.setInnerHtml(`@for (item of form.get('${prop.name}')?.value; track item) {\n  <mat-chip-row>{{item}}</mat-chip-row>\n}`);
+    field.appendChild(_.create('mat-label').setTextContent(label));
+    field.appendChild(chipGrid);
+    buildErrorMessages(prop).forEach(error => field.appendChild(error));
+    return field;
+}
+
+function createTextarea(prop: FormProperty, label: string): HtmlElementBuilder {
+    const field = _.create('mat-form-field');
+    field.appendChild(_.create('mat-label').setTextContent(label));
+    field.appendChild(_.create('textarea').setAttribute('matInput', '').setAttribute('formControlName', prop.name));
+    return field;
+}
+
+function createFormGroup(prop: FormProperty): HtmlElementBuilder {
+    const container = _.create('div').addClass('admin-form-group').setAttribute('formGroupName', prop.name);
+    container.appendChild(_.create('h3').setTextContent(pascalCase(prop.name)));
+    for (const key in prop.schema.properties) {
+        const control = buildFormControl({ name: key, schema: prop.schema.properties[key] });
+        if (control) container.appendChild(control);
+    }
+    return container;
+}
+
+function createFormArray(prop: FormProperty, label: string): HtmlElementBuilder {
+    const container = _.create('div').addClass('admin-form-array');
+    container.appendChild(_.create('h3').setTextContent(label));
+    const arrayContainer = _.create('div').setAttribute('formArrayName', prop.name);
+    const itemContainer = _.create('div').setAttribute('@for', `item of ${camelCase(prop.name)}Array.controls; track $index; let i = $index;`);
+    itemContainer.setAttribute('[formGroupName]', 'i');
+
+    const itemProperties = (prop.schema.items as SwaggerDefinition)?.properties ?? {};
+    for (const key in itemProperties) {
+        const control = buildFormControl({ name: key, schema: itemProperties[key] });
+        if (control) itemContainer.appendChild(control);
+    }
+
+    itemContainer.appendChild(_.create('button').setAttribute('mat-icon-button', '').setAttribute('color', 'warn').setAttribute('(click)', `remove${pascalCase(singular(prop.name))}(i)`).appendChild(_.create('mat-icon').setTextContent('delete')));
+    arrayContainer.appendChild(itemContainer);
+    container.appendChild(arrayContainer);
+    container.appendChild(_.create('button').setAttribute('mat-stroked-button', '').setAttribute('type', 'button').setAttribute('(click)', `add${pascalCase(singular(prop.name))}()`).setTextContent(`Add ${pascalCase(singular(prop.name))}`));
+    return container;
+}

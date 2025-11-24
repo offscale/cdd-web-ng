@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { AdminGenerator } from '@src/service/emit/admin/admin.generator.js';
+import { AdminGenerator } from '@src/generators/angular/admin/admin.generator.js';
 import * as resourceDiscovery from '@src/service/emit/admin/resource-discovery.js';
 import { createTestProject } from '../shared/helpers.js';
 import { adminFormSpec, coverageSpec } from '../shared/specs.js';
 import { SwaggerParser } from '@src/core/parser.js';
-import { CustomValidatorsGenerator } from '@src/service/emit/admin/custom-validators.generator.js';
+import { CustomValidatorsGenerator } from '@src/generators/angular/admin/custom-validators.generator.js';
 
 describe('Admin: AdminGenerator (Orchestrator)', () => {
 
@@ -51,7 +51,6 @@ describe('Admin: AdminGenerator (Orchestrator)', () => {
 
     it('should generate custom validators file WHEN needed', async () => {
         const project = createTestProject();
-        // adminFormSpec uses exclusiveMinimum, which requires the custom validator
         const parser = new SwaggerParser(adminFormSpec as any, { options: { admin: true } } as any);
         const adminGen = new AdminGenerator(parser, project);
 
@@ -67,7 +66,6 @@ describe('Admin: AdminGenerator (Orchestrator)', () => {
         vi.spyOn(resourceDiscovery, 'discoverAdminResources').mockReturnValue([]);
 
         const project = createTestProject();
-        // Pass a VALID empty spec to the parser to avoid SpecValidationError
         const validEmptySpec = { openapi: '3.0.0', info: { title: 'Empty', version: '0' }, paths: {} };
         const parser = new SwaggerParser(validEmptySpec as any, { options: {} } as any);
         const adminGen = new AdminGenerator(parser, project);

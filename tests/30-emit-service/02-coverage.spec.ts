@@ -1,25 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { ImportDeclaration, Project } from 'ts-morph';
-import { ServiceGenerator } from '@src/service/emit/service/service.generator.js';
+import { ServiceGenerator } from '@src/generators/angular/service/service.generator.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from '@src/core/types.js';
 import { branchCoverageSpec, coverageSpecPart2 } from '../shared/specs.js';
 import { groupPathsByController } from '@src/service/parse.js';
 import { createTestProject } from '../shared/helpers.js';
 
-/**
- * @fileoverview
- * This file contains targeted tests for the service generators to cover specific
- * edge cases related to different `consumes` types (`formData`, `urlencoded`) and
- * primitive return types, ensuring correct method body generation and import handling.
- */
-describe('Emitter: Service Generators (Coverage)', () => {
+describe('Generators (Angular): Service Generators (Coverage)', () => {
     const run = (spec: object): Project => {
         const project = createTestProject();
         const config: GeneratorConfig = {
             input: '',
             output: '/out',
-            options: { dateType: 'string', enumStyle: 'enum' },
+            options: { dateType: 'string', enumStyle: 'enum', framework: 'angular' },
         };
         const parser = new SwaggerParser(spec as any, config);
         const serviceGen = new ServiceGenerator(parser, project, config);
@@ -83,7 +77,6 @@ describe('Emitter: Service Generators (Coverage)', () => {
         const project = run(coverageSpecPart2);
         const serviceFile = project.getSourceFileOrThrow('/out/services/primitiveResponse.service.ts');
         const modelImport = serviceFile.getImportDeclaration((imp: ImportDeclaration) => imp.getModuleSpecifierValue() === '../models');
-        // The import should exist (for RequestOptions), but it should not import any models beyond that.
         expect(modelImport).toBeDefined();
         expect(modelImport!.getNamedImports().map((i: any) => i.getName())).toEqual(['RequestOptions']);
     });
@@ -101,7 +94,6 @@ describe('Emitter: Service Generators (Coverage)', () => {
         const serviceFile = project.getSourceFileOrThrow('/out/services/allRequired.service.ts');
         const method = serviceFile.getClassOrThrow('AllRequiredService').getMethodOrThrow('getAllRequired');
         const overloads = method.getOverloads();
-        // The 'options' parameter should NOT be optional in the overloads that require it
         const responseOverload = overloads.find((o: any) => o.getReturnType().getText().includes('HttpResponse'))!;
         const optionsParam = responseOverload.getParameters().find((p: any) => p.getName() === 'options')!;
         expect(optionsParam.hasQuestionToken()).toBe(false);
@@ -133,7 +125,7 @@ describe('Emitter: Service Generators (Coverage)', () => {
                     get: {
                         tags: ['NoContentResponse'],
                         responses: {
-                            '200': { description: 'OK' } // No content object
+                            '200': { description: 'OK' }
                         }
                     }
                 }

@@ -7,7 +7,7 @@
 
 import { Resource } from '@src/core/types.js';
 import { pascalCase, singular } from '@src/core/utils.js';
-import { HtmlElementBuilder as _ } from '../html-element.builder.js';
+import { HtmlElementBuilder as _ } from "@src/generators/angular/admin/html-element.builder.js";
 
 /**
  * Generates the complete HTML content for a resource's list component.

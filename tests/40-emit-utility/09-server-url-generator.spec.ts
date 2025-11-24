@@ -1,9 +1,7 @@
-// tests/40-emit-utility/09-server-url-generator.spec.ts
-
 import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
-import { ServerUrlGenerator } from '@src/service/emit/utility/server-url.generator.js';
+import { ServerUrlGenerator } from '@src/generators/shared/server-url.generator.js';
 import { createTestProject } from '../shared/helpers.js';
 import ts from 'typescript';
 
@@ -25,13 +23,11 @@ describe('Emitter: ServerUrlGenerator', () => {
     const compileHelper = (project: Project) => {
         const sourceFile = project.getSourceFileOrThrow('/out/utils/server-url.ts');
         const startText = sourceFile.getText();
-        // Removing export keywords to evaluate in this context as strict CommonJS/Script
         const jsCode = ts.transpile(startText.replace(/export /g, ''), {
             target: ts.ScriptTarget.ESNext,
             module: ts.ModuleKind.CommonJS
         });
         const moduleScope = { API_SERVERS: [], getServerUrl: null as any };
-        // Evaluate in simple scope
         new Function('scope', `
             ${jsCode} 
             scope.API_SERVERS = API_SERVERS; 

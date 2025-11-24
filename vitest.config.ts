@@ -1,5 +1,3 @@
-// vitest.config.ts (Final Final Version)
-
 import { defineConfig } from 'vitest/config';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -12,11 +10,9 @@ export default defineConfig({
         testTimeout: 30000,
         reporters: ['verbose', 'junit'],
         alias: {
-            // This is the most common and robust way
             '@src': path.resolve(__dirname, './src'),
         },
         outputFile: {
-            // Specify the name and location of the JUnit report
             junit: 'coverage/junit.xml'
         },
         coverage: {
@@ -26,12 +22,12 @@ export default defineConfig({
             include: ['src/**/*.ts'],
             exclude: [
                 'src/cli.ts', 'src/custom.d.ts', 'src/index.ts',
-                'src/core/types.ts', 'src/core/constants.ts',
-                '**/index.ts', 'src/component', 'src/route',
+                // Exclude the barrel files themselves, coverage should focus on implementation
+                'src/core/types.ts', 'src/core/utils.ts', 'src/core/constants.ts',
+                '**/index.ts',
+                'src/component', 'src/route', // Stubs
+                'tests/fixtures/**' // Data
             ],
-            /*thresholds: {
-                statements: 99, branches: 95, functions: 99, lines: 99,
-            }*/
         },
     },
     plugins: [

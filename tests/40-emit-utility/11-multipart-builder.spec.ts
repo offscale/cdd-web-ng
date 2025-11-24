@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MultipartBuilderGenerator } from '@src/service/emit/utility/multipart-builder.generator.js';
+import { MultipartBuilderGenerator } from '@src/generators/shared/multipart-builder.generator.js';
 import { createTestProject } from '../shared/helpers.js';
 import ts from 'typescript';
 
@@ -9,9 +9,6 @@ function getMultipartBuilder() {
     const sourceFile = project.getSourceFileOrThrow('/utils/multipart-builder.ts');
     const startText = sourceFile.getText();
 
-    // Removing export keywords to evaluate in this context
-    // Note: We must remove 'export' from 'export class' to make it a local declaration in the function scope
-    // before assigning it to exports.
     const codeWithoutExports = startText.replace(/export class/g, 'class').replace(/export interface/g, 'interface');
 
     const jsCode = ts.transpile(codeWithoutExports, {
@@ -21,12 +18,11 @@ function getMultipartBuilder() {
 
     const moduleScope = { exports: {} as any };
 
-    // Mock browser globals
     global.FormData = class FormData {
         _entries: Record<string, any> = {};
         append(k: string, v: any) { this._entries[k] = v; }
     } as any;
-    // Minimal Mock Blob
+
     global.Blob = class Blob {
         parts: any[];
         options: any;
@@ -37,6 +33,7 @@ function getMultipartBuilder() {
             this.type = options?.type || '';
         }
     } as any;
+
     global.File = class File extends global.Blob {
         name: string;
         constructor(parts: any[], name: string, options: any) {
@@ -45,8 +42,6 @@ function getMultipartBuilder() {
         }
     } as any;
 
-    // Evaluate the code. Since we stripped 'export', we need to manually assign the class to exports
-    // or rely on the class definition being returned/available.
     const finalCode = `${jsCode}\nmoduleScope.exports.MultipartBuilder = MultipartBuilder;`;
 
     new Function('moduleScope', finalCode)(moduleScope);

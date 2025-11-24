@@ -17,6 +17,7 @@ interface CliOptions {
     input?: string;
     output?: string;
     clientName?: string;
+    framework?: 'angular' | 'react' | 'vue';
     dateType?: 'string' | 'Date';
     enumStyle?: 'enum' | 'union';
     admin?: boolean;
@@ -64,6 +65,7 @@ async function runGeneration(options: CliOptions) {
         }
 
         const cliOptions: Partial<GeneratorConfigOptions> = {};
+        if (options.framework) cliOptions.framework = options.framework;
         if (options.dateType) cliOptions.dateType = options.dateType;
         if (options.enumStyle) cliOptions.enumStyle = options.enumStyle;
         if (options.generateServices !== undefined) cliOptions.generateServices = options.generateServices;
@@ -72,6 +74,7 @@ async function runGeneration(options: CliOptions) {
         if (options.testsForAdmin !== undefined) cliOptions.generateAdminTests = options.testsForAdmin;
 
         const defaults: GeneratorConfigOptions = {
+            framework: 'angular',
             dateType: 'Date',
             enumStyle: 'enum',
             generateServices: true,
@@ -138,22 +141,23 @@ async function runGeneration(options: CliOptions) {
 const program = new Command();
 program
     .name('cdd_web_ng')
-    .description('OpenAPI ↔ Angular (TypeScript, HTML) code generator')
+    .description('OpenAPI ↔ Client SDK (Angular, React, Vue) code generator')
     .version(packageJson.version);
 
 program
     .command('from_openapi')
-    .description('Generate Angular services and admin UI from an OpenAPI specification')
+    .description('Generate Client SDK services and admin UI from an OpenAPI specification')
     .option('-c, --config <path>', 'Path to a configuration file (e.g., cdd-web-ng.config.js)')
     .option('-i, --input <path>', 'Path or URL to the OpenAPI spec (overrides config)')
     .option('-o, --output <path>', 'Output directory for generated files (overrides config)')
     .option('--clientName <name>', 'Name for the generated client (used for DI tokens)')
+    .addOption(new Option('--framework <framework>', 'Target framework').choices(['angular', 'react', 'vue']).default('angular'))
     .addOption(new Option('--dateType <type>', 'Date type to use').choices(['string', 'Date']))
     .addOption(new Option('--enumStyle <style>', 'Style for enums').choices(['enum', 'union']))
-    .option('--admin', 'Generate an Angular Material admin UI')
-    .addOption(new Option('--no-generate-services', 'Disable generation of Angular services'))
-    .option('--no-tests-for-service', 'Disable generation of tests for Angular services')
-    .option('--no-tests-for-admin', 'Disable generation of tests for the Angular admin UI')
+    .option('--admin', 'Generate an admin UI (Angular only)')
+    .addOption(new Option('--no-generate-services', 'Disable generation of services'))
+    .option('--no-tests-for-service', 'Disable generation of tests for services')
+    .option('--no-tests-for-admin', 'Disable generation of tests for the admin UI')
     .action(runGeneration);
 
 program

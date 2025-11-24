@@ -4,8 +4,8 @@ import { createTestProject, runGeneratorWithConfig } from '../shared/helpers.js'
 import { branchCoverageSpec, coverageSpec } from '../shared/specs.js';
 import { Resource } from '@src/core/types.js';
 import { discoverAdminResources } from '@src/service/emit/admin/resource-discovery.js';
-import { ListComponentGenerator } from '@src/service/emit/admin/list-component.generator.js';
-import { AdminGenerator } from '@src/service/emit/admin/admin.generator.js';
+import { ListComponentGenerator } from "@src/generators/angular/admin/list-component.generator.js";
+import { AdminGenerator } from "@src/generators/angular/admin/admin.generator.js";
 
 describe('Final Branch Coverage Tests', () => {
 

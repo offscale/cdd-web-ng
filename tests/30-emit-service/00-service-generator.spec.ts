@@ -1,27 +1,24 @@
-// tests/30-emit-service/00-service-generator.spec.ts
-
 import { describe, expect, it } from 'vitest';
 import { Project, Scope } from 'ts-morph';
-import { ServiceGenerator } from '@src/service/emit/service/service.generator.js';
+import { ServiceGenerator } from '@src/generators/angular/service/service.generator.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from '@src/core/types.js';
 import { branchCoverageSpec, coverageSpec, fullCRUD_Users } from '../shared/specs.js';
 import { groupPathsByController } from '@src/service/parse.js';
 import { TypeGenerator } from '@src/service/emit/type/type.generator.js';
-import { TokenGenerator } from '@src/service/emit/utility/token.generator.js';
-import { HttpParamsBuilderGenerator } from '@src/service/emit/utility/http-params-builder.js';
-import { AuthTokensGenerator } from '@src/service/emit/utility/auth-tokens.generator.js';
+import { TokenGenerator } from '@src/generators/angular/utils/token.generator.js';
+import { HttpParamsBuilderGenerator } from '@src/generators/angular/utils/http-params-builder.generator.js';
+import { AuthTokensGenerator } from '@src/generators/angular/utils/auth-tokens.generator.js';
 
-describe('Emitter: ServiceGenerator', () => {
+describe('Generators (Angular): ServiceGenerator', () => {
 
     const createTestEnvironment = (spec: any, configOverrides: Partial<GeneratorConfig['options']> = {}) => {
         const project = new Project({ useInMemoryFileSystem: true });
         const config: GeneratorConfig = {
             input: '', output: '/out', clientName: 'default',
-            options: { dateType: 'string', enumStyle: 'enum', ...configOverrides }
+            options: { dateType: 'string', enumStyle: 'enum', framework: 'angular', ...configOverrides }
         };
 
-        // Patch spec to ensure it passes validation if minimal/partial
         const safeSpec = {
             openapi: '3.0.0',
             info: { title: 'Test', version: '1.0' },
@@ -30,11 +27,9 @@ describe('Emitter: ServiceGenerator', () => {
 
         const parser = new SwaggerParser(safeSpec, config);
 
-        // Pre-generate dependencies
         new TypeGenerator(parser, project, config).generate('/out');
         new TokenGenerator(project, config.clientName).generate('/out');
         new HttpParamsBuilderGenerator(project).generate('/out');
-        // Ensure auth tokens are generated so imports resolve logically in our checks
         new AuthTokensGenerator(project).generate('/out');
 
         const serviceGen = new ServiceGenerator(parser, project, config);
@@ -136,14 +131,13 @@ describe('Emitter: ServiceGenerator', () => {
                 '/public': {
                     get: {
                         tags: ['Public'],
-                        security: [], // Override
+                        security: [],
                         responses: { '200': {} }
                     }
                 },
                 '/protected': {
                     get: {
                         tags: ['Public'],
-                        // Inherits global security effectively
                         responses: { '200': {} }
                     }
                 }
@@ -159,11 +153,10 @@ describe('Emitter: ServiceGenerator', () => {
         });
 
         expect(authImport).toBeDefined();
-        // Logic has changed: We import SECURITY_CONTEXT_TOKEN for all security handling
         expect(authImport!.getNamedImports().map(i => i.getName())).toContain('SECURITY_CONTEXT_TOKEN');
     });
 
-    it('should NOT add SECURITY_CONTEXT_TOKEN import if no security requirements exist (empty global + local override)', () => {
+    it('should NOT add SECURITY_CONTEXT_TOKEN import if no security requirements exist', () => {
         const specWithoutGlobalSec = {
             openapi: '3.0.0',
             info: { title: 'Public API', version: '1.0' },
@@ -171,17 +164,13 @@ describe('Emitter: ServiceGenerator', () => {
                 '/public': {
                     get: {
                         tags: ['Public'],
-                        security: [], // Local override to empty
+                        security: [],
                         responses: { '200': {} }
                     }
                 }
             },
             components: {}
         };
-
-        // Effective security for 'get' is []. Length is 0.
-        // Generator logic now checks effective security > 0.
-        // So no import should be generated.
 
         const project = createTestEnvironment(specWithoutGlobalSec);
         const serviceFile = project.getSourceFileOrThrow('/out/services/public.service.ts');

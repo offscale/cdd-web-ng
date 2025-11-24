@@ -1,12 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Project, Scope } from 'ts-morph';
-import { ServiceMethodGenerator } from '@src/service/emit/service/service-method.generator.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig, PathInfo } from '@src/core/types.js';
 import { finalCoverageSpec } from '../shared/specs.js';
 import { TypeGenerator } from '@src/service/emit/type/type.generator.js';
-import { HttpParamsBuilderGenerator } from '@src/service/emit/utility/http-params-builder.js';
-import { XmlBuilderGenerator } from '@src/service/emit/utility/xml-builder.generator.js';
+import { ServiceMethodGenerator } from "@src/generators/angular/service/service-method.generator.js";
+import { HttpParamsBuilderGenerator } from "@src/generators/angular/utils/http-params-builder.generator.js";
+import { XmlBuilderGenerator } from "@src/generators/shared/xml-builder.generator.js";
 
 const serviceMethodGenSpec = {
     openapi: '3.0.0',

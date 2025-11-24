@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
-import { TagGenerator } from '@src/service/emit/utility/tag.generator.js';
+import { TagGenerator } from '@src/generators/shared/tag.generator.js';
 import { createTestProject } from '../shared/helpers.js';
 import { GeneratorConfig, SwaggerSpec } from '@src/core/types.js';
 import ts from 'typescript';
 
-// Cast to any to support new 3.2 properties in test mock without strict type errors if core types aren't updated in the test context first
 const tagsSpec: SwaggerSpec = {
     openapi: '3.2.0',
     info: { title: 'Tags Test', version: '1.0' },
@@ -25,7 +24,7 @@ const tagsSpec: SwaggerSpec = {
         {
             name: 'Store',
             description: 'Access to Petstore orders',
-            parent: 'Pet' // OAS 3.2 Nested tag
+            parent: 'Pet'
         } as any
     ]
 };
@@ -68,7 +67,6 @@ describe('Emitter: TagGenerator', () => {
         expect(API_TAGS_MAP['Store'].description).toContain('orders');
         expect(API_TAGS_MAP['Store'].parent).toBe('Pet');
 
-        // Verify order/integrity matches array
         expect(API_TAGS_MAP['Pet'].name).toBe('Pet');
     });
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
-import { InfoGenerator } from '@src/service/emit/utility/info.generator.js';
+import { InfoGenerator } from '@src/generators/shared/info.generator.js';
 import { createTestProject } from '../shared/helpers.js';
 import { emptySpec } from '../shared/specs.js';
 import ts from 'typescript';
@@ -17,22 +17,12 @@ describe('Emitter: InfoGenerator', () => {
     const compileGeneratedFile = (project: Project) => {
         const sourceFile = project.getSourceFileOrThrow('/out/info.ts');
         const fileContent = sourceFile.getText();
-
-        // Transpile the TypeScript source to CommonJS JavaScript.
-        // This converts 'export const X = ...' to 'exports.X = ...'
         const jsCode = ts.transpile(fileContent, {
-            target: ts.ScriptTarget.ES5, // Use ES5 to ensure broader compatibility in the eval context
+            target: ts.ScriptTarget.ES5,
             module: ts.ModuleKind.CommonJS
         });
-
-        // Create a mock 'exports' object to capture the output
         const moduleHelper = { exports: {} as any };
-
-        // Execute the code within a function to simulate a module scope.
-        // Pass our mock 'exports' object.
         new Function('exports', jsCode)(moduleHelper.exports);
-
-        // Return the populated exports object
         return moduleHelper.exports;
     };
 

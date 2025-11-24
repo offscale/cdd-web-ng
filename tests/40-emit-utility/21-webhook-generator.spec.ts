@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
-import { WebhookGenerator } from '@src/service/emit/utility/webhook.generator.js';
+import { WebhookGenerator } from '@src/generators/shared/webhook.generator.js';
 import { createTestProject } from '../shared/helpers.js';
 import { GeneratorConfig, SwaggerSpec } from '@src/core/types.js';
 import ts from 'typescript';
@@ -11,7 +11,6 @@ const simpleWebhookSpec: SwaggerSpec = {
     info: { title: 'Webhook Test', version: '1.0' },
     paths: {},
     webhooks: {
-        // 'newPet' is the name of the webhook
         'newPet': {
             post: {
                 requestBody: {
@@ -77,7 +76,6 @@ describe('Emitter: WebhookGenerator', () => {
         } as any;
 
         const parser = new SwaggerParser(spec, config);
-        // Seed schemas manually for refs to work in simple extraction context
         if (spec.components?.schemas?.UserEvent) {
             parser.schemas.push({ name: 'UserEvent', definition: spec.components.schemas.UserEvent });
         }
@@ -89,7 +87,6 @@ describe('Emitter: WebhookGenerator', () => {
     const compileGeneratedFile = (project: Project) => {
         const sourceFile = project.getSourceFileOrThrow('/out/webhooks.ts');
         const code = sourceFile.getText();
-        // Remove imports for standalone compilation validation
         const codeNoImports = code.replace(/import .* from .*/g, '');
 
         const jsCode = ts.transpile(codeNoImports, { target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS });
@@ -125,11 +122,9 @@ describe('Emitter: WebhookGenerator', () => {
         const project = runGenerator(refWebhookSpec);
         const sourceFile = project.getSourceFileOrThrow('/out/webhooks.ts');
 
-        // Should generate imports if model detected
         const imports = sourceFile.getImportDeclarations();
         expect(imports.some(i => i.getModuleSpecifierValue() === './models')).toBe(true);
 
-        // Type alias should use the ref model
         const typeAlias = sourceFile.getTypeAliasOrThrow('UserDeletedPostPayload');
         expect(typeAlias.getTypeNode()?.getText()).toBe('UserEvent');
     });
@@ -139,7 +134,6 @@ describe('Emitter: WebhookGenerator', () => {
             openapi: '3.1.0',
             info: { title: 'Empty', version: '1.0' },
             paths: {},
-            // No 'webhooks' key or empty object
         };
         const project = runGenerator(emptySpec);
         const sourceFile = project.getSourceFileOrThrow('/out/webhooks.ts');

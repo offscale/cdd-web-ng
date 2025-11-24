@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HttpParamsBuilderGenerator } from '@src/service/emit/utility/http-params-builder.js';
+import { HttpParamsBuilderGenerator } from '@src/generators/angular/utils/http-params-builder.generator.js';
 import { createTestProject } from '../shared/helpers.js';
 import ts from 'typescript';
 

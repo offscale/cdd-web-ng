@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
-import { SecurityGenerator } from '@src/service/emit/utility/security.generator.js';
+import { SecurityGenerator } from '@src/generators/shared/security.generator.js';
 import { GeneratorConfig, SwaggerSpec } from '@src/core/types.js';
 
 describe('Emitter: SecurityGenerator', () => {
@@ -23,13 +23,10 @@ describe('Emitter: SecurityGenerator', () => {
             components: {}
         });
 
-        // Use try/catch because getSourceFileOrThrow throws if missing.
-        // If logic skips generation for empty schemes, we expect NO file or empty check.
         const sourceFile = project.getSourceFile('/out/security.ts');
         if (sourceFile) {
             expect(sourceFile.getText()).toContain('export const API_SECURITY_SCHEMES');
         } else {
-            // Accept absence if logic returns early
             expect(true).toBe(true);
         }
     });
@@ -63,7 +60,6 @@ describe('Emitter: SecurityGenerator', () => {
     });
 
     it('should generate HTTP security definitions (Basic, Bearer)', () => {
-        // Fix: Cast to prevent TS2353 strict object literal error for 'bearerFormat'
         const schemes: any = {
             BasicAuth: {
                 type: 'http',
@@ -173,8 +169,7 @@ describe('Emitter: SecurityGenerator', () => {
         const text = sourceFile.getText();
 
         expect(text).toContain('LegacyBasic');
-        // In Swagger 2 -> OAS 3 normalization, basic becomes http/basic
-        expect(text).toContain('"type": "basic"'); // Or however the parser normalizes it, likely raw
+        expect(text).toContain('"type": "basic"');
         expect(text).toContain('LegacyApiKey');
         expect(text).toContain('"name": "X-Auth"');
     });

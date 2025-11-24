@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
-import { LinkGenerator } from '@src/service/emit/utility/link.generator.js';
+import { LinkGenerator } from '@src/generators/shared/link.generator.js';
 import { createTestProject } from '../shared/helpers.js';
 import { GeneratorConfig, SwaggerSpec } from '@src/core/types.js';
 import ts from 'typescript';
@@ -17,7 +17,6 @@ const linksSpec: SwaggerSpec = {
                     '200': {
                         description: 'User details',
                         links: {
-                            // The link name
                             'GetUserAddress': {
                                 operationId: 'getUserAddress',
                                 parameters: { userId: '$response.body#/id' },
@@ -70,7 +69,6 @@ describe('Emitter: LinkGenerator', () => {
         const project = createTestProject();
         const config: GeneratorConfig = { output: '/out', options: {} } as any;
         const parser = new SwaggerParser(spec, config);
-        // No extra schema setup needed really, Links extraction is mostly metadata
         new LinkGenerator(parser, project).generate('/out');
         return project;
     };
@@ -88,7 +86,6 @@ describe('Emitter: LinkGenerator', () => {
         const project = runGenerator(linksSpec);
         const { API_LINKS } = compileGeneratedFile(project);
 
-        // Structure: opId -> code -> linkName -> definition
         expect(API_LINKS).toBeDefined();
         expect(API_LINKS['getUserById']).toBeDefined();
         expect(API_LINKS['getUserById']['200']).toBeDefined();
@@ -107,7 +104,6 @@ describe('Emitter: LinkGenerator', () => {
         const link = API_LINKS['getOrder']['200']['CancelOrder'];
         expect(link).toBeDefined();
         expect(link.operationId).toBe('cancelOrder');
-        // The $ref should be resolved, so we see the actual content
         expect(link.parameters).toEqual({ orderId: '$request.path.id' });
     });
 
@@ -123,10 +119,7 @@ describe('Emitter: LinkGenerator', () => {
         const project = runGenerator(spec);
         const { API_LINKS } = compileGeneratedFile(project);
 
-        // Should contain nothing because no valid links exist
-        // Actually, compileGeneratedCode returns {} if file exports empty object?
-        // Wait, if file content is "export {}" then API_LINKS is undefined
-        expect(API_LINKS).toBeUndefined(); // because export is empty
+        expect(API_LINKS).toBeUndefined();
     });
 
     it('should produce valid module for empty links', () => {

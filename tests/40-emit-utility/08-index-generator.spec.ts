@@ -2,15 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from '@src/core/types.js';
-import { MainIndexGenerator, ServiceIndexGenerator } from '@src/service/emit/utility/index.generator.js';
+import { MainIndexGenerator, ServiceIndexGenerator } from '@src/generators/angular/utils/index.generator.js';
 import { emptySpec, securitySpec } from '../shared/specs.js';
 
-/**
- * @fileoverview
- * This file tests the `MainIndexGenerator` and `ServiceIndexGenerator`, which are
- * responsible for creating the "barrel" files (`index.ts`) that export the public
- * API of the generated library.
- */
 describe('Emitter: IndexGenerators', () => {
     describe('MainIndexGenerator', () => {
         const runGenerator = (spec: object, options: Partial<GeneratorConfig['options']>) => {
@@ -18,7 +12,7 @@ describe('Emitter: IndexGenerators', () => {
             const config: GeneratorConfig = {
                 input: '',
                 output: '/out',
-                options: { dateType: 'string', enumStyle: 'enum', ...options },
+                options: { dateType: 'string', enumStyle: 'enum', framework: 'angular', ...options },
             };
             const parser = new SwaggerParser(spec as any, config);
             new MainIndexGenerator(project, config, parser).generateMainIndex('/out');
@@ -60,11 +54,9 @@ describe('Emitter: IndexGenerators', () => {
     describe('ServiceIndexGenerator', () => {
         it('should create an empty index if no services directory exists', () => {
             const project = new Project({ useInMemoryFileSystem: true });
-            // Do not create the '/out/services' directory
             new ServiceIndexGenerator(project).generateIndex('/out');
             const file = project.getSourceFile('/out/services/index.ts');
             expect(file).toBeDefined();
-            // The guard clause `if (!servicesDirectory) { return; }` should be hit.
             expect(file?.getExportDeclarations().length).toBe(0);
         });
 
@@ -73,9 +65,9 @@ describe('Emitter: IndexGenerators', () => {
             const serviceDir = project.createDirectory('/out/services');
             serviceDir.createSourceFile('users.service.ts', 'export class UsersService {}');
             serviceDir.createSourceFile('products.service.ts', 'export class ProductsService {}');
-            serviceDir.createSourceFile('helpers.ts', 'export const helper = 1;'); // Not a service file
-            serviceDir.createSourceFile('internal.service.ts', 'class InternalService {}'); // Not exported
-            serviceDir.createSourceFile('empty.service.ts', ''); // Empty service file
+            serviceDir.createSourceFile('helpers.ts', 'export const helper = 1;');
+            serviceDir.createSourceFile('internal.service.ts', 'class InternalService {}');
+            serviceDir.createSourceFile('empty.service.ts', '');
 
             new ServiceIndexGenerator(project).generateIndex('/out');
             const content = project.getSourceFileOrThrow('/out/services/index.ts').getText();

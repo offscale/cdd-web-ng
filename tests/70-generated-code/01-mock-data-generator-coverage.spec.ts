@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from '@src/core/types.js';
+import { GeneratorConfig } from "@src/core/types/index.js";
 import { MockDataGenerator } from "@src/generators/angular/test/mock-data.generator.js";
 
 // A single, comprehensive spec to test all branches of the mock data generator.

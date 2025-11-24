@@ -1,6 +1,6 @@
 import * as path from 'node:path';
 import { Project, VariableDeclarationKind } from 'ts-morph';
-import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
+import { UTILITY_GENERATOR_HEADER_COMMENT } from '@src/core/constants.js';
 
 export class AuthTokensGenerator {
     constructor(private project: Project) {

@@ -2,9 +2,11 @@
 
 import * as fs from 'node:fs';
 import { ModuleKind, Project, ScriptTarget } from 'ts-morph';
-import { GeneratorConfig, SwaggerSpec } from './core/types.js';
+
+import { GeneratorConfig, SwaggerSpec } from "@src/core/types/index.js";
+import { isUrl } from "@src/core/utils/index.js";
+
 import { SwaggerParser } from './core/parser.js';
-import { isUrl } from "./core/utils.js";
 import { AngularClientGenerator } from './generators/angular/angular-client.generator.js';
 import { IClientGenerator } from './core/generator.js';
 

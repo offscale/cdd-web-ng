@@ -1,8 +1,9 @@
-import { FormProperty, Resource, SwaggerDefinition } from "../../core/types.js";
-import { SwaggerParser } from "../../core/parser.js";
-import { camelCase, getTypeScriptType, pascalCase, singular } from "../../core/utils.js";
-import { mapSchemaToFormControl } from "../emit/admin/form-control.mapper.js";
-import { FormAnalysisResult, FormControlModel, PolymorphicOptionModel } from "./form-types.js";
+import { FormProperty, Resource, SwaggerDefinition } from "@src/core/types/index.js";
+import { SwaggerParser } from '@src/core/parser.js';
+import { getTypeScriptType, pascalCase, singular } from "@src/core/utils/index.js";
+import { mapSchemaToFormControl } from "@src/generators/angular/admin/form-control.mapper.js";
+
+import { FormAnalysisResult, FormControlModel } from "./form-types.js";
 
 export class FormModelBuilder {
     private parser: SwaggerParser;
@@ -27,7 +28,7 @@ export class FormModelBuilder {
         if (oneOfProp) {
             this.result.isPolymorphic = true;
             this.result.discriminatorPropName = oneOfProp.schema.discriminator!.propertyName;
-            this.analyzePolymorphism(oneOfProp, resource.modelName);
+            this.analyzePolymorphism(oneOfProp);
         }
 
         // 2. Build Top Level Controls & Interfaces
@@ -183,7 +184,7 @@ export class FormModelBuilder {
         return controls;
     }
 
-    private analyzePolymorphism(prop: FormProperty, rootModelName: string) {
+    private analyzePolymorphism(prop: FormProperty) {
         const options = this.parser.getPolymorphicSchemaOptions(prop.schema);
         this.result.discriminatorOptions = options.map(o => o.name);
         this.result.polymorphicOptions = [];

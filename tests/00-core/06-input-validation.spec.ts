@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { validateSpec, SpecValidationError } from '@src/core/validator.js'; // Assuming exported
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from '@src/core/types.js';
+import { GeneratorConfig } from "@src/core/types/index.js";
 
 describe('Core: Input Spec Validation', () => {
     const validInfo = { title: 'Valid API', version: '1.0.0' };

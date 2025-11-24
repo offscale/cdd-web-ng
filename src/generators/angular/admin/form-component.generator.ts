@@ -1,12 +1,15 @@
-import { ClassDeclaration, Project, Scope, SourceFile } from 'ts-morph';
-import { Resource, SwaggerDefinition } from '../../../core/types.js';
-import { camelCase, pascalCase, singular } from '../../../core/utils.js';
+import { ClassDeclaration, Project, Scope } from 'ts-morph';
+
+import { Resource, SwaggerDefinition } from '@src/core/types/index.js';
+import { camelCase, pascalCase, singular } from "@src/core/utils/index.js";
+import { SwaggerParser } from '@src/core/parser.js';
+import { FormModelBuilder } from "@src/analysis/form-model.builder.js";
+import { FormAnalysisResult, FormControlModel } from "@src/analysis/form-types.js";
+
 import { commonStandaloneImports } from './common-imports.js';
 import { generateFormComponentHtml } from './html/form-component-html.builder.js';
 import { generateFormComponentScss } from './html/form-component-scss.builder.js';
-import { SwaggerParser } from '@src/core/parser.js';
-import { FormModelBuilder } from '@src/service/analysis/form-model.builder.js';
-import { FormAnalysisResult, FormControlModel } from '@src/service/analysis/form-types.js';
+
 
 /**
  * Orchestrates the generation of a complete Angular standalone form component.

@@ -5,8 +5,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import yaml from 'js-yaml';
 import { generateFromConfig } from './index.js';
-import { GeneratorConfig, GeneratorConfigOptions } from './core/types.js';
-import { isUrl } from './core/utils.js';
+import { GeneratorConfig, GeneratorConfigOptions } from "@src/core/types/index.js";
+import { isUrl } from "@src/core/utils/index.js";
 
 const packageJsonPath = new URL('../package.json', import.meta.url);
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));

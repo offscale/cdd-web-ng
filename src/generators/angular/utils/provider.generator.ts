@@ -1,9 +1,9 @@
 import { Project, SourceFile } from 'ts-morph';
 import * as path from 'node:path';
-import { GeneratorConfig } from '../../../core/types.js';
-import { SwaggerParser } from '../../../core/parser.js';
-import { getBasePathTokenName, getInterceptorsTokenName, pascalCase } from '../../../core/utils.js';
-import { PROVIDER_GENERATOR_HEADER_COMMENT } from '../../../core/constants.js';
+import { GeneratorConfig } from '@src/core/types/index.js';
+import { SwaggerParser } from '@src/core/parser.js';
+import { getBasePathTokenName, getInterceptorsTokenName, pascalCase } from "@src/core/utils/index.js";
+import { PROVIDER_GENERATOR_HEADER_COMMENT } from '@src/core/constants.js';
 
 export class ProviderGenerator {
     private readonly clientName: string;

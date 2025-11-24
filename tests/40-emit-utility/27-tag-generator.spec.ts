@@ -1,10 +1,14 @@
+import ts from 'typescript';
+
 import { describe, expect, it } from 'vitest';
+
 import { Project } from 'ts-morph';
+
 import { SwaggerParser } from '@src/core/parser.js';
 import { TagGenerator } from '@src/generators/shared/tag.generator.js';
+import { GeneratorConfig, SwaggerSpec } from "@src/core/types/index.js";
+
 import { createTestProject } from '../shared/helpers.js';
-import { GeneratorConfig, SwaggerSpec } from '@src/core/types.js';
-import ts from 'typescript';
 
 const tagsSpec: SwaggerSpec = {
     openapi: '3.2.0',

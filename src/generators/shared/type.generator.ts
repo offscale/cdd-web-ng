@@ -7,9 +7,9 @@ import {
     PropertySignatureStructure,
     SourceFile
 } from "ts-morph";
-import { GeneratorConfig, HeaderObject, PathItem, SwaggerDefinition } from "@src/core/types.js";
+import { GeneratorConfig, HeaderObject, PathItem, SwaggerDefinition } from "@src/core/types/index.js";
 import { SwaggerParser } from "@src/core/parser.js";
-import { extractPaths, getTypeScriptType, pascalCase } from "@src/core/utils.js";
+import { extractPaths, getTypeScriptType, pascalCase } from "@src/core/utils/index.js";
 
 export class TypeGenerator {
     constructor(

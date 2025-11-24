@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+
 import { Project } from 'ts-morph';
+
 import { AuthHelperGenerator } from '@src/generators/angular/utils/auth-helper.generator.js';
 import { DateTransformerGenerator } from '@src/generators/angular/utils/date-transformer.generator.js';
 import { FileDownloadGenerator } from '@src/generators/angular/utils/file-download.generator.js';

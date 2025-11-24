@@ -23,8 +23,8 @@ describe('Core Utils: Type Converter', () => {
         });
 
         it('should return "any" for null or undefined schema', () => {
-            expect(utils.getTypeScriptType(undefined, config, [])).toBe('any');
-            expect(utils.getTypeScriptType(null, config, [])).toBe('any');
+            expect(utils.getTypeScriptType(undefined as any, config, [])).toBe('any');
+            expect(utils.getTypeScriptType(null as any, config, [])).toBe('any');
         });
 
         it('should resolve $dynamicRef to a known type', () => {

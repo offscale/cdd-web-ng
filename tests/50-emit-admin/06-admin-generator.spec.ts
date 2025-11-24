@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AdminGenerator } from '@src/generators/angular/admin/admin.generator.js';
-import * as resourceDiscovery from '@src/service/emit/admin/resource-discovery.js';
+import * as resourceDiscovery from '@src/generators/angular/admin/resource-discovery.js';
 import { createTestProject } from '../shared/helpers.js';
 import { adminFormSpec, coverageSpec } from '../shared/specs.js';
 import { SwaggerParser } from '@src/core/parser.js';

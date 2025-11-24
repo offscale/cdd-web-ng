@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SwaggerSpec, SwaggerDefinition } from '@src/core/types.js';
+import { SwaggerSpec, SwaggerDefinition } from "@src/core/types/index.js";
 
 describe('Core: Types & Interfaces Coverage', () => {
 

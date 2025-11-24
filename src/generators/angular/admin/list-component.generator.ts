@@ -1,11 +1,13 @@
 import { ClassDeclaration, Project, Scope } from 'ts-morph';
-import { Resource } from '../../../core/types.js';
-import { camelCase, pascalCase } from '../../../core/utils.js';
-import { commonStandaloneImports } from './common-imports.js';
-import { ListModelBuilder } from '@src/service/analysis/list-model.builder.js';
-import { ListViewModel } from '@src/service/analysis/list-types.js';
+
+import { Resource } from '@src/core/types/index.js';
+import { camelCase, pascalCase } from "@src/core/utils/index.js";
+import { ListModelBuilder } from "@src/analysis/list-model.builder.js";
+import { ListViewModel } from "@src/analysis/list-types.js";
+
 import { generateListComponentHtml } from './html/list-component-html.builder.js';
 import { generateListComponentScss } from './html/list-component-scss.builder.js';
+import { commonStandaloneImports } from './common-imports.js';
 
 /**
  * Generates the list component for a given administrative resource.

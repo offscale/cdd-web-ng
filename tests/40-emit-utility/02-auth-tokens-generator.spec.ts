@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+
 import { Project } from 'ts-morph';
+
 import { AuthTokensGenerator } from "@src/generators/angular/utils/auth-tokens.generator.js";
 
 describe('Emitter: AuthTokensGenerator', () => {

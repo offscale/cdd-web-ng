@@ -3,13 +3,13 @@ import {
     Parameter,
     PathInfo,
     SwaggerDefinition
-} from '../../core/types.js';
+} from '@src/core/types/index.js';
 import {
     camelCase,
     getTypeScriptType,
     isDataTypeInterface
-} from '../../core/utils.js';
-import { SwaggerParser } from '../../core/parser.js';
+} from '@src/core/utils/index.js';
+import { SwaggerParser } from '@src/core/parser.js';
 import { OptionalKind, ParameterDeclarationStructure } from 'ts-morph';
 import { BodyVariant, ParamSerialization, ServiceMethodModel } from './service-method-types.js';
 
@@ -39,10 +39,10 @@ export class ServiceMethodAnalyzer {
             const serialization: ParamSerialization = {
                 paramName: this.isXmlContent(p) ? `${paramName}Serialized` : paramName,
                 originalName: p.name,
-                style: p.style,
                 explode: p.explode ?? (p.in === 'cookie' ? true : false), // Cookie default explode is true
                 allowReserved: p.allowReserved ?? false,
-                serializationLink: this.isJsonContent(p) ? 'json' : undefined
+                serializationLink: this.isJsonContent(p) ? 'json' : undefined,
+                ...(p.style != null && {style: p.style})
             };
 
             switch (p.in) {
@@ -96,10 +96,10 @@ export class ServiceMethodAnalyzer {
             queryParams,
             headerParams,
             cookieParams,
-            body,
             security: effectiveSecurity,
             hasServers: !!basePath,
-            basePath
+            ...(body != null && { body }),
+            ...(basePath != null && { basePath })
         };
     }
 
@@ -141,7 +141,7 @@ export class ServiceMethodAnalyzer {
                 name: camelCase(param.name),
                 type: paramType,
                 hasQuestionToken: !param.required,
-                leadingTrivia: param.deprecated ? [`/** @deprecated */ `] : undefined
+                ...(param.deprecated && {leadingTrivia: [`/** @deprecated */ `]})
             });
         });
 

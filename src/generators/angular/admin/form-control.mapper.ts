@@ -1,4 +1,4 @@
-import { SwaggerDefinition } from "../../../core/types.js";
+import { SwaggerDefinition } from "@src/core/types/index.js";
 
 export interface FormControlInfo {
     validators: string[];

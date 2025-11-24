@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
+
 import * as utils from '@src/core/utils/spec-extractor.js';
-import { branchCoverageSpec } from '../../shared/specs.js';
 
 describe('Core Utils: Spec Extractor', () => {
     describe('extractPaths', () => {

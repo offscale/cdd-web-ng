@@ -3,7 +3,7 @@ import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
 import { WebhookGenerator } from '@src/generators/shared/webhook.generator.js';
 import { createTestProject } from '../shared/helpers.js';
-import { GeneratorConfig, SwaggerSpec } from '@src/core/types.js';
+import { GeneratorConfig, SwaggerSpec } from "@src/core/types/index.js";
 import ts from 'typescript';
 
 const simpleWebhookSpec: SwaggerSpec = {

@@ -1,12 +1,15 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { discoverAdminResources } from '@src/service/emit/admin/resource-discovery.js';
-import { SwaggerParser } from '@src/core/parser.js';
-import { coverageSpecPart2 } from '../shared/specs.js';
-import { createTestProject } from '../shared/helpers.js';
+
 import { Project } from 'ts-morph';
-import { Resource } from '@src/core/types.js';
+
+import { discoverAdminResources } from '@src/generators/angular/admin/resource-discovery.js';
+import { SwaggerParser } from '@src/core/parser.js';
+import { Resource } from "@src/core/types/index.js";
 import { ListComponentGenerator } from "@src/generators/angular/admin/list-component.generator.js";
 import { FormComponentGenerator } from "@src/generators/angular/admin/form-component.generator.js";
+
+import { coverageSpecPart2 } from '../shared/specs.js';
+import { createTestProject } from '../shared/helpers.js';
 
 /**
  * @fileoverview

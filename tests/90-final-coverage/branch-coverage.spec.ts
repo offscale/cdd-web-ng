@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
+
 import { SwaggerParser } from '@src/core/parser.js';
-import { createTestProject, runGeneratorWithConfig } from '../shared/helpers.js';
-import { branchCoverageSpec, coverageSpec } from '../shared/specs.js';
-import { Resource } from '@src/core/types.js';
-import { discoverAdminResources } from '@src/service/emit/admin/resource-discovery.js';
+import { Resource } from "@src/core/types/index.js";
+import { discoverAdminResources } from '@src/generators/angular/admin/resource-discovery.js';
 import { ListComponentGenerator } from "@src/generators/angular/admin/list-component.generator.js";
 import { AdminGenerator } from "@src/generators/angular/admin/admin.generator.js";
+
+import { createTestProject, runGeneratorWithConfig } from '../shared/helpers.js';
+import { branchCoverageSpec, coverageSpec } from '../shared/specs.js';
 
 describe('Final Branch Coverage Tests', () => {
 

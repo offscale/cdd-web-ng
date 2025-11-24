@@ -1,10 +1,14 @@
+import ts from 'typescript';
+
 import { describe, expect, it, vi } from 'vitest';
+
 import { Project } from 'ts-morph';
+
 import { SwaggerParser } from '@src/core/parser.js';
 import { DiscriminatorGenerator } from '@src/generators/shared/discriminator.generator.js';
+import { GeneratorConfig, SwaggerSpec } from "@src/core/types/index.js";
+
 import { createTestProject } from '../shared/helpers.js';
-import { GeneratorConfig, SwaggerSpec } from '@src/core/types.js';
-import ts from 'typescript';
 
 const oas3Spec: SwaggerSpec = {
     openapi: '3.0.0',

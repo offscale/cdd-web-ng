@@ -2,8 +2,9 @@ import { Project } from 'ts-morph';
 import { posix as path } from 'node:path';
 
 import { SwaggerParser } from '@src/core/parser.js';
-import { discoverAdminResources } from '@src/service/emit/admin/resource-discovery.js';
-import { Resource } from '../../../core/types.js';
+import { discoverAdminResources } from '@src/generators/angular/admin/resource-discovery.js';
+import { Resource } from '@src/core/types/index.js';
+
 import { FormComponentGenerator } from './form-component.generator.js';
 import { ListComponentGenerator } from './list-component.generator.js';
 import { RoutingGenerator } from './routing.generator.js';

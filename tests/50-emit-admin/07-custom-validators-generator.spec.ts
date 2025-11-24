@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+
 import { CustomValidatorsGenerator } from '@src/generators/angular/admin/custom-validators.generator.js'; // Corrected Path
+
 import { createTestProject } from '../shared/helpers.js';
 
 describe('Admin: CustomValidatorsGenerator', () => {

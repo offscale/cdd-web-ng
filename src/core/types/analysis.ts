@@ -1,7 +1,5 @@
 import {
     ExternalDocumentationObject,
-    HeaderObject,
-    LinkObject,
     Parameter,
     PathItem,
     RequestBody,

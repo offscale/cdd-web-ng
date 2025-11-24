@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { generateFromConfig } from '@src/index.js';
 import { coverageSpec, securitySpec } from '../shared/specs.js';
 import { createTestProject, runGeneratorWithConfig } from '../shared/helpers.js';
-import { GeneratorConfig } from '@src/core/types.js';
+import { GeneratorConfig } from "@src/core/types/index.js";
 
 vi.mock('fs', async importOriginal => {
     const original = await importOriginal<typeof import('fs')>();

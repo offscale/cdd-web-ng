@@ -25,7 +25,6 @@ export default defineConfig({
                 // Exclude the barrel files themselves, coverage should focus on implementation
                 'src/core/types.ts', 'src/core/utils.ts', 'src/core/constants.ts',
                 '**/index.ts',
-                'src/component', 'src/route', // Stubs
                 'tests/fixtures/**' // Data
             ],
         },

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import * as utils from '@src/core/utils.js';
-import { GeneratorConfig, SwaggerDefinition } from '@src/core/types.js';
 import { MethodDeclaration } from 'ts-morph';
+
+import * as utils from "@src/core/utils/index.js";
+import { GeneratorConfig, SwaggerDefinition } from "@src/core/types/index.js";
 
 describe('Core: utils.ts', () => {
     const config: GeneratorConfig = {

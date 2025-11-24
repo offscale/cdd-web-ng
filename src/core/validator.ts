@@ -1,6 +1,6 @@
 // src/core/validator.ts
 
-import { SwaggerSpec } from "./types.js";
+import { SwaggerSpec } from "@src/core/types/index.js";
 
 /**
  * Error thrown when the OpenAPI specification fails validation.

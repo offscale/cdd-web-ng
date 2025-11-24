@@ -1,10 +1,13 @@
 import { beforeAll, describe, expect, it } from 'vitest';
+
 import { Project } from 'ts-morph';
+
 import { RoutingGenerator } from '@src/generators/angular/admin/routing.generator.js'; // Corrected Path
 import { discoverAdminResources } from '@src/generators/angular/admin/resource-discovery.js'; // Corrected Path
+import { SwaggerParser } from '@src/core/parser.js';
+
 import { createTestProject } from '../shared/helpers.js';
 import { coverageSpec } from '../shared/specs.js';
-import { SwaggerParser } from '@src/core/parser.js';
 
 describe('Admin: RoutingGenerator', () => {
     let project: Project;

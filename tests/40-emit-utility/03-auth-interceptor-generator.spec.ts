@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SwaggerParser } from '@src/core/parser.js';
 import { createTestProject } from '../shared/helpers.js';
 import { emptySpec, securitySpec } from '../shared/specs.js';
-import { GeneratorConfig } from '@src/core/types.js';
+import { GeneratorConfig } from "@src/core/types/index.js";
 import { AuthInterceptorGenerator } from "@src/generators/angular/utils/auth-interceptor.generator.js";
 
 describe('Emitter: AuthInterceptorGenerator', () => {

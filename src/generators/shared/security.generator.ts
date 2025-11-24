@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import { Project, VariableDeclarationKind } from "ts-morph";
 import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../core/constants.js";
-import { SwaggerParser } from "../../core/parser.js";
+import { SwaggerParser } from '@src/core/parser.js';
 
 export class SecurityGenerator {
     constructor(

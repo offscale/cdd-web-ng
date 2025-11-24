@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig, InfoObject, TagObject, ServerObject } from '@src/core/types.js';
-import { extractPaths } from '@src/core/utils.js';
+import { GeneratorConfig, InfoObject, TagObject, ServerObject } from "@src/core/types/index.js";
+import { extractPaths } from "@src/core/utils/index.js";
 
 /**
  * Tests for the Specification Extensions (`x-*`) feature support.

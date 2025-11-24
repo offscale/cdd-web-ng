@@ -1,15 +1,16 @@
 import { describe, it, expect, vi } from 'vitest';
 
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig, PathInfo } from '@src/core/types.js';
-import { discoverAdminResources } from '@src/service/emit/admin/resource-discovery.js';
-import { groupPathsByController } from '@src/service/parse.js';
+import { discoverAdminResources } from '@src/generators/angular/admin/resource-discovery.js';
+import { groupPathsByController } from "@src/core/utils/index.js";
 import { ServiceTestGenerator } from '@src/generators/angular/test/service-test-generator.js';
-import { TypeGenerator } from '@src/service/emit/type/type.generator.js';
+import { MainIndexGenerator } from '@src/generators/angular/utils/index.generator.js';
+import { TypeGenerator } from "@src/generators/shared/type.generator.js";
+import { GeneratorConfig, PathInfo } from "@src/core/types/index.js";
 import { finalCoveragePushSpec } from '../shared/final-coverage.models.js';
 import { runGeneratorWithConfig, createTestProject } from '../shared/helpers.js';
-import { MainIndexGenerator } from '@src/generators/angular/utils/index.generator.js';
 import { finalCoverageSpec } from "../fixtures/coverage.fixture.js";
+
 
 /**
  * Validates edge cases and final coverage gaps identified during the 'final push' of the project.

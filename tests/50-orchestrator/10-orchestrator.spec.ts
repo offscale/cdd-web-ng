@@ -1,10 +1,13 @@
 import { describe, expect, it, vi, afterAll } from 'vitest';
-import { AngularClientGenerator } from '@src/generators/angular/angular-client.generator.js';
-import { GeneratorConfig, SwaggerSpec } from '@src/core/types.js';
+
 import { Project } from 'ts-morph';
-import { SwaggerParser } from '@src/core/parser.js';
+
 import fs from 'node:fs';
 import path from 'node:path';
+
+import { AngularClientGenerator } from '@src/generators/angular/angular-client.generator.js';
+import { GeneratorConfig, SwaggerSpec } from "@src/core/types/index.js";
+import { SwaggerParser } from '@src/core/parser.js';
 
 // Mock the sub-generators to focus on orchestration wiring
 vi.mock('@src/service/emit/type/type.generator.js', () => {

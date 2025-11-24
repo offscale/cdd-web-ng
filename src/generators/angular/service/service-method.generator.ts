@@ -4,18 +4,19 @@ import {
     OptionalKind,
     ParameterDeclarationStructure,
 } from 'ts-morph';
-import { GeneratorConfig, PathInfo } from '../../../core/types.js';
-import { SwaggerParser } from "../../../core/parser.js";
-import { ServiceMethodAnalyzer } from '../../../service/analysis/service-method-analyzer.js';
-import { ServiceMethodModel } from '../../../service/analysis/service-method-types.js';
-import { camelCase } from '../../../core/utils.js';
+
+import { GeneratorConfig, PathInfo } from '@src/core/types/index.js';
+import { SwaggerParser } from "@src/core/parser.js";
+import { ServiceMethodAnalyzer } from "@src/analysis/service-method-analyzer.js";
+import { ServiceMethodModel } from '@src/analysis/service-method-types.js';
+import { camelCase } from "@src/core/utils/index.js";
 
 export class ServiceMethodGenerator {
     private analyzer: ServiceMethodAnalyzer;
 
     constructor(
         private readonly config: GeneratorConfig,
-        private readonly parser: SwaggerParser
+        readonly parser: SwaggerParser
     ) {
         this.analyzer = new ServiceMethodAnalyzer(config, parser);
     }

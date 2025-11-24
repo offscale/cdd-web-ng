@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { discoverAdminResources } from '@src/service/emit/admin/resource-discovery.js';
+
+import { discoverAdminResources } from '@src/generators/angular/admin/resource-discovery.js';
 import { SwaggerParser } from '@src/core/parser.js';
-import { FormProperty, GeneratorConfig } from '@src/core/types.js';
+import { FormProperty, GeneratorConfig, Resource, ResourceOperation } from "@src/core/types/index.js";
+
 import { branchCoverageSpec } from '../shared/specs.js';
-import { Resource, ResourceOperation } from "../../src/core/types.js";
 
 describe('Admin: resource-discovery (Coverage)', () => {
     const runDiscovery = (spec: object) => {

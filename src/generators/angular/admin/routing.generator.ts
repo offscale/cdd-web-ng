@@ -1,6 +1,6 @@
 import { Project, VariableDeclarationKind } from 'ts-morph';
-import { Resource } from '../../../core/types.js';
-import { camelCase, pascalCase } from '../../../core/utils.js';
+import { Resource } from '@src/core/types/index.js';
+import { camelCase, pascalCase } from "@src/core/utils/index.js";
 
 /**
  * Generates the Angular routing configuration for the admin UI.

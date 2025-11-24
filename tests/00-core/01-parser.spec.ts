@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vite
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig, SwaggerSpec } from '@src/core/types.js';
+import { GeneratorConfig, SwaggerSpec } from "@src/core/types/index.js";
 import * as yaml from 'js-yaml';
 
 vi.mock('fs', async (importOriginal) => {

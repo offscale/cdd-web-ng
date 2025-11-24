@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupPathsByController } from '@src/service/parse.js';
+import { groupPathsByController } from "@src/core/utils/index.js";
 import { SwaggerParser } from '@src/core/parser.js';
 
 describe('Service Parser: groupPathsByController', () => {

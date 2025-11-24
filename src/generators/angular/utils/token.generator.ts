@@ -1,7 +1,9 @@
 import { Project, VariableDeclarationKind } from "ts-morph";
+
 import * as path from "node:path";
-import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../../core/constants.js";
-import { getBasePathTokenName, getClientContextTokenName, getInterceptorsTokenName } from "../../../core/utils.js";
+
+import { UTILITY_GENERATOR_HEADER_COMMENT } from "@src/core/constants.js";
+import { getBasePathTokenName, getClientContextTokenName, getInterceptorsTokenName } from "@src/core/utils/index.js";
 
 export class TokenGenerator {
     private readonly clientName: string;

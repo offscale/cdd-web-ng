@@ -22,7 +22,7 @@ export function isDataTypeInterface(type: string): boolean {
     return true;
 }
 
-export function getTypeScriptType(schema: SwaggerDefinition, config: GeneratorConfig, knownTypes: string[] = []): string {
+export function getTypeScriptType(schema: SwaggerDefinition | undefined, config: GeneratorConfig, knownTypes: string[] = []): string {
     if (!schema) return 'any';
 
     if (schema.$ref) {

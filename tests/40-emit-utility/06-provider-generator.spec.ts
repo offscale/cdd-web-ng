@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from '@src/core/types.js';
+import { GeneratorConfig } from "@src/core/types/index.js";
 import { ProviderGenerator } from '@src/generators/angular/utils/provider.generator.js'; // Corrected Path
 import { TokenGenerator } from '@src/generators/angular/utils/token.generator.js'; // Corrected Path
 import { BaseInterceptorGenerator } from '@src/generators/angular/utils/base-interceptor.generator.js'; // Corrected Path

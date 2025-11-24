@@ -1,8 +1,8 @@
 import * as path from "node:path";
 import { Project, VariableDeclarationKind } from "ts-morph";
 import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../core/constants.js";
-import { SwaggerParser } from "../../core/parser.js";
-import { LinkObject, PathInfo } from "../../core/types.js";
+import { SwaggerParser } from '@src/core/parser.js';
+import { LinkObject, PathInfo } from "@src/core/types/index.js";
 
 /**
  * Generates the `links.ts` file.

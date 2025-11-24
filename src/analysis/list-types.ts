@@ -1,4 +1,4 @@
-import { ResourceOperation } from "../../core/types.js";
+import { ResourceOperation } from "@src/core/types/index.js";
 
 export interface ListColumn {
     key: string; // Property name (e.g. 'email')

@@ -1,5 +1,6 @@
-import { FormProperty, Resource } from "../../core/types.js";
-import { camelCase, pascalCase } from "../../core/utils.js";
+import { Resource } from "@src/core/types/index.js";
+import { pascalCase } from "@src/core/utils/index.js";
+
 import { ListAction, ListColumn, ListViewModel } from "./list-types.js";
 
 export class ListModelBuilder {

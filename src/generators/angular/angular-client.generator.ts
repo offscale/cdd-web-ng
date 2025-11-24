@@ -1,12 +1,15 @@
 import { Project } from 'ts-morph';
+
 import { posix as path } from 'node:path';
+
+import { SwaggerParser } from '@src/core/parser.js';
+import { GeneratorConfig } from '@src/core/types/index.js';
+import { groupPathsByController } from "@src/core/utils/index.js";
+
 import { AbstractClientGenerator } from '../../core/generator.js';
-import { SwaggerParser } from '../../core/parser.js';
-import { GeneratorConfig } from '../../core/types.js';
-import { groupPathsByController } from '../../service/parse.js';
 
 // Core Generators
-import { TypeGenerator } from '../../service/emit/type/type.generator.js';
+import { TypeGenerator } from "@src/generators/shared/type.generator.js";
 
 // Angular Generators
 import { AdminGenerator } from './admin/admin.generator.js';

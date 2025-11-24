@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { Project } from 'ts-morph';
-import { TypeGenerator } from '@src/service/emit/type/type.generator.js';
+import { TypeGenerator } from "@src/generators/shared/type.generator.js";
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from '@src/core/types.js';
+import { GeneratorConfig } from "@src/core/types/index.js";
 
 const headerSpec = {
     openapi: '3.0.0',

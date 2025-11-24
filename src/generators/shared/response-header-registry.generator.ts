@@ -1,8 +1,8 @@
 import * as path from "node:path";
 import { Project, VariableDeclarationKind } from "ts-morph";
 import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../core/constants.js";
-import { SwaggerParser } from "../../core/parser.js";
-import { HeaderObject, PathInfo, SwaggerDefinition } from "../../core/types.js";
+import { SwaggerParser } from '@src/core/parser.js';
+import { HeaderObject, PathInfo, SwaggerDefinition } from "@src/core/types/index.js";
 
 export class ResponseHeaderRegistryGenerator {
     constructor(

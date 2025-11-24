@@ -3,7 +3,7 @@ import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
 import { CallbackGenerator } from '@src/generators/shared/callback.generator.js';
 import { createTestProject } from '../shared/helpers.js';
-import { GeneratorConfig, SwaggerSpec, SwaggerDefinition } from '@src/core/types.js';
+import { GeneratorConfig, SwaggerSpec, SwaggerDefinition } from "@src/core/types/index.js";
 import ts from 'typescript';
 
 const mockSpec: SwaggerSpec = {

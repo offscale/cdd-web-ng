@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+
 import { Project } from 'ts-morph';
+
 import { SwaggerParser } from '@src/core/parser.js';
 import { SecurityGenerator } from '@src/generators/shared/security.generator.js';
-import { GeneratorConfig, SwaggerSpec } from '@src/core/types.js';
+import { GeneratorConfig, SwaggerSpec } from "@src/core/types/index.js";
 
 describe('Emitter: SecurityGenerator', () => {
 

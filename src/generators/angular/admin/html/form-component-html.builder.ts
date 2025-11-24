@@ -1,4 +1,4 @@
-import { Resource, SwaggerDefinition } from "@src/core/types.js";
+import { Resource, SwaggerDefinition } from "@src/core/types/index.js";
 import { HtmlElementBuilder as _ } from '../html-element.builder.js';
 import { buildFormControl } from "./form-controls-html.builder.js";
 import { SwaggerParser } from "@src/core/parser.js";

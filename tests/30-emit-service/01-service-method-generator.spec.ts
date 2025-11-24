@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Project, Scope } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig, PathInfo } from '@src/core/types.js';
+import { GeneratorConfig, PathInfo } from "@src/core/types/index.js";
 import { finalCoverageSpec } from '../shared/specs.js';
-import { TypeGenerator } from '@src/service/emit/type/type.generator.js';
+import { TypeGenerator } from "@src/generators/shared/type.generator.js";
 import { ServiceMethodGenerator } from "@src/generators/angular/service/service-method.generator.js";
 import { HttpParamsBuilderGenerator } from "@src/generators/angular/utils/http-params-builder.generator.js";
 import { XmlBuilderGenerator } from "@src/generators/shared/xml-builder.generator.js";

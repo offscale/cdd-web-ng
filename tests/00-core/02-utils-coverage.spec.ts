@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import * as utils from '@src/core/utils/index.js';
 
 /**

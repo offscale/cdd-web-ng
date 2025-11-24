@@ -1,5 +1,6 @@
-import { FormProperty, SwaggerDefinition } from "../../../../core/types.js";
-import { camelCase, pascalCase, singular } from "../../../../core/utils.js";
+import { FormProperty, SwaggerDefinition } from "@src/core/types/index.js";
+import { camelCase, pascalCase, singular } from "@src/core/utils/index.js";
+
 import { HtmlElementBuilder, HtmlElementBuilder as _ } from "../html-element.builder.js";
 
 function buildErrorMessages(prop: FormProperty): HtmlElementBuilder[] {

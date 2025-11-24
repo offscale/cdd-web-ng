@@ -1,8 +1,11 @@
 import * as path from "node:path";
+
 import { Project, VariableDeclarationKind } from "ts-morph";
+
+import { pascalCase } from "@src/core/utils/index.js";
+
 import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../core/constants.js";
-import { SwaggerParser } from "../../core/parser.js";
-import { pascalCase } from "../../core/utils.js";
+import { SwaggerParser } from '@src/core/parser.js';
 
 /**
  * Generates the `discriminators.ts` file.

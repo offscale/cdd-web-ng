@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { mapSchemaToFormControl } from '@src/service/emit/admin/form-control.mapper.js';
-import { SwaggerDefinition } from '@src/core/types.js';
+import { mapSchemaToFormControl } from '@src/generators/angular/admin/form-control.mapper.js';
+import { SwaggerDefinition } from "@src/core/types/index.js";
 
 /**
  * @fileoverview

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from '@src/core/types.js';
+import { GeneratorConfig } from "@src/core/types/index.js";
 import { adminFormSpec, branchCoverageSpec, finalCoverageSpec, fullCRUD_Users } from '../shared/specs.js';
 import { createTestProject } from '../shared/helpers.js';
-import { groupPathsByController } from '@src/service/parse.js';
-import { TypeGenerator } from '@src/service/emit/type/type.generator.js';
+import { groupPathsByController } from "@src/core/utils/index.js";
+import { TypeGenerator } from "@src/generators/shared/type.generator.js";
 import { MockDataGenerator } from "@src/generators/angular/test/mock-data.generator.js";
 import { ServiceTestGenerator } from "@src/generators/angular/test/service-test-generator.js";
 

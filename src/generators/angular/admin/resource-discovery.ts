@@ -1,13 +1,13 @@
-import { SwaggerParser } from '../../../core/parser.js';
+import { SwaggerParser } from '@src/core/parser.js';
 import {
     DiscriminatorObject,
     FormProperty,
     PathInfo,
     Resource,
     ResourceOperation,
-    SwaggerDefinition,
-} from '../../../core/types.js';
-import { camelCase, pascalCase, singular } from '../../../core/utils.js';
+    SwaggerDefinition
+} from "@src/core/types/index.js";
+import { camelCase, pascalCase, singular } from "@src/core/utils/index.js";
 
 function getMethodName(op: PathInfo): string {
     const pathToMethodName = (path: string): string =>

@@ -3,7 +3,7 @@ import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
 import { LinkGenerator } from '@src/generators/shared/link.generator.js';
 import { createTestProject } from '../shared/helpers.js';
-import { GeneratorConfig, SwaggerSpec } from '@src/core/types.js';
+import { GeneratorConfig, SwaggerSpec } from "@src/core/types/index.js";
 import ts from 'typescript';
 
 const linksSpec: SwaggerSpec = {

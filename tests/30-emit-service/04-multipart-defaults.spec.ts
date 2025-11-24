@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { Project, Scope } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from '@src/core/types.js';
-import { TypeGenerator } from '@src/service/emit/type/type.generator.js';
+import { GeneratorConfig } from "@src/core/types/index.js";
+import { TypeGenerator } from "@src/generators/shared/type.generator.js";
 import { ServiceMethodGenerator } from "@src/generators/angular/service/service-method.generator.js";
 
 describe('Emitter: ServiceMethodGenerator (Multipart Defaults)', () => {

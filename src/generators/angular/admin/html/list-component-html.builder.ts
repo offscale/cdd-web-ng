@@ -1,5 +1,5 @@
-import { Resource } from '@src/core/types.js';
-import { pascalCase, singular } from '@src/core/utils.js';
+import { Resource } from "@src/core/types/index.js";
+import { pascalCase, singular } from "@src/core/utils/index.js";
 import { HtmlElementBuilder as _ } from "@src/generators/angular/admin/html-element.builder.js";
 //import { HtmlElementBuilder as _ } from '../../html-element.builder.js';
 

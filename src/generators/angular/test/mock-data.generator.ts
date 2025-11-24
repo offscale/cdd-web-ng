@@ -1,5 +1,5 @@
-import { SwaggerParser } from '../../../core/parser.js';
-import { SwaggerDefinition } from '../../../core/types.js';
+import { SwaggerParser } from '@src/core/parser.js';
+import { SwaggerDefinition } from "@src/core/types/index.js";
 
 type JsonSchemaType = 'object' | 'array' | 'string' | 'number' | 'integer' | 'boolean' | 'null';
 
@@ -12,7 +12,7 @@ export class MockDataGenerator {
     public generate(schemaName: string): string {
         const schemaDef = this.parser.schemas.find(s => s.name === schemaName)?.definition;
 
-        // Hardcoded overrides for specific test cases, ensuring all return valid JSON strings
+        // Hardcoded overrides for specific test cases
         switch (schemaName) {
             case 'WithBadRef':
             case 'JustARef':
@@ -65,14 +65,17 @@ export class MockDataGenerator {
                 return schema.examples[0];
             }
 
+            // FIX: Added Enum check
+            if (schema.enum && schema.enum.length > 0) {
+                return schema.enum[0];
+            }
+
             if (schema.allOf) {
                 const mergedObj = schema.allOf.reduce((acc, subSchema) => {
                     const val = this.generateValue(subSchema, new Set(visited), maxDepth - 1);
                     if (typeof val === 'object' && val !== null) {
                         return { ...acc, ...val };
                     }
-                    // This handles cases where allOf contains a primitive, but we should still
-                    // prioritize other object properties in the allOf list.
                     return acc;
                 }, {});
                 return mergedObj;

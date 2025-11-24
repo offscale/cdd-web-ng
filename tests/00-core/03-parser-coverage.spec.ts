@@ -1,14 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SwaggerParser } from '@src/core/parser.js';
 import { parserCoverageSpec } from '../shared/specs.js';
-import { GeneratorConfig } from '@src/core/types.js';
+import { GeneratorConfig } from '@src/core/types/index.js';
 import { JSON_SCHEMA_2020_12_DIALECT, OAS_3_1_DIALECT } from '@src/core/constants.js';
 
 /**
  * @fileoverview
  * This file contains targeted tests for `src/core/parser.ts` to cover specific
- * edge cases and branches related to parsing, especially for polymorphic schemas
- *, dialect validation, and error handling during content loading.
+ * edge cases and branches related to parsing.
  */
 describe('Core: SwaggerParser (Coverage)', () => {
     const validSpecBase = {
@@ -119,11 +118,10 @@ describe('Core: SwaggerParser (Coverage)', () => {
 
         it('should merge sibling description into resolved object', () => {
             const parser = new SwaggerParser(specWithOverrides as any, { options: {} } as GeneratorConfig);
-            // We resolve the wrapper object itself that has $ref + description
             const refObj = specWithOverrides.components.schemas.WithOverride;
             const resolved = parser.resolve<any>(refObj);
 
-            expect(resolved).not.toBe(REF_TARGET); // Should be a new object reference (clone)
+            expect(resolved).not.toBe(REF_TARGET);
             expect(resolved?.type).toBe('string');
             expect(resolved?.description).toBe('Overridden Description');
             expect((resolved as any).summary).toBe('New Summary');
@@ -133,11 +131,73 @@ describe('Core: SwaggerParser (Coverage)', () => {
             const parser = new SwaggerParser(specWithOverrides as any, { options: {} } as GeneratorConfig);
             const refObj = specWithOverrides.components.schemas.WithoutOverride;
             const resolved = parser.resolve<any>(refObj);
-
-            // When no overrides, it might return the original reference if optimization allows,
-            // but our implementation currently delegates logic.
             expect(resolved?.description).toBe('Original');
             expect((resolved as any).summary).toBeUndefined();
+        });
+    });
+
+    describe('$anchor and $dynamicAnchor Support', () => {
+        it('should index and resolve $anchor references', () => {
+            const spec = {
+                ...validSpecBase,
+                openapi: '3.1.0',
+                components: {
+                    schemas: {
+                        Base: {
+                            // $id defines the base for anchors inside
+                            $id: 'http://example.com/base',
+                            definitions: {
+                                Sub: {
+                                    // This anchor should be indexed as http://example.com/base#myAnchor
+                                    $anchor: 'myAnchor',
+                                    type: 'string'
+                                }
+                            }
+                        },
+                        RefToAnchor: {
+                            $ref: 'http://example.com/base#myAnchor'
+                        }
+                    }
+                }
+            };
+            const parser = new SwaggerParser(spec as any, { options: {} } as GeneratorConfig);
+
+            // Test resolving the ref pointing to the anchor
+            const resolved = parser.resolveReference('#/components/schemas/RefToAnchor');
+            // The reference should resolve to the Sub schema
+            expect(resolved).toBeDefined();
+            expect((resolved as any).type).toBe('string');
+            expect((resolved as any).$anchor).toBe('myAnchor');
+        });
+
+        it('should index and resolve $dynamicAnchor references', () => {
+            const spec = {
+                ...validSpecBase,
+                openapi: '3.1.0',
+                components: {
+                    schemas: {
+                        Base: {
+                            $id: 'http://example.com/dynamic',
+                            definitions: {
+                                Sub: {
+                                    $dynamicAnchor: 'dynAnchor',
+                                    type: 'number'
+                                }
+                            }
+                        },
+                        RefToDynAnchor: {
+                            $dynamicRef: 'http://example.com/dynamic#dynAnchor'
+                        }
+                    }
+                }
+            };
+            const parser = new SwaggerParser(spec as any, { options: {} } as GeneratorConfig);
+
+            // Resolve the dynamic ref
+            const resolved = parser.resolveReference('#/components/schemas/RefToDynAnchor');
+
+            expect(resolved).toBeDefined();
+            expect((resolved as any).type).toBe('number');
         });
     });
 
@@ -166,7 +226,7 @@ describe('Core: SwaggerParser (Coverage)', () => {
             const spec = {
                 ...validSpecBase,
                 openapi: '3.1.0',
-                jsonSchemaDialect: 'https://spec.openapis.org/oas/3.0/dialect' // Custom or older
+                jsonSchemaDialect: 'https://spec.openapis.org/oas/3.0/dialect'
             };
             new SwaggerParser(spec as any, { options: {} } as GeneratorConfig);
             expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('custom jsonSchemaDialect'));

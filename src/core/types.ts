@@ -384,6 +384,16 @@ export interface SwaggerDefinition {
     not?: SwaggerDefinition;
     contentEncoding?: string;
     contentMediaType?: string;
+    /**
+     * The schema of the content-encoded string. (OAS 3.1 / JSON Schema 2019-09)
+     * Used when `contentMediaType` indicates a format that can be further described (e.g. application/json).
+     */
+    contentSchema?: SwaggerDefinition;
+    /**
+     * strict validation for properties not defined in schema.
+     * If false, no additional properties are allowed (stricter than additionalProperties: false in some contexts with inheritance).
+     */
+    unevaluatedProperties?: SwaggerDefinition | boolean;
 
     $ref?: string;
     /** Dynamic Reference used in OpenAPI 3.1 (JSON Schema 2020-12) */

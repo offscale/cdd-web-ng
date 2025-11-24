@@ -44,9 +44,11 @@ describe('Core: utils.ts', () => {
     });
 
     describe('Type Resolution', () => {
-        it('should return `Record<string, any>` for an object schema with no properties', () => {
+        it('should return `{ [key: string]: any }` for an object schema with no properties', () => {
             const schema: SwaggerDefinition = { type: 'object' };
-            expect(utils.getTypeScriptType(schema, config, [])).toBe('Record<string, any>');
+            // Updated expectation: The generator now produces a more explicit index signature form
+            // to support `unevaluatedProperties` logic consistency.
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('{ [key: string]: any }');
         });
 
         it('should return "any" for unknown schema types', () => {

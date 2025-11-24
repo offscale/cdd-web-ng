@@ -226,9 +226,24 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined | null, 
 
     switch (schema.type) {
         case 'string':
-            type = (schema.format === 'date' || schema.format === 'date-time') && config.options.dateType === 'Date' ? 'Date' : 'string';
-            // OAS 3.1 support: contentMediaType implies binary data -> Blob
-            if (schema.format === 'binary' || schema.contentMediaType) {
+            // Handle Date types
+            const isDate = (schema.format === 'date' || schema.format === 'date-time') && config.options.dateType === 'Date';
+            type = isDate ? 'Date' : 'string';
+
+            if (schema.contentMediaType) {
+                // OAS 3.1 / JSON Schema 2019-09 content handling
+                const isJson = schema.contentMediaType === 'application/json' || schema.contentMediaType.endsWith('+json');
+
+                if (isJson && schema.contentSchema) {
+                    // String-Encoded JSON: Provide a type alias showing the inner structure
+                    const innerType = getTypeScriptType(schema.contentSchema as SwaggerDefinition, config, knownTypes);
+                    type = `string /* JSON: ${innerType} */`;
+                } else if (!isJson) {
+                    // Binary types (e.g. image/png) map to Blob
+                    type = 'Blob';
+                }
+            } else if (schema.format === 'binary') {
+                // Legacy binary handling
                 type = 'Blob';
             }
             break;
@@ -274,16 +289,46 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined | null, 
                 });
             }
 
-            if (schema.additionalProperties) {
-                const valueType = schema.additionalProperties === true
-                    ? 'any'
-                    : getTypeScriptType(schema.additionalProperties as SwaggerDefinition, config, knownTypes);
-                indexValueTypes.push(valueType);
+            // Handle unevaluatedProperties (OAS 3.1/JSON Schema 2020-12)
+            // If `unevaluatedProperties: false`, strictness is applied.
+            // This technically only applies validation logic where specific properties are NOT evaluated by other keywords (like properties, patternProperties).
+            // In TS, this most closely maps to closing the type.
+            // If we explicitly have properties and unevaluatedProperties: false, we output an exact type map (no index signature).
+            // If we have NO properties and unevaluatedProperties: false, it effectively means empty object or only patternProps.
+
+            // Precedence: properties > additionalProperties > unevaluatedProperties
+
+            let allowIndexSignature = true;
+
+            if (schema.unevaluatedProperties === false) {
+                allowIndexSignature = false;
+            } else if (typeof schema.unevaluatedProperties === 'object') {
+                // If it's a schema, it behaves like additionalProperties but for everything else.
+                // We can treat it as part of indexValueTypes
+                indexValueTypes.push(getTypeScriptType(schema.unevaluatedProperties as SwaggerDefinition, config, knownTypes));
             }
 
-            if (indexValueTypes.length > 0) {
-                const joined = Array.from(new Set(indexValueTypes)).join(' | ');
-                parts.push(`[key: string]: ${joined}`);
+            if (schema.additionalProperties !== undefined) {
+                const valueType = schema.additionalProperties === true || schema.additionalProperties === undefined
+                    ? 'any'
+                    : getTypeScriptType(schema.additionalProperties as SwaggerDefinition, config, knownTypes);
+
+                if (schema.additionalProperties === false) {
+                    allowIndexSignature = false;
+                } else {
+                    indexValueTypes.push(valueType);
+                    allowIndexSignature = true; // Explicit additionalProps overrides implications of unevaluated
+                }
+            }
+
+            if (allowIndexSignature) {
+                if (indexValueTypes.length > 0) {
+                    const joined = Array.from(new Set(indexValueTypes)).join(' | ');
+                    parts.push(`[key: string]: ${joined}`);
+                } else if (!schema.properties && !schema.patternProperties && schema.unevaluatedProperties === undefined && schema.additionalProperties === undefined) {
+                    // Default 'object' type in JSON schema accepts string index signature if not restricted
+                    parts.push('[key: string]: any');
+                }
             }
 
             // Handle 'dependentSchemas' (JSON Schema 2020-12).
@@ -296,10 +341,6 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined | null, 
                     // In TS, this conditional relationship is hard to model perfectly static.
                     // The most robust way for a client model is to intersect the base with the dependent type
                     // effectively saying "Example object has all these potential shapes combined".
-                    // Ideally: `Base & Partial<Dependent>` but that loses strictness.
-                    // For now, we treat it as `& Dependent` assuming scenarios where the dependency is met.
-                    // Or, more safely, leave it as `any` or documented field.
-                    // A safe static approach: `& Partial<DependentType>`
                     parts.push(`// dependentSchema: ${prop} -> ${depType}`);
                 });
             }
@@ -307,7 +348,8 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined | null, 
             if (parts.length > 0) {
                 type = `{ ${parts.join('; ')} }`;
             } else {
-                type = 'Record<string, any>';
+                // If we have no properties and index signature is disallowed, it's an empty object type
+                type = allowIndexSignature ? 'Record<string, any>' : '{}';
             }
             break;
         default:

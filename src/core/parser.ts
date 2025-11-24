@@ -12,12 +12,12 @@ import {
     ServerObject,
     SwaggerDefinition,
     SwaggerSpec
-} from './types.js';
+} from './types/index.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import yaml from 'js-yaml';
-import { extractPaths, isUrl, pascalCase } from './utils.js';
+import { extractPaths, isUrl, pascalCase } from './utils/index.js';
 import { validateSpec } from './validator.js';
 import { JSON_SCHEMA_2020_12_DIALECT, OAS_3_1_DIALECT } from './constants.js';
 
@@ -132,9 +132,15 @@ export class SwaggerParser {
         // If a cache isn't provided, create one with just the entry spec.
         this.specCache = specCache || new Map<string, SwaggerSpec>([[this.documentUri, spec]]);
 
-        // Ensure the entry spec's internal $ids are indexed if constructed manually without the factory
+        // Ensure the entry spec's internal $ids and $anchors are indexed if constructed manually without the factory
         if (!specCache) {
-            SwaggerParser.indexSchemaIds(spec, documentUri, this.specCache);
+            const baseUri = spec.$self ? new URL(spec.$self, documentUri).href : documentUri;
+            // Aliasing: if $self differs from the retrieval URI, we map the baseUri to the spec too
+            // so it can be resolved by its logical ID.
+            if (baseUri !== documentUri) {
+                this.specCache.set(baseUri, spec);
+            }
+            SwaggerParser.indexSchemaIds(spec, baseUri, this.specCache);
         }
 
         this.schemas = Object.entries(this.getDefinitions()).map(([name, definition]) => ({
@@ -187,7 +193,13 @@ export class SwaggerParser {
 
         const baseUri = spec.$self ? new URL(spec.$self, uri).href : uri;
 
-        // Important: Index any `$id` properties within the document immediately.
+        // Aliasing: map the logical base URI to the spec as well, if different.
+        // This ensures lookups via $ref using the ID/Self URI find the cached object.
+        if (baseUri !== uri) {
+            cache.set(baseUri, spec);
+        }
+
+        // Important: Index any `$id` and `$anchor` properties within the document immediately.
         // This allows internal sub-schemas to be referenced by their global URI (OAS 3.1 / JSON Schema).
         this.indexSchemaIds(spec, baseUri, cache);
 
@@ -206,9 +218,9 @@ export class SwaggerParser {
     }
 
     /**
-     * Traverses a document structure to find JSON Schema `$id` keywords.
-     * Maps the resolved absolute URI of the ID to the schema configuration object in the cache.
-     * This creates "virtual" documents in the cache, supporting `$ref` resolution by ID.
+     * Traverses a document structure to find JSON Schema `$id`, `$anchor` and `$dynamicAnchor` keywords.
+     * Maps the resolved absolute URI of the ID or anchor to the schema object in the cache.
+     * This creates "virtual" endpoints in the cache, supporting `$ref` resolution by ID or anchor fragment.
      *
      * @param spec The document root or fragment to traverse.
      * @param baseUri The current base URI of the scope.
@@ -226,21 +238,47 @@ export class SwaggerParser {
             let nextBase = currentBase;
 
             // Check for $id (OAS 3.1 / JSON Schema definition)
+            // A schema with an `$id` changes the resolution scope for itself and its children.
             if ('$id' in obj && typeof obj.$id === 'string') {
                 try {
                     // Resolve $id against the current base.
-                    // $id can be relative or absolute.
-                    // If absolute, it resets the base.
+                    // $id can be relative (rare) or absolute.
                     nextBase = new URL(obj.$id, currentBase).href;
 
-                    // Cache this object as a distinct "document" at this URI
+                    // Cache this object as a distinct "document" at this URI.
                     // We use cast because cache expects SwaggerSpec, but these are Schema definitions.
-                    // Our resolution logic handles both.
+                    // Our resolution logic handles both types.
                     if (!cache.has(nextBase)) {
                         cache.set(nextBase, obj as SwaggerSpec);
                     }
                 } catch (e) {
-                    // Ignore invalid $id values
+                    // Ignore invalid $id values, proceed with current scope
+                }
+            }
+
+            // Check for $anchor (OAS 3.1 / JSON Schema 2020-12)
+            // An anchor creates a unique identifier for the schema within the *current* base scope.
+            // Syntax: The URI ref is `currentBase#anchorName`.
+            if ('$anchor' in obj && typeof obj.$anchor === 'string') {
+                // Anchors strictly must not contain '#'.
+                const anchor = obj.$anchor;
+                const anchorUri = `${nextBase}#${anchor}`;
+
+                // Cache this specific object at the fully resolved anchor URI
+                if (!cache.has(anchorUri)) {
+                    cache.set(anchorUri, obj as SwaggerSpec);
+                }
+            }
+
+            // Check for $dynamicAnchor (OAS 3.1 / JSON Schema 2020-12)
+            // Similar to $anchor, but primarily for dynamic referencing.
+            // For static resolution purposes, we treat it like a standard anchor target.
+            if ('$dynamicAnchor' in obj && typeof obj.$dynamicAnchor === 'string') {
+                const anchor = obj.$dynamicAnchor;
+                const anchorUri = `${nextBase}#${anchor}`;
+
+                if (!cache.has(anchorUri)) {
+                    cache.set(anchorUri, obj as SwaggerSpec);
                 }
             }
 
@@ -440,20 +478,34 @@ export class SwaggerParser {
         const currentDocSpec = this.specCache.get(currentDocUri);
 
         // logicalBaseUri calculation: checks $self first, then falls back to current physical URI.
-        // NOTE: For $id resolution, the cache key IS the $id (resolved), so looking up by URI works
-        // naturally if `indexSchemaIds` has populated the cache.
         const logicalBaseUri = currentDocSpec?.$self ? new URL(currentDocSpec.$self, currentDocUri).href : currentDocUri;
 
         // The target file's physical URI is resolved using the logical base.
-        // If ref is absolute (e.g. based on $id), URL construction handles it correctly.
-        const targetFileUri = filePath ? new URL(filePath, logicalBaseUri).href : currentDocUri;
+        // If ref is absolute (e.g. based on $id or http URI), URL construction handles it correctly.
+        const targetUri = filePath ? new URL(filePath, logicalBaseUri).href : logicalBaseUri;
 
-        const targetSpec = this.specCache.get(targetFileUri);
+        // 1. Direct Cache Lookup (Supports $id and $anchor lookups)
+        // If the ref points to a known $id or $anchor (e.g. http://full.uri#anchor),
+        // `targetUri` will contain the base and `jsonPointer` will contain the anchor name.
+        // We construct the potential key and check the cache.
+        // Note: jsonPointer here might be an actual pointer path OR an anchor name.
+        // Parser's indexSchemaIds puts anchors in the cache as "baseUri#anchor".
+        const fullUriKey = jsonPointer ? `${targetUri}#${jsonPointer}` : targetUri;
+
+        if (this.specCache.has(fullUriKey)) {
+            return this.specCache.get(fullUriKey) as unknown as T;
+        }
+
+        // 2. Spec File Cache Lookup - Fallback to traversing the document
+        const targetSpec = this.specCache.get(targetUri);
         if (!targetSpec) {
-            console.warn(`[Parser] Unresolved external file reference: ${targetFileUri}. File was not pre-loaded.`);
+            console.warn(`[Parser] Unresolved external file reference: ${targetUri}. File was not pre-loaded.`);
             return undefined;
         }
 
+        // 3. JSON Pointer Traversal
+        // If we are here, it means `ref` was not a direct ID or Anchor match.
+        // We treat `jsonPointer` as a standard JSON pointer traversing the `targetSpec`.
         let result: any = targetSpec;
         if (jsonPointer) {
             // Gracefully handle pointers that are just "/" or empty
@@ -463,7 +515,9 @@ export class SwaggerParser {
                 if (typeof result === 'object' && result !== null && Object.prototype.hasOwnProperty.call(result, decodedPart)) {
                     result = result[decodedPart];
                 } else {
-                    console.warn(`[Parser] Failed to resolve reference part "${decodedPart}" in path "${ref}" within file ${targetFileUri}`);
+                    // It's common to fail here if `jsonPointer` was actually an anchor name that wasn't indexed.
+                    // But if indexSchemaIds ran correctly, we should have hit Step 1.
+                    console.warn(`[Parser] Failed to resolve reference part "${decodedPart}" in path "${ref}" within file ${targetUri}`);
                     return undefined;
                 }
             }
@@ -471,12 +525,12 @@ export class SwaggerParser {
 
         // Handle nested $refs recursively, passing the physical URI of the new document context.
         if (isRefObject(result)) {
-            return this.resolveReference(result.$ref, targetFileUri);
+            return this.resolveReference(result.$ref, targetUri);
         }
 
         // Handle nested $dynamicRefs recursively
         if (isDynamicRefObject(result)) {
-            return this.resolveReference(result.$dynamicRef, targetFileUri);
+            return this.resolveReference(result.$dynamicRef, targetUri);
         }
 
         return result as T;

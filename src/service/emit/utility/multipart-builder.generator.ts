@@ -6,7 +6,7 @@ import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../../core/constants.js";
  * Generates the `utils/multipart-builder.ts` file.
  * This utility class handles the creation of multipart payloads,
  * switching between native FormData (browser standard) and manual Blob construction
- * when custom headers specifically requested by OAS definitions are needed.
+ * when custom headers or nested multipart structures are required by the API definition.
  */
 export class MultipartBuilderGenerator {
     constructor(private project: Project) {
@@ -28,7 +28,9 @@ export class MultipartBuilderGenerator {
                 { name: "contentType", type: "string", hasQuestionToken: true },
                 { name: "headers", type: "Record<string, string>", hasQuestionToken: true },
                 { name: "style", type: "string", hasQuestionToken: true },
-                { name: "explode", type: "boolean", hasQuestionToken: true }
+                { name: "explode", type: "boolean", hasQuestionToken: true },
+                // Recursive definition for nested multipart encodings
+                { name: "encoding", type: "Record<string, EncodingConfig>", hasQuestionToken: true }
             ]
         });
 
@@ -44,7 +46,7 @@ export class MultipartBuilderGenerator {
         const classDeclaration = sourceFile.addClass({
             name: "MultipartBuilder",
             isExported: true,
-            docs: ["Utility to build multipart/form-data payloads, supporting custom part headers via manual construction."],
+            docs: ["Utility to build multipart/form-data payloads, supporting custom part headers and nested nesting via manual construction."],
         });
 
         // Main serialize method
@@ -59,20 +61,24 @@ export class MultipartBuilderGenerator {
             returnType: "MultipartResult",
             docs: [
                 "Serializes a body object into a multipart payload.",
-                "If custom headers are defined in `encodings`, it performs manual serialization to Blob.",
+                "If custom headers or nested multipart types are defined in `encodings`, it performs manual serialization to Blob.",
                 "Otherwise, it uses the native `FormData` API."
             ],
             statements: `
-        if (body === null || body === undefined) { 
-            return { content: new FormData() }; 
-        } 
+        if (body === null || body === undefined) {
+            return { content: new FormData() };
+        }
 
-        // Check if any property needs custom headers - FormData CANNOT do this. 
-        const requiresManual = Object.values(encodings).some(config => !!config.headers && Object.keys(config.headers).length > 0); 
+        // Native FormData cannot handle custom per-part headers or nested multipart bodies.
+        // We check if any property config requires these advanced features.
+        const requiresManual = Object.values(encodings).some(config => 
+            (!!config.headers && Object.keys(config.headers).length > 0) ||
+            (!!config.contentType && config.contentType.startsWith('multipart/'))
+        );
 
-        if (requiresManual) { 
-            return this.serializeManual(body, encodings); 
-        } 
+        if (requiresManual) {
+            return this.serializeManual(body, encodings);
+        }
 
         return this.serializeNative(body, encodings);`
         });
@@ -88,21 +94,21 @@ export class MultipartBuilderGenerator {
             ],
             returnType: "MultipartResult",
             statements: `
-        const formData = new FormData(); 
+        const formData = new FormData();
 
-        Object.entries(body).forEach(([key, value]) => { 
-            if (value === undefined || value === null) return; 
+        Object.entries(body).forEach(([key, value]) => {
+            if (value === undefined || value === null) return;
 
-            const config = encodings[key] || {}; 
-            const contentType = config.contentType; 
+            const config = encodings[key] || {};
+            const contentType = config.contentType;
 
-            // Native FormData handling 
-            if (Array.isArray(value)) { 
-                value.forEach(v => this.appendFormData(formData, key, v, contentType)); 
-            } else { 
-                this.appendFormData(formData, key, value, contentType); 
-            } 
-        }); 
+            // Native FormData handling
+            if (Array.isArray(value)) {
+                value.forEach(v => this.appendFormData(formData, key, v, contentType));
+            } else {
+                this.appendFormData(formData, key, value, contentType);
+            }
+        });
 
         return { content: formData };`
         });
@@ -119,18 +125,18 @@ export class MultipartBuilderGenerator {
                 { name: "contentType", type: "string", hasQuestionToken: true }
             ],
             statements: `
-        if (value instanceof Blob || value instanceof File) { 
-            if (value instanceof File) { 
-                formData.append(key, value, value.name); 
-            } else { 
-                formData.append(key, value); 
-            } 
-        } else if (contentType === 'application/json' || typeof value === 'object') { 
-            // Wrap JSON in a Blob to allow setting content-type part header implies usage of Blob/File APIs in fetch 
-            const blob = new Blob([JSON.stringify(value)], { type: 'application/json' }); 
-            formData.append(key, blob); 
-        } else { 
-            formData.append(key, String(value)); 
+        if (value instanceof Blob || value instanceof File) {
+            if (value instanceof File) {
+                formData.append(key, value, value.name);
+            } else {
+                formData.append(key, value);
+            }
+        } else if (contentType === 'application/json' || typeof value === 'object') {
+            // Wrap JSON in a Blob to allow setting content-type part header implies usage of Blob/File APIs in fetch
+            const blob = new Blob([JSON.stringify(value)], { type: 'application/json' });
+            formData.append(key, blob);
+        } else {
+            formData.append(key, String(value));
         }`
         });
 
@@ -145,63 +151,93 @@ export class MultipartBuilderGenerator {
             ],
             returnType: "MultipartResult",
             statements: `
-        const boundary = '----' + Math.random().toString(36).substring(2); 
-        const parts: (string | Blob)[] = []; 
-        const dashDash = '--'; 
-        const crlf = '\\r\\n'; 
+        const boundary = '----' + Math.random().toString(36).substring(2);
+        const parts: (string | Blob)[] = [];
+        const dashDash = '--';
+        const crlf = '\\r\\n';
 
-        Object.entries(body).forEach(([key, value]) => { 
-            if (value === undefined || value === null) return; 
+        Object.entries(body).forEach(([key, value]) => {
+            if (value === undefined || value === null) return;
 
-            const values = Array.isArray(value) ? value : [value]; 
-            const config = encodings[key] || {}; 
+            const values = Array.isArray(value) ? value : [value];
+            const config = encodings[key] || {};
 
-            values.forEach(v => { 
-                let partHeaders = \`Content-Disposition: form-data; name="\${key}"\`; 
-                if (v instanceof File) { 
-                    partHeaders += \`; filename="\${v.name}"\`; 
-                } else if (v instanceof Blob) { 
-                    partHeaders += \`; filename="blob"\`; 
+            values.forEach(v => {
+                let partHeaders = \`Content-Disposition: form-data; name="\${key}"\`;
+                if (v instanceof File) {
+                    partHeaders += \`; filename="\${v.name}"\`;
+                } else if (v instanceof Blob) {
+                    partHeaders += \`; filename="blob"\`;
                 }
 
-                // Add Custom Headers 
-                if (config.headers) { 
-                    Object.entries(config.headers).forEach(([hKey, hVal]) => { 
-                        partHeaders += \`\${crlf}\${hKey}: \${hVal}\`; 
-                    }); 
-                } 
+                // Add Custom Headers
+                if (config.headers) {
+                    Object.entries(config.headers).forEach(([hKey, hVal]) => {
+                        partHeaders += \`\${crlf}\${hKey}: \${hVal}\`;
+                    });
+                }
 
-                // Determine Content-Type 
-                let partContentType = config.contentType; 
-                if (!partContentType) { 
-                    if (v instanceof Blob) partContentType = v.type || "application/octet-stream"; 
-                    else if (typeof v === 'object') partContentType = 'application/json'; 
-                    else partContentType = 'text/plain'; 
-                } 
-                if (partContentType) { 
-                    partHeaders += \`\${crlf}Content-Type: \${partContentType}\`; 
-                } 
+                // Determine Content-Type
+                let partContentType = config.contentType;
+                if (!partContentType) {
+                    if (v instanceof Blob) partContentType = v.type || "application/octet-stream";
+                    else if (typeof v === 'object') partContentType = 'application/json';
+                    else partContentType = 'text/plain';
+                }
 
-                parts.push(dashDash + boundary + crlf + partHeaders + crlf + crlf); 
+                // Handle Recursive Nesting (OAS 3.2 Strictness)
+                // If this part is itself a multipart content, we must recursively serialize it
+                // and use the resulting content (Blob) and boundary header.
+                let payload: string | Blob = v;
 
-                if (typeof v === 'object' && !(v instanceof Blob)) { 
-                    parts.push(JSON.stringify(v)); 
-                } else { 
-                    parts.push(v); 
-                } 
-                parts.push(crlf); 
-            }); 
-        }); 
+                if (partContentType?.startsWith('multipart/')) {
+                    // Use the nested encoding map if available, otherwise empty
+                    const nestedConfig = config.encoding || {};
+                    const nestedResult = this.serializeManual(v, nestedConfig);
+                    payload = nestedResult.content;
+                    
+                    if (nestedResult.headers && nestedResult.headers['Content-Type']) {
+                        // If we generated a nested multipart, we need to preserve the boundary created there.
+                        // If the spec requested a specific multipart subtype (e.g. 'multipart/mixed'), use that but append the boundary.
+                        const boundaryMatch = nestedResult.headers['Content-Type'].match(/boundary=(.+)$/);
+                        const nestedBoundary = boundaryMatch ? boundaryMatch[1] : null;
+                        
+                        if (nestedBoundary) {
+                            if (config.contentType) {
+                                // Use the requested type (e.g. mixed) with the generated boundary
+                                const baseType = config.contentType.split(';')[0];
+                                partContentType = \`\${baseType}; boundary=\${nestedBoundary}\`;
+                            } else {
+                                // Use the generated type (defaults to form-data)
+                                partContentType = nestedResult.headers['Content-Type'];
+                            }
+                        }
+                    }
+                } else if (typeof v === 'object' && !(v instanceof Blob)) {
+                    payload = JSON.stringify(v);
+                } else {
+                    payload = v;
+                }
 
-        parts.push(dashDash + boundary + dashDash + crlf); 
+                if (partContentType) {
+                    partHeaders += \`\${crlf}Content-Type: \${partContentType}\`;
+                }
 
-        // Construct Blob with manually built body 
-        const blob = new Blob(parts, { type: 'multipart/form-data' }); 
+                parts.push(dashDash + boundary + crlf + partHeaders + crlf + crlf);
+                parts.push(payload);
+                parts.push(crlf);
+            });
+        });
+
+        parts.push(dashDash + boundary + dashDash + crlf);
+
+        // Construct Blob with manually built body
+        const blob = new Blob(parts, { type: 'multipart/form-data' });
         
-        // Return Blob and the Boundary Header needed for the request 
-        return { 
-            content: blob, 
-            headers: { 'Content-Type': \`multipart/form-data; boundary=\${boundary}\` } 
+        // Return Blob and the Boundary Header needed for the request
+        return {
+            content: blob,
+            headers: { 'Content-Type': \`multipart/form-data; boundary=\${boundary}\` }
         };`
         });
 

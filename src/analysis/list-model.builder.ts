@@ -1,7 +1,7 @@
 import { Resource } from "@src/core/types/index.js";
 import { pascalCase } from "@src/core/utils/index.js";
 
-import { ListAction, ListColumn, ListViewModel } from "./list-types.js";
+import { ListAction, ListActionKind, ListColumn, ListViewModel } from "./list-types.js";
 
 export class ListModelBuilder {
 
@@ -71,23 +71,32 @@ export class ListModelBuilder {
         return ops.map(op => ({
             name: op.action,
             label: pascalCase(op.action),
-            icon: this.getIconForAction(op.action),
+            kind: this.getActionKind(op.action),
             isCollectionAction: !!op.isCustomCollectionAction,
             requiresId: !!op.isCustomItemAction,
             operation: op
         }));
     }
 
-    private getIconForAction(action: string): string {
+    private getActionKind(action: string): ListActionKind {
         const lowerAction = action.toLowerCase();
-        if (lowerAction.includes('delete') || lowerAction.includes('remove')) return 'delete';
-        if (lowerAction.includes('edit') || lowerAction.includes('update')) return 'edit';
-        if (lowerAction.includes('add') || lowerAction.includes('create')) return 'add';
-        if (lowerAction.includes('start') || lowerAction.includes('play')) return 'play_arrow';
-        if (lowerAction.includes('stop') || lowerAction.includes('pause')) return 'pause';
-        if (lowerAction.includes('reboot') || lowerAction.includes('refresh') || lowerAction.includes('sync')) return 'refresh';
-        if (lowerAction.includes('approve') || lowerAction.includes('check')) return 'check';
-        if (lowerAction.includes('cancel') || lowerAction.includes('block')) return 'block';
-        return 'play_arrow'; // Default fallback icon
+        if (lowerAction.includes('delete') || lowerAction.includes('remove') || lowerAction.includes('cancel') || lowerAction.includes('block')) {
+            return 'destructive';
+        }
+        if (lowerAction.includes('add') || lowerAction.includes('create')) {
+            return 'constructive';
+        }
+        if (lowerAction.includes('edit') || lowerAction.includes('update') || lowerAction.includes('approve') || lowerAction.includes('check')) {
+            return 'state-change';
+        }
+        if (lowerAction.includes('reboot') || lowerAction.includes('refresh') || lowerAction.includes('sync')) {
+            return 'state-change';
+        }
+        // 'start', 'play', 'stop', 'pause' are more specific than generic state change
+        if (lowerAction.includes('start') || lowerAction.includes('play') || lowerAction.includes('stop') || lowerAction.includes('pause')) {
+            return 'default';
+        }
+
+        return 'default'; // Default fallback kind
     }
 }

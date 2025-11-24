@@ -1,60 +1,43 @@
-import { Resource, SwaggerDefinition } from "@src/core/types/index.js";
+import { Resource } from "@src/core/types/index.js";
+import { FormAnalysisResult } from "@src/analysis/form-types.js";
+
 import { HtmlElementBuilder as _ } from '../html-element.builder.js';
 import { buildFormControl } from "./form-controls-html.builder.js";
-import { SwaggerParser } from "@src/core/parser.js";
 
-export function generateFormComponentHtml(resource: Resource, parser: SwaggerParser): string {
+export function generateFormComponentHtml(resource: Resource, analysis: FormAnalysisResult): string {
     const root = _.create('div').addClass('admin-form-container');
     const title = _.create('h1').setTextContent('{{formTitle}}');
     const form = _.create('form').setAttribute('[formGroup]', 'form').setAttribute('(ngSubmit)', 'onSubmit()');
     const fieldsContainer = _.create('div').addClass('admin-form-fields');
 
-    const oneOfProp = resource.formProperties.find(p => p.schema.oneOf && p.schema.discriminator);
-
-    resource.formProperties
-        .filter(prop => !prop.schema.readOnly && prop !== oneOfProp)
-        .forEach(prop => {
-            const controlBuilder = buildFormControl(prop);
+    // Use the pre-analyzed top-level controls
+    analysis.topLevelControls
+        .filter(control => !analysis.isPolymorphic || control.name !== analysis.discriminatorPropName)
+        .forEach(control => {
+            const controlBuilder = buildFormControl(control);
             if (controlBuilder) {
                 fieldsContainer.appendChild(controlBuilder);
             }
         });
 
-    if (oneOfProp) {
-        const selectorControl = buildFormControl(oneOfProp);
-        if (selectorControl) fieldsContainer.appendChild(selectorControl);
+    // Handle polymorphism using the pre-analyzed model
+    if (analysis.isPolymorphic) {
+        const discriminatorControl = analysis.topLevelControls.find(c => c.name === analysis.discriminatorPropName);
+        if (discriminatorControl) {
+            const selectorControl = buildFormControl(discriminatorControl);
+            if (selectorControl) fieldsContainer.appendChild(selectorControl);
+        }
 
-        const options = parser.getPolymorphicSchemaOptions(oneOfProp.schema);
-        const dPropName = oneOfProp.schema.discriminator!.propertyName;
-
-        for (const option of options) {
-            const typeName = option.name;
-            const subSchema = option.schema;
-
-            const getAllProperties = (schema: SwaggerDefinition): Record<string, SwaggerDefinition> => {
-                let allProperties: Record<string, SwaggerDefinition> = { ...schema.properties };
-                if (schema.allOf) {
-                    for (const sub of schema.allOf) {
-                        const resolvedSub = parser.resolve<SwaggerDefinition>(sub);
-                        if (resolvedSub) {
-                            const subProps = getAllProperties(resolvedSub);
-                            allProperties = { ...subProps, ...allProperties };
-                        }
-                    }
-                }
-                return allProperties;
-            };
+        for (const option of analysis.polymorphicOptions || []) {
+            const typeName = option.discriminatorValue;
 
             const ifContainer = _.create('div');
             const formGroupContainer = _.create('div').setAttribute('formGroupName', typeName);
-            const allSubSchemaProperties = getAllProperties(subSchema);
 
-            Object.entries(allSubSchemaProperties)
-                .filter(([key, schema]) => key !== dPropName && !schema.readOnly)
-                .forEach(([key, schema]) => {
-                    const control = buildFormControl({ name: key, schema: schema as SwaggerDefinition });
-                    if (control) formGroupContainer.appendChild(control);
-                });
+            option.controls.forEach(control => {
+                const controlBuilder = buildFormControl(control);
+                if (controlBuilder) formGroupContainer.appendChild(controlBuilder);
+            });
 
             const innerHtml = formGroupContainer.render(1);
             ifContainer.setInnerHtml(`@if (isPetType('${typeName}')) {\n${innerHtml}\n  }`);

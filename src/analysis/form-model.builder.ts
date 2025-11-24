@@ -1,7 +1,7 @@
 import { FormProperty, Resource, SwaggerDefinition } from "@src/core/types/index.js";
 import { SwaggerParser } from '@src/core/parser.js';
 import { getTypeScriptType, pascalCase, singular } from "@src/core/utils/index.js";
-import { mapSchemaToFormControl } from "@src/generators/angular/admin/form-control.mapper.js";
+import { analyzeValidationRules } from "./validation.analyzer.js";
 
 import { FormAnalysisResult, FormControlModel } from "./form-types.js";
 
@@ -55,22 +55,21 @@ export class FormModelBuilder {
         isTopLevel: boolean
     ): FormControlModel[] {
         const controls: FormControlModel[] = [];
-        const interfaceProps: { name: string; type: string }[] = [];
+        const interfaceProps: { name: string }[] = [];
 
         for (const prop of properties) {
             if (prop.schema.readOnly) continue;
 
             const schema = prop.schema;
-            const validationInfo = mapSchemaToFormControl(schema);
+            const validationRules = analyzeValidationRules(schema);
 
-            if (validationInfo?.validators.some(v => v.startsWith('CustomValidators'))) {
+            if (validationRules.some(r => ['exclusiveMinimum', 'exclusiveMaximum', 'multipleOf', 'uniqueItems'].includes(r.type))) {
                 this.result.usesCustomValidators = true;
             }
 
-            const validators = validationInfo?.validators || [];
-            const validatorString = validators.length > 0 ? `, [${validators.join(', ')}]` : '';
-
             let controlModel: FormControlModel;
+            const defaultValue = schema.default !== undefined ? schema.default : null;
+            interfaceProps.push({ name: prop.name });
 
             // 2a. Nested Group
             if (schema.type === 'object' && schema.properties) {
@@ -82,21 +81,12 @@ export class FormModelBuilder {
                     false
                 );
 
-                const formGroupType = `FormGroup<${nestedInterfaceName}>`;
-                interfaceProps.push({ name: prop.name, type: formGroupType });
-
-                // Build Group Initializer
-                const nestedInits = nestedControls
-                    .map(c => `'${c.name}': ${c.initialValue}`)
-                    .join(',\n      ');
-                const initialValue = `this.fb.group({${nestedInits}}${validatorString.replace(',', '')})`;
-
                 controlModel = {
                     name: prop.name,
                     propertyName: prop.name,
-                    tsType: formGroupType,
-                    initialValue,
-                    validators,
+                    dataType: nestedInterfaceName,
+                    defaultValue,
+                    validationRules,
                     controlType: 'group',
                     nestedFormInterface: nestedInterfaceName,
                     nestedControls,
@@ -119,17 +109,12 @@ export class FormModelBuilder {
                         false
                     );
 
-                    const propType = `FormArray<FormGroup<${arrayItemInterfaceName}>>`;
-                    interfaceProps.push({ name: prop.name, type: propType });
-
-                    // For complex arrays, we initialize as empty array.
-                    // The generator creates helper methods to add items.
                     controlModel = {
                         name: prop.name,
                         propertyName: prop.name,
-                        tsType: propType,
-                        initialValue: `this.fb.array([]${validatorString})`,
-                        validators,
+                        dataType: `${arrayItemInterfaceName}[]`,
+                        defaultValue,
+                        validationRules,
                         controlType: 'array',
                         nestedFormInterface: arrayItemInterfaceName, // References the Item interface
                         nestedControls: nestedItemControls, // Stored for "createItem" helper generation
@@ -138,15 +123,13 @@ export class FormModelBuilder {
                 } else {
                     // Array of Primitives
                     const itemTsType = this.getFormControlTypeString(itemSchema);
-                    const propType = `FormArray<FormControl<${itemTsType}>>`;
-                    interfaceProps.push({ name: prop.name, type: propType });
 
                     controlModel = {
                         name: prop.name,
                         propertyName: prop.name,
-                        tsType: propType,
-                        initialValue: `this.fb.array([]${validatorString})`,
-                        validators,
+                        dataType: `(${itemTsType})[]`,
+                        defaultValue,
+                        validationRules,
                         controlType: 'array',
                         schema
                     };
@@ -155,17 +138,13 @@ export class FormModelBuilder {
             // 2c. Primitive Control
             else {
                 const tsType = this.getFormControlTypeString(schema);
-                const propType = `FormControl<${tsType}>`;
-                interfaceProps.push({ name: prop.name, type: propType });
-
-                const defaultValue = schema.default !== undefined ? JSON.stringify(schema.default) : 'null';
 
                 controlModel = {
                     name: prop.name,
                     propertyName: prop.name,
-                    tsType: propType,
-                    initialValue: `new FormControl<${tsType}>(${defaultValue}${validatorString})`,
-                    validators,
+                    dataType: tsType,
+                    defaultValue,
+                    validationRules,
                     controlType: 'control',
                     schema
                 };
@@ -191,45 +170,45 @@ export class FormModelBuilder {
 
         const dPropName = prop.schema.discriminator!.propertyName;
 
-        // Determine if sub-options are actually objects requiring sub-forms
         const oneOfHasObjects = prop.schema.oneOf!.some(s => this.parser.resolve(s)?.properties);
         if (!oneOfHasObjects) return;
 
         for (const subSchemaRef of prop.schema.oneOf!) {
-            // Skip primitives in oneOf
             if (!subSchemaRef.$ref) continue;
 
             const subSchema = this.parser.resolve(subSchemaRef);
-            if (!subSchema || !subSchema.properties) continue;
+            if (!subSchema) continue;
 
-            const typeName = subSchema.properties[dPropName].enum![0] as string; // e.g. 'cat'
-            const refName = pascalCase(subSchemaRef.$ref.split('/').pop()!); // e.g. 'Cat'
+            const allProperties: Record<string, SwaggerDefinition> = { ...(subSchema.properties || {}) };
 
-            // Generate controls for the sub-form (excluding discriminator itself and readOnly)
-            const subProperties = Object.entries(subSchema.properties)
-                .filter(([key]) => key !== dPropName && !subSchema.properties![key].readOnly)
+            // **THE FIX**: Recursively collect properties from allOf references
+            const collectAllOfProps = (schema: SwaggerDefinition) => {
+                if (schema.allOf) {
+                    for (const inner of schema.allOf) {
+                        const resolved = this.parser.resolve(inner);
+                        if (resolved) {
+                            Object.assign(allProperties, resolved.properties || {});
+                            collectAllOfProps(resolved); // Recurse
+                        }
+                    }
+                }
+            };
+            collectAllOfProps(subSchema);
+
+            if (Object.keys(allProperties).length === 0) continue;
+
+            const typeName = allProperties[dPropName]?.enum?.[0] as string;
+            if (!typeName) continue;
+
+            const refName = pascalCase(subSchemaRef.$ref.split('/').pop()!);
+
+            const subProperties = Object.entries(allProperties)
+                .filter(([key, schema]) => key !== dPropName && !schema.readOnly)
                 .map(([key, s]) => ({ name: key, schema: s as SwaggerDefinition }));
-
-            // We don't generate a named interface for these inline sub-forms in the main FormModel usually,
-            // they are just FormGroup<{ ... }> literal types or reusing existing models?
-            // The previous generator created inline initializers.
-            // We will analyze to get the control models for initialization string building.
-            // Note: We use a dummy interface name since we might not be emitting it specifically here
-            // or simply don't register it if we pass `false` for register.
-            // Actually, previous code relied on `this.getFormControlInitializerString` directly.
-
-            // Let's reuse analyzeControls but suppress interface registration?
-            // For separate concerns, let's manually build the logic needed for the switch case.
 
             const subControls: FormControlModel[] = [];
             for (const subProp of subProperties) {
-                // Reuse primitive analysis or full recursion?
-                // For now, we assume shallow sub-forms based on previous implementation complexity
-                // But to be robust, let's assume they could be controls.
-                // We'll duplicate the primitive logic briefly or extract `getInitializer` logic to class scope.
-                // Simplified:
                 const controls = this.analyzeControls([subProp], `Temp${refName}`, false);
-                // Remove the temp interface it just added
                 this.result.interfaces.pop();
                 subControls.push(...controls);
             }
@@ -237,7 +216,7 @@ export class FormModelBuilder {
             this.result.polymorphicOptions.push({
                 discriminatorValue: typeName,
                 modelName: refName,
-                subFormName: typeName,
+                subFormName: typeName.toLowerCase(), // Ensure sub-form name is consistent (e.g., 'cat', 'dog')
                 controls: subControls
             });
         }
@@ -245,7 +224,6 @@ export class FormModelBuilder {
 
     private getFormControlTypeString(schema: SwaggerDefinition): string {
         const knownTypes = this.parser.schemas.map(s => s.name);
-        // Use Date option explicitly for form models
         const type = getTypeScriptType(schema, { options: { dateType: 'Date' } } as any, knownTypes);
         return `${type} | null`;
     }

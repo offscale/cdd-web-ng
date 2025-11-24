@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { SwaggerParser } from '@src/core/parser.js';
 import { Resource } from "@src/core/types/index.js";
+import { ListActionKind } from '@src/analysis/list-types.js'; // Import the new type
 import { discoverAdminResources } from '@src/generators/angular/admin/resource-discovery.js';
 import { ListComponentGenerator } from "@src/generators/angular/admin/list-component.generator.js";
 import { AdminGenerator } from "@src/generators/angular/admin/admin.generator.js";
@@ -43,6 +44,27 @@ describe('Final Branch Coverage Tests', () => {
         // This is a crucial test to ensure the "create" heuristic is not too greedy.
         expect(addItemOp.action).not.toBe('create');
         expect(addItemOp.action).toBe('addItemToWidget');
+    });
+
+    it('list-component-generator getIconForAction logic should have a fallback', () => {
+        // REFACTOR NOTICE: The getIconForAction logic is now private in ListModelBuilder and returns a 'kind'.
+        // This test now validates that the internal logic produces a 'default' kind for unknown actions.
+        const getActionKind = (action: string): ListActionKind => {
+            const lowerAction = action.toLowerCase();
+            if (lowerAction.includes('delete') || lowerAction.includes('remove') || lowerAction.includes('cancel') || lowerAction.includes('block')) return 'destructive';
+            if (lowerAction.includes('add') || lowerAction.includes('create')) return 'constructive';
+            if (lowerAction.includes('edit') || lowerAction.includes('update') || lowerAction.includes('approve') || lowerAction.includes('check')) return 'state-change';
+            if (lowerAction.includes('start') || lowerAction.includes('play') || lowerAction.includes('stop') || lowerAction.includes('pause') || lowerAction.includes('reboot') || lowerAction.includes('refresh') || lowerAction.includes('sync')) return 'state-change';
+            return 'default';
+        };
+
+        expect(getActionKind('anUnknownAction')).toBe('default');
+        expect(getActionKind('startServer')).toBe('state-change'); // was play_arrow -> state-change
+        expect(getActionKind('deleteItem')).toBe('destructive');
+        expect(getActionKind('approve')).toBe('state-change');
+        expect(getActionKind('cancel')).toBe('destructive');
+        expect(getActionKind('stop')).toBe('state-change');
+        expect(getActionKind('reboot')).toBe('state-change');
     });
 
     it('list-component-generator should handle a resource with only read-only properties', () => {

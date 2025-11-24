@@ -1,7 +1,9 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
+
 import yaml from 'js-yaml';
+
 import { SwaggerSpec } from '../types/index.js';
 import { isUrl } from '../utils/index.js';
 import { validateSpec } from '../validator.js';

@@ -3,7 +3,7 @@ import { ClassDeclaration, Project, Scope } from 'ts-morph';
 import { Resource } from '@src/core/types/index.js';
 import { camelCase, pascalCase } from "@src/core/utils/index.js";
 import { ListModelBuilder } from "@src/analysis/list-model.builder.js";
-import { ListViewModel } from "@src/analysis/list-types.js";
+import { ListActionKind, ListViewModel } from "@src/analysis/list-types.js";
 
 import { generateListComponentHtml } from './html/list-component-html.builder.js';
 import { generateListComponentScss } from './html/list-component-scss.builder.js';
@@ -21,6 +21,33 @@ export class ListComponentGenerator {
      * @param project The ts-morph project instance for AST manipulation.
      */
     constructor(private readonly project: Project) {
+    }
+
+    /**
+     * Maps an abstract action kind to a specific Angular Material icon name.
+     * This is where framework-specific UI knowledge is centralized.
+     * @param kind The abstract action kind from the IR.
+     * @returns A string representing a Material Icon.
+     */
+    private mapKindToIcon(actionName: string, kind: ListActionKind): string {
+        const lowerAction = actionName.toLowerCase();
+        // Specific overrides take precedence over general kind
+        if (lowerAction.includes('start') || lowerAction.includes('play')) return 'play_arrow';
+        if (lowerAction.includes('stop') || lowerAction.includes('pause')) return 'pause';
+        if (lowerAction.includes('reboot') || lowerAction.includes('refresh') || lowerAction.includes('sync')) return 'refresh';
+        if (lowerAction.includes('approve') || lowerAction.includes('check')) return 'check';
+        if (lowerAction.includes('cancel') || lowerAction.includes('block')) return 'block';
+        if (lowerAction.includes('edit') || lowerAction.includes('update')) return 'edit';
+
+        switch (kind) {
+            case 'constructive': return 'add';
+            case 'destructive': return 'delete';
+            case 'state-change': return 'sync';
+            case 'navigation': return 'arrow_forward';
+            case 'default':
+            default:
+                return 'play_arrow';
+        }
     }
 
     /**
@@ -63,7 +90,7 @@ export class ListComponentGenerator {
             `import { of, catchError, startWith, switchMap } from 'rxjs';`,
             `import { ${model.serviceName} } from '../../../../services/${camelCase(model.resourceName)}.service';`,
             `import { ${model.modelName} } from '../../../../models';`,
-            `${commonStandaloneImports.map(a => 'import { ' + a[0] + ' } from "' + a[1] + '";').join("\n")}`,
+            ...commonStandaloneImports.map(a => `import { ${a[0]} } from "${a[1]}";`),
         ]);
 
         const componentClass = sourceFile.addClass({
@@ -72,11 +99,12 @@ export class ListComponentGenerator {
             implements: ['AfterViewInit'],
             decorators: [{
                 name: 'Component',
-                arguments: [`{ 
-                    selector: 'app-${model.resourceName}-list', 
-                    imports: [ ${commonStandaloneImports.map(a => a[0]).join(',\n')} ], 
-                    templateUrl: './${model.resourceName}-list.component.html', 
-                    styleUrl: './${model.resourceName}-list.component.scss', 
+                arguments: [`{
+                    selector: 'app-${model.resourceName}-list',
+                    standalone: true,
+                    imports: [ ${commonStandaloneImports.map(a => a[0]).join(',\n')} ],
+                    templateUrl: './${model.resourceName}-list.component.html',
+                    styleUrl: './${model.resourceName}-list.component.scss',
                     changeDetection: ChangeDetectionStrategy.OnPush
                 }`]
             }],
@@ -237,18 +265,18 @@ export class ListComponentGenerator {
             const params = action.requiresId ? [{ name: 'id', type: 'string' }] : [];
             const args = action.requiresId ? 'id' : '';
 
-            const body = `this.${camelCase(model.serviceName)}.${action.operation.methodName}(${args}).pipe( 
-    takeUntilDestroyed(this.destroyRef), 
-    catchError((err: any) => { 
-        console.error('Action failed', err); 
-        this.snackBar.open('Action failed', 'Close', { duration: 5000, panelClass: 'error-snackbar' }); 
-        return of(null); 
-    }) 
-).subscribe(response => { 
-    if (response !== null) { 
-        this.snackBar.open('Action successful!', 'Close', { duration: 3000 }); 
-        this.refresh(); 
-    } 
+            const body = `this.${camelCase(model.serviceName)}.${action.operation.methodName}(${args}).pipe(
+    takeUntilDestroyed(this.destroyRef),
+    catchError((err: any) => {
+        console.error('Action failed', err);
+        this.snackBar.open('Action failed', 'Close', { duration: 5000, panelClass: 'error-snackbar' });
+        return of(null);
+    })
+).subscribe(response => {
+    if (response !== null) {
+        this.snackBar.open('Action successful!', 'Close', { duration: 3000 });
+        this.refresh();
+    }
 });`;
 
             componentClass.addMethod({
@@ -264,12 +292,11 @@ export class ListComponentGenerator {
      * @private
      */
     private emitListComponentHtml(model: ListViewModel, resource: Resource, outDir: string): void {
-        // Reconstruct icon map from IR
+        // Build the icon map for the template using the new internal mapping logic.
         const iconMap = new Map<string, string>();
-        model.customActions.forEach(a => iconMap.set(a.name, a.icon));
+        model.customActions.forEach(a => iconMap.set(a.name, this.mapKindToIcon(a.name, a.kind)));
 
-        // Delegate to HTML builder. We pass the original resource for compatibility
-        // because the builder might check complex schema properties for column formatting in future.
+        // Delegate to HTML builder.
         const htmlContent = generateListComponentHtml(resource, model.idProperty, iconMap);
         this.project.getFileSystem().writeFileSync(`${outDir}/${model.resourceName}-list.component.html`, htmlContent);
     }

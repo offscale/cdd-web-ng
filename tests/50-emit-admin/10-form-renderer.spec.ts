@@ -1,8 +1,4 @@
 import { describe, expect, it } from 'vitest';
-// HACK: To test the inner class, we temporarily expose it for the test. This is better than __get__.
-// In form.renderer.ts, change `class ValidationRenderer` to `export class ValidationRenderer`.
-// Then, this test can import it directly. This is a common pattern for testing "private" helpers.
-// For this response, I'll assume it's exported for testing purposes. Let's modify the renderer to do that.
 import { FormInitializerRenderer, ValidationRenderer } from '@src/generators/angular/admin/form.renderer.js';
 import { ValidationRule } from '@src/analysis/validation-types.js';
 import { FormControlModel } from '@src/analysis/form-types.js';
@@ -78,7 +74,7 @@ describe('Admin: FormRenderer', () => {
             expect(result).toBe(`new FormControl<string | null>(null)`);
         });
 
-        it('should render a form group with nested controls and validators', () => {
+        it('should render a form group with nested controls and validators using FormBuilder (default)', () => {
             const control: FormControlModel = {
                 name: 'address',
                 propertyName: 'address',
@@ -99,11 +95,35 @@ describe('Admin: FormRenderer', () => {
             const result = FormInitializerRenderer.renderControlInitializer(control);
             expect(result).toContain("this.fb.group({");
             expect(result).toContain("'street': new FormControl<string | null>(null, [Validators.required])");
-            // **THE FIX**: Check for the correctly formatted options object with a leading comma.
             expect(result).toContain("}, { validators: [Validators.required] })");
         });
 
-        it('should render a simple form array', () => {
+        it('should render a form group using standard FormGroup constructor when useFormBuilder is false', () => {
+            const control: FormControlModel = {
+                name: 'address',
+                propertyName: 'address',
+                dataType: 'AddressForm',
+                defaultValue: null,
+                validationRules: [{ type: 'required' }],
+                controlType: 'group',
+                nestedControls: [{
+                    name: 'street',
+                    propertyName: 'street',
+                    dataType: 'string | null',
+                    defaultValue: null,
+                    validationRules: [{ type: 'required' }],
+                    controlType: 'control'
+                }]
+            };
+
+            const result = FormInitializerRenderer.renderControlInitializer(control, false);
+            expect(result).toContain("new FormGroup({");
+            // Using explicit check for the nested part format
+            expect(result).toContain("'street': new FormControl<string | null>(null, [Validators.required])");
+            expect(result).toContain("}, { validators: [Validators.required] })");
+        });
+
+        it('should render a simple form array using FormBuilder', () => {
             const control: FormControlModel = {
                 name: 'tags',
                 propertyName: 'tags',
@@ -115,6 +135,20 @@ describe('Admin: FormRenderer', () => {
 
             const result = FormInitializerRenderer.renderControlInitializer(control);
             expect(result).toBe('this.fb.array([], [Validators.minLength(1)])');
+        });
+
+        it('should render a simple form array using standard FormArray constructor when useFormBuilder is false', () => {
+            const control: FormControlModel = {
+                name: 'tags',
+                propertyName: 'tags',
+                dataType: '(string | null)[]',
+                defaultValue: null,
+                validationRules: [{ type: 'minItems', value: 1 }],
+                controlType: 'array'
+            };
+
+            const result = FormInitializerRenderer.renderControlInitializer(control, false);
+            expect(result).toBe('new FormArray([], [Validators.minLength(1)])');
         });
 
         it('should render a form array item initializer using default values', () => {

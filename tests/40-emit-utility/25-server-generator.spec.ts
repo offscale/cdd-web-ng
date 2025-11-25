@@ -65,4 +65,19 @@ describe('Emitter: ServerGenerator', () => {
         const vars = sourceFile.getVariableStatements();
         expect(vars.length).toBe(0);
     });
+
+    it('should handle undefined parser.servers array (defensive fallback coverage)', () => {
+        const project = createTestProject();
+        // Mock parser structure to force undefined servers, hitting the fallback branch `|| []`
+        const parser = {
+            servers: undefined
+        } as unknown as SwaggerParser;
+
+        new ServerGenerator(parser, project).generate('/out');
+
+        const sourceFile = project.getSourceFileOrThrow('/out/servers.ts');
+        expect(sourceFile.getText()).toMatch(/export\s*{\s*};/);
+        const vars = sourceFile.getVariableStatements();
+        expect(vars.length).toBe(0);
+    });
 });

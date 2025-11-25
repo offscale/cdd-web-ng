@@ -168,6 +168,7 @@ npm install
 npm run build
 npm install -g .
 ```
+
 (I'll put it up on npmjs soon)
 
 ## Usage

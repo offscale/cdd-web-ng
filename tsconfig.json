@@ -3,10 +3,12 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "lib": ["ES2022", "DOM"],
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
     "declaration": true,
     "sourceMap": true,
-
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
@@ -15,19 +17,21 @@
     "exactOptionalPropertyTypes": true,
     "allowUnreachableCode": false,
     "noImplicitOverride": true,
-
     "noEmit": true,
-
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "allowArbitraryExtensions": true,
-
-    "types": ["vitest/globals", "node"],
+    "types": [
+      "vitest/globals",
+      "node"
+    ],
     "baseUrl": ".",
     "paths": {
-      "@src/*": ["src/*"]
+      "@src/*": [
+        "src/*"
+      ]
     }
   },
   "include": [

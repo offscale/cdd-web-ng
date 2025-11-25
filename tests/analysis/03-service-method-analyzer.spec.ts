@@ -5,17 +5,19 @@ import { GeneratorConfig, PathInfo } from '@src/core/types/index.js';
 
 describe('Analysis: ServiceMethodAnalyzer', () => {
 
-    /**
-     * Helper to create a test environment with a spec.
-     * @param spec The OpenAPI specification object.
-     * @returns An initialized ServiceMethodAnalyzer instance.
-     */
     const setupAnalyzer = (spec: any) => {
         const config: GeneratorConfig = { input: '', output: '', options: {} };
         const parser = new SwaggerParser(spec, config);
         const analyzer = new ServiceMethodAnalyzer(config, parser);
         return { analyzer, parser };
     };
+
+    it('should return null if operation has no methodName', () => {
+        const { analyzer } = setupAnalyzer({ openapi: '3.0.0', info: { title: 'T', version: '1' }, paths: {} });
+        // @ts-ignore forcing incorrect input
+        const model = analyzer.analyze({ method: 'get', path: '/test' });
+        expect(model).toBeNull();
+    });
 
     it('should use operation-level server override and resolve variables', () => {
         const spec = {
@@ -29,9 +31,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                         servers: [
                             {
                                 url: 'https://{env}.specific.api.com/v1',
-                                variables: {
-                                    env: { default: 'prod' }
-                                }
+                                variables: { env: { default: 'prod' } }
                             }
                         ],
                         responses: { '200': { description: 'OK' } }
@@ -49,9 +49,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
         } as PathInfo;
 
         const model = analyzer.analyze(operation);
-
         expect(model).toBeDefined();
-        // This covers the logic on lines 71-72
         expect(model?.hasServers).toBe(true);
         expect(model?.basePath).toBe('https://prod.specific.api.com/v1');
     });
@@ -81,15 +79,25 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
         } as PathInfo;
         const model = analyzer.analyze(operation);
 
-        // This covers the logic on line 81
         expect(model?.isDeprecated).toBe(true);
         expect(model?.docs).toContain('@deprecated');
     });
 
-    it('should correctly parse advanced XML config properties (prefix, namespace, nodeType)', () => {
+    it('should correctly parse advanced XML config properties and stop at depth limit', () => {
         const spec = {
             openapi: '3.0.0',
             info: { title: 'Test', version: '1.0' },
+            components: {
+                schemas: {
+                    Node: {
+                        type: 'object',
+                        xml: { name: 'node' },
+                        properties: {
+                            child: { $ref: '#/components/schemas/Node' }
+                        }
+                    }
+                }
+            },
             paths: {
                 '/xml': {
                     post: {
@@ -97,28 +105,17 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                         requestBody: {
                             content: {
                                 'application/xml': {
-                                    schema: {
-                                        type: 'object',
-                                        xml: {
-                                            name: 'Root',
-                                            prefix: 'api',
-                                            namespace: 'http://api.example.com/schema',
-                                            nodeType: 'element'
-                                        },
-                                        properties: {
-                                            name: { type: 'string' }
-                                        }
-                                    }
+                                    schema: { $ref: '#/components/schemas/Node' }
                                 }
                             }
                         },
-                        responses: { '200': { description: 'OK' } }
+                        responses: { '200': {} }
                     }
                 }
             }
         };
         const { analyzer } = setupAnalyzer(spec);
-        const operation: PathInfo = {
+        const operation = {
             ...spec.paths['/xml'].post,
             path: '/xml',
             method: 'POST',
@@ -129,14 +126,230 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
         expect(model?.body?.type).toBe('xml');
 
         if (model?.body?.type === 'xml') {
-            const xmlConfig = model.body.config;
-            // This covers the previously uncovered branches in the private `getXmlConfig` method
-            expect(xmlConfig.prefix).toBe('api');
-            expect(xmlConfig.namespace).toBe('http://api.example.com/schema');
-            expect(xmlConfig.nodeType).toBe('element');
-        } else {
-            // Fail the test explicitly if the body type is not XML
-            expect.fail('Expected body type to be "xml"');
+            const config = model.body.config;
+            expect(config.name).toBe('node');
+            // Should exist for a few levels deep
+            expect(config.properties.child).toBeDefined();
+            expect(config.properties.child.properties.child).toBeDefined();
         }
+    });
+
+    it('should handle various JSON content types detection', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
+            paths: {
+                '/test': {
+                    get: {
+                        // Parameter with various content types
+                        parameters: [
+                            { name: 'a', in: 'query', content: { 'application/json': {} } }, // Standard
+                            { name: 'b', in: 'query', content: { 'application/json; charset=utf-8': {} } }, // JSON compatible subtype
+                            { name: 'c', in: 'query', content: { '*/*': {} } } // Wildcard
+                        ],
+                        responses: {}
+                    }
+                }
+            }
+        };
+        const { analyzer } = setupAnalyzer(spec);
+        const op = { ...spec.paths['/test'].get, method: 'GET', path: '/test', methodName: 'test' } as PathInfo;
+        const model = analyzer.analyze(op);
+
+        const pA = model?.queryParams.find(p => p.originalName === 'a');
+        const pB = model?.queryParams.find(p => p.originalName === 'b');
+        const pC = model?.queryParams.find(p => p.originalName === 'c');
+
+        expect(pA?.serializationLink).toBe('json');
+        expect(pB?.serializationLink).toBe('json');
+        expect(pC?.serializationLink).toBe('json');
+    });
+
+    it('should merge XML configuration from allOf schemas', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'XML allOf', version: '1.0' },
+            components: {
+                schemas: {
+                    Base: {
+                        type: 'object',
+                        properties: { id: { type: 'string', xml: { attribute: true } } }
+                    },
+                    Extended: {
+                        allOf: [
+                            { $ref: '#/components/schemas/Base' },
+                            // Add local XML config to ensure it is picked up by getXmlConfig
+                            { type: 'object', properties: { name: { type: 'string', xml: { attribute: true } } } }
+                        ],
+                        xml: { name: 'Extended' }
+                    }
+                }
+            },
+            paths: {
+                '/xml-allof': {
+                    post: {
+                        operationId: 'postXmlAllOf',
+                        requestBody: {
+                            content: {
+                                'application/xml': {
+                                    schema: { $ref: '#/components/schemas/Extended' }
+                                }
+                            }
+                        },
+                        responses: { '200': {} }
+                    }
+                }
+            }
+        };
+        const { analyzer } = setupAnalyzer(spec);
+        const operation = {
+            ...spec.paths['/xml-allof'].post,
+            path: '/xml-allof',
+            method: 'POST',
+            methodName: 'postXmlAllOf'
+        } as PathInfo;
+
+        const model = analyzer.analyze(operation);
+        expect(model?.body?.type).toBe('xml');
+
+        if (model?.body?.type === 'xml') {
+            const config = model.body.config;
+            // Should include properties from Base (via allOf)
+            expect(config.properties.id).toBeDefined();
+            expect(config.properties.id.attribute).toBe(true);
+            // Should include local properties
+            expect(config.properties.name).toBeDefined();
+        }
+    });
+
+    // Test for line 267: Unresolved ref in getXmlConfig
+    it('should return empty config for unresolvable schema ref', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
+            paths: {},
+            components: { schemas: { Broken: { $ref: '#/missing' } } }
+        };
+        const { analyzer } = setupAnalyzer(spec);
+        // Using private/internal method via cast to test specific logic
+        const config = (analyzer as any).getXmlConfig({ $ref: '#/missing' }, 5);
+        expect(config).toEqual({});
+    });
+
+    // Test for line 81: Legacy fallback request schema
+    it('should use request body schema type as fallback return type (legacy behavior)', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Legacy', version: '1.0' },
+            paths: {
+                '/echo': {
+                    post: {
+                        methodName: 'echo',
+                        // No responses defined
+                        responses: {},
+                        requestBody: {
+                            content: {
+                                'application/json': {
+                                    schema: { type: 'string' }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+        const { analyzer } = setupAnalyzer(spec);
+        const op = { ...spec.paths['/echo'].post, path: '/echo', method: 'POST' } as any;
+        const model = analyzer.analyze(op);
+
+        // The fallback logic sees no valid response code, checks requestBody schema, sees 'string'.
+        expect(model?.responseType).toBe('string');
+    });
+
+    // Test for line ~135: unknown/any content type
+    it('should prioritize application/json but handle unknown content type with schema', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
+            paths: {
+                '/post': {
+                    post: {
+                        methodName: 'post',
+                        requestBody: {
+                            content: {
+                                'application/vnd.custom+json': {
+                                    schema: { type: 'integer' }
+                                }
+                            }
+                        },
+                        responses: {}
+                    }
+                }
+            }
+        };
+        const { analyzer } = setupAnalyzer(spec);
+        const op = { ...spec.paths['/post'].post, path: '/post', method: 'POST' } as any;
+        const model = analyzer.analyze(op);
+
+        // Should pick up the integer schema from the custom content type
+        const bodyParam = model?.parameters.find(p => p.name === 'body');
+        expect(bodyParam?.type).toBe('number');
+    });
+
+    // Test for XML array config (line 243)
+    it('should handle XML array config (items)', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'XML Array', version: '1.0' },
+            paths: {},
+            components: {
+                schemas: {
+                    List: {
+                        type: 'array',
+                        xml: { wrapped: true },
+                        items: {
+                            type: 'string',
+                            xml: { name: 'Item' }
+                        }
+                    }
+                }
+            }
+        };
+        const { analyzer } = setupAnalyzer(spec);
+        const schema = spec.components.schemas.List;
+
+        // Public analyze() would trigger this via post/response, testing logic directly here
+        const config = (analyzer as any).getXmlConfig(schema, 5);
+
+        expect(config.wrapped).toBe(true);
+        expect(config.items).toBeDefined();
+        expect(config.items.name).toBe('Item');
+    });
+
+    // Test for XML extended fields (namespace, prefix, etc)
+    it('should extract advanced XML attributes', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'XML Adv', version: '1.0' },
+            paths: {},
+            components: {
+                schemas: {
+                    Adv: {
+                        type: 'object',
+                        xml: {
+                            prefix: 'ex',
+                            namespace: 'http://example.com',
+                            nodeType: 'element'
+                        }
+                    }
+                }
+            }
+        };
+        const { analyzer } = setupAnalyzer(spec);
+        const config = (analyzer as any).getXmlConfig(spec.components.schemas.Adv, 5);
+
+        expect(config.prefix).toBe('ex');
+        expect(config.namespace).toBe('http://example.com');
+        expect(config.nodeType).toBe('element');
     });
 });

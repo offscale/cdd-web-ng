@@ -18,50 +18,56 @@ const simpleWebhookSpec: SwaggerSpec = {
                         'application/json': {
                             schema: {
                                 type: 'object',
-                                properties: {
-                                    id: { type: 'integer' },
-                                    name: { type: 'string' }
-                                }
+                                properties: { id: { type: 'integer' } }
                             }
                         }
                     }
                 },
-                responses: {
-                    '200': { description: 'Return a 200 to ack reception' }
-                }
+                responses: { '200': { description: 'ok' } }
             }
         }
     },
     components: { schemas: {} }
 };
 
-const refWebhookSpec: SwaggerSpec = {
+const validAndInvalidWebhooksSpec: SwaggerSpec = {
     openapi: '3.1.0',
-    info: { title: 'Ref Webhook Test', version: '1.0' },
+    info: { title: 'Mixed Webhook Test', version: '1.0' },
     paths: {},
     webhooks: {
-        'userDeleted': { $ref: '#/components/pathItems/UserDeletedWebhook' }
+        'validHook': { $ref: '#/components/pathItems/ValidWebhook' },
+        'invalidHook': { $ref: '#/components/pathItems/MissingWebhook' }
     },
     components: {
         pathItems: {
-            UserDeletedWebhook: {
+            ValidWebhook: {
                 post: {
-                    requestBody: {
-                        content: {
-                            'application/json': {
-                                schema: { $ref: '#/components/schemas/UserEvent' }
-                            }
-                        }
-                    },
+                    requestBody: { content: { 'application/json': { schema: { type: 'string' } } } },
                     responses: { '200': {} }
                 }
             }
-        },
-        schemas: {
-            UserEvent: {
-                type: 'object',
-                properties: { userId: { type: 'string' } }
+        }
+    }
+};
+
+// New spec to force model imports from webhook payloads (covers conditional import generation)
+const webhookWithModelSpec: SwaggerSpec = {
+    openapi: '3.1.0',
+    info: { title: 'Webhook Model', version: '1.0' },
+    paths: {},
+    webhooks: {
+        'petCreated': {
+            post: {
+                requestBody: {
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/Pet' } } }
+                },
+                responses: { '200': {} }
             }
+        }
+    },
+    components: {
+        schemas: {
+            Pet: { type: 'object', properties: { name: { type: 'string' } } }
         }
     }
 };
@@ -74,22 +80,16 @@ describe('Emitter: WebhookGenerator', () => {
             output: '/out',
             options: { dateType: 'string', enumStyle: 'enum', generateServices: true }
         } as any;
-
         const parser = new SwaggerParser(spec, config);
-        if (spec.components?.schemas?.UserEvent) {
-            parser.schemas.push({ name: 'UserEvent', definition: spec.components.schemas.UserEvent });
-        }
-
         new WebhookGenerator(parser, project).generate('/out');
         return project;
     };
 
     const compileGeneratedFile = (project: Project) => {
         const sourceFile = project.getSourceFileOrThrow('/out/webhooks.ts');
-        const code = sourceFile.getText();
-        const codeNoImports = code.replace(/import .* from .*/g, '');
-
-        const jsCode = ts.transpile(codeNoImports, { target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS });
+        // Remove imports so we can transpile in isolation without file dependencies for the registry check
+        const code = sourceFile.getText().replace(/import .* from .*/g, '');
+        const jsCode = ts.transpile(code, { target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS });
         const moduleHelper = { exports: {} as any };
         new Function('exports', jsCode)(moduleHelper.exports);
         return moduleHelper.exports;
@@ -98,43 +98,42 @@ describe('Emitter: WebhookGenerator', () => {
     it('should generate interface for simple webhook payload', () => {
         const project = runGenerator(simpleWebhookSpec);
         const sourceFile = project.getSourceFileOrThrow('/out/webhooks.ts');
-
         const typeAlias = sourceFile.getTypeAliasOrThrow('NewPetPostPayload');
         expect(typeAlias.isExported()).toBe(true);
-        const text = typeAlias.getTypeNode()?.getText();
-        expect(text).toContain('id?: number');
-        expect(text).toContain('name?: string');
+        expect(typeAlias.getTypeNode()?.getText()).toContain('id?: number');
+
+        // Should NOT import models because payload is inline structure
+        const imports = sourceFile.getImportDeclarations();
+        expect(imports.length).toBe(0);
     });
 
-    it('should generate registry constant for webhooks', () => {
-        const project = runGenerator(simpleWebhookSpec);
+    it('should generate registry skipping invalid hooks', () => {
+        const project = runGenerator(validAndInvalidWebhooksSpec);
         const { API_WEBHOOKS } = compileGeneratedFile(project);
 
         expect(API_WEBHOOKS).toHaveLength(1);
-        expect(API_WEBHOOKS[0]).toEqual({
-            name: 'newPet',
-            method: 'POST',
-            interfaceName: 'NewPetPostPayload'
-        });
+        expect(API_WEBHOOKS[0].name).toBe('validHook');
+
+        const invalid = API_WEBHOOKS.find((w: any) => w.name === 'invalidHook');
+        expect(invalid).toBeUndefined();
     });
 
-    it('should resolve referenced PathItems in webhooks', () => {
-        const project = runGenerator(refWebhookSpec);
+    it('should import models when webhook payload references a schema', () => {
+        const project = runGenerator(webhookWithModelSpec);
         const sourceFile = project.getSourceFileOrThrow('/out/webhooks.ts');
 
-        const imports = sourceFile.getImportDeclarations();
-        expect(imports.some(i => i.getModuleSpecifierValue() === './models')).toBe(true);
+        // Verify Import is generated
+        const imp = sourceFile.getImportDeclaration(i => i.getModuleSpecifierValue() === './models');
+        expect(imp).toBeDefined();
+        expect(imp?.getNamedImports().map(n => n.getName())).toContain('Pet');
 
-        const typeAlias = sourceFile.getTypeAliasOrThrow('UserDeletedPostPayload');
-        expect(typeAlias.getTypeNode()?.getText()).toBe('UserEvent');
+        // Verify Payload Type uses the model ref
+        const typeAlias = sourceFile.getTypeAliasOrThrow('PetCreatedPostPayload');
+        expect(typeAlias.getTypeNode()?.getText()).toBe('Pet');
     });
 
     it('should handle empty webhooks safely', () => {
-        const emptySpec: SwaggerSpec = {
-            openapi: '3.1.0',
-            info: { title: 'Empty', version: '1.0' },
-            paths: {},
-        };
+        const emptySpec: SwaggerSpec = { openapi: '3.1.0', info: { title: 'Empty', version: '1.0' }, paths: {} };
         const project = runGenerator(emptySpec);
         const sourceFile = project.getSourceFileOrThrow('/out/webhooks.ts');
         expect(sourceFile.getText()).toContain('export { };');

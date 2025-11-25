@@ -79,6 +79,17 @@ describe('Generators (Angular): ServiceGenerator', () => {
         expect(serviceClass.getMethod('headNoOperationId')).toBeDefined();
     });
 
+    it('should sanitize invalid method names (e.g. separated by hyphens)', () => {
+        // The controller grouping uses operationId or path.
+        // If operationId is 'get-custom-name', the extractor might pass it as is if not camelCased.
+        // The ServiceGenerator sanitizes it before adding to the class.
+        const project = createTestEnvironment(coverageSpec);
+        const serviceFile = project.getSourceFileOrThrow('/out/services/customName.service.ts');
+        const serviceClass = serviceFile.getClassOrThrow('CustomNameService');
+        // 'get-custom-name' -> 'getCustomName'
+        expect(serviceClass.getMethod('getCustomName')).toBeDefined();
+    });
+
     it('should de-duplicate method names from conflicting operationIds', () => {
         const project = createTestEnvironment(coverageSpec);
         const serviceFile = project.getSourceFileOrThrow('/out/services/duplicateName.service.ts');

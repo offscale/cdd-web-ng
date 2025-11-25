@@ -69,16 +69,23 @@ export class ServiceIndexGenerator {
 
     public generateIndex(outputRoot: string): void {
         const servicesDir = path.join(outputRoot, "services");
+
+        // Use path.resolve for robust comparison of directory paths (normalizes separators and makes absolute)
+        // This handles cases where ts-morph internal paths and input path formats differ (e.g. windows vs posix)
+        const absServicesDir = path.resolve(servicesDir);
+
+        const serviceFiles = this.project.getSourceFiles().filter(sf => {
+            const absFileDir = path.resolve(path.dirname(sf.getFilePath()));
+            return absFileDir === absServicesDir && sf.getFilePath().endsWith('.service.ts');
+        });
+
+        if (serviceFiles.length === 0) return;
+
+        // Create index file
         const indexPath = path.join(servicesDir, "index.ts");
         const sourceFile = this.project.createSourceFile(indexPath, "", { overwrite: true });
 
         sourceFile.insertText(0, SERVICE_INDEX_GENERATOR_HEADER_COMMENT);
-
-        const servicesDirectory = this.project.getDirectory(servicesDir);
-        if (!servicesDirectory) return;
-
-        const serviceFiles = servicesDirectory.getSourceFiles()
-            .filter(sf => sf.getFilePath().endsWith('.service.ts'));
 
         for (const serviceFile of serviceFiles) {
             const serviceClass = serviceFile.getClasses()[0];

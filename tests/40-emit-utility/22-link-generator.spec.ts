@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
 import { LinkGenerator } from '@src/generators/shared/link.generator.js';
@@ -63,6 +63,85 @@ const refLinksSpec: SwaggerSpec = {
     }
 };
 
+// Spec to cover all fields (operationRef, requestBody, server) and missing fields logic
+const complexLinkSpec: SwaggerSpec = {
+    openapi: '3.0.0',
+    info: { title: 'Complex Link Test', version: '1.0' },
+    paths: {
+        '/resource': {
+            get: {
+                operationId: 'getResource',
+                responses: {
+                    '200': {
+                        description: 'ok',
+                        links: {
+                            'DeepLink': {
+                                operationRef: '#/paths/~1other/get',
+                                requestBody: '$request.body',
+                                server: { url: 'https://other.com' }
+                                // Description and parameters intentionally omitted to hit false branches
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    components: {}
+};
+
+// Spec with broken references to test graceful failure
+const brokenRefsSpec: SwaggerSpec = {
+    openapi: '3.0.0',
+    info: { title: 'Broken Refs', version: '1.0' },
+    paths: {
+        '/bad-response': {
+            get: {
+                operationId: 'getBadResponse',
+                responses: {
+                    // Response ref does not exist
+                    '200': { $ref: '#/components/responses/MissingResponse' }
+                }
+            }
+        },
+        '/bad-link': {
+            get: {
+                operationId: 'getBadLink',
+                responses: {
+                    '200': {
+                        description: 'ok',
+                        links: {
+                            // Link ref does not exist
+                            'BrokenLink': { $ref: '#/components/links/MissingLink' }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    components: {}
+};
+
+// Spec missing operationId or responses
+const sparseSpec: SwaggerSpec = {
+    openapi: '3.0.0',
+    info: { title: 'Sparse', version: '1.0' },
+    paths: {
+        '/no-id': {
+            get: {
+                // Missing operationId
+                responses: { '200': { description: 'ok' } }
+            }
+        },
+        // Missing responses (technically invalid OAS but parser handles it)
+        '/no-responses': {
+            get: {
+                operationId: 'actionNoResp'
+            } as any
+        }
+    }
+};
+
 describe('Emitter: LinkGenerator', () => {
 
     const runGenerator = (spec: SwaggerSpec) => {
@@ -82,7 +161,7 @@ describe('Emitter: LinkGenerator', () => {
         return moduleHelper.exports;
     };
 
-    it('should generate links registry for inline links', () => {
+    it('should generate links registry for inline links (Id, Desc, Params)', () => {
         const project = runGenerator(linksSpec);
         const { API_LINKS } = compileGeneratedFile(project);
 
@@ -95,6 +174,11 @@ describe('Emitter: LinkGenerator', () => {
         expect(link.operationId).toBe('getUserAddress');
         expect(link.description).toBe('The address of this user');
         expect(link.parameters).toEqual({ userId: '$response.body#/id' });
+
+        // Assert missing fields are truly undefined in the generated object
+        expect(link.operationRef).toBeUndefined();
+        expect(link.requestBody).toBeUndefined();
+        expect(link.server).toBeUndefined();
     });
 
     it('should resolve referenced links', () => {
@@ -107,19 +191,41 @@ describe('Emitter: LinkGenerator', () => {
         expect(link.parameters).toEqual({ orderId: '$request.path.id' });
     });
 
+    it('should copy all Link fields including operationRef, requestBody, server', () => {
+        const project = runGenerator(complexLinkSpec);
+        const { API_LINKS } = compileGeneratedFile(project);
+
+        const link = API_LINKS['getResource']['200']['DeepLink'];
+        expect(link.operationRef).toBe('#/paths/~1other/get');
+        expect(link.requestBody).toBe('$request.body');
+        expect(link.server).toEqual({ url: 'https://other.com' });
+
+        // Verify omitted fields
+        expect(link.operationId).toBeUndefined();
+        expect(link.description).toBeUndefined();
+        expect(link.parameters).toBeUndefined();
+    });
+
     it('should ignore operations without identifiers or links', () => {
-        const spec: SwaggerSpec = {
-            openapi: '3.0.0',
-            info: { title: 'Ignore', version: '1' },
-            paths: {
-                '/ping': { get: { responses: { '200': { description: 'No opId' } } } },
-                '/no-links': { get: { operationId: 'noLinks', responses: { '200': { description: 'Empty' } } } }
-            }
-        };
-        const project = runGenerator(spec);
+        // Test sparse spec
+        const project = runGenerator(sparseSpec);
         const { API_LINKS } = compileGeneratedFile(project);
 
         expect(API_LINKS).toBeUndefined();
+        const sourceFile = project.getSourceFileOrThrow('/out/links.ts');
+        expect(sourceFile.getText()).toContain('export { };');
+    });
+
+    it('should handle unresolvable references gracefully', () => {
+        // Suppress warning expectation in test output
+        vi.spyOn(console, 'warn').mockImplementation(() => {
+        });
+        const project = runGenerator(brokenRefsSpec);
+        const { API_LINKS } = compileGeneratedFile(project);
+
+        expect(API_LINKS).toBeUndefined();
+        const sourceFile = project.getSourceFileOrThrow('/out/links.ts');
+        expect(sourceFile.getText()).toContain('export { };');
     });
 
     it('should produce valid module for empty links', () => {

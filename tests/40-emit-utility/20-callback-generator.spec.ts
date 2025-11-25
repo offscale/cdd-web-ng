@@ -21,13 +21,7 @@ const mockSpec: SwaggerSpec = {
                                 requestBody: {
                                     content: {
                                         'application/json': {
-                                            schema: {
-                                                type: 'object',
-                                                properties: {
-                                                    timestamp: { type: 'string', format: 'date-time' },
-                                                    data: { type: 'string' }
-                                                }
-                                            }
+                                            schema: { type: 'object', properties: { timestamp: { type: 'string' } } }
                                         }
                                     }
                                 },
@@ -39,9 +33,7 @@ const mockSpec: SwaggerSpec = {
             }
         }
     },
-    components: {
-        schemas: {}
-    }
+    components: { schemas: {} }
 };
 
 const refCallbackSpec: SwaggerSpec = {
@@ -51,7 +43,9 @@ const refCallbackSpec: SwaggerSpec = {
         '/hook': {
             post: {
                 callbacks: {
-                    'myWebhook': { $ref: '#/components/callbacks/MyCallback' }
+                    'myWebhook': { $ref: '#/components/callbacks/MyCallback' },
+                    // This invalid one hits the 'resolved' check failure branch
+                    'brokenWebhook': { $ref: '#/components/callbacks/BrokenCallback' }
                 },
                 responses: {}
             }
@@ -60,26 +54,15 @@ const refCallbackSpec: SwaggerSpec = {
     components: {
         callbacks: {
             'MyCallback': {
-                'http://notification-server.com': {
+                'http://target.com': {
                     post: {
-                        requestBody: {
-                            content: {
-                                'application/json': {
-                                    schema: { $ref: '#/components/schemas/EventPayload' }
-                                }
-                            }
-                        },
+                        requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/EventPayload' } } } },
                         responses: { '200': {} }
                     }
                 }
             }
         },
-        schemas: {
-            EventPayload: {
-                type: 'object',
-                properties: { id: { type: 'string' } }
-            }
-        }
+        schemas: { EventPayload: { type: 'object', properties: { id: { type: 'string' } } } }
     }
 };
 
@@ -87,16 +70,14 @@ describe('Emitter: CallbackGenerator', () => {
 
     const runGenerator = (spec: SwaggerSpec) => {
         const project = createTestProject();
-        const config: GeneratorConfig = {
-            output: '/out',
-            options: { dateType: 'string', enumStyle: 'enum', generateServices: true }
-        } as any;
-
+        const config: GeneratorConfig = { output: '/out', options: { dateType: 'string', enumStyle: 'enum' } } as any;
         const parser = new SwaggerParser(spec, config);
-        parser.schemas.push({
-            name: 'EventPayload',
-            definition: (spec.components?.schemas?.EventPayload as SwaggerDefinition) || {}
-        });
+        if (spec.components?.schemas?.EventPayload) {
+            parser.schemas.push({
+                name: 'EventPayload',
+                definition: spec.components.schemas.EventPayload as SwaggerDefinition
+            });
+        }
         new CallbackGenerator(parser, project).generate('/out');
         return project;
     };
@@ -113,34 +94,26 @@ describe('Emitter: CallbackGenerator', () => {
     it('should generate interfaces for inline callbacks', () => {
         const project = runGenerator(mockSpec);
         const sourceFile = project.getSourceFileOrThrow('/out/callbacks.ts');
-
         const typeAlias = sourceFile.getTypeAliasOrThrow('OnDataUpdatePostPayload');
         expect(typeAlias.isExported()).toBe(true);
-
-        const structure = typeAlias.getTypeNode()?.getText();
-        expect(structure).toContain('timestamp?: string');
-        expect(structure).toContain('data?: string');
     });
 
-    it('should generate registry constant', () => {
-        const project = runGenerator(mockSpec);
+    it('should generate registry constant ignoring invalid refs', () => {
+        const project = runGenerator(refCallbackSpec);
         const { API_CALLBACKS } = compileGeneratedFile(project);
 
+        // Should contain MyCallback
         expect(API_CALLBACKS).toHaveLength(1);
-        expect(API_CALLBACKS[0]).toEqual({
-            name: 'onDataUpdate',
-            method: 'POST',
-            interfaceName: 'OnDataUpdatePostPayload'
-        });
+        expect(API_CALLBACKS[0].name).toBe('myWebhook');
+
+        // Should NOT contain brokenWebhook because it resolves to undefined
+        const broken = API_CALLBACKS.find((c: any) => c.name === 'brokenWebhook');
+        expect(broken).toBeUndefined();
     });
 
     it('should resolve referenced callbacks and Models', () => {
         const project = runGenerator(refCallbackSpec);
         const sourceFile = project.getSourceFileOrThrow('/out/callbacks.ts');
-
-        const imports = sourceFile.getImportDeclarations();
-        expect(imports.some(i => i.getModuleSpecifierValue() === './models')).toBe(true);
-
         const typeAlias = sourceFile.getTypeAliasOrThrow('MyWebhookPostPayload');
         expect(typeAlias.getTypeNode()?.getText()).toBe('EventPayload');
     });

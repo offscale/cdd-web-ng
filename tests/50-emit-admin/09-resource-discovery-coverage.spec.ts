@@ -105,7 +105,6 @@ describe('Admin: resource-discovery (Coverage)', () => {
         };
         const resources = runDiscovery(spec);
         const resource = resources.find((r: Resource) => r.name === 'items');
-        // This covers line 110 (op.parameters is undefined) and line 125 (schema has no 'required' key)
         expect(resource).toBeDefined();
         expect(resource!.formProperties.length).toBeGreaterThan(0);
     });
@@ -136,17 +135,14 @@ describe('Admin: resource-discovery (Coverage)', () => {
         };
         const resources = runDiscovery(spec);
         const resource = resources.find((r: Resource) => r.name === 'items');
-        // This covers line 192, where the code falls through to the final return
-        expect(resource!.modelName).toBe('Item'); // singular(pascalCase('items'))
+        expect(resource!.modelName).toBe('Item');
     });
 
     it('should handle a resource with no schemas in any operation', () => {
         const resources = runDiscovery(branchCoverageSpec);
         const resource = resources.find((r: Resource) => r.name === 'noSchemaResource');
         expect(resource).toBeDefined();
-        // This covers the `if (allSchemas.length === 0 && ...)` branch
         expect(resource!.formProperties).toEqual([{ name: 'id', schema: { type: 'string' } }]);
-        // This covers the `return singular(pascalCase(resourceName));` fallback in getModelName
         expect(resource!.modelName).toBe('NoSchemaResource');
     });
 
@@ -162,7 +158,6 @@ describe('Admin: resource-discovery (Coverage)', () => {
         const resources = runDiscovery(branchCoverageSpec);
         const resource = resources.find((r): boolean => r.name === 'widgets')!;
         const addOp = resource.operations.find((op: ResourceOperation): boolean => op.operationId === 'addItemToWidget')!;
-        // This verifies the `customActionKeywords` check in `classifyAction`
         expect(addOp.action).toBe('addItemToWidget');
     });
 
@@ -184,13 +179,12 @@ describe('Admin: resource-discovery (Coverage)', () => {
                                 }
                             }
                         },
-                        responses: { '201': { description: 'Created' } }, // No schema
+                        responses: { '201': { description: 'Created' } },
                     },
                 },
             },
         });
         const resource = resources[0];
-        // This covers the `if (resSchema)` false branch in getFormProperties
         expect(resource.formProperties.length).toBeGreaterThan(0);
         expect(resource.formProperties[0].name).toBe('name');
     });
@@ -215,7 +209,6 @@ describe('Admin: resource-discovery (Coverage)', () => {
         const resources = runDiscovery(spec);
         const resource = resources.find((r: Resource) => r.name === 'formData');
         expect(resource).toBeDefined();
-        // formDataProperties are merged into the final list.
         expect(resource!.formProperties.some((p: FormProperty) => p.name === 'file')).toBe(true);
         expect(resource!.formProperties.some((p: FormProperty) => p.name === 'metadata')).toBe(true);
     });
@@ -236,7 +229,6 @@ describe('Admin: resource-discovery (Coverage)', () => {
         const resources = runDiscovery(spec);
         const resource = resources.find((r: Resource) => r.name === 'badRef');
         expect(resource).toBeDefined();
-        // The discovery should not crash and should produce a resource with fallback properties.
         expect(resource!.formProperties).toEqual([{ name: 'id', schema: { type: 'string' } }]);
     });
 
@@ -287,11 +279,40 @@ describe('Admin: resource-discovery (Coverage)', () => {
         expect(resource).toBeDefined();
     });
 
-    it('should create fallback properties for a resource with no schemas', () => {
-        const resources = runDiscovery(branchCoverageSpec);
-        const resource = resources.find((r: Resource) => r.name === 'noSchemaResource');
-        expect(resource).toBeDefined();
-        expect(resource!.formProperties).toEqual([{ name: 'id', schema: { type: 'string' } }]);
+    it('should correctly identify item vs collection actions based on parameters', () => {
+        // This spec explicitly tests lines 116-119 in resource-discovery.ts
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
+            paths: {
+                '/items/custom-collection': {
+                    // No path parameter -> Collection Action
+                    post: {
+                        tags: ['Items'], operationId: 'customCol',
+                        responses: { '200': {} }
+                    }
+                },
+                '/items/{id}/custom-item': {
+                    // Path parameter present -> Item Action
+                    post: {
+                        tags: ['Items'], operationId: 'customItem',
+                        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+                        responses: { '200': {} }
+                    }
+                }
+            }
+        };
+        const resources = runDiscovery(spec);
+        const resource = resources.find(r => r.name === 'items');
+
+        const colAction = resource!.operations.find(op => op.action === 'customCol');
+        const itemAction = resource!.operations.find(op => op.action === 'customItem');
+
+        expect(colAction?.isCustomCollectionAction).toBe(true);
+        expect(colAction?.isCustomItemAction).toBeUndefined();
+
+        expect(itemAction?.isCustomItemAction).toBe(true);
+        expect(itemAction?.isCustomCollectionAction).toBeUndefined();
     });
 
     it('should exclude non-primitive properties from listProperties', () => {

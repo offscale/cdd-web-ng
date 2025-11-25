@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ResponseHeaderRegistryGenerator } from '@src/generators/shared/response-header-registry.generator.js';
 import { ResponseHeaderParserGenerator } from '@src/generators/angular/utils/response-header-parser.generator.js';
 import { createTestProject } from '../shared/helpers.js';
@@ -63,6 +63,68 @@ describe('Emitter: Response Header Utilities', () => {
                 'X-Json': 'json'
             });
         });
+
+        it('should handle edge cases: bad refs, non-json content, unknown schema types', () => {
+            const project = createTestProject();
+            // Suppress warnings from the parser regarding missing refs
+            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+            });
+
+            const spec = {
+                paths: {
+                    '/edge-cases': {
+                        get: {
+                            operationId: 'getEdgeCases',
+                            responses: {
+                                '200': {
+                                    description: 'ok',
+                                    headers: {
+                                        // Case 1: Header definition itself is a bad ref
+                                        'X-Missing': { $ref: '#/components/headers/Missing' },
+                                        // Case 2: Content type is not JSON (content map iteration)
+                                        'X-Html': { content: { 'text/html': {} } },
+                                        // Case 3: Schema inside header is a bad ref
+                                        'X-Bad-Ref': { schema: { $ref: '#/components/schemas/Missing' } },
+                                        // Case 4: Schema type is unknown or missing (fallback)
+                                        'X-Unknown': { schema: { type: 'something-else' } },
+                                        // Case 5: Array type
+                                        'X-Arr': { schema: { type: 'array' } }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+
+            const parser = createParser(spec);
+            new ResponseHeaderRegistryGenerator(parser, project).generate('/out');
+
+            const file = project.getSourceFileOrThrow('/out/response-headers.ts');
+            const text = file.getText().replace(/import.*;/g, '');
+            const jsCode = ts.transpile(text, { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS });
+            const moduleScope = { exports: {} as any };
+            new Function('exports', jsCode)(moduleScope.exports);
+
+            const headers = moduleScope.exports.API_RESPONSE_HEADERS['getEdgeCases']['200'];
+
+            // 'X-Missing' should be absent because the loop returns early if (!headerDef)
+            expect(headers['X-Missing']).toBeUndefined();
+
+            // 'X-Html' should be 'string' because content type doesn't include 'json'
+            expect(headers['X-Html']).toBe('string');
+
+            // 'X-Bad-Ref' should be 'string' because (!resolvedSchema) -> return 'string'
+            expect(headers['X-Bad-Ref']).toBe('string');
+
+            // 'X-Unknown' should be 'string' because type switch falls through
+            expect(headers['X-Unknown']).toBe('string');
+
+            // 'X-Arr' should be 'array'
+            expect(headers['X-Arr']).toBe('array');
+
+            warnSpy.mockRestore();
+        });
     });
 
     describe('Parser Service Generator', () => {
@@ -106,8 +168,8 @@ describe('Emitter: Response Header Utilities', () => {
 
             // Inject mock Registry
             const wrappedCode = `
-                const API_RESPONSE_HEADERS = ${JSON.stringify(API_RESPONSE_HEADERS)};
-                ${jsCode}
+                const API_RESPONSE_HEADERS = ${JSON.stringify(API_RESPONSE_HEADERS)}; 
+                ${jsCode} 
             `;
 
             new Function('exports', 'Injectable', wrappedCode)(moduleScope.exports, mockInjectable);

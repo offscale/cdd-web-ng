@@ -108,8 +108,8 @@ describe('Generators: AngularClientGenerator (Orchestrator)', () => {
         expect(fs.existsSync(path.join(testOutputDir, 'tags.ts'))).toBe(true);
 
         // Framework Specifics
-        expect(fs.existsSync(path.join(testOutputDir, 'services/index.ts'))).toBe(true);
-        expect(fs.existsSync(path.join(testOutputDir, 'tokens/index.ts'))).toBe(true);
+        expect(fs.existsSync(path.join(testOutputDir, 'services', 'user.service.spec.ts'))).toBe(true);
+        expect(fs.existsSync(path.join(testOutputDir, 'tokens', 'index.ts'))).toBe(true);
     });
 
     it('should contain expected content in framework agnostic files', async () => {

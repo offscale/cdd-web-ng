@@ -1,32 +1,31 @@
 import { describe, expect, it } from 'vitest';
 import * as utils from '@src/core/utils/type-converter.js';
+
 import { GeneratorConfig, SwaggerDefinition } from '@src/core/types/index.js';
-import { typeGenSpec } from '../../shared/specs.js';
 
 describe('Core Utils: Type Converter', () => {
     const config: GeneratorConfig = {
         input: 'spec.json',
         output: './out',
-        options: { dateType: 'string', enumStyle: 'enum' },
+        options: { dateType: 'string', enumStyle: 'enum', int64Type: 'number' },
     };
     const configWithDate: GeneratorConfig = { ...config, options: { ...config.options, dateType: 'Date' } };
 
     describe('getTypeScriptType', () => {
-        it('should return `{ [key: string]: any }` for an object schema with no or empty properties', () => {
-            const schemaNoProps: SwaggerDefinition = { type: 'object' };
-            const schemaEmptyProps: SwaggerDefinition = { type: 'object', properties: {} };
-            expect(utils.getTypeScriptType(schemaNoProps, config, [])).toBe('{ [key: string]: any }');
-            expect(utils.getTypeScriptType(schemaEmptyProps, config, [])).toBe('{ [key: string]: any }');
+        it('should return "string" for simple string schema', () => {
+            const schema: SwaggerDefinition = { type: 'string' };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('string');
         });
 
-        it('should return "any" for unknown schema types', () => {
-            const schema = { type: 'unknown_type' };
-            expect(utils.getTypeScriptType(schema as any, config)).toBe('any');
+        it('should handle Ref types found in knownTypes', () => {
+            const schema: SwaggerDefinition = { $ref: '#/components/schemas/User' };
+            const knownTypes = ['User'];
+            expect(utils.getTypeScriptType(schema, config, knownTypes)).toBe('User');
         });
 
-        it('should return "any" for null or undefined schema', () => {
-            expect(utils.getTypeScriptType(undefined as any, config, [])).toBe('any');
-            expect(utils.getTypeScriptType(null as any, config, [])).toBe('any');
+        it('should return "any" for Ref types NOT found in knownTypes', () => {
+            const schema: SwaggerDefinition = { $ref: '#/components/schemas/UnknownUser' };
+            expect(utils.getTypeScriptType(schema, config, ['User'])).toBe('any');
         });
 
         it('should resolve $dynamicRef to a known type', () => {
@@ -35,10 +34,63 @@ describe('Core Utils: Type Converter', () => {
             expect(utils.getTypeScriptType(schema, config, knownTypes)).toBe('DynamicUser');
         });
 
+        it('should return "any" for unresolvable $dynamicRef', () => {
+            const schema = { $dynamicRef: '#/components/schemas/HiddenDynamic' };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('any');
+        });
+
+        it('should handle array of types (nullable)', () => {
+            const schema: SwaggerDefinition = { type: ['string', 'null'] as any };
+            expect(utils.getTypeScriptType(schema, config)).toBe('string | null');
+        });
+
+        it('should handle oneOf compositions', () => {
+            const schema: SwaggerDefinition = { oneOf: [{ type: 'string' }, { type: 'number' }] };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('string | number');
+        });
+
+        it('should handle anyOf compositions', () => {
+            const schema: SwaggerDefinition = { anyOf: [{ type: 'boolean' }, { $ref: '#/components/schemas/User' }] };
+            expect(utils.getTypeScriptType(schema, config, ['User'])).toBe('boolean | User');
+        });
+
+        it('should handle allOf compositions (intersection)', () => {
+            const schema: SwaggerDefinition = { allOf: [{ $ref: '#/components/schemas/A' }, { $ref: '#/components/schemas/B' }] };
+            expect(utils.getTypeScriptType(schema, config, ['A', 'B'])).toBe('A & B');
+        });
+
+        // ENUMS
+        it('should use named enum title if present in knownTypes', () => {
+            const schema: SwaggerDefinition = { type: 'string', enum: ['A', 'B'], title: 'MyEnum' };
+            expect(utils.getTypeScriptType(schema, config, ['MyEnum'])).toBe('MyEnum');
+        });
+
+        it('should generate a union type for enum if style is "union"', () => {
+            const conf = { ...config, options: { ...config.options, enumStyle: 'union' as const } };
+            const schema: SwaggerDefinition = { type: 'string', enum: ['A', 'B'] };
+            expect(utils.getTypeScriptType(schema, conf, [])).toBe("'A' | 'B'");
+        });
+
+        it('should generate a union type if enumStyle="enum" invalid/missing title and fallen through to type check', () => {
+            // Case where enum logic in getTypeScriptType falls through because title is missing/unknown
+            // and type is string -> calling getStringType which handles enum explicitly.
+            const schema: SwaggerDefinition = { type: 'string', enum: ['X', 'Y'], title: 'UnknownEnum' };
+            // UnknownEnum is NOT in knownTypes, so it falls through.
+            expect(utils.getTypeScriptType(schema, config, [])).toBe("'X' | 'Y'");
+        });
+
+        it('should handle null values in enums', () => {
+            const schema: SwaggerDefinition = { type: 'string', enum: ['A', null as any] };
+            expect(utils.getTypeScriptType(schema, {
+                ...config,
+                options: { enumStyle: 'union' } as any
+            }, [])).toBe("'A' | null");
+        });
+
+        // STRING Variants
         it('should resolve contentSchema inner type for string encoded JSON', () => {
             const schema: SwaggerDefinition = {
                 type: 'string',
-                contentEncoding: 'identity',
                 contentMediaType: 'application/json',
                 contentSchema: { type: 'number' }
             };
@@ -46,49 +98,195 @@ describe('Core Utils: Type Converter', () => {
             expect(result).toBe('string /* JSON: number */');
         });
 
-        it('should return Blob for binary/non-json strings', () => {
+        it('should return Blob for binary/non-json contentMediaType', () => {
             const schema: SwaggerDefinition = { type: 'string', contentMediaType: 'image/png' };
             expect(utils.getTypeScriptType(schema, config, [])).toBe('Blob');
         });
 
-        it('should handle `additionalProperties: true`', () => {
-            const schema = typeGenSpec.components.schemas.FreeObject as any;
-            expect(utils.getTypeScriptType(schema, config, [])).toBe('{ [key: string]: any }');
+        it('should default to string if contentMediaType is json but no contentSchema is present', () => {
+            const schema: SwaggerDefinition = { type: 'string', contentMediaType: 'application/json' };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('string');
         });
 
-        it('should handle `unevaluatedProperties: false` (OAS 3.1 Strictness)', () => {
-            const schema: SwaggerDefinition = {
-                type: 'object',
-                properties: { id: { type: 'string' } },
-                unevaluatedProperties: false
-            };
-            const type = utils.getTypeScriptType(schema, config, []);
-            expect(type).toContain("id?: string");
-            expect(type).not.toContain("[key: string]");
+        it('should return Date if format is date/date-time and config is Date', () => {
+            expect(utils.getTypeScriptType({ type: 'string', format: 'date' }, configWithDate)).toBe('Date');
+            expect(utils.getTypeScriptType({ type: 'string', format: 'date-time' }, configWithDate)).toBe('Date');
         });
 
+        it('should return string if format is date/date-time and config is string', () => {
+            expect(utils.getTypeScriptType({ type: 'string', format: 'date' }, config)).toBe('string');
+        });
+
+        it('should return Blob for binary string format', () => {
+            expect(utils.getTypeScriptType({ type: 'string', format: 'binary' }, config)).toBe('Blob');
+        });
+
+        // NUMBERS
         it('should generate a union type for numeric enums', () => {
-            const schema: SwaggerDefinition = {
-                type: 'number',
-                enum: [10, 20.5, 30]
-            };
+            const schema: SwaggerDefinition = { type: 'number', enum: [10, 20.5, 30] };
             expect(utils.getTypeScriptType(schema, config, [])).toBe('10 | 20.5 | 30');
         });
 
-        it('should generate quoted property names for keys with special characters', () => {
+        it('should use configured int64Type', () => {
+            const conf = { ...config, options: { ...config.options, int64Type: 'string' as const } };
+            const schema: SwaggerDefinition = { type: 'integer', format: 'int64' };
+            expect(utils.getTypeScriptType(schema, conf, [])).toBe('string');
+        });
+
+        it('should default to number for standard integer', () => {
+            const schema: SwaggerDefinition = { type: 'integer' };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('number');
+        });
+
+        // ARRAYS
+        it('should handle tuple types (items as array)', () => {
+            const schema: SwaggerDefinition = {
+                type: 'array',
+                items: [{ type: 'string' }, { type: 'number' }]
+            };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('[string, number]');
+        });
+
+        it('should correctly wrap union types in arrays with parentheses', () => {
+            const schema: SwaggerDefinition = {
+                type: 'array',
+                items: { oneOf: [{ type: 'string' }, { type: 'number' }] }
+            };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('(string | number)[]');
+        });
+
+        it('should handle simple array types', () => {
+            const schema: SwaggerDefinition = { type: 'array', items: { type: 'string' } };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('string[]');
+        });
+
+        // OBJECTS
+        it('should return `{ [key: string]: any }` for object schema with no properties', () => {
+            const schema: SwaggerDefinition = { type: 'object' };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('{ [key: string]: any }');
+        });
+
+        it('should handle `additionalProperties: true`', () => {
+            const schema: SwaggerDefinition = { type: 'object', additionalProperties: true };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('{ [key: string]: any }');
+        });
+
+        it('should handle `additionalProperties` schema', () => {
+            const schema: SwaggerDefinition = { type: 'object', additionalProperties: { type: 'number' } };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('{ [key: string]: number }');
+        });
+
+        it('should handle explicit properties with optionality', () => {
             const schema: SwaggerDefinition = {
                 type: 'object',
+                required: ['req'],
                 properties: {
-                    'valid-key': { type: 'string' },
-                    'another.key': { type: 'number' },
-                    'key with spaces': { type: 'boolean' }
+                    req: { type: 'string' },
+                    opt: { type: 'number' }
                 }
             };
-            const result = utils.getTypeScriptType(schema, config, []);
-            // Using .toContain to avoid brittleness with spacing and ordering
-            expect(result).toContain(`'valid-key'?: string`);
-            expect(result).toContain(`'another.key'?: number`);
-            expect(result).toContain(`'key with spaces'?: boolean`);
+            const res = utils.getTypeScriptType(schema, config, []);
+            expect(res).toContain('req: string');
+            expect(res).toContain('opt?: number');
+        });
+
+        it('should quote invalid identifier keys', () => {
+            const schema: SwaggerDefinition = {
+                type: 'object',
+                properties: { 'mk.1': { type: 'string' } }
+            };
+            const res = utils.getTypeScriptType(schema, config, []);
+            expect(res).toContain("'mk.1'?: string");
+        });
+
+        // OTHER TYPES
+        it('should handle file type', () => {
+            expect(utils.getTypeScriptType({ type: 'file' }, config)).toBe('File');
+        });
+
+        it('should handle boolean type', () => {
+            expect(utils.getTypeScriptType({ type: 'boolean' }, config)).toBe('boolean');
+        });
+
+        it('should handle null type', () => {
+            expect(utils.getTypeScriptType({ type: 'null' }, config)).toBe('null');
+        });
+
+        it('should infer object type from properties if type undefined', () => {
+            const schema = { properties: { id: { type: 'string' } } };
+            expect(utils.getTypeScriptType(schema as any, config, [])).toContain('id?: string');
+        });
+
+        it('should return "any" for unknown schema types in switch default', () => {
+            const schema = { type: 'alien-type' };
+            expect(utils.getTypeScriptType(schema as any, config)).toBe('any');
+        });
+
+        it('should return "any" for null or undefined schema input', () => {
+            expect(utils.getTypeScriptType(undefined as any, config, [])).toBe('any');
+            expect(utils.getTypeScriptType(null as any, config, [])).toBe('any');
+        });
+    });
+
+    describe('getRequestBodyType', () => {
+        it('should return "any" if requestBody is undefined or empty', () => {
+            expect(utils.getRequestBodyType(undefined, config, [])).toBe('any');
+            expect(utils.getRequestBodyType({ content: undefined as any }, config, [])).toBe('any');
+        });
+
+        it('should prioritize JSON content types', () => {
+            const rb = {
+                content: {
+                    'text/plain': { schema: { type: 'string' } },
+                    'application/json': { schema: { type: 'number' } }
+                }
+            };
+            expect(utils.getRequestBodyType(rb as any, config, [])).toBe('number');
+        });
+
+        it('should fallback to first available key if no priority match', () => {
+            const rb = {
+                content: {
+                    'image/png': { schema: { type: 'string', format: 'binary' } }
+                }
+            };
+            expect(utils.getRequestBodyType(rb as any, config, [])).toBe('Blob');
+        });
+
+        it('should return "any" if content map exists but fallback schema is missing', () => {
+            const rb = {
+                content: {
+                    'image/png': { /* no schema */ }
+                }
+            };
+            expect(utils.getRequestBodyType(rb as any, config, [])).toBe('any');
+        });
+    });
+
+    describe('getResponseType', () => {
+        it('should return "void" if response is undefined or empty', () => {
+            expect(utils.getResponseType(undefined, config, [])).toBe('void');
+            expect(utils.getResponseType({}, config, [])).toBe('void');
+        });
+
+        it('should return schema type for application/json', () => {
+            const resp = { content: { 'application/json': { schema: { type: 'boolean' } } } };
+            expect(utils.getResponseType(resp as any, config, [])).toBe('boolean');
+        });
+
+        it('should return "void" if no keys exist in content', () => {
+            const resp = { content: {} };
+            expect(utils.getResponseType(resp as any, config, [])).toBe('void');
+        });
+
+        it('should fallback to first key if no JSON found', () => {
+            const resp = { content: { 'text/csv': { schema: { type: 'string' } } } };
+            expect(utils.getResponseType(resp as any, config, [])).toBe('string');
+        });
+
+        it('should return "void" if fallback content has no schema', () => {
+            const resp = { content: { 'image/png': { /* no schema */ } } };
+            expect(utils.getResponseType(resp as any, config, [])).toBe('void');
         });
     });
 
@@ -99,11 +297,37 @@ describe('Core Utils: Type Converter', () => {
         it('should return false for primitives', () => {
             expect(utils.isDataTypeInterface('string')).toBe(false);
             expect(utils.isDataTypeInterface('any')).toBe(false);
+            expect(utils.isDataTypeInterface('Date')).toBe(false);
+            expect(utils.isDataTypeInterface('Blob')).toBe(false);
+            expect(utils.isDataTypeInterface('File')).toBe(false);
+            expect(utils.isDataTypeInterface('Buffer')).toBe(false);
         });
-        it('should return false for union types', () => {
-            const schema: SwaggerDefinition = { type: 'string', format: 'date-time', nullable: true };
-            const type: string = utils.getTypeScriptType(schema, configWithDate, []);
-            expect(utils.isDataTypeInterface(type)).toBe(false);
+        it('should return true for generic classes that are not primitives', () => {
+            // MyType<T> -> MyType (not primitive) -> true
+            expect(utils.isDataTypeInterface('MyType<string>')).toBe(true);
+        });
+        it('should return false if base type is primitive generic', () => {
+            // This is theoretically tricky but Array<string> should be false if we handled Array differently
+            // but logic uses bracket replace. replace <.*>
+            // object<T> is not really TS valid syntax usually besides Map but let's see logic:
+            // object<string> -> object -> primitive -> false.
+            expect(utils.isDataTypeInterface('object<string>')).toBe(false);
+        });
+        it('should return false for union/intersection types', () => {
+            expect(utils.isDataTypeInterface('A | B')).toBe(false);
+            expect(utils.isDataTypeInterface('A & B')).toBe(false);
+        });
+        it('should return false for inline object signatures', () => {
+            expect(utils.isDataTypeInterface('{ id: string }')).toBe(false);
+        });
+        it('should return false for comments in type string', () => {
+            expect(utils.isDataTypeInterface('string /* JSON: number */')).toBe(false);
+        });
+        it('should return false for quoted string unions', () => {
+            expect(utils.isDataTypeInterface("'active' | 'inactive'")).toBe(false);
+        });
+        it('should return false for empty strings', () => {
+            expect(utils.isDataTypeInterface('')).toBe(false);
         });
     });
 });

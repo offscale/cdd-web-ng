@@ -5,6 +5,7 @@ import { GeneratorConfig } from "@src/core/types/index.js";
 import { MainIndexGenerator, ServiceIndexGenerator } from '@src/generators/angular/utils/index.generator.js';
 import { emptySpec, securitySpec } from '../shared/specs.js';
 import { createTestProject } from '../shared/helpers.js';
+import path from 'node:path';
 
 describe('Emitter: IndexGenerators', () => {
     describe('MainIndexGenerator', () => {
@@ -51,6 +52,36 @@ describe('Emitter: IndexGenerators', () => {
             expect(withoutAuth).not.toContain(`export * from "./auth/auth.tokens";`);
         });
 
+        it('should export response-headers if specification has response headers', () => {
+            const specWithHeaders = {
+                ...emptySpec,
+                paths: {
+                    '/test': {
+                        get: {
+                            responses: {
+                                '200': { headers: { 'X-Test': { schema: { type: 'string' } } } }
+                            }
+                        }
+                    }
+                }
+            };
+            const content = runGenerator(specWithHeaders, { generateServices: true });
+            expect(content).toContain(`export * from "./response-headers";`);
+        });
+
+        it('should export links and link.service if specification has links or op links', () => {
+            const specWithLinks = { ...emptySpec, components: { links: { MyLink: {} } } };
+            const content = runGenerator(specWithLinks, { generateServices: true });
+            expect(content).toContain(`export * from "./links";`);
+            expect(content).toContain(`export * from "./utils/link.service";`);
+        });
+
+        it('should export server-url if specification has servers', () => {
+            const specWithServers = { ...emptySpec, servers: [{ url: 'http://api.com' }] };
+            const content = runGenerator(specWithServers, { generateServices: true });
+            expect(content).toContain(`export * from "./utils/server-url";`);
+        });
+
         it('should handle missing services dir when generateServices is false', () => {
             const project = createTestProject();
             const config: GeneratorConfig = {
@@ -65,25 +96,42 @@ describe('Emitter: IndexGenerators', () => {
     });
 
     describe('ServiceIndexGenerator', () => {
-        it('should create an empty index if no services directory exists', () => {
+        it('should NOT create an index if no service files exist', () => {
             const project = new Project({ useInMemoryFileSystem: true });
+            // Create the directory but no files
+            project.createDirectory('/out/services');
+
+            // In virtual FS, resolve works against cwd, need to ensure paths align for test consistency
+            // but generateIndex logic uses resolve.
             new ServiceIndexGenerator(project).generateIndex('/out');
+
             const file = project.getSourceFile('/out/services/index.ts');
-            expect(file).toBeDefined();
-            expect(file?.getExportDeclarations().length).toBe(0);
+            expect(file).toBeUndefined();
         });
 
         it('should export all found services and ignore others', () => {
             const project = new Project({ useInMemoryFileSystem: true });
-            const serviceDir = project.createDirectory('/out/services');
-            serviceDir.createSourceFile('users.service.ts', 'export class UsersService {}');
-            serviceDir.createSourceFile('products.service.ts', 'export class ProductsService {}');
-            serviceDir.createSourceFile('helpers.ts', 'export const helper = 1;');
-            serviceDir.createSourceFile('internal.service.ts', 'class InternalService {}');
-            serviceDir.createSourceFile('empty.service.ts', '');
+            // Create files
+            // When using inMemoryFS, we need to ensure path resolution logic holds.
+            // project.createSourceFile adds to root usually unless specified.
+            // But verify absolute paths match what generateIndex expects.
+
+            // NOTE: We rely on resolve. In a virtual environment, we must use absolute paths
+            // to ensure resolve behaves deterministically relative to project root.
+            const outPath = path.resolve('/out');
+
+            project.createSourceFile(path.join(outPath, 'services/users.service.ts'), 'export class UsersService {}');
+            project.createSourceFile(path.join(outPath, 'services/products.service.ts'), 'export class ProductsService {}');
+            project.createSourceFile(path.join(outPath, 'services/helpers.ts'), 'export const helper = 1;');
+            project.createSourceFile(path.join(outPath, 'services/internal.service.ts'), 'class InternalService {}');
+            project.createSourceFile(path.join(outPath, 'services/empty.service.ts'), '');
 
             new ServiceIndexGenerator(project).generateIndex('/out');
-            const content = project.getSourceFileOrThrow('/out/services/index.ts').getText();
+
+            const file = project.getSourceFile(path.join(outPath, 'services/index.ts'));
+            expect(file).toBeDefined();
+
+            const content = file!.getText();
             expect(content).toContain(`export { UsersService } from "./users.service";`);
             expect(content).toContain(`export { ProductsService } from "./products.service";`);
             expect(content).not.toContain(`helpers`);

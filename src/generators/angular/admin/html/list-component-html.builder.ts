@@ -1,6 +1,7 @@
 import { Resource } from "@src/core/types/index.js";
 import { pascalCase, singular } from "@src/core/utils/index.js";
 import { HtmlElementBuilder as _ } from "@src/generators/angular/admin/html-element.builder.js";
+
 //import { HtmlElementBuilder as _ } from '../../html-element.builder.js';
 
 export function generateListComponentHtml(resource: Resource, idProperty: string, iconMap: Map<string, string>): string {

@@ -30,6 +30,7 @@ export interface PathInfo {
     security?: { [key: string]: string[] }[];
     servers?: ServerObject[] | undefined;
     callbacks?: Record<string, PathItem | { $ref: string }>;
+
     [key: string]: any;
 }
 

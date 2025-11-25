@@ -3,7 +3,7 @@ import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
 import { CallbackGenerator } from '@src/generators/shared/callback.generator.js';
 import { createTestProject } from '../shared/helpers.js';
-import { GeneratorConfig, SwaggerSpec, SwaggerDefinition } from "@src/core/types/index.js";
+import { GeneratorConfig, SwaggerDefinition, SwaggerSpec } from "@src/core/types/index.js";
 import ts from 'typescript';
 
 const mockSpec: SwaggerSpec = {
@@ -93,7 +93,10 @@ describe('Emitter: CallbackGenerator', () => {
         } as any;
 
         const parser = new SwaggerParser(spec, config);
-        parser.schemas.push({ name: 'EventPayload', definition: (spec.components?.schemas?. EventPayload as SwaggerDefinition) || {} });
+        parser.schemas.push({
+            name: 'EventPayload',
+            definition: (spec.components?.schemas?.EventPayload as SwaggerDefinition) || {}
+        });
         new CallbackGenerator(parser, project).generate('/out');
         return project;
     };

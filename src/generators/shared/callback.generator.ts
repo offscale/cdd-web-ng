@@ -32,7 +32,13 @@ export class CallbackGenerator {
             }
         };
 
-        const callbacksFound: { name: string, interfaceName: string, method: string, requestType: string, responseType: string }[] = [];
+        const callbacksFound: {
+            name: string,
+            interfaceName: string,
+            method: string,
+            requestType: string,
+            responseType: string
+        }[] = [];
 
         // Iterate all operations to find callbacks
         this.parser.operations.forEach(op => {

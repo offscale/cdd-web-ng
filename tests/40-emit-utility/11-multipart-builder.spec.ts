@@ -20,13 +20,17 @@ function getMultipartBuilder() {
 
     global.FormData = class FormData {
         _entries: Record<string, any> = {};
-        append(k: string, v: any) { this._entries[k] = v; }
+
+        append(k: string, v: any) {
+            this._entries[k] = v;
+        }
     } as any;
 
     global.Blob = class Blob {
         parts: any[];
         options: any;
         type: string;
+
         constructor(parts: any[], options: any) {
             this.parts = parts;
             this.options = options;
@@ -36,6 +40,7 @@ function getMultipartBuilder() {
 
     global.File = class File extends global.Blob {
         name: string;
+
         constructor(parts: any[], name: string, options: any) {
             super(parts, options);
             this.name = name;

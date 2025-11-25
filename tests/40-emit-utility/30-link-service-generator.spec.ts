@@ -9,7 +9,7 @@ describe('Emitter: LinkServiceGenerator', () => {
 
     it('should skip generation if no links defined in spec', () => {
         const project = createTestProject();
-        const spec = { openapi: '3.0.0', info: {title:'T', version:'1'}, paths: {} };
+        const spec = { openapi: '3.0.0', info: { title: 'T', version: '1' }, paths: {} };
         const parser = createParser(spec);
 
         new LinkServiceGenerator(parser, project).generate('/out');
@@ -22,7 +22,7 @@ describe('Emitter: LinkServiceGenerator', () => {
 
         const specWithLinks = {
             openapi: '3.0.0',
-            info: {title:'Links', version:'1'},
+            info: { title: 'Links', version: '1' },
             paths: {
                 '/test': {
                     get: {
@@ -104,7 +104,7 @@ describe('Emitter: LinkServiceGenerator', () => {
             openapi: '3.0.0',
             info: { title: 'Header Test', version: '1.0' },
             components: { links: { Test: {} } },
-            paths:{}
+            paths: {}
         };
         const parser = createParser(spec);
         new LinkServiceGenerator(parser, project).generate('/out');
@@ -157,7 +157,12 @@ describe('Emitter: LinkServiceGenerator', () => {
 
     it('should resolve values from REQUEST context', () => {
         const project = createTestProject();
-        const spec = { openapi: '3.0.0', info: {title:'T', version:'1'}, paths: {}, components: { links: { L: {} } } };
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'T', version: '1' },
+            paths: {},
+            components: { links: { L: {} } }
+        };
         const parser = createParser(spec);
         new LinkServiceGenerator(parser, project).generate('/out');
 
@@ -221,7 +226,12 @@ describe('Emitter: LinkServiceGenerator', () => {
 
     it('should resolve targetServer with variable substitution', () => {
         const project = createTestProject();
-        const spec = { openapi: '3.0.0', info: {title:'T', version:'1'}, paths: {}, components: { links: { L: {} } } };
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'T', version: '1' },
+            paths: {},
+            components: { links: { L: {} } }
+        };
         const parser = createParser(spec);
         new LinkServiceGenerator(parser, project).generate('/out');
 

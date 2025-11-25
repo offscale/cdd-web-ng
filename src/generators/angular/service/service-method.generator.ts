@@ -216,17 +216,29 @@ export class ServiceMethodGenerator {
 
         return [
             {
-                parameters: [...parameters, { name: 'options', hasQuestionToken: true, type: `RequestOptions & { observe?: 'body' }` }],
+                parameters: [...parameters, {
+                    name: 'options',
+                    hasQuestionToken: true,
+                    type: `RequestOptions & { observe?: 'body' }`
+                }],
                 returnType: `Observable<${finalResponseType}>`,
                 docs: [`${methodName}. \n${paramsDocs}\n@param options The options for this request.${deprecationDoc}`]
             },
             {
-                parameters: [...parameters, { name: 'options', hasQuestionToken: false, type: `RequestOptions & { observe: 'response' }` }],
+                parameters: [...parameters, {
+                    name: 'options',
+                    hasQuestionToken: false,
+                    type: `RequestOptions & { observe: 'response' }`
+                }],
                 returnType: `Observable<HttpResponse<${finalResponseType}>>`,
                 docs: [`${methodName}. \n${paramsDocs}\n@param options The options for this request, with response observation enabled.${deprecationDoc}`]
             },
             {
-                parameters: [...parameters, { name: 'options', hasQuestionToken: false, type: `RequestOptions & { observe: 'events' }` }],
+                parameters: [...parameters, {
+                    name: 'options',
+                    hasQuestionToken: false,
+                    type: `RequestOptions & { observe: 'events' }`
+                }],
                 returnType: `Observable<HttpEvent<${finalResponseType}>>`,
                 docs: [`${methodName}. \n${paramsDocs}\n@param options The options for this request, with event observation enabled.${deprecationDoc}`]
             }

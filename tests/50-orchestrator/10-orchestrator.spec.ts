@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, afterAll } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 
 import { Project } from 'ts-morph';
 
@@ -13,8 +13,11 @@ import { SwaggerParser } from '@src/core/parser.js';
 vi.mock('@src/service/emit/type/type.generator.js', () => {
     return {
         TypeGenerator: class {
-            constructor(_p: any, _prj: any, _c: any) {}
-            generate(_out: string) { /* no-op */ }
+            constructor(_p: any, _prj: any, _c: any) {
+            }
+
+            generate(_out: string) { /* no-op */
+            }
         }
     };
 });
@@ -22,8 +25,11 @@ vi.mock('@src/service/emit/type/type.generator.js', () => {
 vi.mock('@src/generators/angular/service/service.generator.js', () => {
     return {
         ServiceGenerator: class {
-            constructor(_p: any, _prj: any, _c: any) {}
-            generateServiceFile(_cName: string, _ops: any[], _out: string) { /* no-op */ }
+            constructor(_p: any, _prj: any, _c: any) {
+            }
+
+            generateServiceFile(_cName: string, _ops: any[], _out: string) { /* no-op */
+            }
         }
     };
 });
@@ -36,7 +42,7 @@ const fullSpec: SwaggerSpec = {
             get: {
                 tags: ['User'],
                 responses: { '200': { description: 'ok' } },
-                callbacks: { 'onUser': { '{$request.query}': { post: { responses: {'200':{}} } } } }
+                callbacks: { 'onUser': { '{$request.query}': { post: { responses: { '200': {} } } } } }
             }
         }
     },
@@ -56,7 +62,7 @@ const fullSpec: SwaggerSpec = {
         { url: 'https://api.test.com' }
     ],
     webhooks: {
-        'userCreated': { post: { responses: {'200':{}} } }
+        'userCreated': { post: { responses: { '200': {} } } }
     }
 };
 

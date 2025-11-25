@@ -116,7 +116,8 @@ describe('Admin: resource-discovery (Coverage)', () => {
             info: { title: 'Test', version: '1.0' },
             paths: {
                 '/items': {
-                    get: { tags: ['Items'],
+                    get: {
+                        tags: ['Items'],
                         responses: {
                             '200': {
                                 content: {

@@ -16,13 +16,16 @@ const isRefObject = (obj: unknown): obj is RefObject =>
     typeof obj === 'object' && obj !== null && '$ref' in obj && typeof (obj as { $ref: unknown }).$ref === 'string';
 
 const isDynamicRefObject = (obj: unknown): obj is DynamicRefObject =>
-    typeof obj === 'object' && obj !== null && '$dynamicRef' in obj && typeof (obj as { $dynamicRef: unknown }).$dynamicRef === 'string';
+    typeof obj === 'object' && obj !== null && '$dynamicRef' in obj && typeof (obj as {
+        $dynamicRef: unknown
+    }).$dynamicRef === 'string';
 
 export class ReferenceResolver {
     constructor(
         private specCache: Map<string, SwaggerSpec>,
         private entryDocumentUri: string
-    ) {}
+    ) {
+    }
 
     /**
      * Indexes any `$id`, `$anchor`, and `$dynamicAnchor` properties within a spec object
@@ -44,7 +47,8 @@ export class ReferenceResolver {
                     if (!cache.has(nextBase)) {
                         cache.set(nextBase, obj as SwaggerSpec);
                     }
-                } catch (e) { /* Ignore invalid $id */ }
+                } catch (e) { /* Ignore invalid $id */
+                }
             }
 
             // $anchor
@@ -78,6 +82,7 @@ export class ReferenceResolver {
      */
     public static findRefs(obj: unknown): string[] {
         const refs = new Set<string>();
+
         function traverse(current: unknown) {
             if (!current || typeof current !== 'object') return;
             if (isRefObject(current)) refs.add(current.$ref);
@@ -88,6 +93,7 @@ export class ReferenceResolver {
                 }
             }
         }
+
         traverse(obj);
         return Array.from(refs);
     }

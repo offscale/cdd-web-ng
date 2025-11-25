@@ -41,7 +41,10 @@ describe('Analysis: validation.analyzer', () => {
     it('should add pattern rule for contentEncoding: base64', () => {
         const schema: SwaggerDefinition = { type: 'string', contentEncoding: 'base64' };
         const rules = analyzeValidationRules(schema)!;
-        expect(rules).toContainEqual({ type: 'pattern', value: '^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$' });
+        expect(rules).toContainEqual({
+            type: 'pattern',
+            value: '^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$'
+        });
     });
 
     it('should add pattern rule for contentEncoding: base64url', () => {

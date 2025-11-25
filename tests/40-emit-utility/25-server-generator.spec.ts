@@ -50,7 +50,12 @@ describe('Emitter: ServerGenerator', () => {
     });
 
     it('should handle empty servers gracefully', () => {
-        const spec: SwaggerSpec = { openapi: '3.0.0', info: { title:'E', version:'1'}, paths: {}, servers: [] } as any;
+        const spec: SwaggerSpec = {
+            openapi: '3.0.0',
+            info: { title: 'E', version: '1' },
+            paths: {},
+            servers: []
+        } as any;
         const project = runGenerator(spec);
         const sourceFile = project.getSourceFileOrThrow('/out/servers.ts');
 

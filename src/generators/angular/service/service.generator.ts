@@ -13,6 +13,15 @@ import {
 import { SERVICE_GENERATOR_HEADER_COMMENT } from '@src/core/constants.js';
 import { ServiceMethodGenerator } from './service-method.generator.js';
 
+/**
+ * Normalize method and file names to be valid TypeScript identifiers.
+ * Example: get-custom-name -> getCustomName
+ */
+function toTsIdentifier(name: string): string {
+    // Remove invalid chars, capitalize letters after hyphens/underscores
+    return camelCase(name.replace(/[^\w]/g, ' '));
+}
+
 export class ServiceGenerator {
     private methodGenerator: ServiceMethodGenerator;
 
@@ -20,13 +29,18 @@ export class ServiceGenerator {
         this.methodGenerator = new ServiceMethodGenerator(this.config, this.parser);
     }
 
+    /** Generates the actual Angular service file */
     public generateServiceFile(controllerName: string, operations: PathInfo[], outputDir: string): void {
-        const fileName = `${camelCase(controllerName)}.service.ts`;
+        // Normalize controller/service file and class name
+        const cleanControllerName = toTsIdentifier(controllerName);
+        const pascalControllerName = pascalCase(cleanControllerName);
+
+        const fileName = `${cleanControllerName}.service.ts`;
         const filePath = path.join(outputDir, fileName);
         const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
         sourceFile.addStatements(SERVICE_GENERATOR_HEADER_COMMENT);
-        const className = `${pascalCase(controllerName)}Service`;
+        const className = `${pascalControllerName}Service`;
         const knownTypes = this.parser.schemas.map(s => s.name);
         const modelImports = new Set<string>(['RequestOptions']);
 
@@ -58,9 +72,21 @@ export class ServiceGenerator {
         const serviceClass = this.addClass(sourceFile, className);
         this.addPropertiesAndHelpers(serviceClass);
 
-        operations.forEach(op => {
+        for (const op of operations) {
+            // Handle methodName normalization
+            if (!op.methodName) {
+                if (op.operationId) {
+                    op.methodName = toTsIdentifier(op.operationId);
+                } else {
+                    op.methodName = toTsIdentifier(op.method.toLowerCase() + '_' + op.path);
+                }
+            } else if (op.methodName.includes('-') || !/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(op.methodName)) {
+                // Fix: Sanitize if the existing name contains invalid characters (like the 'get-custom-name' test case)
+                op.methodName = toTsIdentifier(op.methodName);
+            }
+
             this.methodGenerator.addServiceMethod(serviceClass, op);
-        });
+        }
     }
 
     private addImports(sourceFile: SourceFile, modelImports: Set<string>, operations: PathInfo[]): void {
@@ -97,14 +123,14 @@ export class ServiceGenerator {
             namedImports: ['HttpParamsBuilder']
         });
 
-        if (operations.some(op => op.consumes?.includes('multipart/form-data'))) {
+        if (operations.some(op => op.consumes?.includes('multipart/form-data') || op.requestBody?.content?.['multipart/form-data'])) {
             sourceFile.addImportDeclaration({
                 moduleSpecifier: '../utils/multipart.builder',
                 namedImports: ['MultipartBuilder']
             });
         }
 
-        if (operations.some(op => op.parameters?.some(p => p.content?.['application/xml']))) {
+        if (operations.some(op => op.parameters?.some(p => p.content?.['application/xml']) || op.requestBody?.content?.['application/xml'])) {
             sourceFile.addImportDeclaration({
                 moduleSpecifier: '../utils/xml.builder',
                 namedImports: ['XmlBuilder']
@@ -137,7 +163,7 @@ export class ServiceGenerator {
         // 5. Base Path Token
         sourceFile.addImportDeclaration({
             moduleSpecifier: '../tokens',
-            namedImports: ['BASE_PATH_API']
+            namedImports: [getBasePathTokenName(this.config.clientName)]
         });
 
         // 6. Legacy Codec

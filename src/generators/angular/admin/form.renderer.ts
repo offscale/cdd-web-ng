@@ -23,20 +23,33 @@ export class ValidationRenderer {
 
     private static renderRule(rule: ValidationRule): string {
         switch (rule.type) {
-            case 'required': return 'Validators.required';
-            case 'email': return 'Validators.email';
-            case 'minLength': return `Validators.minLength(${rule.value})`;
-            case 'maxLength': return `Validators.maxLength(${rule.value})`;
-            case 'min': return `Validators.min(${rule.value})`;
-            case 'max': return `Validators.max(${rule.value})`;
-            case 'pattern': return `Validators.pattern(/${rule.value}/)`;
-            case 'multipleOf': return `CustomValidators.multipleOf(${rule.value})`;
-            case 'exclusiveMinimum': return `CustomValidators.exclusiveMinimum(${rule.value})`;
-            case 'exclusiveMaximum': return `CustomValidators.exclusiveMaximum(${rule.value})`;
-            case 'uniqueItems': return `CustomValidators.uniqueItems()`;
+            case 'required':
+                return 'Validators.required';
+            case 'email':
+                return 'Validators.email';
+            case 'minLength':
+                return `Validators.minLength(${rule.value})`;
+            case 'maxLength':
+                return `Validators.maxLength(${rule.value})`;
+            case 'min':
+                return `Validators.min(${rule.value})`;
+            case 'max':
+                return `Validators.max(${rule.value})`;
+            case 'pattern':
+                return `Validators.pattern(/${rule.value}/)`;
+            case 'multipleOf':
+                return `CustomValidators.multipleOf(${rule.value})`;
+            case 'exclusiveMinimum':
+                return `CustomValidators.exclusiveMinimum(${rule.value})`;
+            case 'exclusiveMaximum':
+                return `CustomValidators.exclusiveMaximum(${rule.value})`;
+            case 'uniqueItems':
+                return `CustomValidators.uniqueItems()`;
             // minItems/maxItems on a FormArray are handled by minLength/maxLength validators in Angular
-            case 'minItems': return `Validators.minLength(${rule.value})`;
-            case 'maxItems': return `Validators.maxLength(${rule.value})`;
+            case 'minItems':
+                return `Validators.minLength(${rule.value})`;
+            case 'maxItems':
+                return `Validators.maxLength(${rule.value})`;
             default:
                 // This ensures that if a new rule is added, we don't fail silently.
                 const exhaustiveCheck: never = rule;

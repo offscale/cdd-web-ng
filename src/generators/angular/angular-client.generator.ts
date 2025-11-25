@@ -4,7 +4,7 @@ import { posix as path } from 'node:path';
 
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from '@src/core/types/index.js';
-import { groupPathsByController } from "@src/core/utils/index.js";
+import { camelCase, pascalCase } from "@src/core/utils/index.js";
 
 import { AbstractClientGenerator } from '../../core/generator.js';
 
@@ -16,7 +16,7 @@ import { AdminGenerator } from './admin/admin.generator.js';
 import { ServiceGenerator } from './service/service.generator.js';
 import { ServiceTestGenerator } from "./test/service-test-generator.js";
 
-// Angular Utilities (Corrected Local Imports)
+// Angular Utilities
 import { TokenGenerator } from './utils/token.generator.js';
 import { HttpParamsBuilderGenerator } from './utils/http-params-builder.generator.js';
 import { FileDownloadGenerator } from './utils/file-download.generator.js';
@@ -30,7 +30,7 @@ import { MainIndexGenerator, ServiceIndexGenerator } from './utils/index.generat
 import { LinkServiceGenerator } from './utils/link-service.generator.js';
 import { ResponseHeaderParserGenerator } from './utils/response-header-parser.generator.js';
 
-// Shared Utilities (Corrected Shared Imports)
+// Shared Utilities
 import { ServerGenerator } from '../shared/server.generator.js';
 import { ServerUrlGenerator } from '../shared/server-url.generator.js';
 import { XmlBuilderGenerator } from '../shared/xml-builder.generator.js';
@@ -45,13 +45,42 @@ import { SecurityGenerator } from "@src/generators/shared/security.generator.js"
 import { TagGenerator } from "@src/generators/shared/tag.generator.js";
 
 /**
- * Concrete implementation for generating an Angular client library.
- * Orchestrates the creation of Services, Interceptors, Modules, and Utilities specific to Angular.
+ * A normalized function for grouping path infos by their canonical controller/tag/resource name.
+ * Updated to use pascalCase to preserve readability while normalizing structure (e.g., "users" -> "Users").
+ * This ensures filenames like `CustomVerbs.service.ts` are generated correctly matching expectations.
+ */
+function getControllerCanonicalName(op: any): string {
+    // Prefer first tag (usual convention)
+    if (Array.isArray(op.tags) && op.tags[0]) {
+        // Fix: Use pascalCase instead of toLowerCase to preserve casing for filenames/classes roughly
+        // This keeps "CustomVerbs" as "CustomVerbs" which produces camel "customVerbs" service file
+        return pascalCase(op.tags[0].toString());
+    }
+    // Fallback: first non-param path segment
+    const firstSegment = (op.path || '').split('/').filter(Boolean)[0];
+    return firstSegment ? pascalCase(firstSegment) : 'Default';
+}
+
+/**
+ * Groups all operations by canonical controller name.
+ */
+function groupPathsByCanonicalController(parser: SwaggerParser): Record<string, any[]> {
+    const groups: Record<string, any[]> = {};
+    for (const op of parser.operations) {
+        const group = getControllerCanonicalName(op);
+        if (!groups[group]) groups[group] = [];
+        groups[group].push(op);
+    }
+    return groups;
+}
+
+/**
+ * The main Angular client generator.
  */
 export class AngularClientGenerator extends AbstractClientGenerator {
 
     public async generate(project: Project, parser: SwaggerParser, config: GeneratorConfig, outputRoot: string): Promise<void> {
-        // 1. Models (Framework Agnostic)
+        // 1. Models
         new TypeGenerator(parser, project, config).generate(outputRoot);
         console.log('✅ Models generated.');
 
@@ -60,7 +89,6 @@ export class AngularClientGenerator extends AbstractClientGenerator {
         new ServerGenerator(parser, project).generate(outputRoot);
         new ServerUrlGenerator(parser, project).generate(outputRoot);
 
-        // ADD THE MISSING GENERATOR CALLS HERE
         new CallbackGenerator(parser, project).generate(outputRoot);
         new WebhookGenerator(parser, project).generate(outputRoot);
         new LinkGenerator(parser, project).generate(outputRoot);
@@ -69,17 +97,32 @@ export class AngularClientGenerator extends AbstractClientGenerator {
         new TagGenerator(parser, project).generate(outputRoot);
 
         // 3. Services and Angular Specifics
-        if (config.options.generateServices ?? true) {
+        if ((config.options.generateServices ?? true)) {
             const servicesDir = path.join(outputRoot, 'services');
-            const controllerGroups = groupPathsByController(parser);
+            // Use the "canonical" grouping which uses pascalCase logic now
+            const controllerGroups = groupPathsByCanonicalController(parser);
 
             for (const [controllerName, operations] of Object.entries(controllerGroups)) {
-                new ServiceGenerator(parser, project, config).generateServiceFile(controllerName, operations, servicesDir);
+                // Defensive: Only generate a service file if there is at least one viable op
+                if (!operations || operations.length === 0) continue;
+                // Set consistent methodName
+                for (const op of operations) {
+                    if (!op.methodName) {
+                        if (op.operationId) {
+                            op.methodName = camelCase(op.operationId);
+                        } else {
+                            // Simple fallback if no opId
+                            op.methodName = camelCase(`${op.method}${op.path.replace(/\//g, '_')}`);
+                        }
+                    }
+                }
+                new ServiceGenerator(parser, project, config)
+                    .generateServiceFile(controllerName, operations, servicesDir);
             }
             new ServiceIndexGenerator(project).generateIndex(outputRoot);
             console.log('✅ Services generated.');
 
-            // Generate Utilities
+            // Generate Utilities (tokens, helpers, etc)
             new TokenGenerator(project, config.clientName).generate(outputRoot);
             new HttpParamsBuilderGenerator(project).generate(outputRoot);
             new FileDownloadGenerator(project).generate(outputRoot);
@@ -117,8 +160,13 @@ export class AngularClientGenerator extends AbstractClientGenerator {
             if (config.options.generateServiceTests ?? true) {
                 console.log('📝 Generating tests for services...');
                 const testGenerator = new ServiceTestGenerator(parser, project, config);
-                const controllerGroupsForTest = groupPathsByController(parser);
+                const controllerGroupsForTest = groupPathsByCanonicalController(parser);
                 for (const [controllerName, operations] of Object.entries(controllerGroupsForTest)) {
+                    for (const op of operations) {
+                        if (!op.methodName) { // Ensure method name exists for test gen too
+                            if (op.operationId) op.methodName = camelCase(op.operationId);
+                        }
+                    }
                     testGenerator.generateServiceTestFile(controllerName, operations, servicesDir);
                 }
                 console.log('✅ Service tests generated.');

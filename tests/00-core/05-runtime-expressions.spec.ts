@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-    evaluateRuntimeExpression,
-    evaluateJsonPointer,
-    RuntimeContext
-} from '@src/core/runtime-expressions.js';
+import { evaluateJsonPointer, evaluateRuntimeExpression, RuntimeContext } from '@src/core/runtime-expressions.js';
 
 describe('Core: Runtime Expression Evaluator', () => {
 
@@ -83,6 +79,10 @@ describe('Core: Runtime Expression Evaluator', () => {
             expect(evaluateJsonPointer(data, '/arr/5')).toBeUndefined();
         });
 
+        it('should return undefined for invalid non-numeric array index', () => {
+            expect(evaluateJsonPointer(data, '/arr/key')).toBeUndefined();
+        });
+
         it('should return full object for empty pointer', () => {
             expect(evaluateJsonPointer(data, '')).toEqual(data);
             expect(evaluateJsonPointer(data, '#')).toEqual(data);
@@ -150,6 +150,11 @@ describe('Core: Runtime Expression Evaluator', () => {
                     // response is undefined
                 };
                 expect(evaluateRuntimeExpression('$response.body', noRes)).toBeUndefined();
+            });
+
+            it('should return undefined for malformed body expressions', () => {
+                // This expression is not '$response.body' and does not start with '$response.body#'
+                expect(evaluateRuntimeExpression('$response.bodyFoo', mockContext)).toBeUndefined();
             });
         });
 

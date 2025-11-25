@@ -12,9 +12,11 @@ describe('Core Utils: Type Converter', () => {
     const configWithDate: GeneratorConfig = { ...config, options: { ...config.options, dateType: 'Date' } };
 
     describe('getTypeScriptType', () => {
-        it('should return `{ [key: string]: any }` for an object schema with no properties', () => {
-            const schema: SwaggerDefinition = { type: 'object' };
-            expect(utils.getTypeScriptType(schema, config, [])).toBe('{ [key: string]: any }');
+        it('should return `{ [key: string]: any }` for an object schema with no or empty properties', () => {
+            const schemaNoProps: SwaggerDefinition = { type: 'object' };
+            const schemaEmptyProps: SwaggerDefinition = { type: 'object', properties: {} };
+            expect(utils.getTypeScriptType(schemaNoProps, config, [])).toBe('{ [key: string]: any }');
+            expect(utils.getTypeScriptType(schemaEmptyProps, config, [])).toBe('{ [key: string]: any }');
         });
 
         it('should return "any" for unknown schema types', () => {
@@ -63,6 +65,30 @@ describe('Core Utils: Type Converter', () => {
             const type = utils.getTypeScriptType(schema, config, []);
             expect(type).toContain("id?: string");
             expect(type).not.toContain("[key: string]");
+        });
+
+        it('should generate a union type for numeric enums', () => {
+            const schema: SwaggerDefinition = {
+                type: 'number',
+                enum: [10, 20.5, 30]
+            };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('10 | 20.5 | 30');
+        });
+
+        it('should generate quoted property names for keys with special characters', () => {
+            const schema: SwaggerDefinition = {
+                type: 'object',
+                properties: {
+                    'valid-key': { type: 'string' },
+                    'another.key': { type: 'number' },
+                    'key with spaces': { type: 'boolean' }
+                }
+            };
+            const result = utils.getTypeScriptType(schema, config, []);
+            // Using .toContain to avoid brittleness with spacing and ordering
+            expect(result).toContain(`'valid-key'?: string`);
+            expect(result).toContain(`'another.key'?: number`);
+            expect(result).toContain(`'key with spaces'?: boolean`);
         });
     });
 

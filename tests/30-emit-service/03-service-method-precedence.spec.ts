@@ -1,6 +1,6 @@
 // tests/30-emit-service/03-service-method-precedence.spec.ts
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig, PathInfo } from "@src/core/types/index.js";

@@ -61,13 +61,16 @@ function classifyAction(path: PathInfo, method: string): ResourceOperation['acti
     return camelCase(parts.join(' '));
 }
 
-function findSchema(schema: SwaggerDefinition | { $ref: string } | undefined, parser: SwaggerParser): SwaggerDefinition | undefined {
+function findSchema(schema: SwaggerDefinition | {
+    $ref: string
+} | undefined, parser: SwaggerParser): SwaggerDefinition | undefined {
     if (!schema) return undefined;
     if ('$ref' in schema && typeof schema.$ref === 'string') return parser.resolveReference<SwaggerDefinition>(schema.$ref);
     return schema as SwaggerDefinition;
 }
 
-function getFormProperties(operations: PathInfo[], parser: SwaggerParser): FormProperty[] {
+// Exported for testing
+export function getFormProperties(operations: PathInfo[], parser: SwaggerParser): FormProperty[] {
     const allSchemas: SwaggerDefinition[] = [];
     const formDataProperties: Record<string, SwaggerDefinition> = {};
 
@@ -100,13 +103,29 @@ function getFormProperties(operations: PathInfo[], parser: SwaggerParser): FormP
     const mergedRequired = new Set<string>();
     let mergedOneOf: SwaggerDefinition[] | undefined, mergedDiscriminator: DiscriminatorObject | undefined;
 
+    const assignPropertiesRecursive = (schema: SwaggerDefinition) => {
+        if (schema.properties) {
+            Object.assign(mergedProperties, schema.properties);
+        }
+        schema.required?.forEach(r => mergedRequired.add(r));
+        if (schema.oneOf) mergedOneOf = schema.oneOf;
+        if (schema.discriminator) mergedDiscriminator = schema.discriminator;
+
+        // Handle allOf inheritance (recursively)
+        if (schema.allOf) {
+            schema.allOf.forEach(sub => {
+                const resolvedSub = findSchema(sub, parser);
+                if (resolvedSub) {
+                    assignPropertiesRecursive(resolvedSub);
+                }
+            });
+        }
+    };
+
     allSchemas.forEach(schema => {
         const effectiveSchema = findSchema(schema.type === 'array' ? (schema.items as SwaggerDefinition) : schema, parser) ?? schema;
         if (effectiveSchema) {
-            Object.assign(mergedProperties, effectiveSchema.properties);
-            effectiveSchema.required?.forEach(r => mergedRequired.add(r));
-            if (effectiveSchema.oneOf) mergedOneOf = effectiveSchema.oneOf;
-            if (effectiveSchema.discriminator) mergedDiscriminator = effectiveSchema.discriminator;
+            assignPropertiesRecursive(effectiveSchema);
         }
     });
 
@@ -148,7 +167,8 @@ function getFormProperties(operations: PathInfo[], parser: SwaggerParser): FormP
     return properties.length > 0 ? properties : [{ name: 'id', schema: { type: 'string' } }];
 }
 
-function getModelName(resourceName: string, operations: PathInfo[]): string {
+// Exported for testing
+export function getModelName(resourceName: string, operations: PathInfo[]): string {
     const op = operations.find(o => o.method === 'POST') ?? operations.find(o => o.method === 'GET');
     const schema = op?.requestBody?.content?.['application/json']?.schema ?? op?.responses?.['200']?.content?.['application/json']?.schema;
     if (schema) {
@@ -208,7 +228,8 @@ export function discoverAdminResources(parser: SwaggerParser): Resource[] {
             name: group.name,
             modelName: getModelName(group.name, group.operations),
             operations: classifiedOps,
-            isEditable: group.operations.some(op => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(op.method)),
+            // Fix: DELETE operations do not imply a form interface, so they don't make a resource 'editable' in the context of form generation.
+            isEditable: group.operations.some(op => ['POST', 'PUT', 'PATCH'].includes(op.method)),
             formProperties,
             listProperties: formProperties.filter(
                 p => !p.schema.readOnly && ['string', 'number', 'integer', 'boolean'].includes(p.schema.type as string)

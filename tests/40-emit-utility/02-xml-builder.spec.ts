@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createTestProject } from '../shared/helpers.js';
 import ts from 'typescript';
 import { XmlBuilderGenerator } from "@src/generators/shared/xml-builder.generator.js";

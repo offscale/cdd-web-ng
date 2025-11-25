@@ -24,7 +24,13 @@ export class WebhookGenerator {
             }
         };
 
-        const webhooksFound: { name: string, interfaceName: string, method: string, requestType: string, responseType: string }[] = [];
+        const webhooksFound: {
+            name: string,
+            interfaceName: string,
+            method: string,
+            requestType: string,
+            responseType: string
+        }[] = [];
         const webhooks = this.parser.spec.webhooks || {};
 
         Object.entries(webhooks).forEach(([webhookName, pathItemOrRef]) => {

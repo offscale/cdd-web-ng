@@ -6,6 +6,7 @@ export interface LicenseObject {
     name: string;
     url?: string;
     identifier?: string;
+
     [key: string]: any;
 }
 
@@ -13,6 +14,7 @@ export interface ContactObject {
     name?: string;
     url?: string;
     email?: string;
+
     [key: string]: any;
 }
 
@@ -24,12 +26,14 @@ export interface InfoObject {
     contact?: ContactObject;
     license?: LicenseObject;
     version: string;
+
     [key: string]: any;
 }
 
 export interface ExternalDocumentationObject {
     description?: string;
     url: string;
+
     [key: string]: any;
 }
 
@@ -40,6 +44,7 @@ export interface TagObject {
     externalDocs?: ExternalDocumentationObject;
     parent?: string;
     kind?: string;
+
     [key: string]: any;
 }
 
@@ -47,6 +52,7 @@ export interface ServerVariableObject {
     enum?: string[];
     default: string;
     description?: string;
+
     [key: string]: any;
 }
 
@@ -55,12 +61,14 @@ export interface ServerObject {
     description?: string;
     name?: string;
     variables?: { [variable: string]: ServerVariableObject };
+
     [key: string]: any;
 }
 
 export interface DiscriminatorObject {
     propertyName: string;
     mapping?: { [key: string]: string };
+
     [key: string]: any;
 }
 
@@ -71,6 +79,7 @@ export interface XmlObject {
     attribute?: boolean;
     wrapped?: boolean;
     nodeType?: 'element' | 'attribute' | 'text' | 'cdata' | 'none' | string;
+
     [key: string]: any;
 }
 
@@ -81,6 +90,7 @@ export interface LinkObject {
     requestBody?: any | string;
     description?: string;
     server?: ServerObject;
+
     [key: string]: any;
 }
 
@@ -89,6 +99,7 @@ export interface ExampleObject {
     description?: string;
     value?: any;
     externalValue?: string;
+
     [key: string]: any;
 }
 
@@ -106,6 +117,7 @@ export interface HeaderObject {
     content?: Record<string, { schema?: SwaggerDefinition | { $ref: string } }>;
     example?: any;
     examples?: Record<string, any>;
+
     [key: string]: any;
 }
 
@@ -123,6 +135,7 @@ export interface Parameter {
     allowEmptyValue?: boolean;
     content?: Record<string, { schema?: SwaggerDefinition | { $ref: string } }>;
     deprecated?: boolean;
+
     [key: string]: any;
 }
 
@@ -132,6 +145,7 @@ export interface EncodingProperty {
     style?: string;
     explode?: boolean;
     allowReserved?: boolean;
+
     [key: string]: any;
 }
 
@@ -141,6 +155,7 @@ export interface RequestBody {
         schema?: SwaggerDefinition | { $ref: string };
         encoding?: Record<string, EncodingProperty>;
     }>;
+
     [key: string]: any;
 }
 
@@ -149,6 +164,7 @@ export interface SwaggerResponse {
     content?: Record<string, { schema?: SwaggerDefinition | { $ref: string } }>;
     links?: Record<string, LinkObject | { $ref: string }>;
     headers?: Record<string, HeaderObject | { $ref: string }>;
+
     [key: string]: any;
 }
 
@@ -200,6 +216,7 @@ export interface SwaggerDefinition {
     examples?: unknown[];
     xml?: XmlObject;
     externalDocs?: ExternalDocumentationObject;
+
     [key: string]: any;
 }
 
@@ -210,6 +227,7 @@ export interface SecurityScheme {
     scheme?: 'bearer' | string;
     flows?: Record<string, unknown>;
     openIdConnectUrl?: string;
+
     [key: string]: any;
 }
 
@@ -229,6 +247,7 @@ export interface SpecOperation {
     security?: Record<string, string[]>[];
     servers?: ServerObject[];
     callbacks?: Record<string, PathItem | { $ref: string }>;
+
     [key: string]: any;
 }
 
@@ -248,6 +267,7 @@ export interface PathItem {
     additionalOperations?: Record<string, SpecOperation>;
     parameters?: any[];
     servers?: ServerObject[];
+
     [key: string]: any;
 }
 
@@ -272,5 +292,6 @@ export interface SwaggerSpec {
         headers?: Record<string, HeaderObject | { $ref: string }>;
     };
     securityDefinitions?: { [securityDefinitionName: string]: SecurityScheme };
+
     [key: string]: any;
 }

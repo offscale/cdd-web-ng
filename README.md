@@ -162,8 +162,13 @@ core parsing to the generated UI, works as expected.
 ## Installation
 
 ```bash
-npm install -g cdd-web-ng
+git clone --depth=1 https://github.com/offscale/cdd-web-ng
+cd cdd-web-ng
+npm install
+npm run build
+npm install -g .
 ```
+(I'll put it up on npmjs soon)
 
 ## Usage
 

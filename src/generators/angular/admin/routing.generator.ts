@@ -1,19 +1,29 @@
 import { Project, VariableDeclarationKind } from 'ts-morph';
 import { Resource } from '@src/core/types/index.js';
 import { camelCase, pascalCase } from "@src/core/utils/index.js";
+import * as path from 'node:path';
 
 /**
- * Generates the Angular routing configuration for the admin UI.
+ * The Angular Admin UI Routing Generator.
+ *
+ * Generates both the master `admin.routes.ts` file and per-resource
+ * `[resource].routes.ts` files for module-level lazy routing in a generated admin UI.
  */
 export class RoutingGenerator {
-    constructor(private readonly project: Project) {
+    private static ensureDir(project: Project, dirPath: string): void {
+        if (!project.getFileSystem().directoryExists(dirPath)) {
+            project.getFileSystem().mkdirSync(dirPath);
+        }
     }
 
     /**
-     * Generates the master `admin.routes.ts` file.
+     * Generates the master route file at `admin.routes.ts`, delegating to resource-specific route files.
+     *
+     * @param resources The discovered admin resources.
+     * @param outDir The parent output directory (should already contain the admin folder).
      */
     public generateMaster(resources: Resource[], outDir: string): void {
-        const routesFilePath = `${outDir}/admin.routes.ts`;
+        const routesFilePath = path.join(outDir, 'admin.routes.ts');
         const sourceFile = this.project.createSourceFile(routesFilePath, undefined, { overwrite: true });
 
         sourceFile.addImportDeclaration({
@@ -44,11 +54,17 @@ export class RoutingGenerator {
     }
 
     /**
-     * Generates a resource-specific routing file (e.g., `users.routes.ts`).
+     * Generates the per-resource route file, e.g. for `users` this is at `users/users.routes.ts`.
+     *
+     * @param resource The admin resource.
+     * @param outDir The admin output directory (e.g. `/admin`).
      */
     public generate(resource: Resource, outDir: string): void {
-        const resourceDir = `${outDir}/${resource.name}`;
-        const routesFilePath = `${resourceDir}/${resource.name}.routes.ts`;
+        // Ensure subdirectory for this resource exists
+        const resourceDir = path.join(outDir, resource.name);
+        RoutingGenerator.ensureDir(this.project, resourceDir);
+
+        const routesFilePath = path.join(resourceDir, `${resource.name}.routes.ts`);
         const sourceFile = this.project.createSourceFile(routesFilePath, undefined, { overwrite: true });
 
         sourceFile.addImportDeclaration({ moduleSpecifier: '@angular/router', namedImports: ['Routes'] });
@@ -85,5 +101,11 @@ export class RoutingGenerator {
                 initializer: `[\n  ${routes.join(',\n  ')}\n]`
             }]
         });
+    }
+
+    /**
+     * @param project ts-morph Project used for emitting files.
+     */
+    constructor(private readonly project: Project) {
     }
 }

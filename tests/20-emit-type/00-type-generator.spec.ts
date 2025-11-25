@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
 import { TypeGenerator } from "@src/generators/shared/type.generator.js";
 import { SwaggerParser } from '@src/core/parser.js';
@@ -13,7 +13,10 @@ const typeGenSpec = {
                 requestBody: {
                     content: {
                         'application/json': {
-                            schema: { type: 'object', properties: { userId: { type: 'string' }, timestamp: { type: 'string' } } }
+                            schema: {
+                                type: 'object',
+                                properties: { userId: { type: 'string' }, timestamp: { type: 'string' } }
+                            }
                         }
                     }
                 }
@@ -26,7 +29,10 @@ const typeGenSpec = {
                 requestBody: {
                     content: {
                         'application/json': {
-                            schema: { type: 'object', properties: { userId: { type: 'string' }, timestamp: { type: 'string' } } }
+                            schema: {
+                                type: 'object',
+                                properties: { userId: { type: 'string' }, timestamp: { type: 'string' } }
+                            }
                         }
                     }
                 }
@@ -39,7 +45,12 @@ const typeGenSpec = {
             NumericEnum: { type: 'integer', enum: [1, 2, 3] },
             EmptyEnum: { type: 'string', enum: [] },
             Base: { type: 'object', properties: { id: { type: 'string' } } },
-            Extended: { allOf: [{ $ref: '#/components/schemas/Base' }, { type: 'object', properties: { name: { type: 'string' } } }] },
+            Extended: {
+                allOf: [{ $ref: '#/components/schemas/Base' }, {
+                    type: 'object',
+                    properties: { name: { type: 'string' } }
+                }]
+            },
             AnyValue: { anyOf: [{ type: 'string' }, { type: 'number' }] },
             QuotedProps: { type: 'object', properties: { 'with-hyphen': { type: 'string' } } },
             FreeObject: { type: 'object', additionalProperties: true },

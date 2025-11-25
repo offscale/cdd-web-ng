@@ -7,7 +7,9 @@ import { discoverAdminResources } from '@src/generators/angular/admin/resource-d
 import { SwaggerParser } from '@src/core/parser.js';
 
 import { createTestProject } from '../shared/helpers.js';
-import { coverageSpec, listComponentSpec } from '../shared/specs.js';
+import { branchCoverageSpec, coverageSpec, listComponentSpec } from '../shared/specs.js';
+import { ListActionKind } from '@src/analysis/list-types.js';
+import { Resource } from '@src/core/types/index.js';
 
 describe('Generators (Angular): ListComponentGenerator', () => {
     let project: Project;
@@ -63,6 +65,37 @@ describe('Generators (Angular): ListComponentGenerator', () => {
             const listClass = project.getSourceFileOrThrow('/admin/events/events-list/events-list.component.ts').getClassOrThrow('EventsListComponent');
             const idProp = listClass.getProperty('idProperty')!.getInitializer()!.getText();
             expect(idProp).toBe(`'eventId'`);
+        });
+
+        it('internal action kind logic should have a fallback', () => {
+            const getActionKind = (action: string): ListActionKind => {
+                const lowerAction = action.toLowerCase();
+                if (lowerAction.includes('delete') || lowerAction.includes('remove') || lowerAction.includes('cancel') || lowerAction.includes('block')) return 'destructive';
+                if (lowerAction.includes('add') || lowerAction.includes('create')) return 'constructive';
+                if (lowerAction.includes('edit') || lowerAction.includes('update') || lowerAction.includes('approve') || lowerAction.includes('check')) return 'state-change';
+                if (lowerAction.includes('start') || lowerAction.includes('play') || lowerAction.includes('stop') || lowerAction.includes('pause') || lowerAction.includes('reboot') || lowerAction.includes('refresh') || lowerAction.includes('sync')) return 'state-change';
+                return 'default';
+            };
+
+            expect(getActionKind('anUnknownAction')).toBe('default');
+            expect(getActionKind('startServer')).toBe('state-change');
+            expect(getActionKind('deleteItem')).toBe('destructive');
+            expect(getActionKind('approve')).toBe('state-change');
+            expect(getActionKind('cancel')).toBe('destructive');
+            expect(getActionKind('stop')).toBe('state-change');
+            expect(getActionKind('reboot')).toBe('state-change');
+        });
+
+        it('should handle a resource with only read-only properties', () => {
+            const project = createTestProject();
+            const parser = new SwaggerParser(branchCoverageSpec as any, { options: { admin: true } } as any);
+            const resource = discoverAdminResources(parser).find((r: Resource) => r.name === 'readOnlyResource')!;
+            const generator = new ListComponentGenerator(project);
+            generator.generate(resource, '/admin');
+            const listClass = project
+                .getSourceFileOrThrow('/admin/readOnlyResource/readOnlyResource-list/readOnlyResource-list.component.ts')
+                .getClassOrThrow('ReadOnlyResourceListComponent');
+            expect(listClass.getProperty('idProperty')?.getInitializer()?.getText()).toBe(`'id'`);
         });
     });
 

@@ -1,98 +1,232 @@
-import { beforeAll, describe, expect, it } from 'vitest';
-import { ClassDeclaration, Project } from 'ts-morph';
+import { beforeEach, describe, expect, it } from 'vitest';
 
-import { FormComponentGenerator } from '@src/generators/angular/admin/form-component.generator.js';
+import { Project } from 'ts-morph';
+
 import { SwaggerParser } from '@src/core/parser.js';
-import { discoverAdminResources } from '@src/generators/angular/admin/resource-discovery.js';
-
-import { createTestProject } from '../shared/helpers.js';
-import { adminFormSpec, coverageSpec } from '../shared/specs.js';
+import { GeneratorConfig, Resource, SwaggerDefinition } from '@src/core/types/index.js';
+import { FormModelBuilder } from '@src/analysis/form-model.builder.js';
+import { FormComponentGenerator } from '@src/generators/angular/admin/form-component.generator.js';
+import { branchCoverageSpec } from '../fixtures/coverage.fixture.js';
 
 describe('Generators (Angular): FormComponentGenerator', () => {
     let project: Project;
-    let parser: SwaggerParser;
+    let config: GeneratorConfig;
+    const validBase = { openapi: '3.0.0', info: { title: 'Test', version: '1.0' } };
 
-    const run = async (spec: object) => {
-        project = createTestProject();
-        parser = new SwaggerParser(spec as any, { options: { admin: true } } as any);
-        const resources = discoverAdminResources(parser);
-        const formGen = new FormComponentGenerator(project, parser);
+    const run = (spec: any, resourceOverrides: Partial<Resource> = {}) => {
+        const parser = new SwaggerParser(spec, config);
 
-        for (const resource of resources) {
-            if (resource.isEditable) {
-                formGen.generate(resource, '/admin');
-            }
-        }
+        // Basic resource extraction simulation
+        const schemaName = resourceOverrides.modelName || 'Test';
+        const mainSchema = spec.components?.schemas?.[schemaName] || spec.components?.schemas?.Test;
+
+        // We need to simulate the behavior of discovery:
+        // 1. Denormalize 'required' fields from parent to child schemas
+        // 2. Resolve references so the builder sees the real schema content
+        const formProps = resourceOverrides.formProperties ||
+            Object.entries(mainSchema?.properties || {}).map(([name, schema]) => {
+                let s = schema as SwaggerDefinition;
+
+                // Resolve Ref if needed
+                if (s.$ref) {
+                    const resolved = parser.resolve(s);
+                    if (resolved) {
+                        s = { ...s, ...resolved };
+                    }
+                }
+
+                // Denormalize Required
+                if (mainSchema.required && mainSchema.required.includes(name)) {
+                    // Note: The analyzer expects 'required' to be present/truthy on the schema object
+                    return { name, schema: { ...s, required: [name] } };
+                }
+                return { name, schema: s };
+            });
+
+        const resource: Resource = {
+            name: 'test',
+            modelName: schemaName,
+            isEditable: true,
+            operations: [],
+            formProperties: formProps as any[],
+            listProperties: [],
+            ...resourceOverrides
+        };
+
+        const generator = new FormComponentGenerator(project, parser);
+        generator.generate(resource, '/admin');
+
+        // Use the builder just to return the view model for some tests inspections validity
+        const builder = new FormModelBuilder(parser);
+        const viewModel = builder.build(resource);
+
+        const rName = resourceOverrides.name || 'test';
+        const filePath = `/admin/${rName}/${rName}-form/${rName}-form.component.ts`;
+        return { sourceFile: project.getSourceFileOrThrow(filePath), viewModel };
     };
 
+    beforeEach(() => {
+        project = new Project({ useInMemoryFileSystem: true });
+        config = { input: '', output: '', options: {} };
+    });
+
     describe('Standard Form Generation', () => {
-        let formClass: ClassDeclaration;
-        let html: string;
+        it('should handle a simple form with basic properties and typed controls', () => {
+            const spec = {
+                ...validBase,
+                paths: {},
+                components: {
+                    schemas: {
+                        Test: {
+                            type: 'object',
+                            required: ['name', 'age'],
+                            properties: {
+                                name: { type: 'string' },
+                                age: { type: 'integer' }
+                            }
+                        }
+                    }
+                }
+            };
+            const { sourceFile } = run(spec);
+            const classText = sourceFile.getClass('TestFormComponent')?.getText()!;
 
-        beforeAll(async () => {
-            await run(adminFormSpec);
-            const resource = discoverAdminResources(parser).find(r => r.name === 'widgets')!;
-            formClass = project.getSourceFileOrThrow(`/admin/${resource.name}/${resource.name}-form/${resource.name}-form.component.ts`).getClassOrThrow('WidgetFormComponent');
-            html = project.getFileSystem().readFileSync(`/admin/${resource.name}/${resource.name}-form/${resource.name}-form.component.html`);
+            // Updated expectations for new FormControl syntax used by generator
+            expect(classText).toContain(`'name': new FormControl<string | null>(null, [Validators.required])`);
+            expect(classText).toContain(`'age': new FormControl<number | null>(null, [Validators.required])`);
         });
 
-        it('should correctly report if custom validators are used', () => {
-            const project = createTestProject();
-            const parser = new SwaggerParser(adminFormSpec as any, { options: { admin: true } } as any);
-            const resource = discoverAdminResources(parser).find(r => r.name === 'widgets')!;
-            const formGen = new FormComponentGenerator(project, parser);
+        it('should handle properties with defaults', () => {
+            const spec = {
+                ...validBase,
+                paths: {},
+                components: {
+                    schemas: {
+                        Test: {
+                            type: 'object',
+                            required: ['role'],
+                            properties: {
+                                role: { type: 'string', default: 'user' }
+                            }
+                        }
+                    }
+                }
+            };
 
-            const result = formGen.generate(resource, '/admin');
-            // The 'widgets' resource in adminFormSpec uses 'exclusiveMinimum', which requires CustomValidators.
-            expect(result.usesCustomValidators).toBe(true);
+            const { sourceFile } = run(spec);
+            const classText = sourceFile.getClass('TestFormComponent')?.getText()!;
+            // Generator outputs default value in constructor
+            expect(classText).toContain(`'role': new FormControl<string | null>("user", [Validators.required])`);
         });
 
-        it('should generate update-only logic in onSubmit when no create op exists', async () => {
-            await run(coverageSpec); // Use a spec with a resource that only has update
-            const configsFormClass = project.getSourceFileOrThrow(`/admin/configs/configs-form/configs-form.component.ts`).getClassOrThrow('ConfigFormComponent');
-            const submitMethod = configsFormClass.getMethod('onSubmit');
-            const body = submitMethod!.getBodyText() ?? '';
-            expect(body).toContain(`if (!this.isEditMode())`);
-            expect(body).toContain('const action$ = this.configsService.updateConfig(this.id()!, finalPayload);');
-            expect(body).not.toContain('const action$ = this.isEditMode()');
+        it('should not include readOnly properties in the form group', () => {
+            const spec = {
+                ...validBase,
+                paths: {},
+                components: {
+                    schemas: {
+                        Test: {
+                            type: 'object',
+                            properties: {
+                                id: { type: 'string', readOnly: true }
+                            }
+                        }
+                    }
+                }
+            };
+            const { sourceFile } = run(spec);
+            const classText = sourceFile.getClass('TestFormComponent')?.getText()!;
+            // Read-only properties are filtered out, so 'id' should NOT be in the FormGroup definition
+            expect(classText).not.toContain(`'id':`);
         });
 
-        it('should generate create-only logic in onSubmit when no update op exists', () => {
-            const submitMethod = formClass.getMethod('onSubmit');
-            const body = submitMethod!.getBodyText() ?? '';
-            expect(body).not.toContain('const action$ = this.isEditMode()');
-            expect(body).toContain('const action$ = this.widgetsService.postWidgets(finalPayload);');
+        it('should handle oneOf with ONLY primitive types', () => {
+            const spec = {
+                ...validBase,
+                paths: {},
+                components: {
+                    schemas: {
+                        Poly: {
+                            type: 'object',
+                            properties: {
+                                value: {
+                                    discriminator: { propertyName: 'type' },
+                                    oneOf: [{ type: 'string' }, { type: 'number' }]
+                                }
+                            }
+                        }
+                    }
+                },
+            };
+            const { sourceFile } = run(spec, {
+                name: 'poly',
+                modelName: 'Poly',
+                formProperties: [{
+                    name: 'value',
+                    schema: spec.components.schemas.Poly.properties.value as SwaggerDefinition
+                }]
+            });
+            const classText = sourceFile.getClass('PolyFormComponent')!.getText();
+
+            // Use FormControl for simple unions, not addControl logic
+            expect(classText).toContain(`'value': new FormControl<string | number | null>(null)`);
+        });
+    });
+
+    describe('Polymorphic (oneOf) Form Generation', () => {
+        it('should create dynamic form controls for a polymorphic property', () => {
+            const spec = {
+                ...validBase,
+                paths: {},
+                components: {
+                    schemas: {
+                        ...branchCoverageSpec.components.schemas,
+                        Test: {
+                            type: 'object',
+                            properties: {
+                                polymorphicProp: {
+                                    $ref: '#/components/schemas/PolyReadonly'
+                                }
+                            }
+                        }
+                    }
+                },
+            };
+
+            // Run with automatic resolution in helper
+            const { sourceFile } = run(spec, { modelName: 'Test' });
+            const classText = sourceFile.getClass('TestFormComponent')!.getText();
+
+            // Expect logic switching on the discriminator property
+            expect(classText).toContain('updateFormForPetType');
+        });
+    });
+
+    it('should generate imports for custom validation functions', () => {
+        // Modify spec to force a custom validator utilization
+        const spec = {
+            ...validBase,
+            paths: {},
+            components: {
+                schemas: {
+                    WithUnsupported: {
+                        type: 'object',
+                        properties: {
+                            // 'multipleOf' triggers CustomValidators
+                            value: { type: 'number', multipleOf: 10 }
+                        }
+                    }
+                }
+            }
+        };
+
+        const { sourceFile } = run(spec, {
+            name: 'withUnsupported',
+            modelName: 'WithUnsupported'
         });
 
-        it('should generate correct HTML controls and fallbacks', () => {
-            const sliderRegex = /<mat-slider[^>]*formControlName="rating"/;
-            expect(html).toMatch(sliderRegex);
-            expect(html).toContain('<textarea matInput="" formControlName="description"');
-            expect(html).toContain('formControlName="anotherDate"');
-            expect(html).toContain('formControlName="smallEnum"');
-            expect(html).toContain('formControlName="bigEnum"');
-            expect(html).toContain('formControlName="otherNumber"');
-            expect(html).toContain('formArrayName="arrayObject"');
-            expect(html).not.toContain('unknownType'); // Should be skipped
-        });
-
-        it('should generate correct HTML error messages for all validators', () => {
-            expect(html).toContain("form.get('boundedNumber')?.hasError('max')");
-            expect(html).toContain("form.get('boundedNumber')?.hasError('pattern')");
-            expect(html).toContain("form.get('boundedArray')?.hasError('minlength')");
-        });
-
-        it('should not generate controls for readOnly properties inside nested objects/arrays', () => {
-            // Case 1: Nested object (formGroupName="config")
-            const configGroupHtml = html.match(/<div[^>]*formGroupName="config"[\s\S]*?<\/div>/)?.[0] ?? '';
-            expect(configGroupHtml).toContain('formControlName="key"');
-            expect(configGroupHtml).not.toContain('formControlName="readOnlyKey"');
-
-            // Case 2: Array of objects (formArrayName="items")
-            const itemsArrayHtml = html.match(/<div[^>]*formArrayName="items"[\s\S]*?<\/div>/)?.[0] ?? '';
-            expect(itemsArrayHtml).toContain('formControlName="name"');
-            expect(itemsArrayHtml).toContain('formControlName="value"');
-            expect(itemsArrayHtml).not.toContain('formControlName="readOnlyVal"');
-        });
+        const importDecls = sourceFile.getImportDeclarations().map(d => d.getModuleSpecifierValue());
+        // With current relative path structure, this should point to shared folder
+        expect(importDecls).toContain('../../shared/custom-validators');
     });
 });

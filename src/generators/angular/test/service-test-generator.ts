@@ -120,7 +120,14 @@ export class ServiceTestGenerator {
                 } else {
                     // Generate a primitive value string (e.g., '123' or '"test-id"')
                     const resolvedSchema = this.parser.resolve<SwaggerDefinition>(p.schema);
-                    value = resolvedSchema?.type === 'number' || resolvedSchema?.type === 'integer' ? '123' : `'test-${p.name}'`;
+                    // Fix: Ensure type checking handles undefined resolvedSchema safely
+                    if (resolvedSchema && (resolvedSchema.type === 'number' || resolvedSchema.type === 'integer')) {
+                        value = '123';
+                    } else if (resolvedSchema && resolvedSchema.type === 'boolean') {
+                        value = 'true';
+                    } else {
+                        value = `'test-${p.name}'`;
+                    }
                 }
                 return { name, value, type, modelName };
             });
@@ -180,7 +187,12 @@ export class ServiceTestGenerator {
 
             tests.push(`      const mockResponse${responseModel ? `: ${responseType}` : ''} = ${mockResponseValue};`);
             tests.push(...declareParams());
-            tests.push(`      service.${op.methodName}(${allArgs.join(', ')}).subscribe(response => expect(response).toEqual(mockResponse));`);
+
+            // Use explicit object syntax for subscribe to match stricter test expectations and RxJS best practices
+            tests.push(`      service.${op.methodName}(${allArgs.join(', ')}).subscribe({`);
+            tests.push(`        next: response => expect(response).toEqual(mockResponse),`);
+            tests.push(`        error: err => fail(err)`);
+            tests.push(`      });`);
 
             // Expect HTTP call
             tests.push(`      const req = httpMock.expectOne(\`/api/v1${url}\`);`);

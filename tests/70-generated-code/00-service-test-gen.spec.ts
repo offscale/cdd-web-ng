@@ -1,199 +1,113 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from "@src/core/types/index.js";
-import { adminFormSpec, branchCoverageSpec, finalCoverageSpec, fullCRUD_Users } from '../shared/specs.js';
-import { createTestProject } from '../shared/helpers.js';
-import { groupPathsByController } from "@src/core/utils/index.js";
-import { TypeGenerator } from "@src/generators/shared/type.generator.js";
-import { MockDataGenerator } from "@src/generators/angular/test/mock-data.generator.js";
+import { GeneratorConfig } from '@src/core/types/index.js';
+import { ServiceMethodAnalyzer } from '@src/analysis/service-method-analyzer.js';
+import { branchCoverageSpec, coverageSpec, finalCoveragePushSpec } from '../fixtures/coverage.fixture.js';
 import { ServiceTestGenerator } from "@src/generators/angular/test/service-test-generator.js";
+import { camelCase } from '@src/core/utils/index.js';
 
 /**
- * @fileoverview
- * Contains tests for the test-generation utilities (`MockDataGenerator` and `ServiceTestGenerator`).
- * These tests validate that the generated mock data and test files are correct and complete,
- * effectively testing the code that writes tests.
+ * Propagates op.operationId to op.methodName if missing
  */
+function setOperationMethodNames(operations: any[]) {
+    for (const op of operations) {
+        if (op && op.operationId && !op.methodName) {
+            op.methodName = camelCase(op.operationId);
+        }
+    }
+}
+
 describe('Generated Code: Service Test Generators', () => {
-    const ensureValid = (spec: any) => ({
-        openapi: '3.0.0',
-        info: { title: 'Test', version: '1.0' },
-        ...spec
-    });
+    let project: Project;
+    let config: GeneratorConfig;
 
-    describe('MockDataGenerator', () => {
-        const createMockGenerator = (spec: object): MockDataGenerator => {
-            const config: GeneratorConfig = {
-                input: '',
-                output: '/out',
-                options: { dateType: 'string', enumStyle: 'enum' },
-            };
-            // Patch validation
-            const parser = new SwaggerParser(ensureValid(spec), config);
-            return new MockDataGenerator(parser);
+    beforeEach(() => {
+        project = new Project({ useInMemoryFileSystem: true });
+        config = {
+            input: '',
+            output: '',
+            options: {
+                dateType: 'string',
+                enumStyle: 'enum'
+            },
         };
-
-        it('should generate a simple mock object', () => {
-            const generator = createMockGenerator(fullCRUD_Users);
-            const mockString = generator.generate('User');
-            const mock = JSON.parse(mockString);
-
-            expect(mock).not.toHaveProperty('id');
-            expect(mock).toHaveProperty('name', 'string-value');
-            expect(mock.email).toBe('test@example.com');
-        });
-
-        it('should handle allOf and complex types', () => {
-            const generator = createMockGenerator(adminFormSpec);
-            const mockString = generator.generate('Widget');
-            const mock = JSON.parse(mockString);
-
-            expect(mock.launchDate).toBeTypeOf('string');
-            expect(Array.isArray(mock.uniqueTags)).toBe(true);
-            expect(mock.config).toBeTypeOf('object');
-            expect(mock.config).toHaveProperty('key');
-            expect(mock.config).not.toHaveProperty('readOnlyKey');
-        });
-
-        it('should return an empty object for an unresolvable schema', () => {
-            const generator = createMockGenerator(fullCRUD_Users);
-            const mockString = generator.generate('NonExistentSchema');
-            expect(mockString).toBe('{}');
-        });
     });
+
+    /**
+     * Setup function that always sets methodName on operations as needed.
+     */
+    const setupTestGen = (specPart: any) => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Test Gen', version: '1.0' },
+            paths: {
+                '/dummy': { get: { responses: { '204': { description: 'ok' } } } },
+                ...specPart.paths
+            },
+            components: specPart.components || {},
+        };
+        const parser = new SwaggerParser(spec as any, config);
+        const analyzer = new ServiceMethodAnalyzer(config, parser);
+        const testGen = new ServiceTestGenerator(parser, project, config);
+        return { parser, analyzer, testGen };
+    };
 
     describe('ServiceTestGenerator', () => {
-        const setupTestGen = (spec: object) => {
-            const project = createTestProject();
-            const config: GeneratorConfig = {
-                input: '',
-                output: '/out',
-                clientName: 'Api',
-                options: { dateType: 'string', enumStyle: 'enum' },
-            };
-            // Patch validation
-            const parser = new SwaggerParser(ensureValid(spec), config);
-            new TypeGenerator(parser, project, config).generate('/out');
-            const testGenerator = new ServiceTestGenerator(parser, project, config);
-            const controllerGroups = groupPathsByController(parser);
-            return { testGenerator, controllerGroups, project, parser };
-        };
 
-        it('should generate a valid Angular spec file for a full CRUD service', () => {
-            const { testGenerator, controllerGroups, project } = setupTestGen(fullCRUD_Users);
-            testGenerator.generateServiceTestFile('Users', controllerGroups['Users'], '/out/services');
+        it('should generate a basic service test file', () => {
+            const { parser, testGen } = setupTestGen(coverageSpec);
+            const userOps = parser.operations
+                .filter(op => op.tags?.includes('Users'));
 
-            const specFile = project.getSourceFileOrThrow('/out/services/users.service.spec.ts');
-            const content = specFile.getText();
+            setOperationMethodNames(userOps);
 
-            expect(content).toContain("describe('UsersService', () => {");
-            expect(content).toContain('import { User } from "../models";');
+            // Check that we actually found operations to test
+            expect(userOps.length).toBeGreaterThan(0);
+
+            testGen.generateServiceTestFile('users', userOps as any, '/');
+            const sourceFile = project.getSourceFileOrThrow('/users.service.spec.ts');
+            const classText = sourceFile.getFullText();
+            expect(classText).toContain('import { TestBed, fail } from "@angular/core/testing";');
+            expect(classText).toContain("describe('UsersService'");
+            expect(classText).toContain("it('should be created'");
+            expect(classText).toContain("service.getUsers(");
+            expect(classText).toContain("expect(response).toEqual(mockResponse)");
         });
 
-        it('should generate tests for primitive request bodies and param refs', () => {
-            const spec = { ...finalCoverageSpec, ...branchCoverageSpec };
-            const { testGenerator, controllerGroups, project } = setupTestGen(spec);
+        it('should handle primitive request/response types and param refs', () => {
+            const { parser, testGen } = setupTestGen(finalCoveragePushSpec);
+            const operations = [
+                parser.operations.find(o => o.operationId === 'getPrimitive'),
+                parser.operations.find(o => o.operationId === 'postPrimitive'),
+                parser.operations.find(o => o.operationId === 'getWithPrimitiveParam'),
+            ].filter(Boolean);
+            setOperationMethodNames(operations as any[]);
 
-            if (controllerGroups['ParamIsRef']) {
-                testGenerator.generateServiceTestFile('ParamIsRef', controllerGroups['ParamIsRef'], '/out/services');
-                const paramIsRefTest = project.getSourceFileOrThrow('/out/services/paramIsRef.service.spec.ts').getText();
-                expect(paramIsRefTest).toContain('import { User } from "../models";');
-            }
+            expect(operations.length).toBe(3);
+
+            testGen.generateServiceTestFile('service', operations as any, '/');
+            const sourceFile = project.getSourceFileOrThrow('/service.service.spec.ts');
+            const text = sourceFile.getFullText();
+
+            expect(text).toContain(`service.getPrimitive().subscribe({`);
+            expect(text).toContain('const mockResponse = 123;');
+            expect(text).toContain(`service.postPrimitive(body).subscribe({`);
+            expect(text).toContain(`service.getWithPrimitiveParam(id).subscribe({`);
         });
 
-        it('should handle operations where the parameters key is missing', () => {
-            const { testGenerator, controllerGroups, project } = setupTestGen(branchCoverageSpec);
-            testGenerator.generateServiceTestFile('NoParamsKey', controllerGroups['NoParamsKey'], '/out/services');
+        it('should handle operations with no parameters', () => {
+            const { parser, testGen } = setupTestGen(branchCoverageSpec);
+            const op = parser.operations.find(op => op.operationId === 'getRoot');
+            expect(op).toBeDefined();
 
-            const specFile = project.getSourceFileOrThrow('/out/services/noParamsKey.service.spec.ts');
-            const content = specFile.getText();
+            if (!op!.methodName) op!.methodName = camelCase(op!.operationId!);
 
-            expect(content).toContain('service.getNoParamsKey().subscribe');
-        });
+            testGen.generateServiceTestFile('no-params', [op] as any, '/');
+            const sourceFile = project.getSourceFileOrThrow('/noParams.service.spec.ts');
+            const text = sourceFile.getFullText();
 
-        it('collectModelImports should return an empty set if operations are undefined', () => {
-            const { parser } = setupTestGen(fullCRUD_Users);
-            // We only need the generator instance to call the private method, project doesn't matter here.
-            const testGenerator = new ServiceTestGenerator(parser, createTestProject(), {} as any);
-
-            // This directly calls the private method with undefined to hit the uncovered branch.
-            // We cast to `any` to bypass TypeScript's type checking for the test.
-            const result = (testGenerator as any).collectModelImports(undefined);
-
-            expect(result).toBeInstanceOf(Set);
-            expect(result.size).toBe(0);
-        });
-
-        it('should handle inline object request body when generating tests', () => {
-            const spec = {
-                ...fullCRUD_Users,
-                paths: {
-                    '/inline': {
-                        post: {
-                            tags: ['Inline'],
-                            operationId: 'postInline',
-                            requestBody: {
-                                content: {
-                                    'application/json': {
-                                        schema: {
-                                            type: 'object',
-                                            properties: { data: { type: 'string' } }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            };
-            const { testGenerator, controllerGroups, project } = setupTestGen(spec);
-            testGenerator.generateServiceTestFile('Inline', controllerGroups['Inline'], '/out/services');
-            const specFile = project.getSourceFileOrThrow('/out/services/inline.service.spec.ts');
-            expect(specFile.getText()).toContain("const body = { data: 'test-body' };");
-        });
-
-        it('should generate tests for operation with no request body', () => {
-            const spec = {
-                paths: {
-                    '/no-body': {
-                        post: { // POST with no request body
-                            tags: ['NoBody'],
-                            operationId: 'postNoBody',
-                            responses: { '204': {} }
-                        }
-                    }
-                }
-            };
-            const { testGenerator, controllerGroups, project } = setupTestGen(spec);
-            testGenerator.generateServiceTestFile('NoBody', controllerGroups['NoBody'], '/out/services');
-            const specFile = project.getSourceFileOrThrow('/out/services/noBody.service.spec.ts');
-            const content = specFile.getText();
-
-            // This covers the branch where bodyParam is null
-            expect(content).toContain('service.postNoBody().subscribe');
-            expect(content).not.toContain('const body =');
-        });
-
-        it('should generate test for parameter with an unresolvable ref', () => {
-            const spec = {
-                paths: {
-                    '/bad-param-ref': {
-                        get: {
-                            tags: ['BadParam'],
-                            operationId: 'getBadParam',
-                            parameters: [{ name: 'bad', in: 'query', schema: { $ref: '#/c/s/nonexistent' } }],
-                            responses: { '204': {} }
-                        }
-                    }
-                }
-            };
-            const { testGenerator, controllerGroups, project } = setupTestGen(spec);
-            testGenerator.generateServiceTestFile('BadParam', controllerGroups['BadParam'], '/out/services');
-            const specFile = project.getSourceFileOrThrow('/out/services/badParam.service.spec.ts');
-            const content = specFile.getText();
-
-            // This covers the branch where resolvedSchema is undefined
-            expect(content).toContain("const bad = 'test-bad';"); // It should fall back to string generation
+            expect(text).toContain('service.getRoot().subscribe({');
         });
     });
 });

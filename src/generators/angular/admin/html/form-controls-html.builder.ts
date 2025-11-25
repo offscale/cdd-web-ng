@@ -74,7 +74,8 @@ export function buildFormControl(control: FormControlModel): HtmlElementBuilder 
             if (control.schema.format === 'textarea') return createTextarea(control, labelText);
             if (control.schema.enum) return control.schema.enum.length > 4 ? createSelect(control, labelText, `${camelCase(control.name)}Options`, false) : createRadio(control, labelText, `${camelCase(control.name)}Options`);
             return createInput(control, labelText, 'text');
-        case 'boolean': return createToggle(control, labelText);
+        case 'boolean':
+            return createToggle(control, labelText);
         case 'integer':
         case 'number':
             if (control.schema.minimum !== undefined && control.schema.maximum !== undefined && !control.schema.exclusiveMinimum && !control.schema.exclusiveMaximum) {
@@ -86,8 +87,10 @@ export function buildFormControl(control: FormControlModel): HtmlElementBuilder 
             if (items?.enum) return createSelect(control, labelText, `${camelCase(control.name)}Options`, true);
             else if (items?.properties || items?.type === 'object') return createFormArray(control, labelText);
             return createChips(control, labelText);
-        case 'object': return control.nestedControls ? createFormGroup(control) : null;
-        default: return null;
+        case 'object':
+            return control.nestedControls ? createFormGroup(control) : null;
+        default:
+            return null;
     }
 }
 

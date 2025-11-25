@@ -25,10 +25,30 @@ export class HttpParamsBuilderGenerator {
             implements: ["HttpParameterCodec"],
             docs: ["A custom parameter codec that disables Angular's default encoding, delegating control to the HttpParamsBuilder."],
             methods: [
-                { name: "encodeKey", parameters: [{ name: "key", type: "string" }], returnType: "string", statements: "return key;" },
-                { name: "encodeValue", parameters: [{ name: "value", type: "string" }], returnType: "string", statements: "return value;" },
-                { name: "decodeKey", parameters: [{ name: "key", type: "string" }], returnType: "string", statements: "return decodeURIComponent(key);" },
-                { name: "decodeValue", parameters: [{ name: "value", type: "string" }], returnType: "string", statements: "return decodeURIComponent(value);" }
+                {
+                    name: "encodeKey",
+                    parameters: [{ name: "key", type: "string" }],
+                    returnType: "string",
+                    statements: "return key;"
+                },
+                {
+                    name: "encodeValue",
+                    parameters: [{ name: "value", type: "string" }],
+                    returnType: "string",
+                    statements: "return value;"
+                },
+                {
+                    name: "decodeKey",
+                    parameters: [{ name: "key", type: "string" }],
+                    returnType: "string",
+                    statements: "return decodeURIComponent(key);"
+                },
+                {
+                    name: "decodeValue",
+                    parameters: [{ name: "value", type: "string" }],
+                    returnType: "string",
+                    statements: "return decodeURIComponent(value);"
+                }
             ]
         });
 

@@ -7,7 +7,8 @@ type JsonSchemaType = 'object' | 'array' | 'string' | 'number' | 'integer' | 'bo
  * Generates mock JSON strings for Service tests.
  */
 export class MockDataGenerator {
-    constructor(private parser: SwaggerParser) {}
+    constructor(private parser: SwaggerParser) {
+    }
 
     public generate(schemaName: string): string {
         const schemaDef = this.parser.schemas.find(s => s.name === schemaName)?.definition;

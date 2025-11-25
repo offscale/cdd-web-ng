@@ -47,7 +47,9 @@ class MockHttpParams {
     }
 
     // Helper to check raw map content (simulating what's sent on wire)
-    get(key: string) { return this.map.get(key)?.[0] || null; }
+    get(key: string) {
+        return this.map.get(key)?.[0] || null;
+    }
 }
 
 function getBuilderContext() {
@@ -109,7 +111,11 @@ describe('Utility: HttpParamsBuilder', () => {
         it('should handle JSON serialization with allowReserved=true', () => {
             const params = createParams();
             const val = { id: 'a/b' };
-            const res = Builder.serializeQueryParam(params, { name: 'q', allowReserved: true, serialization: 'json' }, val);
+            const res = Builder.serializeQueryParam(params, {
+                name: 'q',
+                allowReserved: true,
+                serialization: 'json'
+            }, val);
 
             const encoded = res.get('q');
             expect(encoded).toContain('%7B'); // {

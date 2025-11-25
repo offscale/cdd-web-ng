@@ -1,14 +1,5 @@
-import {
-    GeneratorConfig,
-    Parameter,
-    PathInfo,
-    SwaggerDefinition
-} from '@src/core/types/index.js';
-import {
-    camelCase,
-    getTypeScriptType,
-    isDataTypeInterface
-} from '@src/core/utils/index.js';
+import { GeneratorConfig, Parameter, PathInfo, SwaggerDefinition } from '@src/core/types/index.js';
+import { camelCase, getTypeScriptType, isDataTypeInterface } from '@src/core/utils/index.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { OptionalKind, ParameterDeclarationStructure } from 'ts-morph';
 import { BodyVariant, ParamSerialization, ServiceMethodModel } from './service-method-types.js';
@@ -17,7 +8,8 @@ export class ServiceMethodAnalyzer {
     constructor(
         private config: GeneratorConfig,
         private parser: SwaggerParser
-    ) {}
+    ) {
+    }
 
     public analyze(operation: PathInfo): ServiceMethodModel | null {
         if (!operation.methodName) return null;
@@ -34,23 +26,31 @@ export class ServiceMethodAnalyzer {
         // Distribute parameters into their serialization buckets
         (operation.parameters || []).forEach(p => {
             const paramName = camelCase(p.name);
-            // Check if this parameter is actually the body (sometimes tagged poorly in OAS2)
-            // But typically parameters array items are distinct from requestBody logic in OAS3
             const serialization: ParamSerialization = {
                 paramName: this.isXmlContent(p) ? `${paramName}Serialized` : paramName,
                 originalName: p.name,
                 explode: p.explode ?? (p.in === 'cookie' ? true : false), // Cookie default explode is true
                 allowReserved: p.allowReserved ?? false,
                 serializationLink: this.isJsonContent(p) ? 'json' : undefined,
-                ...(p.style != null && {style: p.style})
+                ...(p.style != null && { style: p.style })
             };
 
             switch (p.in) {
-                case 'path': pathParams.push(serialization); break;
-                case 'query': queryParams.push(serialization); break;
-                case 'header': headerParams.push(serialization); break;
-                case 'cookie': cookieParams.push(serialization); break;
-                case 'querystring' as any: queryParams.push(serialization); break; // Internal mapping
+                case 'path':
+                    pathParams.push(serialization);
+                    break;
+                case 'query':
+                    queryParams.push(serialization);
+                    break;
+                case 'header':
+                    headerParams.push(serialization);
+                    break;
+                case 'cookie':
+                    cookieParams.push(serialization);
+                    break;
+                case 'querystring' as any:
+                    queryParams.push(serialization);
+                    break; // Internal mapping
             }
         });
 
@@ -141,7 +141,7 @@ export class ServiceMethodAnalyzer {
                 name: camelCase(param.name),
                 type: paramType,
                 hasQuestionToken: !param.required,
-                ...(param.deprecated && {leadingTrivia: [`/** @deprecated */ `]})
+                ...(param.deprecated && { leadingTrivia: [`/** @deprecated */ `] })
             });
         });
 
@@ -172,6 +172,7 @@ export class ServiceMethodAnalyzer {
                 const bodyName = isDataTypeInterface(rawBodyType) ? camelCase(rawBodyType) : 'body';
                 parameters.push({ name: bodyName, type: bodyType, hasQuestionToken: !requestBody.required });
             } else {
+                // FIX: Use 'unknown' instead of 'any' for bodies without schemas, matching test expectations
                 parameters.push({ name: 'body', type: 'unknown', hasQuestionToken: !requestBody.required });
             }
         }
@@ -189,17 +190,15 @@ export class ServiceMethodAnalyzer {
         if (formDataParams && formDataParams.length > 0) {
             const isMulti = operation.consumes?.includes('multipart/form-data');
             if (isMulti) {
-                // Native form data append loop will be generated
-                return { type: 'encoded-form-data', paramName: 'formData', mappings: [] }; // Simplified for now, generator handles loop logic based on type
+                return { type: 'encoded-form-data', paramName: 'formData', mappings: [] };
             } else {
-                // URLEncoded loop
                 return { type: 'encoded-form-data', paramName: 'formBody', mappings: [] };
             }
         }
 
-        if (!bodyParamDef) return undefined; // No body param found
+        if (!bodyParamDef) return undefined;
 
-        const bodyParamName = bodyParamDef.name;
+        const bodyParamName = bodyParamDef.name!;
         const rb = operation.requestBody;
         if (!rb || !rb.content) return { type: 'raw', paramName: bodyParamName };
 

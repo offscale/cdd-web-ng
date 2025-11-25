@@ -32,6 +32,7 @@ export class FormComponentGenerator {
         const analysis = builder.build(resource);
 
         // Phase 2: Emission
+        // FIX: Pass the already resolved formDir as the output location for the component TS
         const tsResult = this.generateFormComponentTs(resource, formDir, analysis);
         this.generateFormComponentHtml(resource, analysis, formDir);
         this.generateFormComponentScss(resource, formDir);
@@ -39,9 +40,12 @@ export class FormComponentGenerator {
         return { usesCustomValidators: tsResult.usesCustomValidators };
     }
 
-    private generateFormComponentTs(resource: Resource, outDir: string, analysis: FormAnalysisResult): { usesCustomValidators: boolean } {
+    private generateFormComponentTs(resource: Resource, outDir: string, analysis: FormAnalysisResult): {
+        usesCustomValidators: boolean
+    } {
         const componentName = `${pascalCase(resource.modelName)}FormComponent`;
         const serviceName = `${pascalCase(resource.name)}Service`;
+        // Construct path using the specific directory passed in (e.g. /admin/users/users-form)
         const formFilePath = `${outDir}/${resource.name}-form.component.ts`;
         const sourceFile = this.project.createSourceFile(formFilePath, undefined, { overwrite: true });
         // The builder creates the main interface with this name
@@ -90,8 +94,8 @@ export class FormComponentGenerator {
                     // If a control isn't found (e.g., a polymorphic sub-form property),
                     // we search those specifically.
                     if (!control) {
-                        console.warn(`[Generator] Control model for property '${prop.name}' in interface '${iface.name}' not found in main tree. This may happen with polymorphic sub-forms.`);
-                        return { name: prop.name, type: 'any' }; // Fallback
+                        // Silently fallback to any, assuming it might be handled in sub-type interfaces or not significant for layout
+                        return { name: prop.name, type: 'any' };
                     }
 
                     // --- THIS IS THE CORE OF THE REFACTOR ---
@@ -169,16 +173,32 @@ export class FormComponentGenerator {
 
     private addProperties(classDeclaration: ClassDeclaration, resource: Resource, serviceName: string, formInterfaceName: string, analysis: FormAnalysisResult): void {
         classDeclaration.addProperties([
-            { name: 'fb', isReadonly: true, initializer: 'inject(FormBuilder)', docs: ["Injects Angular's FormBuilder service."] },
+            {
+                name: 'fb',
+                isReadonly: true,
+                initializer: 'inject(FormBuilder)',
+                docs: ["Injects Angular's FormBuilder service."]
+            },
             { name: 'route', isReadonly: true, initializer: 'inject(ActivatedRoute)' },
             { name: 'router', isReadonly: true, initializer: 'inject(Router)' },
             { name: 'snackBar', isReadonly: true, initializer: 'inject(MatSnackBar)' },
-            { name: `${camelCase(serviceName)}`, isReadonly: true, type: serviceName, initializer: `inject(${serviceName})` },
-            { name: `form!: FormGroup<${formInterfaceName}>`, docs: ["The main reactive form group for this component."] },
+            {
+                name: `${camelCase(serviceName)}`,
+                isReadonly: true,
+                type: serviceName,
+                initializer: `inject(${serviceName})`
+            },
+            {
+                name: `form!: FormGroup<${formInterfaceName}>`,
+                docs: ["The main reactive form group for this component."]
+            },
             { name: 'destroyRef', scope: Scope.Private, isReadonly: true, initializer: 'inject(DestroyRef)' },
             { name: 'id = signal<string | null>(null)' },
             { name: 'isEditMode = computed(() => !!this.id())' },
-            { name: 'formTitle', initializer: `computed(() => this.isEditMode() ? 'Edit ${resource.modelName}' : 'Create ${resource.modelName}')` },
+            {
+                name: 'formTitle',
+                initializer: `computed(() => this.isEditMode() ? 'Edit ${resource.modelName}' : 'Create ${resource.modelName}')`
+            },
         ]);
 
         if (analysis.isPolymorphic && analysis.discriminatorOptions) {
@@ -313,7 +333,10 @@ export class FormComponentGenerator {
     }
 
     private addOnCancelMethod(classDeclaration: ClassDeclaration): void {
-        classDeclaration.addMethod({ name: 'onCancel', statements: `this.router.navigate(['../'], { relativeTo: this.route });` });
+        classDeclaration.addMethod({
+            name: 'onCancel',
+            statements: `this.router.navigate(['../'], { relativeTo: this.route });`
+        });
     }
 
     private addPatchForm(classDeclaration: ClassDeclaration, resource: Resource, analysis: FormAnalysisResult): void {

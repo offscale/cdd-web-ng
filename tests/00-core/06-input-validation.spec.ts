@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateSpec, SpecValidationError } from '@src/core/validator.js'; // Assuming exported
+import { SpecValidationError, validateSpec } from '@src/core/validator.js'; // Assuming exported
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from "@src/core/types/index.js";
 

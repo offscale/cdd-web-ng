@@ -4,6 +4,7 @@ import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from "@src/core/types/index.js";
 import { MainIndexGenerator, ServiceIndexGenerator } from '@src/generators/angular/utils/index.generator.js';
 import { emptySpec, securitySpec } from '../shared/specs.js';
+import { createTestProject } from '../shared/helpers.js';
 
 describe('Emitter: IndexGenerators', () => {
     describe('MainIndexGenerator', () => {
@@ -48,6 +49,18 @@ describe('Emitter: IndexGenerators', () => {
 
             const withoutAuth = runGenerator(emptySpec, { generateServices: true });
             expect(withoutAuth).not.toContain(`export * from "./auth/auth.tokens";`);
+        });
+
+        it('should handle missing services dir when generateServices is false', () => {
+            const project = createTestProject();
+            const config: GeneratorConfig = {
+                output: '/',
+                options: { framework: 'angular', generateServices: false }
+            } as any;
+            const parser = new SwaggerParser(emptySpec as any, config);
+            new MainIndexGenerator(project, parser.config, parser).generateMainIndex('/');
+            const content = project.getSourceFileOrThrow('/index.ts').getText();
+            expect(content).not.toContain('export * from "./services"');
         });
     });
 

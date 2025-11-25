@@ -40,10 +40,14 @@ export class ListComponentGenerator {
         if (lowerAction.includes('edit') || lowerAction.includes('update')) return 'edit';
 
         switch (kind) {
-            case 'constructive': return 'add';
-            case 'destructive': return 'delete';
-            case 'state-change': return 'sync';
-            case 'navigation': return 'arrow_forward';
+            case 'constructive':
+                return 'add';
+            case 'destructive':
+                return 'delete';
+            case 'state-change':
+                return 'sync';
+            case 'navigation':
+                return 'arrow_forward';
             case 'default':
             default:
                 return 'play_arrow';

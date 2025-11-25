@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig, InfoObject, TagObject, ServerObject } from "@src/core/types/index.js";
+import { GeneratorConfig, InfoObject, ServerObject, TagObject } from "@src/core/types/index.js";
 import { extractPaths } from "@src/core/utils/index.js";
 
 /**
@@ -101,7 +101,7 @@ describe('Core: Specification Extensions', () => {
 
     it('should propagate operation x- properties to PathInfo via extractPaths', () => {
         const pathInfoList = extractPaths(specWithExtensions.paths as any);
-        const op = pathInfoList.find(p => p.path ===('/users') && p.method === 'GET');
+        const op = pathInfoList.find(p => p.path === ('/users') && p.method === 'GET');
 
         expect(op).toBeDefined();
         expect(op!['x-query-complexity']).toBe('medium');
@@ -109,7 +109,7 @@ describe('Core: Specification Extensions', () => {
 
     it('should propagate parameter x- properties via extractPaths', () => {
         const pathInfoList = extractPaths(specWithExtensions.paths as any);
-        const op = pathInfoList.find(p => p.path ===('/users') && p.method === 'GET');
+        const op = pathInfoList.find(p => p.path === ('/users') && p.method === 'GET');
         const param = op!.parameters!.find(p => p.name === 'limit');
 
         expect(param).toBeDefined();

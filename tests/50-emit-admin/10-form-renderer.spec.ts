@@ -1,13 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { FormInitializerRenderer } from '@src/generators/angular/admin/form.renderer.js';
-import { ValidationRule } from '@src/analysis/validation-types.js';
-import { FormControlModel } from '@src/analysis/form-types.js';
-
 // HACK: To test the inner class, we temporarily expose it for the test. This is better than __get__.
 // In form.renderer.ts, change `class ValidationRenderer` to `export class ValidationRenderer`.
 // Then, this test can import it directly. This is a common pattern for testing "private" helpers.
 // For this response, I'll assume it's exported for testing purposes. Let's modify the renderer to do that.
-import { ValidationRenderer } from '@src/generators/angular/admin/form.renderer.js';
+import { FormInitializerRenderer, ValidationRenderer } from '@src/generators/angular/admin/form.renderer.js';
+import { ValidationRule } from '@src/analysis/validation-types.js';
+import { FormControlModel } from '@src/analysis/form-types.js';
 
 describe('Admin: FormRenderer', () => {
 

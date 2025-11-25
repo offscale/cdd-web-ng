@@ -49,7 +49,15 @@ const formGenCoverageSpec = {
                 tags: ['NoSubmit'],
                 responses: { '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/NoSubmit' } } } } }
             },
-            delete: { tags: ['NoSubmit'], parameters: [{ name: 'id', in: 'path' }], responses: { '204': {} } }, // isEditable = true
+            delete: { tags: ['NoSubmit'], parameters: [{ name: 'id', in: 'path' }], responses: { '204': {} } }, // isEditable = true if we add custom action
+        },
+        '/no-submit/{id}/custom': {
+            post: {
+                tags: ['NoSubmit'],
+                operationId: 'customAction',
+                parameters: [{ name: 'id', in: 'path' }],
+                responses: { '200': {} }
+            }
         },
         '/simple-form/{id}': {
             get: {

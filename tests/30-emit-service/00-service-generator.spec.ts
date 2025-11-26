@@ -7,7 +7,8 @@ import { branchCoverageSpec, coverageSpec, fullCRUD_Users } from '../shared/spec
 import { groupPathsByController } from "@src/core/utils/index.js";
 import { TypeGenerator } from "@src/generators/shared/type.generator.js";
 import { TokenGenerator } from '@src/generators/angular/utils/token.generator.js';
-import { HttpParamsBuilderGenerator } from '@src/generators/angular/utils/http-params-builder.generator.js';
+// Using ParameterSerializerGenerator instead of HttpParamsBuilderGenerator
+import { ParameterSerializerGenerator } from '@src/generators/shared/parameter-serializer.generator.js';
 import { AuthTokensGenerator } from '@src/generators/angular/utils/auth-tokens.generator.js';
 
 describe('Generators (Angular): ServiceGenerator', () => {
@@ -29,14 +30,14 @@ describe('Generators (Angular): ServiceGenerator', () => {
 
         new TypeGenerator(parser, project, config).generate('/out');
         new TokenGenerator(project, config.clientName).generate('/out');
-        new HttpParamsBuilderGenerator(project).generate('/out');
+        new ParameterSerializerGenerator(project).generate('/out');
         new AuthTokensGenerator(project).generate('/out');
 
         const serviceGen = new ServiceGenerator(parser, project, config);
         const controllerGroups = groupPathsByController(parser);
-        for (const [name, operations] of Object.entries(controllerGroups)) {
-            serviceGen.generateServiceFile(name, operations, '/out/services');
-        }
+
+        // Using the new bulk generate method
+        serviceGen.generate('/out/services', controllerGroups);
 
         return project;
     };
@@ -48,7 +49,8 @@ describe('Generators (Angular): ServiceGenerator', () => {
         const body = method.getBodyText() ?? '';
 
         expect(body).toContain("const basePath = this.basePath;");
-        expect(body).toContain("const url = `${basePath}/users/${HttpParamsBuilder.serializePathParam('id', id, 'simple', false, false)}`;");
+        // Updated expectation: ParameterSerializer
+        expect(body).toContain("const url = `${basePath}/users/${ParameterSerializer.serializePathParam('id', id, 'simple', false, false)}`;");
         // Expect generic call now
         expect(body).toContain("return this.http.put<any>(url, user, requestOptions as any);");
         expect(body).not.toContain("finalOptions.body = user;");

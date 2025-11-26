@@ -5,11 +5,12 @@ import { GeneratorConfig, PathInfo } from "@src/core/types/index.js";
 import { finalCoveragePushSpec, finalCoverageSpec } from '../fixtures/coverage.fixture.js';
 import { TypeGenerator } from "@src/generators/shared/type.generator.js";
 import { ServiceMethodGenerator } from "@src/generators/angular/service/service-method.generator.js";
-import { HttpParamsBuilderGenerator } from "@src/generators/angular/utils/http-params-builder.generator.js";
+import { ParameterSerializerGenerator } from "@src/generators/shared/parameter-serializer.generator.js";
 import { XmlBuilderGenerator } from "@src/generators/shared/xml-builder.generator.js";
 
 const specBodyTests = {
     openapi: '3.0.0',
+    // ... (Keep spec definitions same as original)
     info: { title: 'Body Tests', version: '1.0' },
     paths: {
         '/multipart-encoding': {
@@ -157,7 +158,7 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
 
         const parser = new SwaggerParser(fullSpec as any, config);
         new TypeGenerator(parser, project, config).generate('/out');
-        new HttpParamsBuilderGenerator(project).generate('/out');
+        new ParameterSerializerGenerator(project).generate('/out');
         new XmlBuilderGenerator(project).generate('/out');
 
         const methodGen = new ServiceMethodGenerator(config, parser);
@@ -193,10 +194,8 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
         const body = serviceClass.getMethodOrThrow('postXml').getBodyText()!;
         expect(body).toContain(`const xmlBody = XmlBuilder.serialize(body, 'RequestRoot',`);
 
-        // Adjusted check to be flexible about property order or default props injected by getXmlConfig
         expect(body).toContain(`"id":`);
         expect(body).toContain(`"attribute":true`);
-        // Expect generic call
         expect(body).toContain(`return this.http.post<any>(url, xmlBody`);
     });
 
@@ -231,7 +230,12 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
         methodGen.addServiceMethod(serviceClass, op);
 
         const body = serviceClass.getMethodOrThrow('postUrlEncoded').getBodyText()!;
-        expect(body).toContain('const formBody = HttpParamsBuilder.serializeUrlEncodedBody(body, {"tags":{"style":"spaceDelimited","explode":false}});');
+
+        // Update: ParameterSerializer calls and iteration
+        expect(body).toContain('const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(body, {"tags":{"style":"spaceDelimited","explode":false}});');
+        expect(body).toContain('let formBody = new HttpParams({ encoder: new ApiParameterCodec() });');
+        expect(body).toContain('urlParamEntries.forEach(entry => formBody = formBody.append(entry.key, entry.value));');
+
         // Expect generic call
         expect(body).toContain('return this.http.post<any>(url, formBody, requestOptions as any);');
     });
@@ -288,8 +292,9 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
 
         const body = serviceClass.getMethodOrThrow('postUrlencodedNoParams').getBodyText()!;
         expect(body).toContain(
-            "const formBody = HttpParamsBuilder.serializeUrlEncodedBody(body, {});",
+            "const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(body, {});",
         );
+        expect(body).toContain('let formBody = new HttpParams({ encoder: new ApiParameterCodec() });');
         // Expect generic call
         expect(body).toContain('return this.http.post<any>(url, formBody, requestOptions as any);');
     });

@@ -4,9 +4,11 @@ import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig, PathInfo } from "@src/core/types/index.js";
 import { ServiceMethodGenerator } from "@src/generators/angular/service/service-method.generator.js";
 import { TypeGenerator } from "@src/generators/shared/type.generator.js";
+import { ParameterSerializerGenerator } from "@src/generators/shared/parameter-serializer.generator.js";
 
 const encodedContentSpec = {
     openapi: '3.1.0',
+    // ... (Keep spec as is)
     info: { title: 'Encoded Content Test', version: '1.0' },
     components: {
         schemas: {
@@ -104,6 +106,7 @@ describe('Emitter: ServiceMethodGenerator (Auto Decoding & Encoding)', () => {
         const parser = new SwaggerParser(encodedContentSpec as any, config);
 
         new TypeGenerator(parser, project, config).generate('/out');
+        new ParameterSerializerGenerator(project).generate('/out');
 
         const methodGen = new ServiceMethodGenerator(config, parser);
         const sourceFile = project.createSourceFile('/out/service.ts');
@@ -209,7 +212,7 @@ describe('Emitter: ServiceMethodGenerator (Auto Decoding & Encoding)', () => {
         // Verify custom serialization hint "json" is passed to the builder call.
         // We check subsets of string to avoid failures on optional property ordering/presence like 'style' vs exploded defaults.
         expect(body).toContain('"serialization":"json"');
-        expect(body).toContain('HttpParamsBuilder.serializeQueryParam(params, {');
+        expect(body).toContain('ParameterSerializer.serializeQueryParam('); // New generic call
         expect(body).toContain('"name":"filter"');
     });
 });

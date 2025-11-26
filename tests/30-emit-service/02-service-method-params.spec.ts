@@ -4,10 +4,11 @@ import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig, PathInfo } from "@src/core/types/index.js";
 import { TypeGenerator } from "@src/generators/shared/type.generator.js";
 import { ServiceMethodGenerator } from "@src/generators/angular/service/service-method.generator.js";
-import { HttpParamsBuilderGenerator } from "@src/generators/angular/utils/http-params-builder.generator.js";
+import { ParameterSerializerGenerator } from "@src/generators/shared/parameter-serializer.generator.js";
 
 const specParamTests = {
     openapi: '3.0.0',
+    // ... (Existing Spec)
     info: { title: 'Param Tests', version: '1.0' },
     paths: {
         '/xml-params/{xmlId}': {
@@ -115,7 +116,7 @@ describe('Emitter: ServiceMethodGenerator (Parameters)', () => {
         };
         const parser = new SwaggerParser(spec as any, config);
         new TypeGenerator(parser, project, config).generate('/out');
-        new HttpParamsBuilderGenerator(project).generate('/out');
+        new ParameterSerializerGenerator(project).generate('/out');
 
         const methodGen = new ServiceMethodGenerator(config, parser);
         const sourceFile = project.createSourceFile('/out/tmp.service.ts');
@@ -205,13 +206,13 @@ describe('Emitter: ServiceMethodGenerator (Parameters)', () => {
         const body = serviceClass.getMethodOrThrow('getWithCookieDefaults').getBodyText()!;
 
         // Default cookie (implicit style: form) should be explode: true, allowReserved: false (last arg)
-        expect(body).toContain("HttpParamsBuilder.serializeCookieParam('default_cookie', defaultCookie, 'form', true, false");
+        expect(body).toContain("ParameterSerializer.serializeCookieParam('default_cookie', defaultCookie, 'form', true, false");
 
         // Explicit simple style should be explode: false, allowReserved: false
-        expect(body).toContain("HttpParamsBuilder.serializeCookieParam('simple_cookie', simpleCookie, 'simple', false, false");
+        expect(body).toContain("ParameterSerializer.serializeCookieParam('simple_cookie', simpleCookie, 'simple', false, false");
 
         // allowReserved explicitly true matching allowReserved parameter
-        expect(body).toContain("HttpParamsBuilder.serializeCookieParam('reserved_cookie', reservedCookie, 'form', true, true");
+        expect(body).toContain("ParameterSerializer.serializeCookieParam('reserved_cookie', reservedCookie, 'form', true, true");
     });
 
     it('should generate logic for in: "querystring" parameters', () => {
@@ -223,7 +224,7 @@ describe('Emitter: ServiceMethodGenerator (Parameters)', () => {
 
         methodGen.addServiceMethod(serviceClass, op);
         const body = serviceClass.getMethodOrThrow('getWithQuerystring').getBodyText()!;
-        expect(body).toContain("const queryString = HttpParamsBuilder.serializeRawQuerystring(filter, 'json');");
+        expect(body).toContain("const queryString = ParameterSerializer.serializeRawQuerystring(filter, 'json');");
         expect(body).toContain("const url = `${basePath}/query-string${queryString ? '?' + queryString : ''}`;");
     });
 
@@ -236,7 +237,7 @@ describe('Emitter: ServiceMethodGenerator (Parameters)', () => {
 
         methodGen.addServiceMethod(serviceClass, op);
         const body = serviceClass.getMethodOrThrow('search').getBodyText()!;
-        expect(body).toContain("HttpParamsBuilder.serializePathParam('filter', filter, 'simple', false, false, 'json')");
+        expect(body).toContain("ParameterSerializer.serializePathParam('filter', filter, 'simple', false, false, 'json')");
     });
 
     it('should generate correct builder call with "json" hint for header params with content', () => {
@@ -248,6 +249,6 @@ describe('Emitter: ServiceMethodGenerator (Parameters)', () => {
 
         methodGen.addServiceMethod(serviceClass, op);
         const body = serviceClass.getMethodOrThrow('getInfo').getBodyText()!;
-        expect(body).toContain("HttpParamsBuilder.serializeHeaderParam('X-Meta', xMeta, false, 'json')");
+        expect(body).toContain("ParameterSerializer.serializeHeaderParam(xMeta, false, 'json')");
     });
 });

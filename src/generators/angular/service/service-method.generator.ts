@@ -98,20 +98,20 @@ export class ServiceMethodGenerator {
             lines.push(`}`);
         });
 
-        // 2. Path Construction
+        // 2. Path Construction (Using generic serializer)
         let urlTemplate = model.urlTemplate;
         model.pathParams.forEach(p => {
-            const serializeCall = `HttpParamsBuilder.serializePathParam('${p.originalName}', ${p.paramName}, '${p.style || 'simple'}', ${p.explode}, ${p.allowReserved}${p.serializationLink === 'json' ? ", 'json'" : ""})`;
+            const serializeCall = `ParameterSerializer.serializePathParam('${p.originalName}', ${p.paramName}, '${p.style || 'simple'}', ${p.explode}, ${p.allowReserved}${p.serializationLink === 'json' ? ", 'json'" : ""})`;
             urlTemplate = urlTemplate.replace(`{${p.originalName}}`, `\${${serializeCall}}`);
         });
 
-        // 3. Query String Logic (Legacy)
+        // 3. Query String Logic (Legacy) - adapted to generic serializer
         const qsParam = rawOp.parameters?.find(p => (p.in as any) === 'querystring');
         let queryStringVariable = '';
         if (qsParam) {
             const pName = camelCase(qsParam.name);
             const hint = (qsParam as any).content?.['application/json'] ? ", 'json'" : "";
-            lines.push(`const queryString = HttpParamsBuilder.serializeRawQuerystring(${pName}${hint});`);
+            lines.push(`const queryString = ParameterSerializer.serializeRawQuerystring(${pName}${hint});`);
             queryStringVariable = "${queryString ? '?' + queryString : ''}";
         }
 
@@ -123,10 +123,11 @@ export class ServiceMethodGenerator {
         }
         lines.push(`const url = \`\${basePath}${urlTemplate}${queryStringVariable}\`;`);
 
-        // 5. Query Params
+        // 5. Query Params (Using generic serializer and adapting to Angular HttpParams)
         const standardQueryParams = model.queryParams.filter(p => p.originalName !== qsParam?.name);
 
         if (standardQueryParams.length > 0) {
+            // Angular HttpParams requires 'encoder'
             lines.push(`let params = new HttpParams({ encoder: new ApiParameterCodec(), fromObject: options?.params ?? {} });`);
             standardQueryParams.forEach(p => {
                 const configObj = JSON.stringify({
@@ -135,9 +136,12 @@ export class ServiceMethodGenerator {
                     style: p.style,
                     explode: p.explode,
                     allowReserved: p.allowReserved,
-                    serialization: p.serializationLink
+                    serialization: p.serializationLink,
+                    // Support for OAS 3.2 allowEmptyValue - passed via config object
+                    allowEmptyValue: (p as any).allowEmptyValue
                 });
-                lines.push(`if (${p.paramName} != null) { params = HttpParamsBuilder.serializeQueryParam(params, ${configObj}, ${p.paramName}); }`);
+                lines.push(`const serialized_${p.paramName} = ParameterSerializer.serializeQueryParam(${configObj}, ${p.paramName});`);
+                lines.push(`serialized_${p.paramName}.forEach(entry => params = params.append(entry.key, entry.value));`);
             });
         }
 
@@ -145,7 +149,7 @@ export class ServiceMethodGenerator {
         lines.push(`let headers = options?.headers instanceof HttpHeaders ? options.headers : new HttpHeaders(options?.headers ?? {});`);
         model.headerParams.forEach(p => {
             const hint = p.serializationLink === 'json' ? ", 'json'" : "";
-            lines.push(`if (${p.paramName} != null) { headers = headers.set('${p.originalName}', HttpParamsBuilder.serializeHeaderParam('${p.originalName}', ${p.paramName}, ${p.explode}${hint})); }`);
+            lines.push(`if (${p.paramName} != null) { headers = headers.set('${p.originalName}', ParameterSerializer.serializeHeaderParam(${p.paramName}, ${p.explode}${hint})); }`);
         });
 
         // 7. Cookies
@@ -157,15 +161,12 @@ export class ServiceMethodGenerator {
             lines.push(`const __cookies: string[] = [];`);
             model.cookieParams.forEach(p => {
                 const hint = p.serializationLink === 'json' ? ", 'json'" : "";
-                lines.push(`if (${p.paramName} != null) { __cookies.push(HttpParamsBuilder.serializeCookieParam('${p.originalName}', ${p.paramName}, '${p.style || 'form'}', ${p.explode}, ${p.allowReserved}${hint})); }`);
+                lines.push(`if (${p.paramName} != null) { __cookies.push(ParameterSerializer.serializeCookieParam('${p.originalName}', ${p.paramName}, '${p.style || 'form'}', ${p.explode}, ${p.allowReserved}${hint})); }`);
             });
             lines.push(`if (__cookies.length > 0) { headers = headers.set('Cookie', __cookies.join('; ')); }`);
         }
 
         // 8. Content Negotiation Setup
-        // Detect requested media type from headers
-        // If negotiation is active, we don't default responseType blindly.
-        // We check if the user ASKED for XML.
         if (hasContentNegotiation) {
             lines.push(`const acceptHeader = headers.get('Accept');`);
         }
@@ -179,15 +180,9 @@ export class ServiceMethodGenerator {
             contextConstruction += `.set(EXTENSIONS_CONTEXT_TOKEN, ${JSON.stringify(model.extensions)})`;
         }
 
-        // Determine the responseType value to pass to Angular.
-        // If we are negotiating, we switch based on acceptHeader.
-        // Otherwise, use model default.
         let responseTypeVal = `options?.responseType`;
 
         if (hasContentNegotiation) {
-            // Build a condition stack
-            // if (acceptHeader?.includes('application/xml')) 'text' else default
-            // Note: JSON-Seq/XML variants ALWAYS require 'text' to allow manual parsing
             const xmlOrSeqCondition = model.responseVariants
                 .filter(v => v.serialization === 'xml' || v.serialization.startsWith('json-'))
                 .map(v => `acceptHeader?.includes('${v.mediaType}')`)
@@ -217,7 +212,6 @@ export class ServiceMethodGenerator {
         // 10. Body Handling
         let bodyArgument = 'null';
         const body = model.body;
-        // ... (body logic same as before)
         const legacyFormData = rawOp.parameters?.filter(p => (p as any).in === 'formData');
         const isUrlEnc = rawOp.consumes?.includes('application/x-www-form-urlencoded');
 
@@ -246,7 +240,10 @@ export class ServiceMethodGenerator {
                     lines.push(`}`);
                 }
             } else if (body.type === 'urlencoded') {
-                lines.push(`const formBody = HttpParamsBuilder.serializeUrlEncodedBody(${body.paramName}, ${JSON.stringify(body.config)});`);
+                // Use generic serializer then adapt to Angular HttpParams
+                lines.push(`const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(${body.paramName}, ${JSON.stringify(body.config)});`);
+                lines.push(`let formBody = new HttpParams({ encoder: new ApiParameterCodec() });`);
+                lines.push(`urlParamEntries.forEach(entry => formBody = formBody.append(entry.key, entry.value));`);
                 bodyArgument = 'formBody';
             } else if (body.type === 'multipart') {
                 lines.push(`const multipartConfig = ${JSON.stringify(body.config)};`);
@@ -264,7 +261,6 @@ export class ServiceMethodGenerator {
         }
 
         if (isSSE) {
-            // SSE logic remains same
             lines.push(`
             return new Observable<${model.responseType}>(observer => { 
                 const eventSource = new EventSource(url); 
@@ -282,7 +278,6 @@ export class ServiceMethodGenerator {
         const isStandardBody = ['post', 'put', 'patch', 'query'].includes(httpMethod);
         const isStandardNonBody = ['get', 'delete', 'head', 'options', 'jsonp'].includes(httpMethod);
 
-        // Using generic <any> here because the specific mapping logic below casts it to the correct union member
         const returnGeneric = `any`;
 
         let httpCall = '';
@@ -301,13 +296,10 @@ export class ServiceMethodGenerator {
         }
 
         // 12. Response Transformation Logic
-        // If we have content negotiation, we need runtime checks inside the map
-
         if (hasContentNegotiation) {
             lines.push(`return ${httpCall}.pipe(`);
             lines.push(`  map(response => {`);
 
-            // Generate if/else blocks for each variant
             model.responseVariants.forEach(v => {
                 const check = `acceptHeader?.includes('${v.mediaType}')`;
                 lines.push(`    // Handle ${v.mediaType}`);
@@ -328,14 +320,12 @@ export class ServiceMethodGenerator {
                     lines.push(`       return response.split('${delimiter}').filter((p: string) => p.trim().length > 0).map((i: string) => JSON.parse(i));`);
                     lines.push(`    }`);
                 } else if (v.decodingConfig) {
-                    // JSON with decoding config
                     lines.push(`    if (${check}) {`);
                     lines.push(`       return ContentDecoder.decode(response, ${JSON.stringify(v.decodingConfig)});`);
                     lines.push(`    }`);
                 }
             });
 
-            // Fallback if nothing matched but we still need default handling (e.g. default json decoding setup)
             const def = model.responseVariants.find(v => v.isDefault);
             if (def && def.decodingConfig) {
                 lines.push(`    // Default decoding`);
@@ -348,7 +338,6 @@ export class ServiceMethodGenerator {
             lines.push(`);`);
 
         } else {
-            // Legacy / Single Variant Logic
             const isSeq = model.responseSerialization === 'json-seq' || model.responseSerialization === 'json-lines';
             const isXmlResp = model.responseSerialization === 'xml';
 
@@ -396,18 +385,14 @@ export class ServiceMethodGenerator {
             }];
         }
 
-        // 1. Strict Accept Overloads
         const distinctVariants = variants.filter((v, i, a) => a.findIndex(t => t.mediaType === v.mediaType) === i && v.mediaType !== '');
 
         if (distinctVariants.length > 1) {
             for (const variant of distinctVariants) {
-                // We generate a signature that requires specific headers if using this variant
-                // Note: TS Structural typing for headers inside options is complex.
-                // We approximate by specifying headers type as having the Accept key.
                 overloads.push({
                     parameters: [...parameters, {
                         name: 'options',
-                        hasQuestionToken: false, // Mandatory to select this overload
+                        hasQuestionToken: false,
                         type: `RequestOptions & { headers: { 'Accept': '${variant.mediaType}' } }`
                     }],
                     returnType: `Observable<${variant.type}>`,
@@ -416,9 +401,6 @@ export class ServiceMethodGenerator {
             }
         }
 
-        // 2. Standard Overloads (Default Priority / No explicit Accept)
-
-        // 2a. Body
         overloads.push({
             parameters: [...parameters, {
                 name: 'options',
@@ -429,7 +411,6 @@ export class ServiceMethodGenerator {
             docs: [`${methodName}. \n${paramsDocs}\n@param options The options for this request.${deprecationDoc}`]
         });
 
-        // 2b. Response (Full)
         overloads.push({
             parameters: [...parameters, {
                 name: 'options',
@@ -440,7 +421,6 @@ export class ServiceMethodGenerator {
             docs: [`${methodName}. \n${paramsDocs}\n@param options The options for this request, with response observation enabled.${deprecationDoc}`]
         });
 
-        // 2c. Events
         overloads.push({
             parameters: [...parameters, {
                 name: 'options',

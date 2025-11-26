@@ -18,6 +18,9 @@ import { ServiceTestGenerator } from "./test/service-test-generator.js";
 
 // Angular Utilities
 import { TokenGenerator } from './utils/token.generator.js';
+// NOTE: HttpParamsBuilderGenerator is replaced/gutted, ensuring only Codec generation if present,
+// but typically for full abstraction we assume logic moved to shared.
+// We keep it if it generates the ApiParameterCodec only.
 import { HttpParamsBuilderGenerator } from './utils/http-params-builder.generator.js';
 import { FileDownloadGenerator } from './utils/file-download.generator.js';
 import { DateTransformerGenerator } from './utils/date-transformer.generator.js';
@@ -34,6 +37,7 @@ import { ExtensionTokensGenerator } from './utils/extension-tokens.generator.js'
 import { WebhookHelperGenerator } from './utils/webhook-helper.generator.js';
 
 // Shared Utilities
+import { ParameterSerializerGenerator } from "../shared/parameter-serializer.generator.js";
 import { ServerGenerator } from '../shared/server.generator.js';
 import { ServerUrlGenerator } from '../shared/server-url.generator.js';
 import { XmlBuilderGenerator } from '../shared/xml-builder.generator.js';
@@ -79,6 +83,7 @@ export class AngularClientGenerator extends AbstractClientGenerator {
         new InfoGenerator(parser, project).generate(outputRoot);
         new ServerGenerator(parser, project).generate(outputRoot);
         new ServerUrlGenerator(parser, project).generate(outputRoot);
+        new ParameterSerializerGenerator(project).generate(outputRoot); // NEW
 
         new CallbackGenerator(parser, project).generate(outputRoot);
         new WebhookGenerator(parser, project).generate(outputRoot);
@@ -92,27 +97,18 @@ export class AngularClientGenerator extends AbstractClientGenerator {
             const servicesDir = path.join(outputRoot, 'services');
             const controllerGroups = groupPathsByCanonicalController(parser);
 
-            for (const [controllerName, operations] of Object.entries(controllerGroups)) {
-                if (!operations || operations.length === 0) continue;
-                for (const op of operations) {
-                    if (!op.methodName) {
-                        if (op.operationId) {
-                            op.methodName = camelCase(op.operationId);
-                        } else {
-                            op.methodName = camelCase(`${op.method}${op.path.replace(/\//g, '_')}`);
-                        }
-                    }
-                }
-                new ServiceGenerator(parser, project, config)
-                    .generateServiceFile(controllerName, operations, servicesDir);
-            }
+            // Generate Services using the Refactored Service Generator
+            new ServiceGenerator(parser, project, config).generate(servicesDir, controllerGroups);
+
             new ServiceIndexGenerator(project).generateIndex(outputRoot);
             console.log('✅ Services generated.');
 
             // Generate Utilities (tokens, helpers, etc)
             new TokenGenerator(project, config.clientName).generate(outputRoot);
             new ExtensionTokensGenerator(project).generate(outputRoot);
+            // Note: This now likely only generates the ApiParameterCodec
             new HttpParamsBuilderGenerator(project).generate(outputRoot);
+
             new FileDownloadGenerator(project).generate(outputRoot);
             new XmlBuilderGenerator(project).generate(outputRoot);
             new XmlParserGenerator(project).generate(outputRoot);

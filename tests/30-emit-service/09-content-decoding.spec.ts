@@ -15,6 +15,11 @@ const encodedContentSpec = {
                 properties: {
                     id: { type: 'number' }
                 }
+            },
+            InnerXml: {
+                type: 'object',
+                xml: { name: 'Inner' },
+                properties: { value: { type: 'string' } }
             }
         }
     },
@@ -35,6 +40,29 @@ const encodedContentSpec = {
                                             type: 'string',
                                             contentMediaType: 'application/json',
                                             contentSchema: { $ref: '#/components/schemas/InnerObject' }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        '/xml-embedded': {
+            get: {
+                operationId: 'getXmlEmbedded',
+                responses: {
+                    '200': {
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'object',
+                                    properties: {
+                                        xmlContainer: {
+                                            type: 'string',
+                                            contentMediaType: 'application/xml',
+                                            contentSchema: { $ref: '#/components/schemas/InnerXml' }
                                         }
                                     }
                                 }
@@ -140,6 +168,27 @@ describe('Emitter: ServiceMethodGenerator (Auto Decoding & Encoding)', () => {
         // The property 'meta' should be of type 'InnerObject' (or equivalent reference)
         // TypeConverter should have replaced `string` with `InnerObject`
         expect(returnType).toContain('meta?: InnerObject');
+    });
+
+    it('should generate XML decoding config for contentMediaType="application/xml"', () => {
+        const { methodGen, serviceClass } = createTestEnv();
+        const op: any = {
+            method: 'GET',
+            path: '/xml-embedded',
+            methodName: 'getXmlEmbedded',
+            responses: encodedContentSpec.paths['/xml-embedded'].get.responses
+        };
+
+        methodGen.addServiceMethod(serviceClass, op);
+
+        const body = serviceClass.getMethodOrThrow('getXmlEmbedded').getBodyText()!;
+
+        // Expect decoder call
+        expect(body).toContain('ContentDecoder.decode(response,');
+        // Check for xml flag and config
+        expect(body).toContain('"xmlContainer":{"decode":"xml"');
+        expect(body).toContain('"xmlConfig":{');
+        expect(body).toContain('"name":"Inner"');
     });
 
     it('should serialize query parameters with contentMediaType="application/json" as JSON string', () => {

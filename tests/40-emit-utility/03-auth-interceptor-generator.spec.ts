@@ -85,6 +85,39 @@ describe('Emitter: AuthInterceptorGenerator', () => {
         expect(body).toContain("'OIDC':");
     });
 
+    it('should handle generic HTTP schemes (Basic, Digest) by generating correct Authorization header', () => {
+        const { tokenNames, project } = runGenerator({
+            ...emptySpec,
+            components: {
+                securitySchemes: {
+                    BasicAuth: { type: 'http', scheme: 'basic' },
+                    DigestAuth: { type: 'http', scheme: 'digest' },
+                    HobaAuth: { type: 'http', scheme: 'HOBA' }
+                }
+            }
+        });
+
+        const body = project
+            .getSourceFileOrThrow('/out/auth/auth.interceptor.ts')
+            .getClassOrThrow('AuthInterceptor')!
+            .getMethodOrThrow('intercept')!
+            .getBodyText()!;
+
+        expect(tokenNames).toEqual(['bearerToken']);
+
+        // Basic -> "Basic ${token}"
+        expect(body).toContain("'BasicAuth': (req) => {");
+        expect(body).toContain("req.clone({ headers: req.headers.set('Authorization', `Basic ${token}`) })");
+
+        // Digest -> "Digest ${token}"
+        expect(body).toContain("'DigestAuth':");
+        expect(body).toContain("`Digest ${token}`");
+
+        // Custom/Other (HOBA) -> "Hoba ${token}" (PascalCase)
+        expect(body).toContain("'HobaAuth':");
+        expect(body).toContain("`Hoba ${token}`");
+    });
+
     it('should handle apiKey in cookie correctly', () => {
         const { tokenNames, project } = runGenerator({
             ...emptySpec,

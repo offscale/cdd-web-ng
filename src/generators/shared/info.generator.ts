@@ -17,6 +17,7 @@ export class InfoGenerator {
 
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
+        // Generate ApiInfo Interface
         sourceFile.addInterface({
             name: "ApiInfo",
             isExported: true,
@@ -24,7 +25,12 @@ export class InfoGenerator {
                 { name: "title", type: "string" },
                 { name: "version", type: "string" },
                 { name: "description", type: "string", hasQuestionToken: true },
-                { name: "summary", type: "string", hasQuestionToken: true },
+                {
+                    name: "summary",
+                    type: "string",
+                    hasQuestionToken: true,
+                    docs: ["Short summary of the API (OAS 3.1+)."]
+                },
                 { name: "termsOfService", type: "string", hasQuestionToken: true },
                 {
                     name: "contact",
@@ -40,15 +46,26 @@ export class InfoGenerator {
             docs: ["Interface representing the metadata of the API."]
         });
 
+        // Generate ApiTag Interface
         sourceFile.addInterface({
             name: "ApiTag",
             isExported: true,
             properties: [
                 { name: "name", type: "string" },
                 { name: "description", type: "string", hasQuestionToken: true },
-                { name: "summary", type: "string", hasQuestionToken: true },
-                { name: "parent", type: "string", hasQuestionToken: true },
-                { name: "kind", type: "string", hasQuestionToken: true },
+                {
+                    name: "summary",
+                    type: "string",
+                    hasQuestionToken: true,
+                    docs: ["Short summary of the tag (OAS 3.1+)."]
+                },
+                {
+                    name: "parent",
+                    type: "string",
+                    hasQuestionToken: true,
+                    docs: ["Parent tag naming for grouping (Extensions)."]
+                },
+                { name: "kind", type: "string", hasQuestionToken: true, docs: ["Tag categorization (Extensions)."] },
                 {
                     name: "externalDocs",
                     type: "{ description?: string; url: string; }",
@@ -58,17 +75,20 @@ export class InfoGenerator {
             docs: ["Interface representing a tag defined in the API."]
         });
 
+        // Export API_INFO constant
+        // We use JSON.stringify to ensure safe embedding of strings (quotes, etc.)
         sourceFile.addVariableStatement({
             isExported: true,
             declarationKind: VariableDeclarationKind.Const,
             declarations: [{
                 name: "API_INFO",
                 type: "ApiInfo",
-                initializer: JSON.stringify(this.parser.getSpec().info, null, 2)
+                initializer: JSON.stringify(this.parser.getSpec().info || {}, null, 2)
             }],
             docs: ["Metadata about the API defined in the OpenAPI specification."]
         });
 
+        // Export API_TAGS constant
         sourceFile.addVariableStatement({
             isExported: true,
             declarationKind: VariableDeclarationKind.Const,
@@ -80,6 +100,7 @@ export class InfoGenerator {
             docs: ["List of tags defined in the OpenAPI specification."]
         });
 
+        // Export API_EXTERNAL_DOCS constant
         sourceFile.addVariableStatement({
             isExported: true,
             declarationKind: VariableDeclarationKind.Const,

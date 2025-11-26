@@ -29,6 +29,9 @@ import { ProviderGenerator } from './utils/provider.generator.js';
 import { MainIndexGenerator, ServiceIndexGenerator } from './utils/index.generator.js';
 import { LinkServiceGenerator } from './utils/link-service.generator.js';
 import { ResponseHeaderParserGenerator } from './utils/response-header-parser.generator.js';
+import { LinkSetParserGenerator } from './utils/link-set-parser.generator.js';
+import { ExtensionTokensGenerator } from './utils/extension-tokens.generator.js';
+import { WebhookHelperGenerator } from './utils/webhook-helper.generator.js';
 
 // Shared Utilities
 import { ServerGenerator } from '../shared/server.generator.js';
@@ -47,9 +50,6 @@ import { DiscriminatorGenerator } from "@src/generators/shared/discriminator.gen
 import { SecurityGenerator } from "@src/generators/shared/security.generator.js";
 import { TagGenerator } from "@src/generators/shared/tag.generator.js";
 
-/**
- * A normalized function for grouping path infos by their canonical controller/tag/resource name.
- */
 function getControllerCanonicalName(op: any): string {
     if (Array.isArray(op.tags) && op.tags[0]) {
         return pascalCase(op.tags[0].toString());
@@ -111,6 +111,7 @@ export class AngularClientGenerator extends AbstractClientGenerator {
 
             // Generate Utilities (tokens, helpers, etc)
             new TokenGenerator(project, config.clientName).generate(outputRoot);
+            new ExtensionTokensGenerator(project).generate(outputRoot);
             new HttpParamsBuilderGenerator(project).generate(outputRoot);
             new FileDownloadGenerator(project).generate(outputRoot);
             new XmlBuilderGenerator(project).generate(outputRoot);
@@ -120,7 +121,9 @@ export class AngularClientGenerator extends AbstractClientGenerator {
             new MultipartBuilderGenerator(project).generate(outputRoot);
             new LinkServiceGenerator(parser, project).generate(outputRoot);
             new ResponseHeaderRegistryGenerator(parser, project).generate(outputRoot);
+            new LinkSetParserGenerator(project).generate(outputRoot);
             new ResponseHeaderParserGenerator(project).generate(outputRoot);
+            new WebhookHelperGenerator(parser, project).generate(outputRoot);
 
             if (config.options.dateType === 'Date') {
                 new DateTransformerGenerator(project).generate(outputRoot);

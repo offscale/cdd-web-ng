@@ -57,9 +57,18 @@ export class LinkServiceGenerator {
                 { name: "operationId", type: "string" },
                 { name: "response", type: "HttpResponse<any>" },
                 { name: "linkName", type: "string" },
-                { name: "request", type: "HttpRequest<any>", hasQuestionToken: true }
+                { name: "request", type: "HttpRequest<any>", hasQuestionToken: true },
+                { name: "urlTemplate", type: "string", hasQuestionToken: true }
             ],
             returnType: "ResolvedLink | null",
+            docs: [
+                "Resolves a link target based on the operation ID and response context.",
+                "@param operationId The operation ID originating the response.",
+                "@param response The HTTP response received.",
+                "@param linkName The name of the link to resolve.",
+                "@param request The original HTTP request (optional).",
+                "@param urlTemplate The OpenAPI path template (e.g. '/users/{id}') used for the request."
+            ],
             statements: `
         const status = response.status.toString(); 
         const opLinks = (API_LINKS as any)[operationId]; 
@@ -85,7 +94,8 @@ export class LinkServiceGenerator {
             context.request = { 
                 headers: this.extractHeaders(request.headers), 
                 query: this.extractQueryParams(request.params), 
-                body: request.body
+                body: request.body, 
+                path: this.extractPathParams(urlTemplate, request.url) 
             }; 
         } 
 
@@ -118,7 +128,13 @@ export class LinkServiceGenerator {
         if (server.variables) { 
             Object.keys(server.variables).forEach(key => { 
                 const variable = server.variables[key]; 
-                url = url.replace(new RegExp('{' + key + '}', 'g'), variable.default || ''); 
+                const value = variable.default || '';
+
+                if (variable.enum && Array.isArray(variable.enum) && !variable.enum.includes(value)) {
+                     throw new Error(\`Value "\${value}" for variable "\${key}" is not in the allowed enum: \${variable.enum.join(', ')}\`);
+                }
+
+                url = url.replace(new RegExp('{' + key + '}', 'g'), value); 
             }); 
         } 
         return url;`
@@ -152,6 +168,48 @@ export class LinkServiceGenerator {
             if (val !== null && val !== undefined) result[key] = String(val); 
         }); 
         return result;`
+        });
+
+        linkServiceClass.addMethod({
+            name: "extractPathParams",
+            scope: Scope.Private,
+            parameters: [
+                { name: "template", type: "string | undefined" },
+                { name: "fullUrl", type: "string | undefined" }
+            ],
+            returnType: "Record<string, string>",
+            statements: `
+        const params: Record<string, string> = {}; 
+        if (!template || !fullUrl) return params; 
+
+        // Convert OpenAPI Path Template to Regex
+        // e.g., "/users/{id}/details" -> "/users/([^/]+)/details$" 
+        // We handle the potential existence of a base path prefix by matching the tail. 
+        try { 
+            const paramNames: string[] = []; 
+            const regexStr = template.replace(/([.+*?^$()[\\]\\\\|])/g, '\\\\$1') // Escape Regex characters
+                .replace(/\\{([^}]+)\\}/g, (_, name) => { 
+                    paramNames.push(name); 
+                    return '([^/]+)'; 
+                }); 
+            
+            const matcher = new RegExp(regexStr + '$'); // Match at end of string (suffix matching) 
+            
+            // Use URL API to get pathname to ignore origin/query
+            // We pass a dummy base if fullUrl is relative to ensure it parses
+            const urlObj = new URL(fullUrl, 'http://localhost'); 
+            const match = urlObj.pathname.match(matcher); 
+
+            if (match) { 
+                paramNames.forEach((name, index) => { 
+                    // Groups start at index 1
+                    params[name] = decodeURIComponent(match[index + 1]); 
+                }); 
+            } 
+        } catch (e) { 
+            console.warn('LinkService: Failed to extract path params', e); 
+        } 
+        return params;`
         });
 
         linkServiceClass.addMethod({
@@ -211,6 +269,10 @@ export class LinkServiceGenerator {
             if (expr.startsWith('$request.query.')) { 
                 const token = expr.substring(15); 
                 return context.request.query[token]; 
+            } 
+            if (expr.startsWith('$request.path.')) { 
+                const token = expr.substring(14); 
+                return context.request.path[token]; 
             } 
         } 
         return undefined;`

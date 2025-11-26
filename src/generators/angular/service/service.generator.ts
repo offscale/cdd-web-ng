@@ -211,6 +211,14 @@ export class ServiceGenerator {
             });
         }
 
+        const hasExtensions = operations.some(op => Object.keys(op).some(k => k.startsWith('x-')));
+        if (hasExtensions) {
+            sourceFile.addImportDeclaration({
+                moduleSpecifier: '../tokens/extensions.token',
+                namedImports: ['EXTENSIONS_CONTEXT_TOKEN']
+            });
+        }
+
         const validModels = Array.from(modelImports).filter(m => /^[A-Z]/.test(m) && !['Date', 'Blob', 'File'].includes(m));
         if (validModels.length > 0) {
             sourceFile.addImportDeclaration({

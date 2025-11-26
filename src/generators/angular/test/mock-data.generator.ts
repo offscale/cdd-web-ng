@@ -71,6 +71,14 @@ export class MockDataGenerator {
                 return (schema as any).value;
             }
 
+            // OAS 3.2 serializedValue (Fallback if no dataValue/value)
+            if ((schema as any).serializedValue !== undefined) {
+                // Simple heuristic: if it's a string type or no type defined, validation might pass,
+                // but strictly serializedValue is the wire format. Mock data usually wants validating format.
+                // However, for strings, wire format is close enough.
+                return (schema as any).serializedValue;
+            }
+
             // Example Object Support (OAS 3.x External Value)
             if ((schema as any).externalValue) {
                 return this.resolveExternalValue((schema as any).externalValue);

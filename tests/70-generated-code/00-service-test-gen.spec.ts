@@ -273,5 +273,46 @@ describe('Generated Code: Service Test Generators', () => {
             // Should use first example 'active-status'
             expect(text).toContain("const status = 'active-status';");
         });
+
+        it('should use OAS 3.2 dataValue from parameter examples', () => {
+            const oas32Spec = {
+                openapi: '3.2.0',
+                info: { title: 'OAS 3.2 Params', version: '1.0' },
+                paths: {
+                    '/data-val': {
+                        get: {
+                            operationId: 'getDataVal',
+                            parameters: [
+                                {
+                                    name: 'filter',
+                                    in: 'query',
+                                    schema: { type: 'string' },
+                                    examples: {
+                                        valid: {
+                                            summary: 'A valid filter',
+                                            dataValue: 'active_filter',
+                                            serializedValue: 'ignore_me'
+                                        }
+                                    }
+                                }
+                            ],
+                            responses: { '200': {} }
+                        }
+                    }
+                }
+            };
+
+            const { parser, testGen } = setupTestGen(oas32Spec);
+            const ops = parser.operations;
+            setOperationMethodNames(ops as any[]);
+
+            testGen.generateServiceTestFile('example', ops as any, '/');
+            const sourceFile = project.getSourceFileOrThrow('/example.service.spec.ts');
+            const text = sourceFile.getFullText();
+
+            // Should use 'active_filter' from dataValue
+            expect(text).toContain("const filter = 'active_filter';");
+            expect(text).not.toContain('ignore_me');
+        });
     });
 });

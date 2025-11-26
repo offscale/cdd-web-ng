@@ -1,6 +1,7 @@
 // src/core/validator.ts
 
 import { Parameter, SwaggerSpec } from "@src/core/types/index.js";
+import { isUrl } from "@src/core/utils/index.js";
 
 /**
  * Error thrown when the OpenAPI specification fails validation.
@@ -45,6 +46,9 @@ function getPathTemplateSignature(path: string): string {
  *    - `example` and `examples` are mutually exclusive on Parameter/Object.
  *    - `content` and `schema` are mutually exclusive on Parameter Objects.
  *    - `in: "querystring"` MUST NOT have `style`, `explode`, or `allowReserved` present.
+ *    - `content` map MUST have exactly one entry.
+ *    - `allowEmptyValue` behavior restrictions (only for query, not with style).
+ * - `jsonSchemaDialect` MUST be a URI.
  *
  * @param spec The parsed specification object.
  * @throws {SpecValidationError} if the specification is invalid.
@@ -143,12 +147,41 @@ export function validateSpec(spec: SwaggerSpec): void {
                             );
                         }
 
-                        // 5c. Schema vs Content Exclusivity (OAS 3.2)
-                        // "Parameter Objects MUST include either a content field or a schema field, but not both."
-                        if (param.schema !== undefined && param.content !== undefined) {
-                            throw new SpecValidationError(
-                                `Parameter '${param.name}' in '${method.toUpperCase()} ${pathKey}' contains both 'schema' and 'content'. These fields are mutually exclusive.`
-                            );
+                        if (isOpenApi3) {
+                            // 5c. Schema vs Content Exclusivity (OAS 3.2)
+                            // "Parameter Objects MUST include either a content field or a schema field, but not both."
+                            if (param.schema !== undefined && param.content !== undefined) {
+                                throw new SpecValidationError(
+                                    `Parameter '${param.name}' in '${method.toUpperCase()} ${pathKey}' contains both 'schema' and 'content'. These fields are mutually exclusive.`
+                                );
+                            }
+
+                            // strict content map check (OAS 3.2)
+                            // "The map MUST only contain one entry."
+                            if (param.content) {
+                                if (Object.keys(param.content).length !== 1) {
+                                    throw new SpecValidationError(
+                                        `Parameter '${param.name}' in '${method.toUpperCase()} ${pathKey}' has an invalid 'content' map. It MUST contain exactly one entry.`
+                                    );
+                                }
+                            }
+
+                            // strict allowEmptyValue checks (OAS 3.2)
+                            if (param.allowEmptyValue) {
+                                if (param.in !== 'query') {
+                                    throw new SpecValidationError(
+                                        `Parameter '${param.name}' in '${method.toUpperCase()} ${pathKey}' defines 'allowEmptyValue' but location is not 'query'.`
+                                    );
+                                }
+                                // "If style is used... the value of allowEmptyValue SHALL be ignored." -> We treat explicit definition as error/warning territory in strict mode
+                                // or interpret "SHALL be ignored" as "SHOULD NOT be present together".
+                                // The requirement "forbidden if style is used" comes from the prompt description.
+                                if (param.style) {
+                                    throw new SpecValidationError(
+                                        `Parameter '${param.name}' in '${method.toUpperCase()} ${pathKey}' defines 'allowEmptyValue' alongside 'style'. This is forbidden.`
+                                    );
+                                }
+                            }
                         }
 
                         // 5d. Querystring Strictness (OAS 3.2)
@@ -182,6 +215,29 @@ export function validateSpec(spec: SwaggerSpec): void {
                 throw new SpecValidationError(
                     `Component parameter '${name}' contains both 'schema' and 'content'. These fields are mutually exclusive.`
                 );
+            }
+
+            // strict content map check
+            if (param.content) {
+                if (Object.keys(param.content).length !== 1) {
+                    throw new SpecValidationError(
+                        `Component parameter '${name}' has an invalid 'content' map. It MUST contain exactly one entry.`
+                    );
+                }
+            }
+
+            // strict allowEmptyValue checks
+            if (param.allowEmptyValue) {
+                if (param.in !== 'query') {
+                    throw new SpecValidationError(
+                        `Component parameter '${name}' defines 'allowEmptyValue' but location is not 'query'.`
+                    );
+                }
+                if (param.style) {
+                    throw new SpecValidationError(
+                        `Component parameter '${name}' defines 'allowEmptyValue' alongside 'style'. This is forbidden.`
+                    );
+                }
             }
 
             // OAS 3.2 check for component parameter querystring constraints
@@ -227,6 +283,21 @@ export function validateSpec(spec: SwaggerSpec): void {
                             throw new SpecValidationError(`Invalid component key "${key}" in "components.${type}". Keys must match regex: ^[a-zA-Z0-9\\.\\-_]+$`);
                         }
                     }
+                }
+            }
+        }
+
+        // 9. Check jsonSchemaDialect (OAS 3.1+)
+        if (spec.jsonSchemaDialect) {
+            if (typeof spec.jsonSchemaDialect !== 'string') {
+                throw new SpecValidationError("Field 'jsonSchemaDialect' must be a string.");
+            }
+            // Spec: "This MUST be in the form of a URI."
+            if (!isUrl(spec.jsonSchemaDialect)) {
+                // Fallback regex for simple URI scheme check if 'new URL()' is too strict contextually/environmentally
+                // Check for scheme (alpha + alphanumeric/+-.) followed by colon
+                if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(spec.jsonSchemaDialect)) {
+                    throw new SpecValidationError(`Field 'jsonSchemaDialect' must be a valid URI. Value: "${spec.jsonSchemaDialect}"`);
                 }
             }
         }

@@ -237,21 +237,27 @@ export class ServiceTestGenerator {
         else if (param.examples && typeof param.examples === 'object') {
             const keys = Object.keys(param.examples);
             if (keys.length > 0) {
+                // OAS 3.2: Example Object keys
                 const firstExample = param.examples[keys[0]];
                 if (firstExample && typeof firstExample === 'object') {
-                    // Check if it's an Example Object with a 'value' field
-                    if ('value' in firstExample) {
+                    // OAS 3.2 Priority: dataValue > value > serializedValue
+                    if ('dataValue' in firstExample) {
+                        potentialValue = firstExample.dataValue;
+                    } else if ('value' in firstExample) {
                         potentialValue = firstExample.value;
+                    } else if ('serializedValue' in firstExample) {
+                        // Usage in tests: We prefer objects, but if only serialized string is provided, use it.
+                        potentialValue = firstExample.serializedValue;
                     } else if ('$ref' in firstExample) {
-                        // Basic Ref resolution if needed, though normally resolved by extractPaths if structure matched
-                        // We fallback to just processing it as 'any' if parser resolve fails or isn't deep enough
                         const resolved = this.parser.resolveReference<any>(firstExample.$ref);
-                        if (resolved && 'value' in resolved) {
-                            potentialValue = resolved.value;
+                        if (resolved) {
+                            if ('dataValue' in resolved) potentialValue = resolved.dataValue;
+                            else if ('value' in resolved) potentialValue = resolved.value;
+                            else if ('serializedValue' in resolved) potentialValue = resolved.serializedValue;
                         }
                     }
                 } else {
-                    // Literal value fallback (Swagger 2.0 allowed looser maps in some vendor extensions)
+                    // Literal value fallback (Swagger 2.0 allowed looser maps)
                     potentialValue = firstExample;
                 }
             }
@@ -259,14 +265,17 @@ export class ServiceTestGenerator {
         // 3. Schema Example (OAS 3.x)
         else if (param.schema && !('$ref' in param.schema)) {
             const schema = param.schema as SwaggerDefinition;
-            if (schema.example !== undefined) {
+            // OAS 3.2 Schema Example Priority
+            if ((schema as any).dataValue !== undefined) {
+                potentialValue = (schema as any).dataValue;
+            } else if (schema.example !== undefined) {
                 potentialValue = schema.example;
             } else if (schema.examples && Array.isArray(schema.examples) && schema.examples.length > 0) {
                 potentialValue = schema.examples[0];
             }
         }
 
-        // 4. Check Content Map (OAS 3.x Parameter Content)
+        // 4. Check Content Map (OAS 3.x Parameter Content with Example Objects)
         if (potentialValue === undefined && param.content) {
             const contentType = Object.keys(param.content)[0];
             if (contentType) {
@@ -277,8 +286,10 @@ export class ServiceTestGenerator {
                     const keys = Object.keys(media.examples);
                     if (keys.length > 0) {
                         const ex = media.examples[keys[0]];
-                        if (ex && typeof ex === 'object' && 'value' in ex) {
-                            potentialValue = ex.value;
+                        if (ex && typeof ex === 'object') {
+                            if ('dataValue' in ex) potentialValue = ex.dataValue;
+                            else if ('value' in ex) potentialValue = ex.value;
+                            else if ('serializedValue' in ex) potentialValue = ex.serializedValue;
                         }
                     }
                 }

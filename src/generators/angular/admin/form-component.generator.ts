@@ -1,5 +1,3 @@
-// src/generators/angular/admin/form-component.generator.ts
-
 import { ClassDeclaration, Project, Scope } from 'ts-morph';
 
 import { Resource, SwaggerDefinition } from '@src/core/types/index.js';
@@ -103,7 +101,6 @@ export class FormComponentGenerator {
                         return { name: prop.name, type: 'any' };
                     }
 
-                    // --- THIS IS THE CORE OF THE REFACTOR ---
                     // Build the final Angular-specific type string from the agnostic IR.
                     let finalType: string;
                     switch (control.controlType) {
@@ -140,16 +137,16 @@ export class FormComponentGenerator {
             name: componentName, isExported: true,
             decorators: [{
                 name: 'Component',
-                arguments: [`{ 
-                    selector: 'app-${resource.name}-form', 
-                    standalone: true, 
-                    imports: [ 
-                        ReactiveFormsModule, 
-                        RouterModule, 
-                        ${commonStandaloneImports.map(a => a[0]).join(',\n    ')} 
-                    ], 
-                    templateUrl: './${resource.name}-form.component.html', 
-                    styleUrl: './${resource.name}-form.component.scss', 
+                arguments: [`{
+                    selector: 'app-${resource.name}-form',
+                    standalone: true,
+                    imports: [
+                        ReactiveFormsModule,
+                        RouterModule,
+                        ${commonStandaloneImports.map(a => a[0]).join(',\n    ')}
+                    ],
+                    templateUrl: './${resource.name}-form.component.html',
+                    styleUrl: './${resource.name}-form.component.scss',
                     changeDetection: ChangeDetectionStrategy.OnPush
                 }`]
             }],
@@ -169,9 +166,9 @@ export class FormComponentGenerator {
                         analysis.polymorphicProperties.forEach(poly => {
                             const propName = poly.propertyName;
                             const updateMethod = `updateFormFor${pascalCase(propName)}`;
-                            writer.write(`effect(() => { 
-    const val = this.form.get('${propName}')?.value; 
-    if (val) { this.${updateMethod}(val); } 
+                            writer.write(`effect(() => {
+    const val = this.form.get('${propName}')?.value;
+    if (val) { this.${updateMethod}(val); }
 });\n`);
                         });
                     }
@@ -218,10 +215,11 @@ export class FormComponentGenerator {
         if (analysis.hasMaps) this.addMapHelpers(componentClass, analysis.topLevelControls);
         if (analysis.hasFormArrays || analysis.isPolymorphic || analysis.hasMaps) this.addPatchForm(componentClass, resource, analysis);
 
-        // We must use getPayload if maps/polymorphism/arrays invoke structural changes
-        if (analysis.isPolymorphic || analysis.hasMaps) this.addGetPayload(componentClass, analysis);
+        // Always add getPayload to ensure readOnly fields are stripped and structural transformations are applied
+        this.addGetPayload(componentClass, analysis);
 
-        this.addOnSubmit(componentClass, resource, serviceName, analysis.isPolymorphic || !!analysis.hasMaps);
+        // Pass true to force usage of getPayload()
+        this.addOnSubmit(componentClass, resource, serviceName, true);
         this.addOnCancelMethod(componentClass);
 
         sourceFile.formatText({ ensureNewLineAtEndOfFile: true });
@@ -581,39 +579,54 @@ export class FormComponentGenerator {
     }
 
     private addGetPayload(classDeclaration: ClassDeclaration, analysis: FormAnalysisResult) {
-        // Only override payload if necessary (polymorphism or maps)
         let body = `const baseValue = this.form.getRawValue() as any; \n`;
 
-        // 1. Maps Transformation (Array of KV -> Object)
+        // We start by creating a shallow copy.
+        // Note: Nested objects are still references, but we primarily modify top-level structural keys 
+        // (readOnly deletion, Maps transformation, Polymorphism merging).
+        body += `let payload = { ...baseValue };\n`;
+
+        // 1. Strip ReadOnly Fields (COMPLIANCE FIX)
+        // Identify top-level read-only fields and remove them from the payload to ensure payload hygiene.
+        // Note: We use analysis.topLevelControls rather than resource.formProperties because the controls 
+        // have parsed validation rules/schema info readily available.
+        const readOnlyFields = analysis.topLevelControls
+            .filter(c => c.schema && c.schema.readOnly)
+            .map(c => c.name);
+
+        if (readOnlyFields.length > 0) {
+            body += `\n// Strip readOnly fields\n`;
+            readOnlyFields.forEach(field => {
+                body += `delete (payload as any)['${field}'];\n`;
+            });
+        }
+
+        // 2. Maps Transformation (Array of KV -> Object)
         const maps = analysis.topLevelControls.filter(c => c.controlType === 'map');
         maps.forEach(m => {
-            body += `if (Array.isArray(baseValue['${m.name}'])) {\n`;
+            body += `if (Array.isArray(payload['${m.name}'])) {\n`;
             body += `  const mapObj: Record<string, any> = {};\n`;
-            body += `  baseValue['${m.name}'].forEach((pair: any) => { if(pair.key) mapObj[pair.key] = pair.value; });\n`;
-            body += `  baseValue['${m.name}'] = mapObj;\n`;
+            body += `  payload['${m.name}'].forEach((pair: any) => { if(pair.key) mapObj[pair.key] = pair.value; });\n`;
+            body += `  payload['${m.name}'] = mapObj;\n`;
             body += `}\n`;
         });
 
-        // 2. Polymorphism
+        // 3. Polymorphism
         if (analysis.isPolymorphic) {
-            body += `let payload = { ...baseValue };\n`;
-
             analysis.polymorphicProperties.forEach(poly => {
                 const dProp = poly.propertyName;
                 const optionsName = `${dProp}Options`;
 
-                body += `const ${dProp}Value = baseValue['${dProp}'];\n`;
+                body += `const ${dProp}Value = payload['${dProp}'];\n`;
                 body += `if (${dProp}Value) {\n`;
-                body += `  const subFormValue = (this.form.get(${dProp}Value) as FormGroup | undefined)?.value || {};\n`;
+                body += `  const subFormValue = (this.form.get(${dProp}Value) as FormGroup | undefined)?.getRawValue() || {};\n`;
                 body += `  payload = { ...payload, ...subFormValue };\n`;
                 body += `}\n`;
                 body += `this.${optionsName}.forEach(opt => delete (payload as any)[opt]);\n`;
             });
-
-            body += `return payload;`;
-        } else {
-            body += `return baseValue;`;
         }
+
+        body += `return payload;`;
 
         classDeclaration.addMethod({ name: 'getPayload', scope: Scope.Private, statements: body });
     }

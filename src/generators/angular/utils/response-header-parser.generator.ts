@@ -21,6 +21,7 @@ export class ResponseHeaderParserGenerator {
                 namedImports: ["API_RESPONSE_HEADERS", "API_HEADER_XML_CONFIGS"]
             },
             { moduleSpecifier: "./xml-parser", namedImports: ["XmlParser"] },
+            { moduleSpecifier: "./linkset-parser", namedImports: ["LinkSetParser"] },
         ]);
 
         const serviceClass = sourceFile.addClass({
@@ -41,29 +42,29 @@ export class ResponseHeaderParserGenerator {
             ],
             returnType: "T",
             statements: `
-        const result: any = {}; 
-        const opHeaders = (API_RESPONSE_HEADERS as any)[operationId]; 
-        if (!opHeaders) return result as T; 
+        const result: any = {};
+        const opHeaders = (API_RESPONSE_HEADERS as any)[operationId];
+        if (!opHeaders) return result as T;
 
-        const status = statusCode.toString(); 
-        const headerConfig = opHeaders[status] || opHeaders['default']; 
-        if (!headerConfig) return result as T; 
+        const status = statusCode.toString();
+        const headerConfig = opHeaders[status] || opHeaders['default'];
+        if (!headerConfig) return result as T;
 
-        Object.entries(headerConfig).forEach(([headerName, typeHint]) => { 
-            if (!headers.has(headerName)) return; 
+        Object.entries(headerConfig).forEach(([headerName, typeHint]) => {
+            if (!headers.has(headerName)) return;
 
-            if (typeHint === 'array') { 
-                const values = headers.getAll(headerName); 
-                result[headerName] = values; 
-            } else { 
-                const val = headers.get(headerName); 
-                if (val !== null) { 
-                    const xmlConfigKey = \`\${operationId}_\${status}_\${headerName}\`; 
-                    const xmlConfig = (API_HEADER_XML_CONFIGS as any)[xmlConfigKey]; 
-                    result[headerName] = this.coerce(val, typeHint as string, xmlConfig); 
-                } 
-            } 
-        }); 
+            if (typeHint === 'array') {
+                const values = headers.getAll(headerName);
+                result[headerName] = values;
+            } else {
+                const val = headers.get(headerName);
+                if (val !== null) {
+                    const xmlConfigKey = \`\${operationId}_\${status}_\${headerName}\`;
+                    const xmlConfig = (API_HEADER_XML_CONFIGS as any)[xmlConfigKey];
+                    result[headerName] = this.coerce(val, typeHint as string, xmlConfig);
+                }
+            }
+        });
 
         return result as T;`
         });
@@ -78,18 +79,30 @@ export class ResponseHeaderParserGenerator {
             ],
             returnType: "any",
             statements: `
-        switch (type) { 
-            case 'number': return parseFloat(value); 
-            case 'boolean': return value.toLowerCase() === 'true'; 
-            case 'json': 
-                try { return JSON.parse(value); } 
-                catch { return value; } 
-            case 'xml': 
-                return XmlParser.parse(value, xmlConfig || {}); 
+        switch (type) {
+            case 'number': return parseFloat(value);
+            case 'boolean': return value.toLowerCase() === 'true';
+            case 'json':
+                try { return JSON.parse(value); }
+                catch { return value; }
+            case 'xml':
+                return XmlParser.parse(value, xmlConfig || {});
             case 'date':
                 return new Date(value);
-            default: return value; 
+            case 'linkset':
+                return LinkSetParser.parseHeader(value);
+            default: return value;
         }`
+        });
+
+        serviceClass.addMethod({
+            name: "parseLinkSetBody",
+            typeParameters: [{ name: "T" }],
+            scope: Scope.Public,
+            parameters: [{ name: "body", type: "any" }],
+            returnType: "any",
+            statements: `
+            return LinkSetParser.parseJson(body);`
         });
 
         sourceFile.formatText();

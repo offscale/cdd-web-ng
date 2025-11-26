@@ -281,4 +281,15 @@ describe('Admin: FormComponentGenerator (Coverage)', () => {
         // The method body is an empty block statement `{}`, which getBodyText() returns with spaces.
         expect(updateMethod!.getBodyText()).toBe('{ }');
     });
+
+    it('should strip readOnly properties in getPayload', () => {
+        const formClass = project.getSourceFileOrThrow('/admin/updateOnly/updateOnly-form/updateOnly-form.component.ts').getClassOrThrow('UpdateOnlyFormComponent');
+        const payloadMethod = formClass.getMethodOrThrow('getPayload');
+        const body = payloadMethod.getBodyText() ?? '';
+
+        // 'id' is readOnly in the fixture schemas for UpdateOnly
+        expect(body).toContain("delete (payload as any)['id']");
+        // 'name' is not readOnly
+        expect(body).not.toContain("delete (payload as any)['name']");
+    });
 });

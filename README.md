@@ -4,36 +4,49 @@ cdd-web-ng
 [![License](https://img.shields.io/badge/license-MIT-blue)](https://opensource.org/licenses/MIT)
 [![Tests and coverage](https://github.com/offscale/cdd-web-ng/actions/workflows/tests_and_coverage.yml/badge.svg)](https://github.com/offscale/cdd-web-ng/actions/workflows/tests_and_coverage.yml)
 [![codecov](https://codecov.io/github/offscale/cdd-web-ng/graph/badge.svg?token=EtThJkGRA1)](https://codecov.io/github/offscale/cdd-web-ng)
+[![OpenAPI](https://img.shields.io/badge/OpenAPI-3.2.0-green)](https://spec.openapis.org/oas/v3.2.0)
+[![Swagger](https://img.shields.io/badge/Swagger-2.0-orange)](https://swagger.io/specification/v2/)
 
 **OpenAPI ↔ Angular**
 
-`cdd-web-ng` is an advanced, spec-compliant code generator that transforms OpenAPI specifications into fully-featured
-Angular client SDKs. It goes beyond simple client generation, creating services, models, and even a complete CRUD
-administrative UI with deep respect for the nuances of the OpenAPI 3.2.0 specification.
+`cdd-web-ng` is an advanced, spec-compliant code generator that transforms OpenAPI (3.0, 3.1, 3.2) and Swagger (2.0)
+specifications into fully-featured Angular client SDKs. It goes beyond simple client generation, creating services,
+models, and even a complete CRUD administrative UI with deep respect for the nuances of the API contract.
 
 ## Key Features
 
 This generator is built to handle real-world, complex API definitions with a focus on correctness, extensibility, and
 reliability.
 
-### 🚀 Deep OpenAPI 3.2.0 Spec Compliance
+### 🚀 Exhaustive OpenAPI 3.2.0 Compliance
 
 While many generators only cover the basics, `cdd-web-ng` is designed to correctly implement even the most complex and
-esoteric parts of the OpenAPI specification. If it's in the spec, we aim to support it.
+esoteric parts of the modern OpenAPI specification. If it's in the spec, we support it.
 
-- **Complex Schemas:** Full support for `discriminator` for robust polymorphism, `allOf`, `oneOf`, `anyOf`, `readOnly`/
-  `writeOnly` properties (generating separate request/response models), and advanced validation keywords (
-  `exclusiveMinimum`, `multipleOf`, `uniqueItems`, etc.).
-- **Advanced Parameter Serialization:** Correctly implements `style` and `explode` for all parameter types (`path`,
-  `query`, `header`, and `cookie`).
-- **Diverse Request & Response Bodies:** Natively handles various content types, including `application/json`,
-  `application/xml` (with full `xml` object support), `multipart/form-data` (with `encoding` map), and
-  `application/x-www-form-urlencoded`.
-- **Full OpenAPI 3.1/3.2 Feature Set:** Implements often-overlooked features
-  like [Runtime Expressions](https://spec.openapis.org/oas/v3.2.0.html#runtime-expressions), [Callbacks](https://spec.openapis.org/oas/v3.2.0.html#callback-object), [Webhooks](https://spec.openapis.org/oas/v3.2.0.html#webhook-object),
-  and [Links](https://spec.openapis.org/oas/v3.2.0.html#link-object).
-- **Multi-File Spec Support:** Intelligently loads and resolves references (`$ref`, `$dynamicRef`, `$id`, `$anchor`)
-  across multiple local or remote files.
+- **Complex Schemas & Polymorphism:** Full support for `discriminator` mapping (explicit and implicit), `allOf`
+  compositions, `oneOf`/`anyOf` unions, and `readOnly`/`writeOnly` filtering (generating distinct request vs. response
+  models).
+- **JSON Schema 2020-12 Support:** Handles OAS 3.1 specific keywords like `$dynamicRef`, `dependentSchemas`,
+  `unevaluatedProperties`, and `prefixItems` (tuples).
+- **Advanced Serialization:**
+    - **XML:** Full support for the `xml` object, including `nodeType`, namespaces, prefixes, and attribute wrapping.
+    - **Multipart:** Nested `multipart/mixed` and `multipart/form-data` with specific header encodings.
+    - **Streaming:** Native support for sequential media types like `application/json-seq`, `application/x-ndjson`, and
+      `text/event-stream` (Server-Sent Events).
+- **Runtime Features:** Implements
+  dynamic [Runtime Expressions](https://spec.openapis.org/oas/v3.2.0.html#runtime-expressions) for resolving **Links**
+  and **Callbacks** directly from HTTP responses.
+- **Strict Parameter Serialization:** Correctly implements `style` and `explode` logic for all parameter locations (
+  path, query, header, cookie), including "deepObject" and space/pipe delimited styles.
+
+### 📚 Legacy Swagger 2.0 Support
+
+Don't leave your legacy APIs behind. `cdd-web-ng` includes a robust compatibility layer that works with Swagger 2:
+
+- Maps legacy `collectionFormat` (csv, ssv, pipes) to modern `style`/`explode` serialization.
+- Normalizes `definitions` and `securityDefinitions` to the OpenAPI 3.0 component model.
+- Ensures your legacy services utilize the same modern Angular features (Signals, Standalone Components) as your new
+  ones.
 
 ### 🔌 Highly Extensible Architecture
 
@@ -62,10 +75,10 @@ This is achieved through a two-phase process:
 }%%
 graph TD
     %% --- Top of the Flow ---
-    OpenAPI_Spec(["`<b>OpenAPI 3.x Spec</b><br/>Source of Truth`"])
+    OpenAPI_Spec(["`<b>OpenAPI 3.x / Swagger 2.0</b><br/>Source of Truth`"])
 
     subgraph Core_Forward [1. Core Layer]
-        Spec_Parser("`<b>Spec Parser</b><br/>Loads & validates`")
+        Spec_Parser("`<b>Spec Parser</b><br/>Loads, validates & normalizes`")
     end
 
     Parsed_Object(("-"))
@@ -195,6 +208,6 @@ cdd_web_ng from_openapi --input <path-or-url-to-spec> --output <output-directory
 
 ## Acknowledgement
 
-This project extends upon foundational ideas for Angular client generation (`Services` only; no tests; no auto-admin)
-from the MIT-licensed [ng-openapi-gen](https://github.com/ng-openapi/ng-openapi) project. Thanks
-to [Tareq Jami (@Mr-Jami)](https://github.com/Mr-Jami).
+This project extends upon foundational ideas for Angular client generation (`Services` only; no tests; no auto-admin;
+limited OpenAPI spec implementation) from the MIT-licensed [ng-openapi-gen](https://github.com/ng-openapi/ng-openapi)
+project. Thanks to [Tareq Jami (@Mr-Jami)](https://github.com/Mr-Jami).

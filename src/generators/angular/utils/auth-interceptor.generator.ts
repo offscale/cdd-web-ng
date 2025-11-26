@@ -3,6 +3,7 @@ import { Project, Scope } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '@src/core/constants.js';
 import { SecurityScheme } from '@src/core/types/index.js';
+import { pascalCase } from '@src/core/utils/index.js';
 
 export class AuthInterceptorGenerator {
     constructor(private parser: SwaggerParser, private project: Project) {
@@ -15,10 +16,11 @@ export class AuthInterceptorGenerator {
         const hasApiKeyQuery = securitySchemes.some(s => s.type === 'apiKey' && s.in === 'query');
         const hasApiKeyCookie = securitySchemes.some(s => s.type === 'apiKey' && s.in === 'cookie');
 
-        const hasBearer = securitySchemes.some(s => this.isBearerScheme(s));
+        // OAS 3.0 support: Generic HTTP schemes (Basic, Digest, etc) alongside Bearer/OAuth2/OIDC
+        const hasHttpToken = securitySchemes.some(s => this.isHttpTokenScheme(s));
         const hasMutualTLS = securitySchemes.some(s => s.type === 'mutualTLS');
 
-        if (!hasApiKeyHeader && !hasApiKeyQuery && !hasApiKeyCookie && !hasBearer && !hasMutualTLS) {
+        if (!hasApiKeyHeader && !hasApiKeyQuery && !hasApiKeyCookie && !hasHttpToken && !hasMutualTLS) {
             return;
         }
 
@@ -39,7 +41,7 @@ export class AuthInterceptorGenerator {
             tokenImports.push('COOKIE_AUTH_TOKEN');
             tokenNames.push('cookieAuth');
         }
-        if (hasBearer) {
+        if (hasHttpToken) {
             tokenImports.push('BEARER_TOKEN_TOKEN');
             tokenNames.push('bearerToken');
         }
@@ -90,7 +92,7 @@ export class AuthInterceptorGenerator {
                 initializer: `inject(COOKIE_AUTH_TOKEN, { optional: true })`,
             });
         }
-        if (hasBearer) {
+        if (hasHttpToken) {
             interceptorClass.addProperty({
                 name: 'bearerToken',
                 isReadonly: true,
@@ -133,10 +135,12 @@ export class AuthInterceptorGenerator {
                         return req.clone({ headers: req.headers.set('Cookie', newCookie) });
                     }`);
                 }
-            } else if (this.isBearerScheme(scheme)) {
-                schemeLogicParts.push(`'${name}': (req) => { 
-                    const token = typeof this.bearerToken === 'function' ? this.bearerToken() : this.bearerToken; 
-                    return token ? req.clone({ headers: req.headers.set('Authorization', \`Bearer \${token}\`) }) : null; 
+            } else if (this.isHttpTokenScheme(scheme)) {
+                const prefix = this.getAuthPrefix(scheme);
+                schemeLogicParts.push(`'${name}': (req) => {
+                    const token = typeof this.bearerToken === 'function' ? this.bearerToken() : this.bearerToken;
+                    // Use derived prefix (e.g. "Bearer", "Basic", "Digest")
+                    return token ? req.clone({ headers: req.headers.set('Authorization', \`${prefix} \${token}\`) }) : null;
                 }`);
             } else if (scheme.type === 'mutualTLS') {
                 schemeLogicParts.push(`'${name}': (req) => this.mtlsConfig ? req.clone({ context: req.context.set(HTTPS_AGENT_CONTEXT_TOKEN, this.mtlsConfig) }) : req`);
@@ -144,42 +148,42 @@ export class AuthInterceptorGenerator {
         });
 
         const statementsBody = `
-        const requirements = req.context.get(SECURITY_CONTEXT_TOKEN); 
-        const applicators: Record<string, (r: HttpRequest<unknown>, scopes?: string[]) => HttpRequest<unknown> | null> = { 
-            ${schemeLogicParts.join(',\n            ')} 
-        }; 
+        const requirements = req.context.get(SECURITY_CONTEXT_TOKEN);
+        const applicators: Record<string, (r: HttpRequest<unknown>, scopes?: string[]) => HttpRequest<unknown> | null> = {
+            ${schemeLogicParts.join(',\n            ')}
+        };
 
-        if (requirements.length === 0) { 
-            return next.handle(req); 
-        } 
+        if (requirements.length === 0) {
+            return next.handle(req);
+        }
 
-        for (const requirement of requirements) { 
-            let clone: HttpRequest<unknown> | null = req; 
-            let satisfied = true; 
+        for (const requirement of requirements) {
+            let clone: HttpRequest<unknown> | null = req;
+            let satisfied = true;
 
-            if (Object.keys(requirement).length === 0) { 
-                return next.handle(req); 
-            } 
+            if (Object.keys(requirement).length === 0) {
+                return next.handle(req);
+            }
 
-            for (const [scheme, scopes] of Object.entries(requirement)) { 
-                const apply = applicators[scheme]; 
-                if (!apply) { 
-                    satisfied = false; 
-                    break; 
-                } 
-                clone = apply(clone!, scopes); 
-                if (!clone) { 
-                    satisfied = false; 
-                    break; 
-                } 
-            } 
+            for (const [scheme, scopes] of Object.entries(requirement)) {
+                const apply = applicators[scheme];
+                if (!apply) {
+                    satisfied = false;
+                    break;
+                }
+                clone = apply(clone!, scopes);
+                if (!clone) {
+                    satisfied = false;
+                    break;
+                }
+            }
 
-            if (satisfied && clone) { 
-                return next.handle(clone); 
-            } 
-        } 
+            if (satisfied && clone) {
+                return next.handle(clone);
+            }
+        }
 
-        return next.handle(req); 
+        return next.handle(req);
         `;
 
         interceptorClass.addMethod({
@@ -196,7 +200,19 @@ export class AuthInterceptorGenerator {
         return { tokenNames };
     }
 
-    private isBearerScheme(s: SecurityScheme): boolean {
-        return (s.type === 'http' && s.scheme === 'bearer') || s.type === 'oauth2' || s.type === 'openIdConnect';
+    private isHttpTokenScheme(s: SecurityScheme): boolean {
+        return s.type === 'http' || s.type === 'oauth2' || s.type === 'openIdConnect';
+    }
+
+    private getAuthPrefix(s: SecurityScheme): string {
+        if (s.type === 'oauth2' || s.type === 'openIdConnect') return 'Bearer';
+        if (s.type === 'http') {
+            // scheme is required for http type
+            const schemeUpper = (s.scheme || 'Bearer').toLowerCase();
+            if (schemeUpper === 'bearer') return 'Bearer';
+            // Use pascalCase to handle casing conventions (e.g. basic -> Basic, digest -> Digest)
+            return pascalCase(s.scheme || 'Bearer');
+        }
+        return 'Bearer';
     }
 }

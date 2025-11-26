@@ -4,6 +4,10 @@ import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../core/constants.js";
 import { SwaggerParser } from '@src/core/parser.js';
 import { HeaderObject, PathInfo, SwaggerDefinition } from "@src/core/types/index.js";
 
+/**
+ * Generates the `response-headers.ts` file.
+ * This logic now includes detection for `Link` headers and `application/linkset` content types based on OAS 3.2.
+ */
 export class ResponseHeaderRegistryGenerator {
     constructor(
         private readonly parser: SwaggerParser,
@@ -32,6 +36,13 @@ export class ResponseHeaderRegistryGenerator {
                     Object.entries(response.headers).forEach(([headerName, headerOrRef]) => {
                         const headerDef = this.parser.resolve(headerOrRef) as HeaderObject;
                         if (!headerDef) return;
+
+                        const humanReadableName = headerName.toLowerCase();
+                        // Special case: OAS 3.2 explicitly mentions HTTP Link header implies linkset semantics
+                        if (humanReadableName === 'link') {
+                            headerConfig[headerName] = 'linkset';
+                            return;
+                        }
 
                         const { typeHint, xmlConfig } = this.getHeaderTypeInfo(headerDef);
                         if (typeHint) {
@@ -92,8 +103,11 @@ export class ResponseHeaderRegistryGenerator {
     private getHeaderTypeInfo(header: HeaderObject): { typeHint: string, xmlConfig?: any } {
         if (header.content) {
             const contentType = Object.keys(header.content)[0];
-            if (contentType && contentType.includes('json')) {
+            if (contentType && (contentType.includes('json') || contentType === 'application/linkset+json')) {
                 return { typeHint: 'json' };
+            }
+            if (contentType && (contentType === 'application/linkset')) {
+                return { typeHint: 'linkset' };
             }
             if (contentType && contentType.includes('xml')) {
                 const schema = header.content[contentType].schema as SwaggerDefinition;
@@ -126,10 +140,6 @@ export class ResponseHeaderRegistryGenerator {
         return { typeHint: 'string' };
     }
 
-    /**
-     * Recursively extracts XML configuration from a schema definition.
-     * Used to configure the runtime XmlParser.
-     */
     private getXmlConfig(schema: SwaggerDefinition | undefined, depth: number): any {
         if (!schema || depth <= 0) return {};
         const resolved = this.parser.resolve(schema);

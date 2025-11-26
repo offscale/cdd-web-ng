@@ -46,7 +46,6 @@ describe('Emitter: Response Header Utilities', () => {
                 }
             };
 
-            // Enable Date type
             const parser = createParser(spec, { dateType: 'Date' });
             new ResponseHeaderRegistryGenerator(parser, project).generate('/out');
 
@@ -63,7 +62,7 @@ describe('Emitter: Response Header Utilities', () => {
                 'X-Int': 'number',
                 'X-Bool': 'boolean',
                 'X-Str': 'string',
-                'X-Date': 'date', // Detected as date
+                'X-Date': 'date',
                 'X-Json': 'json'
             });
         });
@@ -87,7 +86,6 @@ describe('Emitter: Response Header Utilities', () => {
                 }
             };
 
-            // Default is string or explicit string type
             const parser = createParser(spec, { dateType: 'string' });
             new ResponseHeaderRegistryGenerator(parser, project).generate('/out');
 
@@ -147,9 +145,49 @@ describe('Emitter: Response Header Utilities', () => {
             expect(API_HEADER_XML_CONFIGS['getXmlHeader_200_X-Xml'].name).toBe('Data');
         });
 
+        // New Test: LinkSet Support via Header detection
+        it('should generate registry with type hints including LinkSet support', () => {
+            const project = createTestProject();
+            const spec = {
+                paths: {
+                    '/test': {
+                        get: {
+                            operationId: 'getLinkHeaders',
+                            responses: {
+                                '200': {
+                                    description: 'ok',
+                                    headers: {
+                                        'Link': { schema: { type: 'string' } }, // Should detect 'linkset' from name
+                                        'X-Link-Set': { content: { 'application/linkset': {} } }, // Explicit header content type
+                                        'X-Str': { schema: { type: 'string' } }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+
+            const parser = createParser(spec);
+            new ResponseHeaderRegistryGenerator(parser, project).generate('/out');
+
+            const file = project.getSourceFileOrThrow('/out/response-headers.ts');
+            const text = file.getText().replace(/import.*;/g, '');
+            const jsCode = ts.transpile(text, { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS });
+            const moduleScope = { exports: {} as any };
+            new Function('exports', jsCode)(moduleScope.exports);
+
+            const API_RESPONSE_HEADERS = moduleScope.exports.API_RESPONSE_HEADERS;
+
+            expect(API_RESPONSE_HEADERS['getLinkHeaders']['200']).toEqual({
+                'Link': 'linkset',
+                'X-Link-Set': 'linkset',
+                'X-Str': 'string'
+            });
+        });
+
         it('should handle edge cases: bad refs, non-json content, unknown schema types', () => {
             const project = createTestProject();
-            // Suppress warnings from the parser regarding missing refs
             const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
             });
 
@@ -162,15 +200,10 @@ describe('Emitter: Response Header Utilities', () => {
                                 '200': {
                                     description: 'ok',
                                     headers: {
-                                        // Case 1: Header definition itself is a bad ref
                                         'X-Missing': { $ref: '#/components/headers/Missing' },
-                                        // Case 2: Content type is not JSON (content map iteration)
                                         'X-Html': { content: { 'text/html': {} } },
-                                        // Case 3: Schema inside header is a bad ref
                                         'X-Bad-Ref': { schema: { $ref: '#/components/schemas/Missing' } },
-                                        // Case 4: Schema type is unknown or missing (fallback)
                                         'X-Unknown': { schema: { type: 'something-else' } },
-                                        // Case 5: Array type
                                         'X-Arr': { schema: { type: 'array' } }
                                     }
                                 }
@@ -191,19 +224,10 @@ describe('Emitter: Response Header Utilities', () => {
 
             const headers = moduleScope.exports.API_RESPONSE_HEADERS['getEdgeCases']['200'];
 
-            // 'X-Missing' should be absent because the loop returns early if (!headerDef)
             expect(headers['X-Missing']).toBeUndefined();
-
-            // 'X-Html' should be 'string' because content type doesn't include 'json'
             expect(headers['X-Html']).toBe('string');
-
-            // 'X-Bad-Ref' should be 'string' because (!resolvedSchema) -> return 'string'
             expect(headers['X-Bad-Ref']).toBe('string');
-
-            // 'X-Unknown' should be 'string' because type switch falls through
             expect(headers['X-Unknown']).toBe('string');
-
-            // 'X-Arr' should be 'array'
             expect(headers['X-Arr']).toBe('array');
 
             warnSpy.mockRestore();
@@ -223,7 +247,6 @@ describe('Emitter: Response Header Utilities', () => {
                 experimentalDecorators: true
             });
 
-            // Mock Dependencies
             const API_RESPONSE_HEADERS = {
                 'op1': {
                     '200': {
@@ -236,7 +259,6 @@ describe('Emitter: Response Header Utilities', () => {
             };
             const API_HEADER_XML_CONFIGS = {};
 
-            // Mock HttpHeaders
             const headersMap = new Map<string, string>();
             headersMap.set('X-Count', '42');
             headersMap.set('X-Valid', 'true');
@@ -252,11 +274,11 @@ describe('Emitter: Response Header Utilities', () => {
             const moduleScope = { exports: {} as any };
             const mockInjectable = () => (target: any) => target;
 
-            // Inject mock Registry
             const wrappedCode = `
-                const API_RESPONSE_HEADERS = ${JSON.stringify(API_RESPONSE_HEADERS)}; 
-                const API_HEADER_XML_CONFIGS = ${JSON.stringify(API_HEADER_XML_CONFIGS)}; 
-                const XmlParser = { parse: () => null }; 
+                const API_RESPONSE_HEADERS = ${JSON.stringify(API_RESPONSE_HEADERS)};
+                const API_HEADER_XML_CONFIGS = ${JSON.stringify(API_HEADER_XML_CONFIGS)};
+                const XmlParser = { parse: () => null };
+                const LinkSetParser = { parseHeader: () => null };
                 ${jsCode} 
             `;
 
@@ -265,7 +287,6 @@ describe('Emitter: Response Header Utilities', () => {
             const ServiceClass = moduleScope.exports.ResponseHeaderService;
             const service = new ServiceClass();
 
-            // Result should be the typed object
             const result = service.parse(mockHeaders, 'op1', 200);
 
             expect(result).toBeDefined();
@@ -288,12 +309,10 @@ describe('Emitter: Response Header Utilities', () => {
                 experimentalDecorators: true
             });
 
-            // Mock XML Parser
             const XmlParserMock = {
                 parse: (xml: string, config: any) => ({ parsed: true, root: config.name, raw: xml })
             };
 
-            // Mock Registry
             const API_RESPONSE_HEADERS = {
                 'op1': { '200': { 'X-Data': 'xml' } }
             };
@@ -301,7 +320,6 @@ describe('Emitter: Response Header Utilities', () => {
                 'op1_200_X-Data': { name: 'RootDetails' }
             };
 
-            // Mock HttpHeaders
             const headersMap = new Map<string, string>();
             headersMap.set('X-Data', '<RootDetails><val>1</val></RootDetails>');
 
@@ -315,9 +333,10 @@ describe('Emitter: Response Header Utilities', () => {
             const mockInjectable = () => (target: any) => target;
 
             const wrappedCode = `
-                const API_RESPONSE_HEADERS = ${JSON.stringify(API_RESPONSE_HEADERS)}; 
-                const API_HEADER_XML_CONFIGS = ${JSON.stringify(API_HEADER_XML_CONFIGS)}; 
-                const XmlParser = { parse: ${XmlParserMock.parse.toString()} }; 
+                const API_RESPONSE_HEADERS = ${JSON.stringify(API_RESPONSE_HEADERS)};
+                const API_HEADER_XML_CONFIGS = ${JSON.stringify(API_HEADER_XML_CONFIGS)};
+                const XmlParser = { parse: ${XmlParserMock.parse.toString()} };
+                const LinkSetParser = { parseHeader: () => null };
 
                 ${jsCode} 
             `;
@@ -334,6 +353,61 @@ describe('Emitter: Response Header Utilities', () => {
                 root: 'RootDetails',
                 raw: '<RootDetails><val>1</val></RootDetails>'
             });
+        });
+
+        // New Test: Link Set Parsing execution in service
+        it('should generate a service that parses Link headers using LinkSetParser', () => {
+            const project = createTestProject();
+            new ResponseHeaderParserGenerator(project).generate('/out');
+
+            const sourceFile = project.getSourceFileOrThrow('/out/utils/response-header.service.ts');
+            const code = sourceFile.getText().replace(/import.*;/g, '');
+            const jsCode = ts.transpile(code, {
+                target: ts.ScriptTarget.ES2020,
+                module: ts.ModuleKind.CommonJS,
+                experimentalDecorators: true
+            });
+
+            const API_RESPONSE_HEADERS = {
+                'op1': {
+                    '200': {
+                        'Link': 'linkset'
+                    }
+                }
+            };
+            const API_HEADER_XML_CONFIGS = {};
+            const XmlParser = { parse: () => null };
+            const LinkSetParser = { parseHeader: (val: any) => [{ href: val }] }; // Mock implementation
+
+            const headersMap = new Map<string, string>();
+            headersMap.set('Link', '<http://example.com>; rel="next"');
+
+            const mockHeaders = {
+                has: (k: string) => headersMap.has(k),
+                get: (k: string) => headersMap.get(k),
+                getAll: (k: string) => [headersMap.get(k)]
+            };
+
+            const moduleScope = { exports: {} as any };
+            const mockInjectable = () => (target: any) => target;
+
+            const wrappedCode = `
+                const API_RESPONSE_HEADERS = ${JSON.stringify(API_RESPONSE_HEADERS)};
+                const API_HEADER_XML_CONFIGS = ${JSON.stringify(API_HEADER_XML_CONFIGS)};
+                const XmlParser = { parse: ${XmlParser.parse.toString()} };
+                const LinkSetParser = { parseHeader: ${LinkSetParser.parseHeader.toString()} };
+                ${jsCode} 
+            `;
+
+            new Function('exports', 'Injectable', wrappedCode)(moduleScope.exports, mockInjectable);
+
+            const ServiceClass = moduleScope.exports.ResponseHeaderService;
+            const service = new ServiceClass();
+
+            const result = service.parse(mockHeaders, 'op1', 200);
+
+            // Verify LinkSetParser was called correctly and result integration worked
+            expect(result['Link']).toEqual([{ href: '<http://example.com>; rel="next"' }]);
         });
     });
 });

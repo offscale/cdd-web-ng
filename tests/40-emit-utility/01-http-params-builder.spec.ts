@@ -48,7 +48,10 @@ class MockHttpParams {
 
     // Helper to check raw map content (simulating what's sent on wire)
     get(key: string) {
-        return this.map.get(key)?.[0] || null;
+        const values = this.map.get(key);
+        // Fix: differentiate between missing key and empty value
+        if (!values || values.length === 0) return null;
+        return values[0];
     }
 }
 
@@ -135,6 +138,32 @@ describe('Utility: HttpParamsBuilder', () => {
             const res = Builder.serializeQueryParam(params, { name: 'p', style: 'pipeDelimited' }, ['a', 'b']);
             expect(res.get('p')).toBe('a%7Cb');
         });
+
+        // New OAS 3.2 allowEmptyValue Tests
+        it('should emit empty string if allowEmptyValue is true and value is null', () => {
+            const params = createParams();
+            const res = Builder.serializeQueryParam(params, { name: 'flag', allowEmptyValue: true }, null);
+            expect(res.get('flag')).toBe('');
+            expect(res.toString()).toBe('flag=');
+        });
+
+        it('should emit empty string if allowEmptyValue is true and value is undefined', () => {
+            const params = createParams();
+            const res = Builder.serializeQueryParam(params, { name: 'flag', allowEmptyValue: true }, undefined);
+            expect(res.get('flag')).toBe('');
+        });
+
+        it('should emit empty string if allowEmptyValue is true and value is empty string', () => {
+            const params = createParams();
+            const res = Builder.serializeQueryParam(params, { name: 'flag', allowEmptyValue: true }, '');
+            expect(res.get('flag')).toBe('');
+        });
+
+        it('should omit parameter if allowEmptyValue is false (default) and value is null', () => {
+            const params = createParams();
+            const res = Builder.serializeQueryParam(params, { name: 'flag' }, null);
+            expect(res.get('flag')).toBeNull();
+        });
     });
 
     describe('serializeCookieParam (OAS 3.2 Strict Compliance)', () => {
@@ -186,7 +215,6 @@ describe('Utility: HttpParamsBuilder', () => {
         it('should allow reserved characters if allowReserved=true via encodeReserved', () => {
             const val = 'a/b+c';
             // allowReserved=true -> / and + are preserved
-            // cookie style overrides this (raw), but form style preserves reserved
             expect(Builder.serializeCookieParam('path', val, 'form', true, true)).toBe('path=a/b+c');
             // standard form (allowReserved=false) -> percent encoded
             expect(Builder.serializeCookieParam('path', val, 'form', true, false)).toBe('path=a%2Fb%2Bc');

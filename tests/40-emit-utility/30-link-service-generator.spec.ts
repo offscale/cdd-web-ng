@@ -155,7 +155,7 @@ describe('Emitter: LinkServiceGenerator', () => {
         expect(result.parameters.static).toBe('constant');
     });
 
-    it('should resolve values from REQUEST context', () => {
+    it('should resolve values from REQUEST context (including path params)', () => {
         const project = createTestProject();
         const spec = {
             openapi: '3.0.0',
@@ -185,7 +185,8 @@ describe('Emitter: LinkServiceGenerator', () => {
                             m: '$method',
                             q: '$request.query.filter',
                             h: '$request.header.x-req-id',
-                            b: '$request.body#/data/nested'
+                            b: '$request.body#/data/nested',
+                            p: '$request.path.id' // NEW path param request
                         }
                     }
                 }
@@ -194,7 +195,7 @@ describe('Emitter: LinkServiceGenerator', () => {
 
         // Mock HttpRequest
         const requestMock = {
-            url: 'https://api.com/items?filter=active',
+            url: 'https://api.com/v1/items/999?filter=active',
             method: 'POST',
             body: { data: { nested: 'foo' } },
             headers: new Map([['x-req-id', 'req-99']]),
@@ -213,15 +214,16 @@ describe('Emitter: LinkServiceGenerator', () => {
         new Function('exports', 'Injectable', wrappedCode)(moduleScope.exports, mockInjectable);
         const service = new moduleScope.exports.LinkService();
 
-        // Call with request arg
-        const result = service.resolveLink('createItem', responseMock, 'getRelated', requestMock);
+        // Call with request arg and urlTemplate
+        const result = service.resolveLink('createItem', responseMock, 'getRelated', requestMock, '/items/{id}');
 
         expect(result).toBeDefined();
-        expect(result.parameters.u).toBe('https://api.com/items?filter=active');
+        expect(result.parameters.u).toBe('https://api.com/v1/items/999?filter=active');
         expect(result.parameters.m).toBe('POST');
         expect(result.parameters.q).toBe('active');
         expect(result.parameters.h).toBe('req-99');
         expect(result.parameters.b).toBe('foo');
+        expect(result.parameters.p).toBe('999'); // extracted path param
     });
 
     it('should resolve targetServer with variable substitution', () => {
@@ -272,5 +274,58 @@ describe('Emitter: LinkServiceGenerator', () => {
 
         expect(result).toBeDefined();
         expect(result.targetServer).toBe('https://eu-west.api.com/v1');
+    });
+
+    it('should throw validation error if link server variable default is invalid', () => {
+        const project = createTestProject();
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'T', version: '1' },
+            paths: {},
+            components: { links: { L: {} } }
+        };
+        const parser = createParser(spec);
+        new LinkServiceGenerator(parser, project).generate('/out');
+
+        const sourceFile = project.getSourceFileOrThrow('/out/utils/link.service.ts');
+        const code = sourceFile.getText().replace(/import.*;/g, '');
+        const jsCode = ts.transpile(code, {
+            target: ts.ScriptTarget.ES2020,
+            module: ts.ModuleKind.CommonJS,
+            experimentalDecorators: true
+        });
+
+        const API_LINKS = {
+            'opInvalid': {
+                '200': {
+                    'invalidServer': {
+                        operationId: 'opTarget',
+                        server: {
+                            url: 'https://{region}.api.com',
+                            variables: {
+                                region: {
+                                    default: 'mars', // Invalid value
+                                    enum: ['earth', 'moon']
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        const responseMock = { status: 200, headers: {}, body: {} };
+        const moduleScope = { exports: {} as any };
+        const mockInjectable = () => (target: any) => target;
+        const wrappedCode = `
+            const API_LINKS = ${JSON.stringify(API_LINKS)};
+            ${jsCode}
+        `;
+
+        new Function('exports', 'Injectable', wrappedCode)(moduleScope.exports, mockInjectable);
+        const service = new moduleScope.exports.LinkService();
+
+        expect(() => service.resolveLink('opInvalid', responseMock, 'invalidServer'))
+            .toThrow('Value "mars" for variable "region" is not in the allowed enum: earth, moon');
     });
 });

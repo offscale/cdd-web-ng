@@ -8,7 +8,7 @@ import {
 import { GeneratorConfig, PathInfo } from '@src/core/types/index.js';
 import { SwaggerParser } from "@src/core/parser.js";
 import { ServiceMethodAnalyzer } from "@src/analysis/service-method-analyzer.js";
-import { ServiceMethodModel } from '@src/analysis/service-method-types.js';
+import { ResponseVariant, ServiceMethodModel } from '@src/analysis/service-method-types.js';
 import { camelCase, pascalCase } from "@src/core/utils/index.js";
 
 export class ServiceMethodGenerator {
@@ -44,11 +44,24 @@ export class ServiceMethodGenerator {
         }
 
         const isSSE = model.responseSerialization === 'sse';
-        const bodyStatements = this.emitMethodBody(model, operation, isSSE);
-        const overloads = this.emitOverloads(model.methodName, model.responseType, model.parameters, model.isDeprecated, isSSE);
 
-        // Use specific return type generics to support strict typing
-        const returnType = `Observable<${model.responseType}>`;
+        // Determine if we need content negotiation overloads
+        // We have negotiation if there are multiple valid success variants with different mediaTypes
+        const distinctVariants = model.responseVariants.filter((v, i, a) =>
+            a.findIndex(t => t.mediaType === v.mediaType) === i && v.mediaType !== ''
+        );
+        const hasContentNegotiation = distinctVariants.length > 1;
+
+        const bodyStatements = this.emitMethodBody(model, operation, isSSE, hasContentNegotiation);
+        const overloads = this.emitOverloads(model.methodName, model.responseType, model.parameters, model.isDeprecated, isSSE, model.responseVariants);
+
+        // Default return type for implementation signature (widest type)
+        // If multiple variants, we return a union of their types.
+        let returnType = `Observable<${model.responseType}>`;
+        if (hasContentNegotiation) {
+            const unionType = [...new Set(model.responseVariants.map(v => v.type))].join(' | ');
+            returnType = `Observable<${unionType}>`;
+        }
 
         const docs = model.docs ? [model.docs] : [];
         if (errorTypeAlias) {
@@ -69,7 +82,7 @@ export class ServiceMethodGenerator {
         });
     }
 
-    private emitMethodBody(model: ServiceMethodModel, rawOp: PathInfo, isSSE: boolean): string {
+    private emitMethodBody(model: ServiceMethodModel, rawOp: PathInfo, isSSE: boolean, hasContentNegotiation: boolean): string {
         const lines: string[] = [];
 
         // 1. XML Logic (Legacy Support)
@@ -149,17 +162,45 @@ export class ServiceMethodGenerator {
             lines.push(`if (__cookies.length > 0) { headers = headers.set('Cookie', __cookies.join('; ')); }`);
         }
 
-        // 8. Security & Options
+        // 8. Content Negotiation Setup
+        // Detect requested media type from headers
+        // If negotiation is active, we don't default responseType blindly.
+        // We check if the user ASKED for XML.
+        if (hasContentNegotiation) {
+            lines.push(`const acceptHeader = headers.get('Accept');`);
+        }
+
+        // 9. Security & Options
         let contextConstruction = `this.createContextWithClientId(options?.context)`;
         if (model.security.length > 0) {
             contextConstruction += `.set(SECURITY_CONTEXT_TOKEN, ${JSON.stringify(model.security)})`;
         }
+        if (model.extensions && Object.keys(model.extensions).length > 0) {
+            contextConstruction += `.set(EXTENSIONS_CONTEXT_TOKEN, ${JSON.stringify(model.extensions)})`;
+        }
 
-        const isSeq = model.responseSerialization === 'json-seq' || model.responseSerialization === 'json-lines';
-        const isXmlResp = model.responseSerialization === 'xml';
+        // Determine the responseType value to pass to Angular.
+        // If we are negotiating, we switch based on acceptHeader.
+        // Otherwise, use model default.
+        let responseTypeVal = `options?.responseType`;
 
-        // Force responseType: 'text' for custom parsing strategies (sequential JSON, XML)
-        const responseTypeVal = (isSeq || isXmlResp) ? `'text'` : `options?.responseType`;
+        if (hasContentNegotiation) {
+            // Build a condition stack
+            // if (acceptHeader?.includes('application/xml')) 'text' else default
+            // Note: JSON-Seq/XML variants ALWAYS require 'text' to allow manual parsing
+            const xmlOrSeqCondition = model.responseVariants
+                .filter(v => v.serialization === 'xml' || v.serialization.startsWith('json-'))
+                .map(v => `acceptHeader?.includes('${v.mediaType}')`)
+                .join(' || ');
+
+            if (xmlOrSeqCondition) {
+                responseTypeVal = `(${xmlOrSeqCondition}) ? 'text' : (options?.responseType ?? 'json')`;
+            }
+        } else {
+            const isSeq = model.responseSerialization === 'json-seq' || model.responseSerialization === 'json-lines';
+            const isXmlResp = model.responseSerialization === 'xml';
+            if (isSeq || isXmlResp) responseTypeVal = `'text'`;
+        }
 
         let optionProperties = `
   observe: options?.observe, 
@@ -173,10 +214,10 @@ export class ServiceMethodGenerator {
 
         lines.push(`let requestOptions: HttpRequestOptions = {${optionProperties}\n};`);
 
-        // 9. Body Handling
+        // 10. Body Handling
         let bodyArgument = 'null';
         const body = model.body;
-
+        // ... (body logic same as before)
         const legacyFormData = rawOp.parameters?.filter(p => (p as any).in === 'formData');
         const isUrlEnc = rawOp.consumes?.includes('application/x-www-form-urlencoded');
 
@@ -199,7 +240,6 @@ export class ServiceMethodGenerator {
         } else if (body) {
             if (body.type === 'raw' || body.type === 'json') {
                 bodyArgument = body.paramName;
-                // Apply encoding if configured (OAS 3.1)
                 if (model.requestEncodingConfig) {
                     lines.push(`if (${body.paramName} !== null && ${body.paramName} !== undefined) {`);
                     lines.push(`  ${body.paramName} = ContentEncoder.encode(${body.paramName}, ${JSON.stringify(model.requestEncodingConfig)});`);
@@ -224,120 +264,195 @@ export class ServiceMethodGenerator {
         }
 
         if (isSSE) {
+            // SSE logic remains same
             lines.push(`
             return new Observable<${model.responseType}>(observer => { 
                 const eventSource = new EventSource(url); 
                 eventSource.onmessage = (event) => { 
-                    try { 
-                        observer.next(JSON.parse(event.data)); 
-                    } catch (e) { 
-                        observer.next(event.data); 
-                    } 
+                    try { observer.next(JSON.parse(event.data)); } catch (e) { observer.next(event.data); } 
                 }; 
-                eventSource.onerror = (error) => { 
-                    observer.error(error); 
-                    eventSource.close(); 
-                }; 
+                eventSource.onerror = (error) => { observer.error(error); eventSource.close(); }; 
                 return () => eventSource.close(); 
             });`);
             return lines.join('\n');
         }
 
-        // 10. HTTP Call
+        // 11. HTTP Call
         const httpMethod = model.httpMethod.toLowerCase();
         const isStandardBody = ['post', 'put', 'patch', 'query'].includes(httpMethod);
         const isStandardNonBody = ['get', 'delete', 'head', 'options', 'jsonp'].includes(httpMethod);
+
+        // Using generic <any> here because the specific mapping logic below casts it to the correct union member
+        const returnGeneric = `any`;
 
         let httpCall = '';
         if (isStandardBody) {
             if (httpMethod === 'query') {
                 httpCall = `this.http.request('QUERY', url, { ...requestOptions, body: ${bodyArgument} } as any)`;
             } else {
-                httpCall = `this.http.${httpMethod}<${model.responseType}>(url, ${bodyArgument}, requestOptions as any)`;
+                httpCall = `this.http.${httpMethod}<${returnGeneric}>(url, ${bodyArgument}, requestOptions as any)`;
             }
         } else if (bodyArgument !== 'null') {
-            httpCall = `this.http.request<${model.responseType}>('${model.httpMethod}', url, { ...requestOptions, body: ${bodyArgument} } as any)`;
+            httpCall = `this.http.request<${returnGeneric}>('${model.httpMethod}', url, { ...requestOptions, body: ${bodyArgument} } as any)`;
         } else if (isStandardNonBody) {
-            httpCall = `this.http.${httpMethod}<${model.responseType}>(url, requestOptions as any)`;
+            httpCall = `this.http.${httpMethod}<${returnGeneric}>(url, requestOptions as any)`;
         } else {
-            httpCall = `this.http.request<${model.responseType}>('${model.httpMethod}', url, requestOptions as any)`;
+            httpCall = `this.http.request<${returnGeneric}>('${model.httpMethod}', url, requestOptions as any)`;
         }
 
-        // 11. Response Filtering/Transformation
-        if (isSeq) {
-            const delimiter = model.responseSerialization === 'json-seq' ? '\\x1e' : '\\n';
+        // 12. Response Transformation Logic
+        // If we have content negotiation, we need runtime checks inside the map
+
+        if (hasContentNegotiation) {
             lines.push(`return ${httpCall}.pipe(`);
             lines.push(`  map(response => {`);
-            lines.push(`    if (typeof response !== 'string') return response as any;`);
-            lines.push(`    const items = response.split('${delimiter}').filter(part => part.trim().length > 0);`);
-            lines.push(`    return items.map(item => JSON.parse(item));`);
+
+            // Generate if/else blocks for each variant
+            model.responseVariants.forEach(v => {
+                const check = `acceptHeader?.includes('${v.mediaType}')`;
+                lines.push(`    // Handle ${v.mediaType}`);
+                if (v.isDefault) lines.push(`    // Default fallback`);
+
+                const isXml = v.serialization === 'xml';
+                const isSeq = v.serialization === 'json-seq' || v.serialization === 'json-lines';
+
+                if (isXml) {
+                    lines.push(`    if (${check}) {`);
+                    lines.push(`       if (typeof response !== 'string') return response;`);
+                    lines.push(`       return XmlParser.parse(response, ${JSON.stringify(v.xmlConfig)});`);
+                    lines.push(`    }`);
+                } else if (isSeq) {
+                    const delimiter = v.serialization === 'json-seq' ? '\\x1e' : '\\n';
+                    lines.push(`    if (${check}) {`);
+                    lines.push(`       if (typeof response !== 'string') return response;`);
+                    lines.push(`       return response.split('${delimiter}').filter((p: string) => p.trim().length > 0).map((i: string) => JSON.parse(i));`);
+                    lines.push(`    }`);
+                } else if (v.decodingConfig) {
+                    // JSON with decoding config
+                    lines.push(`    if (${check}) {`);
+                    lines.push(`       return ContentDecoder.decode(response, ${JSON.stringify(v.decodingConfig)});`);
+                    lines.push(`    }`);
+                }
+            });
+
+            // Fallback if nothing matched but we still need default handling (e.g. default json decoding setup)
+            const def = model.responseVariants.find(v => v.isDefault);
+            if (def && def.decodingConfig) {
+                lines.push(`    // Default decoding`);
+                lines.push(`    return ContentDecoder.decode(response, ${JSON.stringify(def.decodingConfig)});`);
+            } else {
+                lines.push(`    return response;`);
+            }
+
             lines.push(`  })`);
             lines.push(`);`);
-        } else if (isXmlResp) {
-            lines.push(`return ${httpCall}.pipe(`);
-            lines.push(`  map(response => {`);
-            lines.push(`    if (typeof response !== 'string') return response as any;`);
-            lines.push(`    return XmlParser.parse(response, ${JSON.stringify(model.responseXmlConfig)});`);
-            lines.push(`  })`);
-            lines.push(`);`);
-        } else if (model.responseDecodingConfig) {
-            // OAS 3.1 Auto-decoding (contentSchema)
-            lines.push(`return ${httpCall}.pipe(`);
-            lines.push(`  map(response => {`);
-            lines.push(`    return ContentDecoder.decode(response, ${JSON.stringify(model.responseDecodingConfig)});`);
-            lines.push(`  })`);
-            lines.push(`);`);
+
         } else {
-            lines.push(`return ${httpCall};`);
+            // Legacy / Single Variant Logic
+            const isSeq = model.responseSerialization === 'json-seq' || model.responseSerialization === 'json-lines';
+            const isXmlResp = model.responseSerialization === 'xml';
+
+            if (isSeq) {
+                const delimiter = model.responseSerialization === 'json-seq' ? '\\x1e' : '\\n';
+                lines.push(`return ${httpCall}.pipe(`);
+                lines.push(`  map(response => {`);
+                lines.push(`    if (typeof response !== 'string') return response as any;`);
+                lines.push(`    const items = response.split('${delimiter}').filter(part => part.trim().length > 0);`);
+                lines.push(`    return items.map(item => JSON.parse(item));`);
+                lines.push(`  })`);
+                lines.push(`);`);
+            } else if (isXmlResp) {
+                lines.push(`return ${httpCall}.pipe(`);
+                lines.push(`  map(response => {`);
+                lines.push(`    if (typeof response !== 'string') return response as any;`);
+                lines.push(`    return XmlParser.parse(response, ${JSON.stringify(model.responseXmlConfig)});`);
+                lines.push(`  })`);
+                lines.push(`);`);
+            } else if (model.responseDecodingConfig) {
+                lines.push(`return ${httpCall}.pipe(`);
+                lines.push(`  map(response => {`);
+                lines.push(`    return ContentDecoder.decode(response, ${JSON.stringify(model.responseDecodingConfig)});`);
+                lines.push(`  })`);
+                lines.push(`);`);
+            } else {
+                lines.push(`return ${httpCall};`);
+            }
         }
 
         return lines.join('\n');
     }
 
-    private emitOverloads(methodName: string, responseType: string, parameters: OptionalKind<ParameterDeclarationStructure>[], isDeprecated: boolean, isSSE: boolean): OptionalKind<MethodDeclarationOverloadStructure>[] {
+    private emitOverloads(methodName: string, responseType: string, parameters: OptionalKind<ParameterDeclarationStructure>[], isDeprecated: boolean, isSSE: boolean, variants: ResponseVariant[]): OptionalKind<MethodDeclarationOverloadStructure>[] {
         const paramsDocs = parameters.map(p => `@param ${p.name} ${p.hasQuestionToken ? '(optional) ' : ''}`).join('\n');
-        const finalResponseType = responseType === 'any' ? 'any' : (responseType || 'unknown');
+        const defaultResponseType = responseType === 'any' ? 'any' : (responseType || 'unknown');
         const deprecationDoc = isDeprecated ? '\n@deprecated' : '';
+        const overloads: OptionalKind<MethodDeclarationOverloadStructure>[] = [];
 
         if (isSSE) {
             return [{
                 parameters: [...parameters],
-                returnType: `Observable<${finalResponseType}>`,
+                returnType: `Observable<${defaultResponseType}>`,
                 docs: [`${methodName} (Server-Sent Events).\n${paramsDocs}\n${deprecationDoc}`]
             }];
         }
 
-        return [
-            {
-                parameters: [...parameters, {
-                    name: 'options',
-                    hasQuestionToken: true,
-                    type: `RequestOptions & { observe?: 'body' }`
-                }],
-                returnType: `Observable<${finalResponseType}>`,
-                docs: [`${methodName}. \n${paramsDocs}\n@param options The options for this request.${deprecationDoc}`]
-            },
-            {
-                parameters: [...parameters, {
-                    name: 'options',
-                    hasQuestionToken: false,
-                    type: `RequestOptions & { observe: 'response' }`
-                }],
-                // HttpResponse remains generic for full response access
-                returnType: `Observable<HttpResponse<${finalResponseType}>>`,
-                docs: [`${methodName}. \n${paramsDocs}\n@param options The options for this request, with response observation enabled.${deprecationDoc}`]
-            },
-            {
-                parameters: [...parameters, {
-                    name: 'options',
-                    hasQuestionToken: false,
-                    type: `RequestOptions & { observe: 'events' }`
-                }],
-                returnType: `Observable<HttpEvent<${finalResponseType}>>`,
-                docs: [`${methodName}. \n${paramsDocs}\n@param options The options for this request, with event observation enabled.${deprecationDoc}`]
+        // 1. Strict Accept Overloads
+        const distinctVariants = variants.filter((v, i, a) => a.findIndex(t => t.mediaType === v.mediaType) === i && v.mediaType !== '');
+
+        if (distinctVariants.length > 1) {
+            for (const variant of distinctVariants) {
+                // We generate a signature that requires specific headers if using this variant
+                // Note: TS Structural typing for headers inside options is complex.
+                // We approximate by specifying headers type as having the Accept key.
+                overloads.push({
+                    parameters: [...parameters, {
+                        name: 'options',
+                        hasQuestionToken: false, // Mandatory to select this overload
+                        type: `RequestOptions & { headers: { 'Accept': '${variant.mediaType}' } }`
+                    }],
+                    returnType: `Observable<${variant.type}>`,
+                    docs: [`${methodName} (${variant.mediaType})\n${paramsDocs}\n@param options Options with Accept header '${variant.mediaType}'${deprecationDoc}`]
+                });
             }
-        ].map(o => {
-            if (parameters.some(p => p.hasQuestionToken) && o.parameters.find(p => p.name === 'options')) {
+        }
+
+        // 2. Standard Overloads (Default Priority / No explicit Accept)
+
+        // 2a. Body
+        overloads.push({
+            parameters: [...parameters, {
+                name: 'options',
+                hasQuestionToken: true,
+                type: `RequestOptions & { observe?: 'body' }`
+            }],
+            returnType: `Observable<${defaultResponseType}>`,
+            docs: [`${methodName}. \n${paramsDocs}\n@param options The options for this request.${deprecationDoc}`]
+        });
+
+        // 2b. Response (Full)
+        overloads.push({
+            parameters: [...parameters, {
+                name: 'options',
+                hasQuestionToken: false,
+                type: `RequestOptions & { observe: 'response' }`
+            }],
+            returnType: `Observable<HttpResponse<${defaultResponseType}>>`,
+            docs: [`${methodName}. \n${paramsDocs}\n@param options The options for this request, with response observation enabled.${deprecationDoc}`]
+        });
+
+        // 2c. Events
+        overloads.push({
+            parameters: [...parameters, {
+                name: 'options',
+                hasQuestionToken: false,
+                type: `RequestOptions & { observe: 'events' }`
+            }],
+            returnType: `Observable<HttpEvent<${defaultResponseType}>>`,
+            docs: [`${methodName}. \n${paramsDocs}\n@param options The options for this request, with event observation enabled.${deprecationDoc}`]
+        });
+
+        return overloads.map(o => {
+            if (parameters.some(p => p.hasQuestionToken) && o.parameters?.find(p => p.name === 'options')) {
                 o.parameters.find(p => p.name === 'options')!.hasQuestionToken = true;
             }
             return o;

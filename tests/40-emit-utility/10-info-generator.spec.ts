@@ -44,6 +44,29 @@ describe('Emitter: InfoGenerator', () => {
         expect(API_INFO.description).toBe('A description of the API');
     });
 
+    it('should include summary field (OAS 3.1 feature)', () => {
+        const spec = {
+            openapi: '3.1.0',
+            info: {
+                title: 'Summary API',
+                version: '1.0',
+                summary: 'A short summary of the API.'
+            },
+            paths: {}
+        };
+        const project = runGenerator(spec);
+
+        // Check type definition
+        const sourceFile = project.getSourceFileOrThrow('/out/info.ts');
+        const apiInfoInterface = sourceFile.getInterfaceOrThrow('ApiInfo');
+        const summaryProp = apiInfoInterface.getProperty('summary');
+        expect(summaryProp).toBeDefined();
+
+        // Check runtime value
+        const { API_INFO } = compileGeneratedFile(project);
+        expect(API_INFO.summary).toBe('A short summary of the API.');
+    });
+
     it('should generate correct structure for contact and license', () => {
         const spec = {
             openapi: '3.1.0',
@@ -78,12 +101,12 @@ describe('Emitter: InfoGenerator', () => {
         expect(API_INFO.termsOfService).toBe('https://example.com/terms');
     });
 
-    it('should export API tags', () => {
+    it('should export API tags including summary (OAS 3.x)', () => {
         const spec = {
             openapi: '3.2.0',
             info: { title: 'Tagged API', version: '1.0' },
             tags: [
-                { name: 'Admin', description: 'Administrative operations' },
+                { name: 'Admin', description: 'Administrative operations', summary: 'Admin Stuff' },
                 { name: 'Users', externalDocs: { url: 'https://users.doc', description: 'User Guide' } }
             ],
             paths: {}
@@ -92,7 +115,11 @@ describe('Emitter: InfoGenerator', () => {
         const { API_TAGS } = compileGeneratedFile(project);
 
         expect(API_TAGS).toHaveLength(2);
-        expect(API_TAGS[0]).toEqual({ name: 'Admin', description: 'Administrative operations' });
+        expect(API_TAGS[0]).toEqual({
+            name: 'Admin',
+            description: 'Administrative operations',
+            summary: 'Admin Stuff'
+        });
         expect(API_TAGS[1].externalDocs.url).toBe('https://users.doc');
     });
 
@@ -113,15 +140,17 @@ describe('Emitter: InfoGenerator', () => {
         expect(API_EXTERNAL_DOCS.description).toBe('Full Documentation');
     });
 
-    it('should handle missing optional root metadata', () => {
+    it('should handle missing optional root metadata (Swagger 2.0 compatibility)', () => {
         const spec = {
             swagger: '2.0',
             info: { title: 'Minimal API', version: '1.0' },
             paths: {}
         };
         const project = runGenerator(spec);
-        const { API_TAGS, API_EXTERNAL_DOCS } = compileGeneratedFile(project);
+        const { API_INFO, API_TAGS, API_EXTERNAL_DOCS } = compileGeneratedFile(project);
 
+        // Swagger 2.0 does not have summary, it should be undefined, matching optional interface prop
+        expect(API_INFO.summary).toBeUndefined();
         expect(API_TAGS).toEqual([]);
         expect(API_EXTERNAL_DOCS).toBeUndefined();
     });
@@ -133,9 +162,11 @@ describe('Emitter: InfoGenerator', () => {
         const apiInfo = sourceFile.getInterfaceOrThrow('ApiInfo');
         expect(apiInfo.isExported()).toBe(true);
         expect(apiInfo.getProperty('title')).toBeDefined();
+        expect(apiInfo.getProperty('summary')).toBeDefined(); // Explicit check for Interface generation
 
         const apiTag = sourceFile.getInterfaceOrThrow('ApiTag');
         expect(apiTag.isExported()).toBe(true);
         expect(apiTag.getProperty('externalDocs')).toBeDefined();
+        expect(apiTag.getProperty('summary')).toBeDefined();
     });
 });

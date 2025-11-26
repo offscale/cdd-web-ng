@@ -322,6 +322,7 @@ export interface SwaggerSpec {
         links?: Record<string, LinkObject | { $ref: string }>;
         headers?: Record<string, HeaderObject | { $ref: string }>;
         parameters?: Parameter[];
+        webhooks?: Record<string, PathItem | { $ref: string }>;
     };
     securityDefinitions?: { [securityDefinitionName: string]: SecurityScheme };
 

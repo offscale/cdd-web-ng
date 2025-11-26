@@ -1,5 +1,5 @@
 import { EncodingProperty, GeneratorConfig, Parameter, PathInfo, SwaggerDefinition } from '@src/core/types/index.js';
-import { camelCase, getTypeScriptType, isDataTypeInterface } from '@src/core/utils/index.js';
+import { camelCase, getTypeScriptType, isDataTypeInterface, sanitizeComment } from '@src/core/utils/index.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { OptionalKind, ParameterDeclarationStructure } from 'ts-morph';
 import {
@@ -7,6 +7,7 @@ import {
     ErrorResponseInfo,
     ParamSerialization,
     ResponseSerialization,
+    ResponseVariant,
     ServiceMethodModel
 } from './service-method-types.js';
 
@@ -22,12 +23,18 @@ export class ServiceMethodAnalyzer {
 
         const knownTypes = this.parser.schemas.map(s => s.name);
         const {
-            type: responseType,
-            serialization: responseSerialization,
-            xmlConfig: responseXmlConfig,
-            decodingConfig: responseDecodingConfig,
+            variants: responseVariants,
             successCode
         } = this.analyzeResponse(operation, knownTypes);
+
+        // Determine default variant (JSON preferred, or first)
+        const defaultVariant = responseVariants.find(v => v.isDefault) || responseVariants[0] || {
+            mediaType: 'application/json',
+            type: 'any',
+            serialization: 'json',
+            isDefault: true
+        };
+
         const errorResponses = this.analyzeErrorResponses(operation, knownTypes, successCode);
 
         const parameters = this.analyzeParameters(operation, knownTypes);
@@ -107,6 +114,14 @@ export class ServiceMethodAnalyzer {
         const opSecurity = operation.security;
         const effectiveSecurity = opSecurity !== undefined ? opSecurity : (specSecurity || []);
 
+        // Extensions
+        const extensions: Record<string, any> = {};
+        Object.keys(operation).forEach(key => {
+            if (key.startsWith('x-')) {
+                extensions[key] = operation[key];
+            }
+        });
+
         // Servers
         let basePath: string | undefined;
         if (operation.servers && operation.servers.length > 0) {
@@ -119,11 +134,18 @@ export class ServiceMethodAnalyzer {
             }
         }
 
-        // Documentation
-        let docText = (operation.summary || operation.description || `Performs a ${operation.method} request to ${operation.path}.`) +
-            (operation.description && operation.summary ? `\n\n${operation.description}` : '');
+        // Documentation with Sanitization (Sec Requirement)
+        const rawDescription = operation.description || '';
+        const rawSummary = operation.summary || '';
+
+        let docText = (rawSummary || rawDescription || `Performs a ${operation.method} request to ${operation.path}.`) +
+            (rawDescription && rawSummary ? `\n\n${rawDescription}` : '');
+
+        docText = sanitizeComment(docText);
+
         if (operation.externalDocs?.url) {
-            docText += `\n\n@see ${operation.externalDocs.url} ${operation.externalDocs.description || ''}`.trimEnd();
+            const cleanDesc = sanitizeComment(operation.externalDocs.description || '');
+            docText += `\n\n@see ${operation.externalDocs.url} ${cleanDesc}`.trimEnd();
         }
         if (operation.deprecated) {
             docText += `\n\n@deprecated`;
@@ -136,10 +158,15 @@ export class ServiceMethodAnalyzer {
             docs: docText,
             isDeprecated: !!operation.deprecated,
             parameters,
-            responseType,
-            responseSerialization,
-            responseXmlConfig,
-            responseDecodingConfig,
+
+            // Compatibility/Default props
+            responseType: defaultVariant.type,
+            responseSerialization: defaultVariant.serialization,
+            responseXmlConfig: defaultVariant.xmlConfig,
+            responseDecodingConfig: defaultVariant.decodingConfig,
+
+            responseVariants,
+
             requestEncodingConfig,
             errorResponses,
             pathParams,
@@ -147,6 +174,7 @@ export class ServiceMethodAnalyzer {
             headerParams,
             cookieParams,
             security: effectiveSecurity,
+            extensions,
             hasServers: !!basePath,
             ...(body != null && { body }),
             ...(basePath != null && { basePath })
@@ -154,17 +182,30 @@ export class ServiceMethodAnalyzer {
     }
 
     private analyzeResponse(operation: PathInfo, knownTypes: string[]): {
-        type: string,
-        serialization: ResponseSerialization,
-        xmlConfig?: any,
-        decodingConfig?: any,
+        variants: ResponseVariant[],
         successCode?: string
     } {
-        const defaultResult = { type: 'any', serialization: 'json' as ResponseSerialization };
+        const variants: ResponseVariant[] = [];
 
-        if (!operation.responses) return defaultResult;
+        if (!operation.responses || Object.keys(operation.responses).length === 0) {
+            // Request schema fallback (legacy behavior for operations with no response defined)
+            const reqSchema = operation.requestBody?.content?.['application/json']?.schema;
+            if (reqSchema) {
+                variants.push({
+                    mediaType: 'application/json',
+                    type: getTypeScriptType(reqSchema as SwaggerDefinition, this.config, knownTypes),
+                    serialization: 'json',
+                    isDefault: true
+                });
+            }
+            return { variants };
+        }
+
         const responses = operation.responses;
-        if (responses['204']) return { type: 'void', serialization: 'json', successCode: '204' };
+        if (responses['204']) {
+            variants.push({ mediaType: '', type: 'void', serialization: 'json', isDefault: true });
+            return { variants, successCode: '204' };
+        }
 
         const targetCode = Object.keys(responses).find(code => /^2\d{2}$/.test(code))
             || (responses['2XX'] ? '2XX' : undefined)
@@ -172,73 +213,74 @@ export class ServiceMethodAnalyzer {
 
         if (targetCode) {
             const responseObj = responses[targetCode];
-            if (!responseObj.content) return { ...defaultResult, successCode: targetCode };
-
-            // 1. Server-Sent Events
-            if (responseObj.content['text/event-stream']) {
-                const sseSchema = responseObj.content['text/event-stream'].schema;
-                // OAS 3.2: Fallback to itemSchema if schema missing
-                const effectiveSchema = sseSchema || responseObj.content['text/event-stream'].itemSchema;
-                const itemType = effectiveSchema ? getTypeScriptType(effectiveSchema as SwaggerDefinition, this.config, knownTypes) : 'any';
-                return { type: itemType, serialization: 'sse', successCode: targetCode };
+            if (!responseObj.content) {
+                variants.push({ mediaType: '', type: 'any', serialization: 'json', isDefault: true });
+                return { variants, successCode: targetCode };
             }
 
-            // 2. Sequential JSON (OAS 3.2)
-            // application/json-seq (RFC 7464)
-            if (responseObj.content['application/json-seq']) {
-                const seqSchema = responseObj.content['application/json-seq'];
-                const effectiveSchema = seqSchema.schema || seqSchema.itemSchema;
-                const itemType = effectiveSchema ? getTypeScriptType(effectiveSchema as SwaggerDefinition, this.config, knownTypes) : 'any';
-                return { type: `(${itemType})[]`, serialization: 'json-seq', successCode: targetCode };
-            }
+            // Collect all supported variants
+            Object.entries(responseObj.content).forEach(([mediaType, mediaObj]) => {
+                if (!mediaObj || !mediaObj.schema && !mediaObj.itemSchema) return;
 
-            // application/jsonl or application/x-ndjson
-            const jsonlSchema = responseObj.content['application/jsonl'] || responseObj.content['application/x-ndjson'];
-            if (jsonlSchema) {
-                const effectiveSchema = jsonlSchema.schema || jsonlSchema.itemSchema;
-                const itemType = effectiveSchema ? getTypeScriptType(effectiveSchema as SwaggerDefinition, this.config, knownTypes) : 'any';
-                return { type: `(${itemType})[]`, serialization: 'json-lines', successCode: targetCode };
-            }
+                if (mediaType.includes('json') || mediaType.includes('*/*')) { // Covers json, json-seq, jsonl, ndjson
+                    let serialization: ResponseSerialization = 'json';
+                    let type = 'any';
+                    let decodingConfig = undefined;
+                    let isDefault = false;
 
-            // 3. Standard JSON
-            if (responseObj.content['application/json']) {
-                const schema = responseObj.content['application/json']?.schema;
-                if (schema) {
-                    const decodingConfig = this.getDecodingConfig(schema as SwaggerDefinition);
-                    return {
-                        type: getTypeScriptType(schema as SwaggerDefinition, this.config, knownTypes),
-                        serialization: 'json',
-                        decodingConfig: Object.keys(decodingConfig).length > 0 ? decodingConfig : undefined,
-                        successCode: targetCode
-                    };
+                    if (mediaType === 'application/json-seq') {
+                        serialization = 'json-seq';
+                        const itemType = this.resolveType(mediaObj.schema || mediaObj.itemSchema, knownTypes);
+                        type = `(${itemType})[]`;
+                    } else if (mediaType === 'application/jsonl' || mediaType === 'application/x-ndjson') {
+                        serialization = 'json-lines';
+                        const itemType = this.resolveType(mediaObj.schema || mediaObj.itemSchema, knownTypes);
+                        type = `(${itemType})[]`;
+                    } else {
+                        // Standard JSON
+                        if (mediaType === 'application/json') isDefault = true; // Preferred
+                        const schema = mediaObj.schema;
+                        if (schema) {
+                            type = getTypeScriptType(schema as SwaggerDefinition, this.config, knownTypes);
+                            const dConf = this.getDecodingConfig(schema as SwaggerDefinition);
+                            if (Object.keys(dConf).length > 0) decodingConfig = dConf;
+                        }
+                    }
+
+                    variants.push({ mediaType, type, serialization, decodingConfig, isDefault });
+
+                } else if (mediaType === 'application/xml' || mediaType.endsWith('+xml')) {
+                    const schema = mediaObj.schema as SwaggerDefinition;
+                    if (schema) {
+                        const xmlConfig = this.getXmlConfig(schema, 5);
+                        const type = getTypeScriptType(schema, this.config, knownTypes);
+                        variants.push({ mediaType, type, serialization: 'xml', xmlConfig, isDefault: false });
+                    }
+                } else if (mediaType === 'text/event-stream') {
+                    const effectiveSchema = mediaObj.schema || mediaObj.itemSchema;
+                    const itemType = effectiveSchema ? getTypeScriptType(effectiveSchema as SwaggerDefinition, this.config, knownTypes) : 'any';
+                    variants.push({ mediaType, type: itemType, serialization: 'sse', isDefault: false });
+                } else if (mediaType.startsWith('text/')) {
+                    variants.push({ mediaType, type: 'string', serialization: 'text', isDefault: false });
+                } else {
+                    // Binary / Blob
+                    variants.push({ mediaType, type: 'Blob', serialization: 'blob', isDefault: false });
                 }
+            });
+
+            // Fallback: if we found variants but none marked default (e.g. only XML available), mark first as default
+            if (variants.length > 0 && !variants.some(v => v.isDefault)) {
+                variants[0].isDefault = true;
             }
 
-            // 4. XML Response Parsing
-            if (responseObj.content['application/xml']) {
-                const schema = responseObj.content['application/xml'].schema as SwaggerDefinition;
-                if (schema) {
-                    const xmlConfig = this.getXmlConfig(schema, 5);
-                    return {
-                        type: getTypeScriptType(schema, this.config, knownTypes),
-                        serialization: 'xml',
-                        xmlConfig,
-                        successCode: targetCode
-                    };
-                }
-            }
+            return { variants, successCode: targetCode };
         }
 
-        // Request schema fallback (rare/legacy strategy)
-        const reqSchema = operation.requestBody?.content?.['application/json']?.schema;
-        if (reqSchema) {
-            return {
-                type: getTypeScriptType(reqSchema as SwaggerDefinition, this.config, knownTypes),
-                serialization: 'json'
-            };
-        }
+        return { variants };
+    }
 
-        return defaultResult;
+    private resolveType(schema: any, knownTypes: string[]): string {
+        return schema ? getTypeScriptType(schema as SwaggerDefinition, this.config, knownTypes) : 'any';
     }
 
     private analyzeErrorResponses(operation: PathInfo, knownTypes: string[], successCode?: string): ErrorResponseInfo[] {
@@ -278,7 +320,7 @@ export class ServiceMethodAnalyzer {
             errors.push({
                 code,
                 type,
-                ...(responseObj.description && { description: responseObj.description })
+                ...(responseObj.description && { description: sanitizeComment(responseObj.description) })
             });
         }
 
@@ -506,7 +548,7 @@ export class ServiceMethodAnalyzer {
     private isJsonContentMediaType(p: Parameter): boolean {
         if (!p.schema) return false;
 
-        // Direct ContentMediaType (OAS 3.1)
+        // Direct contentMediaType (OAS 3.1)
         if ((p.schema as SwaggerDefinition).contentMediaType && (p.schema as SwaggerDefinition).contentMediaType!.includes('application/json')) {
             return true;
         }
@@ -592,7 +634,12 @@ export class ServiceMethodAnalyzer {
 
         // Direct content schema on a string field
         if (resolved.contentSchema && resolved.type === 'string') {
-            config.decode = true;
+            if (resolved.contentMediaType && resolved.contentMediaType.includes('xml')) {
+                config.decode = 'xml';
+                config.xmlConfig = this.getXmlConfig(resolved.contentSchema, 5);
+            } else {
+                config.decode = true; // Default to JSON behavior
+            }
             return config;
         }
 
@@ -628,10 +675,6 @@ export class ServiceMethodAnalyzer {
         return config;
     }
 
-    /**
-     * Builds the encoding configuration for a request body, allowing for
-     * auto-encoding of JSON strings nested within the body.
-     */
     private getEncodingConfig(schema: SwaggerDefinition | undefined, depth: number = 5): any {
         if (!schema || depth <= 0) return {};
         const resolved = this.parser.resolve(schema);

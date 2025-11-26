@@ -63,4 +63,22 @@ describe('Core: Types & Interfaces Coverage', () => {
         expect(schema.exclusiveMinimum).toBe(true);
         expect(schema.exclusiveMaximum).toBe(true);
     });
+
+    it('should support webhooks in components (OAS 3.1+)', () => {
+        const spec: SwaggerSpec = {
+            openapi: '3.1.0',
+            info: { title: 'Webhooks Components', version: '1.0' },
+            paths: {},
+            components: {
+                webhooks: {
+                    'myWebhook': {
+                        post: {
+                            responses: { '200': { description: 'ok' } }
+                        }
+                    }
+                }
+            }
+        };
+        expect(spec.components?.webhooks?.['myWebhook']).toBeDefined();
+    });
 });

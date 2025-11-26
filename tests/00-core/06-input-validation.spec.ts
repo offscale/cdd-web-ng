@@ -416,6 +416,82 @@ describe('Core: Input Spec Validation', () => {
             expect(() => validateSpec(spec)).toThrow(/Component parameter 'MyParam' contains both 'schema' and 'content'/);
         });
 
+        it('should throw if parameter content map has multiple entries (OAS 3.2)', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/test': {
+                        get: {
+                            parameters: [{
+                                name: 'id',
+                                in: 'query',
+                                content: {
+                                    'application/json': { schema: { type: 'string' } },
+                                    'text/plain': { schema: { type: 'string' } }
+                                }
+                            }]
+                        }
+                    }
+                }
+            };
+            expect(() => validateSpec(spec)).toThrow(/has an invalid 'content' map. It MUST contain exactly one entry/);
+        });
+
+        it('should throw if component parameter content map has multiple entries (OAS 3.2)', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {},
+                components: {
+                    parameters: {
+                        MultiContent: {
+                            name: 'id', in: 'query',
+                            content: { 'a/b': {}, 'c/d': {} }
+                        }
+                    }
+                }
+            };
+            expect(() => validateSpec(spec)).toThrow(/has an invalid 'content' map. It MUST contain exactly one entry/);
+        });
+
+        it('should throw if allowEmptyValue used with style (OAS 3.2)', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/test': {
+                        get: {
+                            parameters: [{
+                                name: 'id', in: 'query',
+                                style: 'form',
+                                allowEmptyValue: true
+                            }]
+                        }
+                    }
+                }
+            };
+            expect(() => validateSpec(spec)).toThrow(/defines 'allowEmptyValue' alongside 'style'. This is forbidden/);
+        });
+
+        it('should throw if allowEmptyValue used on non-query param (OAS 3.2)', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/test': {
+                        get: {
+                            parameters: [{
+                                name: 'id', in: 'header',
+                                allowEmptyValue: true
+                            }]
+                        }
+                    }
+                }
+            };
+            expect(() => validateSpec(spec)).toThrow(/defines 'allowEmptyValue' but location is not 'query'/);
+        });
+
         it('should accept "example" only', () => {
             const spec: any = {
                 openapi: '3.0.0',
@@ -480,6 +556,48 @@ describe('Core: Input Spec Validation', () => {
                 }
             };
             expect(() => validateSpec(spec)).not.toThrow();
+        });
+    });
+
+    describe('OAS 3.1+ jsonSchemaDialect Field', () => {
+        it('should accept valid absolute URI', () => {
+            const spec: any = {
+                openapi: '3.1.0',
+                info: validInfo,
+                paths: {},
+                jsonSchemaDialect: 'https://spec.openapis.org/oas/3.1/dialect/base'
+            };
+            expect(() => validateSpec(spec)).not.toThrow();
+        });
+
+        it('should accept URN URI', () => {
+            const spec: any = {
+                openapi: '3.1.0',
+                info: validInfo,
+                paths: {},
+                jsonSchemaDialect: 'urn:ietf:params:xml:ns:yang:1'
+            };
+            expect(() => validateSpec(spec)).not.toThrow();
+        });
+
+        it('should throw on non-URI string', () => {
+            const spec: any = {
+                openapi: '3.1.0',
+                info: validInfo,
+                paths: {},
+                jsonSchemaDialect: 'not-a-uri'
+            };
+            expect(() => validateSpec(spec)).toThrow(/must be a valid URI/);
+        });
+
+        it('should throw on non-string value', () => {
+            const spec: any = {
+                openapi: '3.1.0',
+                info: validInfo,
+                paths: {},
+                jsonSchemaDialect: 123
+            };
+            expect(() => validateSpec(spec)).toThrow(/must be a string/);
         });
     });
 });

@@ -44,6 +44,19 @@ export type ResponseSerialization =
     | 'xml'; // application/xml
 
 /**
+ * Describes a single response variant for Content Negotiation.
+ * e.g. 'application/json' -> User[], 'application/xml' -> UserListXml
+ */
+export interface ResponseVariant {
+    mediaType: string;
+    type: string;
+    serialization: ResponseSerialization;
+    xmlConfig?: any;
+    decodingConfig?: any;
+    isDefault: boolean;
+}
+
+/**
  * Describes a potential error response from the API.
  */
 export interface ErrorResponseInfo {
@@ -68,12 +81,15 @@ export interface ServiceMethodModel {
 
     // Method Signature
     parameters: OptionalKind<ParameterDeclarationStructure>[];
-    responseType: string;
 
-    // Response Handling
+    // Primary Response (Default for backward compatibility and simplified signatures)
+    responseType: string;
     responseSerialization: ResponseSerialization;
     responseXmlConfig?: any;
-    responseDecodingConfig?: any; // OAS 3.1 ContentDecoder config
+    responseDecodingConfig?: any;
+
+    // Content Negotiation: All possible success response shapes
+    responseVariants: ResponseVariant[];
 
     // Request Handling (Encoding)
     requestEncodingConfig?: any; // OAS 3.1 ContentEncoder config
@@ -91,7 +107,10 @@ export interface ServiceMethodModel {
     body?: BodyVariant;
 
     // Context / Config
-    security: Record<string, string[]>[]; // Effective security requirements
+    /** Effective security requirements */
+    security: Record<string, string[]>[];
+    /** Specification Extensions (x-*) defined on the operation */
+    extensions: Record<string, any>;
     hasServers: boolean; // If true, method overrides base path
     basePath?: string; // If hasServers is true
 }

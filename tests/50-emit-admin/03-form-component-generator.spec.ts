@@ -127,8 +127,9 @@ describe('Generators (Angular): FormComponentGenerator', () => {
             expect(classText).toContain("this.settingsMap.push(this.createSettingsEntry({ key, value }));");
 
             // Has Payload logic for Maps
-            expect(classText).toContain("if (Array.isArray(baseValue['settings']))");
-            expect(classText).toContain("baseValue['settings'].forEach((pair: any)");
+            // FIXED: Now using `payload` variable due to readOnly stripping hygiene
+            expect(classText).toContain("if (Array.isArray(payload['settings']))");
+            expect(classText).toContain("payload['settings'].forEach((pair: any)");
         });
 
         it('should handle properties with defaults', () => {

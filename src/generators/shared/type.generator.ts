@@ -9,7 +9,7 @@ import {
 } from "ts-morph";
 import { GeneratorConfig, HeaderObject, PathItem, SwaggerDefinition } from "@src/core/types/index.js";
 import { SwaggerParser } from "@src/core/parser.js";
-import { extractPaths, getTypeScriptType, pascalCase } from "@src/core/utils/index.js";
+import { extractPaths, getTypeScriptType, pascalCase, sanitizeComment } from "@src/core/utils/index.js";
 
 export class TypeGenerator {
     constructor(
@@ -142,7 +142,7 @@ export class TypeGenerator {
                             const jsDocs: OptionalKind<JSDocStructure>[] = [];
                             if (resolvedHeader.description || resolvedHeader.deprecated) {
                                 const doc: OptionalKind<JSDocStructure> = {};
-                                if (resolvedHeader.description) doc.description = resolvedHeader.description;
+                                if (resolvedHeader.description) doc.description = sanitizeComment(resolvedHeader.description);
                                 if (resolvedHeader.deprecated) doc.tags = [{ tagName: 'deprecated' }];
                                 jsDocs.push(doc);
                             }
@@ -356,7 +356,7 @@ export class TypeGenerator {
     }
 
     private buildJSDoc(def: SwaggerDefinition): OptionalKind<JSDocStructure>[] {
-        const description = def.description || '';
+        const description = sanitizeComment(def.description || '');
         const tags: OptionalKind<JSDocTagStructure>[] = [];
 
         if ((def as any).deprecated) tags.push({ tagName: 'deprecated' });
@@ -370,7 +370,7 @@ export class TypeGenerator {
         }
         if (def.default !== undefined) tags.push({ tagName: 'default', text: JSON.stringify(def.default) });
         if (def.externalDocs?.url) {
-            const desc = def.externalDocs.description ? ` - ${def.externalDocs.description}` : '';
+            const desc = def.externalDocs.description ? ` - ${sanitizeComment(def.externalDocs.description)}` : '';
             tags.push({ tagName: 'see', text: `${def.externalDocs.url}${desc}` });
         }
 

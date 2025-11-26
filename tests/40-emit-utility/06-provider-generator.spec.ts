@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from "@src/core/types/index.js";
-import { ProviderGenerator } from '@src/generators/angular/utils/provider.generator.js'; // Corrected Path
-import { TokenGenerator } from '@src/generators/angular/utils/token.generator.js'; // Corrected Path
-import { BaseInterceptorGenerator } from '@src/generators/angular/utils/base-interceptor.generator.js'; // Corrected Path
-import { AuthTokensGenerator } from '@src/generators/angular/utils/auth-tokens.generator.js'; // Corrected Path
-import { AuthInterceptorGenerator } from '@src/generators/angular/utils/auth-interceptor.generator.js'; // Corrected Path
-import { DateTransformerGenerator } from '@src/generators/angular/utils/date-transformer.generator.js'; // Corrected Path
+import { ProviderGenerator } from '@src/generators/angular/utils/provider.generator.js';
+import { TokenGenerator } from '@src/generators/angular/utils/token.generator.js';
+import { BaseInterceptorGenerator } from '@src/generators/angular/utils/base-interceptor.generator.js';
+import { AuthTokensGenerator } from '@src/generators/angular/utils/auth-tokens.generator.js';
+import { AuthInterceptorGenerator } from '@src/generators/angular/utils/auth-interceptor.generator.js';
+import { DateTransformerGenerator } from '@src/generators/angular/utils/date-transformer.generator.js';
 import { emptySpec, securitySpec } from '../shared/specs.js';
 import { createTestProject } from '../shared/helpers.js';
 
@@ -102,6 +102,17 @@ describe('Emitter: ProviderGenerator', () => {
         expect(fileContent).not.toContain('if (config.apiKey)');
         expect(fileContent).toContain('if (config.bearerToken)');
         expect(fileContent).toContain('AuthInterceptor');
+    });
+
+    it('should add providers for mutualTLS', () => {
+        const mtlsSpec = {
+            ...emptySpec,
+            components: { securitySchemes: { MTLS: { type: 'mutualTLS' } } }
+        };
+        const fileContent = runGenerator(mtlsSpec, { clientName: 'Test' });
+        expect(fileContent).toContain('httpsAgentConfig?: any');
+        expect(fileContent).toContain('if (config.httpsAgentConfig)');
+        expect(fileContent).toContain('providers.push({ provide: HTTPS_AGENT_CONFIG_TOKEN, useValue: config.httpsAgentConfig });');
     });
 
     it('should add DateInterceptor if dateType is "Date"', () => {

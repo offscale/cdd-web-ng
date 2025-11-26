@@ -70,6 +70,33 @@ describe('Core Utils: Spec Extractor', () => {
             expect(pathInfo.security![0]).toHaveProperty('MyAuth');
         });
 
+        it('should NOT normalize security pointers if key matches a component name (OAS 3.2 Precedence)', () => {
+            // Case: Security scheme named "http://auth.com" exists in components.
+            // The security requirement key matches this exact name.
+            // It should NOT be normalized (split by /), preserving the URI-like name as the key.
+            const swaggerPaths = {
+                '/secure': {
+                    get: {
+                        security: [{ 'http://auth.com': [] }],
+                        responses: {}
+                    }
+                }
+            };
+            const components = {
+                securitySchemes: {
+                    'http://auth.com': { type: 'http', scheme: 'basic' }
+                }
+            };
+
+            const [pathInfo] = utils.extractPaths(swaggerPaths as any, undefined, components as any);
+
+            expect(pathInfo.security).toBeDefined();
+            // Should have preserved the key exactly
+            expect(pathInfo.security![0]).toHaveProperty('http://auth.com');
+            // Should NOT have normalized it to 'auth.com' or similar
+            expect(Object.keys(pathInfo.security![0])[0]).toBe('http://auth.com');
+        });
+
         it('should merge Path Item $ref properties', () => {
             const resolveRef = (ref: string) => {
                 if (ref === 'Target') return { summary: 'Base', get: { responses: {} } };

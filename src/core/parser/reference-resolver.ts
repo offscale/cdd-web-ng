@@ -20,6 +20,9 @@ const isDynamicRefObject = (obj: unknown): obj is DynamicRefObject =>
         $dynamicRef: unknown
     }).$dynamicRef === 'string';
 
+/**
+ * Resolves OpenAPI references ($ref and $dynamicRef) including context-aware resolution for OAS 3.1.
+ */
 export class ReferenceResolver {
     constructor(
         private specCache: Map<string, SwaggerSpec>,
@@ -61,6 +64,7 @@ export class ReferenceResolver {
 
             // $dynamicAnchor
             if ('$dynamicAnchor' in obj && typeof obj.$dynamicAnchor === 'string') {
+                // Store mapping for dynamic anchor in the cache map
                 const anchorUri = `${nextBase}#${obj.$dynamicAnchor}`;
                 if (!cache.has(anchorUri)) {
                     cache.set(anchorUri, obj as SwaggerSpec);
@@ -98,17 +102,24 @@ export class ReferenceResolver {
         return Array.from(refs);
     }
 
-    public resolve<T>(obj: T | { $ref: string } | { $dynamicRef: string } | null | undefined): T | undefined {
+    /**
+     * Resolves an object that might be a reference.
+     * @param obj The object to resolve (or null).
+     * @param resolutionStack The stack of URIs traversed so far (for context-aware $dynamicRef resolution).
+     */
+    public resolve<T>(obj: T | { $ref: string } | {
+        $dynamicRef: string
+    } | null | undefined, resolutionStack: string[] = []): T | undefined {
         if (obj === null || obj === undefined) return undefined;
 
         let resolved: T | undefined;
         let refObj: RefObject | DynamicRefObject | null = null;
 
         if (isRefObject(obj)) {
-            resolved = this.resolveReference<T>(obj.$ref);
+            resolved = this.resolveReference<T>(obj.$ref, this.entryDocumentUri, resolutionStack);
             refObj = obj;
         } else if (isDynamicRefObject(obj)) {
-            resolved = this.resolveReference<T>(obj.$dynamicRef);
+            resolved = this.resolveReference<T>(obj.$dynamicRef, this.entryDocumentUri, resolutionStack);
             refObj = obj;
         } else {
             return obj as T;
@@ -127,9 +138,18 @@ export class ReferenceResolver {
         return resolved;
     }
 
-    public resolveReference<T = SwaggerDefinition>(ref: string, currentDocUri: string = this.entryDocumentUri): T | undefined {
+    /**
+     * Resolves a specific reference string.
+     * @param ref The reference string (URI or fragment).
+     * @param currentDocUri The URI of the document containing the reference.
+     * @param resolutionStack The stack of unique schema URIs encountered during resolution. Used for $dynamicRef lookup.
+     */
+    public resolveReference<T = SwaggerDefinition>(
+        ref: string,
+        currentDocUri: string = this.entryDocumentUri,
+        resolutionStack: string[] = []
+    ): T | undefined {
         if (typeof ref !== 'string') {
-            console.warn(`[Parser] Encountered an unsupported or invalid reference: ${ref}`);
             return undefined;
         }
 
@@ -138,20 +158,34 @@ export class ReferenceResolver {
         const logicalBaseUri = currentDocSpec?.$self ? new URL(currentDocSpec.$self, currentDocUri).href : currentDocUri;
         const targetUri = filePath ? new URL(filePath, logicalBaseUri).href : logicalBaseUri;
 
-        // 1. Direct Cache Lookup ($id/$anchor)
+        // 1. Dynamic Anchor Resolution (OAS 3.1)
+        // Dynamic resolution traverses the stack from the outermost (start of resolution)
+        // to find the first context that defines this anchor.
+        if (jsonPointer && !jsonPointer.includes('/')) {
+            for (const scopeUri of resolutionStack) {
+                const dynamicKey = `${scopeUri}#${jsonPointer}`;
+                if (this.specCache.has(dynamicKey)) {
+                    return this.specCache.get(dynamicKey) as unknown as T;
+                }
+            }
+        }
+
+        // 2. Direct Cache Lookup ($id/$anchor - static)
         const fullUriKey = jsonPointer ? `${targetUri}#${jsonPointer}` : targetUri;
         if (this.specCache.has(fullUriKey)) {
             return this.specCache.get(fullUriKey) as unknown as T;
         }
 
-        // 2. Spec File Cache Lookup
+        // 3. Spec File Cache Lookup
         const targetSpec = this.specCache.get(targetUri);
         if (!targetSpec) {
-            console.warn(`[Parser] Unresolved external file reference: ${targetUri}. File was not pre-loaded.`);
+            if (filePath) {
+                console.warn(`[Parser] Unresolved external file reference: ${targetUri}. File was not pre-loaded.`);
+            }
             return undefined;
         }
 
-        // 3. JSON Pointer Traversal
+        // 4. JSON Pointer Traversal
         let result: any = targetSpec;
         if (jsonPointer) {
             const pointerParts = jsonPointer.split('/').filter(p => p !== '');
@@ -167,11 +201,16 @@ export class ReferenceResolver {
         }
 
         // Handle nested Refs (Recursive resolution)
-        if (isRefObject(result)) {
-            return this.resolveReference(result.$ref, targetUri);
-        }
-        if (isDynamicRefObject(result)) {
-            return this.resolveReference(result.$dynamicRef, targetUri);
+        if (typeof result === 'object' && result !== null) {
+            // Push current scope to stack for dynamic resolution downstream
+            const newStack = [...resolutionStack, fullUriKey];
+
+            if (isRefObject(result)) {
+                return this.resolveReference(result.$ref, targetUri, newStack);
+            }
+            if (isDynamicRefObject(result)) {
+                return this.resolveReference(result.$dynamicRef, targetUri, newStack);
+            }
         }
 
         return result as T;

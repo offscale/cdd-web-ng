@@ -11,6 +11,7 @@ export class ProviderGenerator {
     private readonly config: GeneratorConfig;
     private readonly hasApiKey: boolean;
     private readonly hasBearer: boolean;
+    private readonly hasMtls: boolean;
 
     constructor(parser: SwaggerParser, private project: Project, private tokenNames: string[] = []) {
         this.config = parser.config;
@@ -18,6 +19,7 @@ export class ProviderGenerator {
         this.capitalizedClientName = pascalCase(this.clientName);
         this.hasApiKey = this.tokenNames.includes('apiKey');
         this.hasBearer = this.tokenNames.includes('bearerToken');
+        this.hasMtls = this.tokenNames.includes('httpsAgentConfig');
     }
 
     public generate(outputDir: string): void {
@@ -30,7 +32,7 @@ export class ProviderGenerator {
 
         sourceFile.insertText(0, PROVIDER_GENERATOR_HEADER_COMMENT);
 
-        const hasSecurity = this.hasApiKey || this.hasBearer;
+        const hasSecurity = this.hasApiKey || this.hasBearer || this.hasMtls;
 
         this.addImports(sourceFile, hasSecurity);
         this.addConfigInterface(sourceFile);
@@ -71,6 +73,7 @@ export class ProviderGenerator {
             const tokenImports: string[] = [];
             if (this.hasApiKey) tokenImports.push("API_KEY_TOKEN");
             if (this.hasBearer) tokenImports.push("BEARER_TOKEN_TOKEN");
+            if (this.hasMtls) tokenImports.push("HTTPS_AGENT_CONFIG_TOKEN");
             sourceFile.addImportDeclaration({ namedImports: tokenImports, moduleSpecifier: "./auth/auth.tokens" });
         }
     }
@@ -116,6 +119,14 @@ export class ProviderGenerator {
                 docs: ["The Bearer token or a function returning the token."]
             });
         }
+        if (this.hasMtls) {
+            configInterface.addProperty({
+                name: "httpsAgentConfig",
+                type: "any",
+                hasQuestionToken: true,
+                docs: ["Configuration for the HTTPS Agent (e.g. PFX, Cert, Key) for Mutual TLS."]
+            });
+        }
     }
 
     private addMainProviderFunction(sourceFile: SourceFile, hasSecurity: boolean): void {
@@ -147,6 +158,11 @@ export class ProviderGenerator {
                     if (this.hasBearer) {
                         writer.write("if (config.bearerToken)").block(() => {
                             writer.writeLine(`providers.push({ provide: BEARER_TOKEN_TOKEN, useValue: config.bearerToken });`);
+                        });
+                    }
+                    if (this.hasMtls) {
+                        writer.write("if (config.httpsAgentConfig)").block(() => {
+                            writer.writeLine(`providers.push({ provide: HTTPS_AGENT_CONFIG_TOKEN, useValue: config.httpsAgentConfig });`);
                         });
                     }
                 }

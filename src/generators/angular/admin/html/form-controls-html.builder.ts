@@ -54,6 +54,9 @@ export function buildErrorMessages(control: FormControlModel): HtmlElementBuilde
             case 'maxItems':
                 errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${control.name}')?.hasError('maxlength')) { Cannot contain more than ${rule.value} items. }`));
                 break;
+            case 'const':
+                errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${control.name}')?.hasError('const')) { Value must be {{ form.get('${control.name}')?.errors?.['const'].required }}. }`));
+                break;
         }
     }
     return errors;

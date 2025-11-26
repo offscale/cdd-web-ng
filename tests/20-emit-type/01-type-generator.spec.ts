@@ -58,10 +58,28 @@ const typeGenSpec = {
                     '^[0-9]+$': { type: 'number' }
                 }
             },
+            // additionalProperties test
             WithPatternsAndAdditional: {
                 type: 'object',
                 patternProperties: { '^S_': { type: 'string' } },
                 additionalProperties: { type: 'boolean' }
+            },
+            // OAS 3.1 unevaluatedProperties tests
+            UnevaluatedTrue: {
+                type: 'object',
+                properties: { name: { type: 'string' } },
+                unevaluatedProperties: true
+            },
+            UnevaluatedType: {
+                type: 'object',
+                properties: { name: { type: 'string' } },
+                unevaluatedProperties: { type: 'number' }
+            },
+            UnevaluatedFalse: {
+                type: 'object',
+                properties: { name: { type: 'string' } },
+                additionalProperties: false,
+                unevaluatedProperties: false
             }
         }
     }
@@ -164,5 +182,41 @@ describe('Emitter: TypeGenerator', () => {
 
         // It should unite string and boolean
         expect(indexSig.getReturnType().getText()).toContain('string | boolean');
+    });
+
+    describe('OAS 3.1 unevaluatedProperties Support', () => {
+        it('should generate "any" index signature if unevaluatedProperties is true', () => {
+            const { generator, project } = createEnvironment();
+            generator.generate('/out');
+            const sourceFile = project.getSourceFileOrThrow('/out/models/index.ts');
+            const iface = sourceFile.getInterfaceOrThrow('UnevaluatedTrue');
+
+            const indexSig = iface.getIndexSignatures()[0];
+            expect(indexSig).toBeDefined();
+            expect(indexSig.getReturnType().getText()).toContain('any');
+        });
+
+        it('should generate specific index signature if unevaluatedProperties has schema', () => {
+            const { generator, project } = createEnvironment();
+            generator.generate('/out');
+            const sourceFile = project.getSourceFileOrThrow('/out/models/index.ts');
+            const iface = sourceFile.getInterfaceOrThrow('UnevaluatedType');
+
+            const indexSig = iface.getIndexSignatures()[0];
+            expect(indexSig).toBeDefined();
+            // Should contain number from unevaluatedProperties
+            const returnText = indexSig.getReturnType().getText();
+            expect(returnText).toContain('number');
+        });
+
+        it('should NOT generate index signature if both additionalProperties & unevaluatedProperties are false', () => {
+            const { generator, project } = createEnvironment();
+            generator.generate('/out');
+            const sourceFile = project.getSourceFileOrThrow('/out/models/index.ts');
+            const iface = sourceFile.getInterfaceOrThrow('UnevaluatedFalse');
+
+            const indexSigs = iface.getIndexSignatures();
+            expect(indexSigs.length).toBe(0);
+        });
     });
 });

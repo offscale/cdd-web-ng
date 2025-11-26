@@ -537,5 +537,25 @@ describe('Core: SwaggerParser', () => {
             const parser = new SwaggerParser(invalidSpec as any, config);
             expect(parser.getSpecVersion()).toBeNull();
         });
+
+        it('should default to "/" server for OAS 3.x when servers field is missing', async () => {
+            const spec = { openapi: '3.0.0', info: validInfo, paths: {} };
+            const parser = new SwaggerParser(spec as any, config);
+            expect(parser.servers).toHaveLength(1);
+            expect(parser.servers[0].url).toBe('/');
+        });
+
+        it('should default to "/" server for OAS 3.x when servers field is empty array', () => {
+            const spec = { openapi: '3.0.0', info: validInfo, paths: {}, servers: [] };
+            const p = new SwaggerParser(spec as any, config);
+            expect(p.servers).toHaveLength(1);
+            expect(p.servers[0].url).toBe('/');
+        });
+
+        it('should NOT default servers for Swagger 2.0', () => {
+            const spec = { swagger: '2.0', info: validInfo, paths: {} };
+            const p = new SwaggerParser(spec as any, config);
+            expect(p.servers).toEqual([]);
+        });
     });
 });

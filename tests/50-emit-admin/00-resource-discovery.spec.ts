@@ -125,4 +125,87 @@ describe('Admin: discoverAdminResources', () => {
         const modelName = resourceDiscovery.getModelName('inline', fakeOps);
         expect(modelName).toBe('Inline');
     });
+
+    it('should classify QUERY method on collection as LIST action (OAS 3.2)', () => {
+        const spec = {
+            openapi: '3.2.0',
+            info: { title: 'Query Test', version: '1.0' },
+            paths: {
+                '/search': {
+                    query: {
+                        tags: ['Search'],
+                        requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
+                        responses: { '200': { description: 'ok' } }
+                    }
+                }
+            }
+        };
+        const parser = createParser(spec);
+        const resources = discoverAdminResources(parser);
+        const resource = resources.find(r => r.name === 'search');
+
+        expect(resource).toBeDefined();
+        const listOp = resource!.operations.find(op => op.action === 'list');
+        expect(listOp).toBeDefined();
+        expect(listOp!.method).toBe('QUERY');
+    });
+
+    it('should classify QUERY method with ID as GetById action', () => {
+        const spec = {
+            openapi: '3.2.0',
+            info: { title: 'Query Test', version: '1.0' },
+            paths: {
+                '/items/{id}': {
+                    query: {
+                        tags: ['Items'],
+                        parameters: [{ name: 'id', in: 'path' }],
+                        responses: { '200': { description: 'ok' } }
+                    }
+                }
+            }
+        };
+        const parser = createParser(spec);
+        const resources = discoverAdminResources(parser);
+        const resource = resources.find(r => r.name === 'items');
+
+        expect(resource).toBeDefined();
+        // While semantic meaning of "get" by id via QUERY is ambiguous (fetch vs search by id),
+        // our classification groups it with GET/{id}.
+        const getOp = resource!.operations.find(op => op.action === 'getById');
+        expect(getOp).toBeDefined();
+        expect(getOp!.method).toBe('QUERY');
+    });
+
+    it('getModelName should fallback to QUERY if GET/POST missing', () => {
+        // resourceDiscovery relies on an existing operation to determine the model name
+        const spec = {
+            openapi: '3.2.0',
+            info: { title: 'Query Model', version: '1.0' },
+            paths: {
+                '/pure-query': {
+                    query: {
+                        tags: ['PureQuery'],
+                        responses: {
+                            '200': {
+                                content: {
+                                    'application/json': { schema: { $ref: '#/components/schemas/QueryResult' } }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            components: {
+                schemas: {
+                    QueryResult: { type: 'object', properties: { id: { type: 'string' } } }
+                }
+            }
+        };
+        const parser = createParser(spec);
+        const resources = discoverAdminResources(parser);
+        const resource = resources.find(r => r.name === 'pureQuery');
+
+        expect(resource).toBeDefined();
+        expect(resource!.modelName).toBe('QueryResult');
+    });
 });

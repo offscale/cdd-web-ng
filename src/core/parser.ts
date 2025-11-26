@@ -87,13 +87,20 @@ export class SwaggerParser {
             definition
         }));
 
-        this.servers = this.spec.servers || [];
+        // OAS 3.2 Requirement: If the servers field is not provided, or is an empty array,
+        // the default value would be an array consisting of a single Server Object with a url value of /.
+        if (this.spec.openapi && (!this.spec.servers || this.spec.servers.length === 0)) {
+            this.servers = [{ url: '/' }];
+        } else {
+            this.servers = this.spec.servers || [];
+        }
 
         // We bind resolveReference to this instance so extractPaths can call back into the parser
         const resolveRef = (ref: string) => this.resolveReference(ref);
 
-        this.operations = extractPaths(this.spec.paths, resolveRef);
-        this.webhooks = extractPaths(this.spec.webhooks, resolveRef);
+        // Pass components context to extractPaths for strict security matching
+        this.operations = extractPaths(this.spec.paths, resolveRef, this.spec.components);
+        this.webhooks = extractPaths(this.spec.webhooks, resolveRef, this.spec.components);
 
         this.security = this.getSecuritySchemes();
         this.links = this.getLinks();

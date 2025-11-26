@@ -56,7 +56,8 @@ export class TypeGenerator {
         }
 
         // 3. Callbacks
-        const allPaths = extractPaths(spec.paths);
+        // Pass components to extractPaths to ensure consistent behavior
+        const allPaths = extractPaths(spec.paths, undefined, spec.components);
         allPaths.forEach(op => {
             if (op.callbacks) {
                 Object.entries(op.callbacks).forEach(([callbackName, callbackObj]) => {
@@ -172,6 +173,8 @@ export class TypeGenerator {
 
     private shouldGenerateInterface(def: SwaggerDefinition): boolean {
         if (def.anyOf || def.oneOf) return false;
+        // dependentSchemas involve intersection/union types logic which can only be represented by type alias
+        if (def.dependentSchemas) return false;
         return def.type === 'object' || !!def.properties || !!def.allOf || !!def.patternProperties;
     }
 
@@ -278,23 +281,35 @@ export class TypeGenerator {
 
     private applyIndexSignature(interfaceDecl: any, def: SwaggerDefinition): void {
         const returnTypes: string[] = [];
+
         if (def.additionalProperties) {
             const valueType = def.additionalProperties === true
                 ? 'any'
                 : getTypeScriptType(def.additionalProperties as SwaggerDefinition, this.config, this.parser.schemas.map(s => s.name));
             returnTypes.push(valueType);
         }
+
+        if (def.unevaluatedProperties) {
+            const valueType = def.unevaluatedProperties === true
+                ? 'any'
+                : getTypeScriptType(def.unevaluatedProperties as SwaggerDefinition, this.config, this.parser.schemas.map(s => s.name));
+            returnTypes.push(valueType);
+        }
+
         if (def.patternProperties) {
             Object.values(def.patternProperties).forEach(p => {
                 returnTypes.push(getTypeScriptType(p, this.config, this.parser.schemas.map(s => s.name)));
             });
         }
+
         if (returnTypes.length > 0) {
             const distinct = Array.from(new Set(returnTypes));
+            const returnType = distinct.includes('any') ? 'any' : distinct.join(' | ');
+
             interfaceDecl.addIndexSignature({
                 keyName: 'key',
                 keyType: 'string',
-                returnType: distinct.join(' | ')
+                returnType
             });
         }
     }

@@ -53,6 +53,30 @@ export class AuthTokensGenerator {
             declarationKind: VariableDeclarationKind.Const,
             declarations: [
                 {
+                    name: 'HTTPS_AGENT_CONFIG_TOKEN',
+                    initializer: `new InjectionToken<any>('HTTPS_AGENT_CONFIG')`,
+                },
+            ],
+            docs: ["Injection token for mTLS/HTTPS Agent configuration (Node.js/SSR only)."]
+        });
+
+        sourceFile.addVariableStatement({
+            isExported: true,
+            declarationKind: VariableDeclarationKind.Const,
+            declarations: [
+                {
+                    name: 'HTTPS_AGENT_CONTEXT_TOKEN',
+                    initializer: `new HttpContextToken<any>(() => null)`,
+                },
+            ],
+            docs: ["HttpContextToken to pass mTLS configuration to the underlying HttpHandler."]
+        });
+
+        sourceFile.addVariableStatement({
+            isExported: true,
+            declarationKind: VariableDeclarationKind.Const,
+            declarations: [
+                {
                     name: 'SECURITY_CONTEXT_TOKEN',
                     initializer: `new HttpContextToken<Record<string, string[]>[]>(() => [])`,
                 },

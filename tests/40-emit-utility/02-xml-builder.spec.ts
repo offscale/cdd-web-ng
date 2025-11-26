@@ -78,6 +78,73 @@ describe('Utility: XmlBuilder', () => {
         });
     });
 
+    describe('OAS 3.2 Null Handling (Appendix G)', () => {
+        it('should serialize root null as xsi:nil="true"', () => {
+            const xml = XmlBuilder.serialize(null, 'Root');
+            expect(xml).toBe('<Root xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" />');
+        });
+
+        it('should serialize null property as xsi:nil="true" element', () => {
+            const data = {
+                valid: 'content',
+                empty: null
+            };
+            // Default is element
+            const xml = XmlBuilder.serialize(data, 'Root');
+            expect(xml).toContain('<valid>content</valid>');
+            // Null element gets the nil attribute and namespace
+            expect(xml).toContain('<empty xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" />');
+        });
+
+        it('should omit null attributes', () => {
+            const data = {
+                id: 123,
+                attr: null
+            };
+            const config = {
+                properties: {
+                    id: { attribute: true },
+                    attr: { attribute: true }
+                }
+            };
+            const xml = XmlBuilder.serialize(data, 'Item', config);
+            // Should have id="123" but no attr="..."
+            expect(xml).toBe('<Item id="123"></Item>');
+        });
+
+        it('should omit null text/cdata', () => {
+            const data = {
+                txt: null,
+                cdata: null,
+                other: 'val'
+            };
+            const config = {
+                properties: {
+                    txt: { nodeType: 'text' },
+                    cdata: { nodeType: 'cdata' }
+                }
+            };
+            const xml = XmlBuilder.serialize(data, 'Root', config);
+            // Should act as empty content
+            expect(xml).toBe('<Root><other>val</other></Root>');
+        });
+
+        it('should serialize array with null items as xsi:nil elements', () => {
+            const data = { list: ['a', null, 'b'] };
+            const config = {
+                properties: {
+                    list: {
+                        wrapped: true,
+                        items: { name: 'item' }
+                    }
+                }
+            };
+            const xml = XmlBuilder.serialize(data, 'Root', config);
+            // Expecting valid wrapped structure with xsi definitions
+            expect(xml).toBe('<Root><list><item>a</item><item xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" /><item>b</item></list></Root>');
+        });
+    });
+
     describe('OAS 3.2 nodeType Support', () => {
         it('should handle nodeType: "attribute"', () => {
             const data = { id: 99, content: 'stuff' };

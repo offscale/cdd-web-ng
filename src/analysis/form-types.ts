@@ -55,4 +55,6 @@ export interface FormAnalysisResult {
     discriminatorPropName?: string;
     discriminatorOptions?: string[]; // List of raw values (['cat', 'dog'])
     polymorphicOptions?: PolymorphicOptionModel[]; // Logic for switching
+    /** The model name of the default option to use if the discriminator value is missing or invalid. */
+    defaultPolymorphicOption?: string;
 }

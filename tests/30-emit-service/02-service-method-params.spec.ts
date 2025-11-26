@@ -52,6 +52,20 @@ const specParamTests = {
                 responses: { '200': {} }
             }
         },
+        '/cookie-strict-defaults': {
+            get: {
+                operationId: 'getWithCookieDefaults',
+                parameters: [
+                    // Should default to explode: true (default style: form)
+                    { name: 'default_cookie', in: 'cookie', schema: { type: 'string' } },
+                    // Explicit style: simple should default to explode: false
+                    { name: 'simple_cookie', in: 'cookie', style: 'simple', schema: { type: 'string' } },
+                    // Allow Reserved test
+                    { name: 'reserved_cookie', in: 'cookie', schema: { type: 'string' }, allowReserved: true }
+                ],
+                responses: { '200': {} }
+            }
+        },
         '/query-string': {
             get: {
                 operationId: 'getWithQuerystring',
@@ -178,6 +192,26 @@ describe('Emitter: ServiceMethodGenerator (Parameters)', () => {
         const body = serviceClass.getMethodOrThrow('getWithCookies').getBodyText()!;
         expect(body).toContain("if (typeof window !== 'undefined') { console.warn");
         expect(body).toContain("headers = headers.set('Cookie'");
+    });
+
+    it('should respect strict OAS defaults for cookie explode based on style', () => {
+        const { methodGen, serviceClass } = createTestEnvironment(specParamTests);
+        const op: PathInfo = {
+            ...specParamTests.paths['/cookie-strict-defaults'].get,
+            path: '/cookie-strict-defaults', method: 'GET', methodName: 'getWithCookieDefaults'
+        } as any;
+
+        methodGen.addServiceMethod(serviceClass, op);
+        const body = serviceClass.getMethodOrThrow('getWithCookieDefaults').getBodyText()!;
+
+        // Default cookie (implicit style: form) should be explode: true, allowReserved: false (last arg)
+        expect(body).toContain("HttpParamsBuilder.serializeCookieParam('default_cookie', defaultCookie, 'form', true, false");
+
+        // Explicit simple style should be explode: false, allowReserved: false
+        expect(body).toContain("HttpParamsBuilder.serializeCookieParam('simple_cookie', simpleCookie, 'simple', false, false");
+
+        // allowReserved explicitly true matching allowReserved parameter
+        expect(body).toContain("HttpParamsBuilder.serializeCookieParam('reserved_cookie', reservedCookie, 'form', true, true");
     });
 
     it('should generate logic for in: "querystring" parameters', () => {

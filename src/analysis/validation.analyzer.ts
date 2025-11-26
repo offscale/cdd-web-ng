@@ -17,6 +17,11 @@ export function analyzeValidationRules(schema: SwaggerDefinition): ValidationRul
     // but the resource discovery logic denormalizes this for convenience.
     if ((schema as any).required) rules.push({ type: 'required' });
 
+    // OAS 3.1 const keyword
+    if (schema.const !== undefined) {
+        rules.push({ type: 'const', value: schema.const });
+    }
+
     if (schema.minLength) rules.push({ type: 'minLength', value: schema.minLength });
     if (schema.maxLength) rules.push({ type: 'maxLength', value: schema.maxLength });
     if (schema.pattern) rules.push({ type: 'pattern', value: schema.pattern.replace(/\\\\/g, '\\') });

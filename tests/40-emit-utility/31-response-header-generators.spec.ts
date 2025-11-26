@@ -64,6 +64,50 @@ describe('Emitter: Response Header Utilities', () => {
             });
         });
 
+        it('should handle XML content in headers', () => {
+            const project = createTestProject();
+            const spec = {
+                paths: {
+                    '/xml-header': {
+                        get: {
+                            operationId: 'getXmlHeader',
+                            responses: {
+                                '200': {
+                                    headers: {
+                                        'X-Xml': {
+                                            content: {
+                                                'application/xml': {
+                                                    schema: {
+                                                        type: 'object',
+                                                        properties: { id: { type: 'integer' } },
+                                                        xml: { name: 'Data' }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+            const parser = createParser(spec);
+            new ResponseHeaderRegistryGenerator(parser, project).generate('/out');
+
+            const file = project.getSourceFileOrThrow('/out/response-headers.ts');
+            const text = file.getText().replace(/import.*;/g, '');
+            const jsCode = ts.transpile(text, { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS });
+            const moduleScope = { exports: {} as any };
+            new Function('exports', jsCode)(moduleScope.exports);
+
+            const { API_RESPONSE_HEADERS, API_HEADER_XML_CONFIGS } = moduleScope.exports;
+
+            expect(API_RESPONSE_HEADERS['getXmlHeader']['200']['X-Xml']).toBe('xml');
+            expect(API_HEADER_XML_CONFIGS['getXmlHeader_200_X-Xml']).toBeDefined();
+            expect(API_HEADER_XML_CONFIGS['getXmlHeader_200_X-Xml'].name).toBe('Data');
+        });
+
         it('should handle edge cases: bad refs, non-json content, unknown schema types', () => {
             const project = createTestProject();
             // Suppress warnings from the parser regarding missing refs
@@ -150,6 +194,7 @@ describe('Emitter: Response Header Utilities', () => {
                     }
                 }
             };
+            const API_HEADER_XML_CONFIGS = {};
 
             // Mock HttpHeaders
             const headersMap = new Map<string, string>();
@@ -168,7 +213,9 @@ describe('Emitter: Response Header Utilities', () => {
 
             // Inject mock Registry
             const wrappedCode = `
-                const API_RESPONSE_HEADERS = ${JSON.stringify(API_RESPONSE_HEADERS)}; 
+                const API_RESPONSE_HEADERS = ${JSON.stringify(API_RESPONSE_HEADERS)};
+                const API_HEADER_XML_CONFIGS = ${JSON.stringify(API_HEADER_XML_CONFIGS)};
+                const XmlParser = { parse: () => null };
                 ${jsCode} 
             `;
 
@@ -184,6 +231,66 @@ describe('Emitter: Response Header Utilities', () => {
             expect(result['X-Count']).toBe(42);
             expect(result['X-Valid']).toBe(true);
             expect(result['X-Meta']).toEqual({ id: 1 });
+        });
+
+        it('should generate a service that parses XML headers', () => {
+            const project = createTestProject();
+            new ResponseHeaderParserGenerator(project).generate('/out');
+
+            const sourceFile = project.getSourceFileOrThrow('/out/utils/response-header.service.ts');
+            const code = sourceFile.getText().replace(/import.*;/g, '');
+            const jsCode = ts.transpile(code, {
+                target: ts.ScriptTarget.ES2020,
+                module: ts.ModuleKind.CommonJS,
+                experimentalDecorators: true
+            });
+
+            // Mock XML Parser
+            const XmlParserMock = {
+                parse: (xml: string, config: any) => ({ parsed: true, root: config.name, raw: xml })
+            };
+
+            // Mock Registry
+            const API_RESPONSE_HEADERS = {
+                'op1': { '200': { 'X-Data': 'xml' } }
+            };
+            const API_HEADER_XML_CONFIGS = {
+                'op1_200_X-Data': { name: 'RootDetails' }
+            };
+
+            // Mock HttpHeaders
+            const headersMap = new Map<string, string>();
+            headersMap.set('X-Data', '<RootDetails><val>1</val></RootDetails>');
+
+            const mockHeaders = {
+                has: (k: string) => headersMap.has(k),
+                get: (k: string) => headersMap.get(k),
+                getAll: (k: string) => [headersMap.get(k)]
+            };
+
+            const moduleScope = { exports: {} as any };
+            const mockInjectable = () => (target: any) => target;
+
+            const wrappedCode = `
+                const API_RESPONSE_HEADERS = ${JSON.stringify(API_RESPONSE_HEADERS)}; 
+                const API_HEADER_XML_CONFIGS = ${JSON.stringify(API_HEADER_XML_CONFIGS)};
+                const XmlParser = { parse: ${XmlParserMock.parse.toString()} };
+
+                ${jsCode} 
+            `;
+
+            new Function('exports', 'Injectable', wrappedCode)(moduleScope.exports, mockInjectable);
+
+            const ServiceClass = moduleScope.exports.ResponseHeaderService;
+            const service = new ServiceClass();
+
+            const result = service.parse(mockHeaders, 'op1', 200);
+
+            expect(result['X-Data']).toEqual({
+                parsed: true,
+                root: 'RootDetails',
+                raw: '<RootDetails><val>1</val></RootDetails>'
+            });
         });
     });
 });

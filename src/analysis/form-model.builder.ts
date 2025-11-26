@@ -220,6 +220,14 @@ export class FormModelBuilder {
                 controls: subControls
             });
         }
+
+        // Detect default mapping
+        if (prop.schema.discriminator?.defaultMapping) {
+            const defaultName = pascalCase(prop.schema.discriminator.defaultMapping.split('/').pop() || '');
+            if (defaultName && this.result.polymorphicOptions.some(p => p.modelName === defaultName)) {
+                this.result.defaultPolymorphicOption = defaultName;
+            }
+        }
     }
 
     private getFormControlTypeString(schema: SwaggerDefinition): string {

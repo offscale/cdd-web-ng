@@ -18,7 +18,6 @@ import { ServiceMethodGenerator } from './service-method.generator.js';
  * Example: get-custom-name -> getCustomName
  */
 function toTsIdentifier(name: string): string {
-    // Remove invalid chars, capitalize letters after hyphens/underscores
     return camelCase(name.replace(/[^\w]/g, ' '));
 }
 
@@ -29,9 +28,7 @@ export class ServiceGenerator {
         this.methodGenerator = new ServiceMethodGenerator(this.config, this.parser);
     }
 
-    /** Generates the actual Angular service file */
     public generateServiceFile(controllerName: string, operations: PathInfo[], outputDir: string): void {
-        // Normalize controller/service file and class name
         const cleanControllerName = toTsIdentifier(controllerName);
         const pascalControllerName = pascalCase(cleanControllerName);
 
@@ -45,11 +42,23 @@ export class ServiceGenerator {
         const modelImports = new Set<string>(['RequestOptions']);
 
         for (const op of operations) {
-            const successResponse = op.responses?.['200'] ?? op.responses?.['201'] ?? op.responses?.['default'];
-            if (successResponse?.content?.['application/json']?.schema) {
-                const responseType = getTypeScriptType(successResponse.content['application/json'].schema, this.config, knownTypes).replace(/\[\]| \| null/g, '');
-                if (isDataTypeInterface(responseType)) {
-                    modelImports.add(responseType);
+            // Check all responses for models
+            if (op.responses) {
+                for (const resp of Object.values(op.responses)) {
+                    if (resp.content) {
+                        // Look for schemas in any content type, favoring JSON
+                        const jsonSchema = resp.content['application/json']?.schema;
+                        const xmlSchema = resp.content['application/xml']?.schema;
+                        const wildcardSchema = resp.content['*/*']?.schema;
+
+                        const schema = jsonSchema || xmlSchema || wildcardSchema;
+                        if (schema) {
+                            const typeName = getTypeScriptType(schema, this.config, knownTypes).replace(/\[\]| \| null/g, '');
+                            if (isDataTypeInterface(typeName)) {
+                                modelImports.add(typeName);
+                            }
+                        }
+                    }
                 }
             }
 
@@ -73,7 +82,6 @@ export class ServiceGenerator {
         this.addPropertiesAndHelpers(serviceClass);
 
         for (const op of operations) {
-            // Handle methodName normalization
             if (!op.methodName) {
                 if (op.operationId) {
                     op.methodName = toTsIdentifier(op.operationId);
@@ -81,12 +89,13 @@ export class ServiceGenerator {
                     op.methodName = toTsIdentifier(op.method.toLowerCase() + '_' + op.path);
                 }
             } else if (op.methodName.includes('-') || !/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(op.methodName)) {
-                // Fix: Sanitize if the existing name contains invalid characters (like the 'get-custom-name' test case)
                 op.methodName = toTsIdentifier(op.methodName);
             }
 
             this.methodGenerator.addServiceMethod(serviceClass, op);
         }
+
+        sourceFile.formatText();
     }
 
     private addImports(sourceFile: SourceFile, modelImports: Set<string>, operations: PathInfo[]): void {
@@ -111,13 +120,11 @@ export class ServiceGenerator {
             namedImports: ['map', 'filter', 'tap']
         });
 
-        // 1. Request Context & Configuration
         sourceFile.addImportDeclaration({
             moduleSpecifier: '../utils/request-context',
             namedImports: ['createRequestOption', 'RequestOptions', 'HttpRequestOptions']
         });
 
-        // 2. Builders
         sourceFile.addImportDeclaration({
             moduleSpecifier: '../utils/http-params.builder',
             namedImports: ['HttpParamsBuilder']
@@ -137,11 +144,25 @@ export class ServiceGenerator {
             });
         }
 
-        // 3. Security Tokens
+        const hasXmlResponse = operations.some(op => {
+            // Logic check simplified: Just check if any response has xml content
+            if (op.responses) {
+                return Object.values(op.responses).some(r => r.content?.['application/xml']);
+            }
+            return false;
+        });
+
+        if (hasXmlResponse) {
+            sourceFile.addImportDeclaration({
+                moduleSpecifier: '../utils/xml-parser',
+                namedImports: ['XmlParser']
+            });
+        }
+
         const globalSecurity = this.parser.getSpec().security || [];
         const hasSecurity = operations.some(op => {
-            if (op.security) return op.security.length > 0; // Explicit security on OP
-            return globalSecurity.length > 0; // Fallback to global
+            if (op.security) return op.security.length > 0;
+            return globalSecurity.length > 0;
         });
 
         if (hasSecurity) {
@@ -151,7 +172,6 @@ export class ServiceGenerator {
             });
         }
 
-        // 4. Models
         const validModels = Array.from(modelImports).filter(m => /^[A-Z]/.test(m) && !['Date', 'Blob', 'File'].includes(m));
         if (validModels.length > 0) {
             sourceFile.addImportDeclaration({
@@ -160,13 +180,11 @@ export class ServiceGenerator {
             });
         }
 
-        // 5. Base Path Token
         sourceFile.addImportDeclaration({
             moduleSpecifier: '../tokens',
             namedImports: [getBasePathTokenName(this.config.clientName)]
         });
 
-        // 6. Legacy Codec
         sourceFile.addImportDeclaration({
             moduleSpecifier: '../utils/api-parameter-codec',
             namedImports: ['ApiParameterCodec']

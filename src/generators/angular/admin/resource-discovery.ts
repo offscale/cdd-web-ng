@@ -37,8 +37,10 @@ function classifyAction(path: PathInfo, method: string): ResourceOperation['acti
     const opId = path.operationId || '';
     const opIdLower = opId.toLowerCase();
 
-    if (m === 'get' && !hasIdSuffix) return 'list';
-    if (m === 'get' && hasIdSuffix) return 'getById';
+    // OAS 3.2 QUERY method support: Treat as list if collection, or getById if item
+    if ((m === 'get' || m === 'query') && !hasIdSuffix) return 'list';
+    if ((m === 'get' || m === 'query') && hasIdSuffix) return 'getById';
+
     if (['put', 'patch'].includes(m) && hasIdSuffix) return 'update';
     if (m === 'delete' && hasIdSuffix) return 'delete';
 
@@ -169,7 +171,9 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
 
 // Exported for testing
 export function getModelName(resourceName: string, operations: PathInfo[]): string {
-    const op = operations.find(o => o.method === 'POST') ?? operations.find(o => o.method === 'GET');
+    const op = operations.find(o => o.method === 'POST')
+        ?? operations.find(o => o.method === 'GET')
+        ?? operations.find(o => o.method === 'QUERY');
     const schema = op?.requestBody?.content?.['application/json']?.schema ?? op?.responses?.['200']?.content?.['application/json']?.schema;
     if (schema) {
         const ref = '$ref' in schema ? schema.$ref : schema.type === 'array' && schema.items && !Array.isArray(schema.items) && '$ref' in schema.items ? schema.items.$ref : null;
@@ -229,6 +233,7 @@ export function discoverAdminResources(parser: SwaggerParser): Resource[] {
             modelName: getModelName(group.name, group.operations),
             operations: classifiedOps,
             // Fix: DELETE operations do not imply a form interface, so they don't make a resource 'editable' in the context of form generation.
+            // QUERY doesn't either (safe method)
             isEditable: group.operations.some(op => ['POST', 'PUT', 'PATCH'].includes(op.method)),
             formProperties,
             listProperties: formProperties.filter(

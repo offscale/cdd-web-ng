@@ -67,6 +67,12 @@ describe('Admin: buildErrorMessages (from IR)', () => {
         expect(output).toContain("Cannot contain more than 10 items");
     });
 
+    it('should generate "const" error message', () => {
+        const output = run([{ type: 'const', value: 'foo' }]);
+        expect(output).toContain("@if (form.get('testControl')?.hasError('const'))");
+        expect(output).toContain("Value must be {{ form.get('testControl')?.errors?.['const'].required }}");
+    });
+
     it('should produce an empty array if no rules are provided', () => {
         const output = run([]);
         expect(output).toBe("");

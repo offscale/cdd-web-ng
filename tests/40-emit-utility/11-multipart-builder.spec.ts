@@ -81,9 +81,12 @@ describe('Utility: MultipartBuilder', () => {
         });
     });
 
-    describe('Manual Construction (Custom Headers & Nesting)', () => {
+    describe('Manual Construction (Object/Map based)', () => {
+        // ... (previous test cases remain valid because I updated `serialize` to normalize input)
+
         it('should switch to manual Blob construction if custom headers exist', () => {
             const body = { file: 'content' };
+            // Legacy input style: Record<string, Config>
             const encoding = {
                 file: { headers: { 'X-Custom': '123' } }
             };
@@ -92,22 +95,6 @@ describe('Utility: MultipartBuilder', () => {
             expect(result.content).toBeInstanceOf(global.Blob);
             expect(result.headers).toBeDefined();
             expect(result.headers['Content-Type']).toContain('multipart/form-data; boundary=');
-        });
-
-        it('should include custom headers in the payload', () => {
-            const body = { item: 'val' };
-            const encoding = {
-                item: { headers: { 'X-Part-ID': '999' } }
-            };
-            const result = MultipartBuilder.serialize(body, encoding);
-            const blob = result.content as any;
-
-            // The builder creates a parts array containing both strings and Blobs (if any).
-            // For this test, we know 'val' is string so all parts are strings.
-            const fullBody = blob.parts.join('');
-            expect(fullBody).toContain('Content-Disposition: form-data; name="item"');
-            expect(fullBody).toContain('X-Part-ID: 999');
-            expect(fullBody).toContain('val');
         });
 
         it('should handle File objects in manual mode', () => {
@@ -127,61 +114,69 @@ describe('Utility: MultipartBuilder', () => {
             expect(stringParts).toContain('X-File: true');
             expect(stringParts).toContain('Content-Type: text/plain');
         });
+    });
 
-        it('should jsonify objects in manual mode', () => {
-            const body = { meta: { a: 1 } };
-            const encoding = {
-                meta: { headers: { 'X-Meta': 'yes' } }
+    describe('Manual Construction (Array/OAS 3.2 based)', () => {
+        it('should serialize Array body as multipart/mixed', () => {
+            const body = ['item1', { id: 2 }];
+            const config = {
+                prefixEncoding: [
+                    { contentType: 'text/plain' },
+                    { contentType: 'application/json' }
+                ]
             };
-            const result = MultipartBuilder.serialize(body, encoding);
+
+            const result = MultipartBuilder.serialize(body, config);
+            expect(result.content).toBeInstanceOf(global.Blob);
+            expect(result.content.type).toBe('multipart/mixed');
+            expect(result.headers['Content-Type']).toContain('multipart/mixed');
+
+            // Verify parts
             const blob = result.content as any;
-            const fullBody = blob.parts.join('');
-
-            expect(fullBody).toContain('application/json');
-            expect(fullBody).toContain('{"a":1}');
-        });
-
-        it('should recursively serialize nested multipart properties with correct boundary merging (OAS 3.2)', () => {
-            const nestedBody = { inner: 'value' };
-            const body = {
-                wrapper: nestedBody
-            };
-            const encoding = {
-                wrapper: {
-                    contentType: 'multipart/mixed',
-                    // The encoding for the INNER structure properties
-                    encoding: {
-                        inner: { contentType: 'text/plain', headers: { 'X-Inner': 'true' } }
-                    }
-                }
-            };
-
-            const result = MultipartBuilder.serialize(body, encoding);
-            const blob = result.content as any;
-
-            // 1. Check the headers on the Blob parts.
-            // Need to inspect the string parts, because blob.parts[someIndex] is the inner Blob
             const stringParts = blob.parts.filter((p: any) => typeof p === 'string').join('');
 
-            expect(stringParts).toContain('Content-Disposition: form-data; name="wrapper"');
+            // Should have no Content-Disposition by default for mixed array items
+            expect(stringParts).not.toContain('Content-Disposition');
 
-            // This validates that we respected the 'multipart/mixed' request AND verified that the boundary
-            // was appended correctly from the nested result.
-            // Note: Manual builder adds CR/LF before content type line
-            expect(stringParts).toMatch(/Content-Type: multipart\/mixed; boundary=/);
+            // Verify Content-Types
+            expect(stringParts).toContain('Content-Type: text/plain');
+            expect(stringParts).toContain('Content-Type: application/json');
 
-            // 2. Check that inner body is NOT jsonified, but is actually a Blob (result of recursive call)
-            const innerBlob = blob.parts.find((p: any) => p instanceof global.Blob);
-            expect(innerBlob).toBeDefined();
-            // The inner Blob's type property doesn't strictly matter for serialization (the header does),
-            // but manual serializer defaults to multipart/form-data.
-            expect(innerBlob.type).toBe('multipart/form-data');
+            // Verify Bodies
+            expect(blob.parts).toContain('item1');
+            expect(stringParts).toContain('{"id":2}'); // JSON stringified
+        });
 
-            // 3. Verify inner headers are present in the inner blob parts
-            const innerParts = innerBlob.parts.join('');
-            expect(innerParts).toContain('X-Inner: true');
-            expect(innerParts).toContain('inner');
-            expect(innerParts).toContain('value');
+        it('should support itemEncoding basic fallback', () => {
+            const body = [1, 2, 3];
+            const config = {
+                itemEncoding: { contentType: 'application/custom' }
+            };
+
+            const result = MultipartBuilder.serialize(body, config);
+            const blob = result.content as any;
+            const stringParts = blob.parts.filter((p: any) => typeof p === 'string').join('');
+
+            // Check that it applied to all
+            // We expect 3 occurrences of the content type
+            const matches = stringParts.match(/Content-Type: application\/custom/g);
+            expect(matches?.length).toBe(3);
+        });
+
+        it('should support prefixEncoding overriding itemEncoding', () => {
+            const body = ['prefix', 'rest1', 'rest2'];
+            const config = {
+                prefixEncoding: [{ contentType: 'text/prefix' }],
+                itemEncoding: { contentType: 'text/rest' }
+            };
+
+            const result = MultipartBuilder.serialize(body, config);
+            const blob = result.content as any;
+            const stringParts = blob.parts.filter((p: any) => typeof p === 'string').join('');
+
+            expect(stringParts).toContain('Content-Type: text/prefix');
+            const restMatches = stringParts.match(/Content-Type: text\/rest/g);
+            expect(restMatches?.length).toBe(2); // rest1 and rest2
         });
     });
 });

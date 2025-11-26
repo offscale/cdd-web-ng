@@ -8,6 +8,9 @@ import ts from 'typescript';
 describe('Emitter: ServerUrlGenerator', () => {
 
     const runGenerator = (servers: any[]) => {
+        // Passing empty servers [] or [undefined] will likely trigger the parser default logic
+        // if we setup the Spec correctly as openapi spec.
+        // However, SwaggerParser constructor arguments are tricky when mocked.
         const project = createTestProject();
         const parser = new SwaggerParser({
             openapi: '3.2.0',
@@ -36,9 +39,12 @@ describe('Emitter: ServerUrlGenerator', () => {
         return moduleScope;
     };
 
-    it('should not generate file if no servers are defined', () => {
+    it('should generate file with default server if no servers are defined (OAS 3.x)', () => {
         const project = runGenerator([]);
-        expect(project.getSourceFile('/out/utils/server-url.ts')).toBeUndefined();
+        const sourceFile = project.getSourceFile('/out/utils/server-url.ts');
+        // Expected behavior changed: Spec parser defaults empty servers to [{ "url": "/" }]
+        expect(sourceFile).toBeDefined();
+        expect(sourceFile!.getText()).toContain('"url": "/"');
     });
 
     it('should generate API_SERVERS constant checking OAS 3.2 name property', () => {

@@ -207,4 +207,34 @@ describe('Emitter: DiscriminatorGenerator', () => {
 
         expect(API_DISCRIMINATORS['Item'].mapping['remote']).toBe('WeirdName');
     });
+
+    it('should include defaultMapping in registry when present', () => {
+        const defaultMapSpec: SwaggerSpec = {
+            openapi: '3.0.0',
+            info: { title: 'Default Map Test', version: '1.0' },
+            paths: {},
+            components: {
+                schemas: {
+                    GenericPet: {
+                        type: 'object',
+                        discriminator: {
+                            propertyName: 'type',
+                            defaultMapping: '#/components/schemas/UnknownPet'
+                        },
+                        properties: { type: { type: 'string' } }
+                    },
+                    UnknownPet: {
+                        type: 'object',
+                        properties: { type: { type: 'string' } }
+                    }
+                }
+            }
+        };
+
+        const project = runGenerator(defaultMapSpec);
+        const { API_DISCRIMINATORS } = compileGeneratedFile(project);
+
+        expect(API_DISCRIMINATORS['GenericPet']).toBeDefined();
+        expect(API_DISCRIMINATORS['GenericPet'].defaultMapping).toBe('UnknownPet');
+    });
 });

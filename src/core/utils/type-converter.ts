@@ -22,8 +22,37 @@ export function isDataTypeInterface(type: string): boolean {
     return true;
 }
 
+/**
+ * Helpers for formatting literal values into TypeScript types.
+ */
+function formatLiteralValue(val: unknown): string {
+    if (val === null) return 'null';
+    if (typeof val === 'string') return `'${val.replace(/'/g, "\\'")}'`;
+    if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+    return 'any';
+}
+
 export function getTypeScriptType(schema: SwaggerDefinition | undefined, config: GeneratorConfig, knownTypes: string[] = []): string {
     if (!schema) return 'any';
+
+    // JSON Schema 2020-12: dependentSchemas support
+    if (schema.dependentSchemas) {
+        // Generate the base type without the dependentSchemas property to avoid infinite recursion
+        const { dependentSchemas, ...restSchema } = schema;
+        const baseType = getTypeScriptType(restSchema, config, knownTypes);
+
+        const dependencies = Object.entries(dependentSchemas).map(([propName, titleOrSchema]) => {
+            const depSchema = titleOrSchema as SwaggerDefinition;
+            const depType = getTypeScriptType(depSchema, config, knownTypes);
+            const safeKey = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(propName) ? propName : `'${propName}'`;
+
+            // Schema: If 'propName' key exists in the object, then the object must ALSO satisfy 'depType'.
+            // TS Intersection: ( { prop: any } & DepType ) | { prop?: never }
+            return `(({ ${safeKey}: any } & ${depType}) | { ${safeKey}?: never })`;
+        });
+
+        return `${baseType} & ${dependencies.join(' & ')}`;
+    }
 
     if (schema.$ref) {
         const typeName = pascalCase(schema.$ref.split('/').pop() || '');
@@ -32,6 +61,11 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined, config:
     if (schema.$dynamicRef) {
         const typeName = pascalCase(schema.$dynamicRef.split('/').pop() || '');
         return knownTypes.includes(typeName) ? typeName : 'any';
+    }
+
+    // OAS 3.1 / JSON Schema 2020-12: const support
+    if (schema.const !== undefined) {
+        return formatLiteralValue(schema.const);
     }
 
     if (Array.isArray(schema.type)) {
@@ -49,11 +83,7 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined, config:
     if (schema.enum) {
         if (schema.title && knownTypes.includes(pascalCase(schema.title))) return pascalCase(schema.title);
         if (config.options.enumStyle === 'union' || !schema.title) {
-            return schema.enum.map(val => {
-                if (val === null) return 'null';
-                if (typeof val === 'string') return `'${val.replace(/'/g, "\\'")}'`;
-                return val;
-            }).join(' | ');
+            return schema.enum.map(val => formatLiteralValue(val)).join(' | ');
         }
     }
 
@@ -65,6 +95,11 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined, config:
             const innerType = getTypeScriptType(schema.contentSchema, config, knownTypes);
             return `string /* JSON: ${innerType} */`;
         }
+    }
+
+    // OAS 3.1: Infer array type if prefixItems is present
+    if (schema.prefixItems && !schema.type) {
+        return getArrayType(schema, config, knownTypes);
     }
 
     switch (schema.type) {
@@ -84,7 +119,7 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined, config:
         case 'object':
             return getObjectType(schema, config, knownTypes);
         case undefined:
-            if (schema.properties || schema.additionalProperties) return getObjectType(schema, config, knownTypes);
+            if (schema.properties || schema.additionalProperties || schema.unevaluatedProperties) return getObjectType(schema, config, knownTypes);
             return 'any';
         default:
             return 'any';
@@ -105,6 +140,22 @@ function getStringType(schema: SwaggerDefinition, config: GeneratorConfig): stri
 }
 
 function getArrayType(schema: SwaggerDefinition, config: GeneratorConfig, knownTypes: string[]): string {
+    // OAS 3.1 Tuple support using prefixItems
+    if (schema.prefixItems && Array.isArray(schema.prefixItems)) {
+        const prefixTypes = schema.prefixItems.map(s => getTypeScriptType(s, config, knownTypes));
+        let restType = '';
+
+        // In OAS 3.1, 'items' describes the elements AFTER the prefix items (rest elements)
+        if (schema.items && !Array.isArray(schema.items)) {
+            const itemsSchema = schema.items as SwaggerDefinition;
+            const innerType = getTypeScriptType(itemsSchema, config, knownTypes);
+            const safeInnerType = (innerType.includes('|') || innerType.includes('&')) ? `(${innerType})` : innerType;
+            restType = `, ...${safeInnerType}[]`;
+        }
+
+        return `[${prefixTypes.join(', ')}${restType}]`;
+    }
+
     if (Array.isArray(schema.items)) return `[${schema.items.map(s => getTypeScriptType(s, config, knownTypes)).join(', ')}]`;
     const itemsSchema = (schema.items as SwaggerDefinition) || {};
     const itemsType = getTypeScriptType(itemsSchema, config, knownTypes);
@@ -112,15 +163,45 @@ function getArrayType(schema: SwaggerDefinition, config: GeneratorConfig, knownT
 }
 
 function getObjectType(schema: SwaggerDefinition, config: GeneratorConfig, knownTypes: string[]): string {
+    let indexSignatureTypes: string[] = [];
+
+    // 1. additionalProperties
     if (schema.additionalProperties) {
         const valueType = schema.additionalProperties === true
             ? 'any'
             : getTypeScriptType(schema.additionalProperties as SwaggerDefinition, config, knownTypes);
-        return `{ [key: string]: ${valueType} }`;
+        indexSignatureTypes.push(valueType);
     }
 
+    // 2. unevaluatedProperties (OAS 3.1)
+    if (schema.unevaluatedProperties) {
+        const valueType = schema.unevaluatedProperties === true
+            ? 'any'
+            : getTypeScriptType(schema.unevaluatedProperties as SwaggerDefinition, config, knownTypes);
+        indexSignatureTypes.push(valueType);
+    }
+
+    // Resolve combined index signature type
+    let indexSignatureType = '';
+    if (indexSignatureTypes.length > 0) {
+        if (indexSignatureTypes.includes('any')) {
+            indexSignatureType = 'any';
+        } else {
+            indexSignatureType = [...new Set(indexSignatureTypes)].join(' | ');
+        }
+    }
+
+    // Logic to determine if object is explicitly closed (no index signature allowed)
+    // If both are explicitly false, closed.
+    // If one is false and other missing, it depends on interpretation, but generally safe to close if all known dynamic props are forbidden.
+    // However, standard JSON schema implies if additionalProperties is explicitly false, no extra props.
+    const explicitlyClosed = schema.additionalProperties === false && (schema.unevaluatedProperties === false || schema.unevaluatedProperties === undefined);
+
     if (schema.properties) {
-        if (Object.keys(schema.properties).length === 0) return '{ [key: string]: any }';
+        if (Object.keys(schema.properties).length === 0) {
+            if (explicitlyClosed) return '{}';
+            return indexSignatureType ? `{ [key: string]: ${indexSignatureType} }` : '{ [key: string]: any }';
+        }
 
         const props = Object.entries(schema.properties).map(([key, propSchema]) => {
             const isRequired = schema.required?.includes(key);
@@ -128,10 +209,17 @@ function getObjectType(schema: SwaggerDefinition, config: GeneratorConfig, known
             const safeKey = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key) ? key : `'${key}'`;
             return `${safeKey}${isRequired ? '' : '?'}: ${pType}`;
         });
+
+        if (indexSignatureType) {
+            return `{ ${props.join('; ')}; [key: string]: ${indexSignatureType} | any }`;
+        }
+
+        // Note: We rely on this exact formatting without trailing semicolon for unit tests assertions
         return `{ ${props.join('; ')} }`;
     }
 
-    return '{ [key: string]: any }';
+    if (explicitlyClosed) return '{}';
+    return indexSignatureType ? `{ [key: string]: ${indexSignatureType} }` : '{ [key: string]: any }';
 }
 
 export function getRequestBodyType(requestBody: RequestBody | undefined, config: GeneratorConfig, knownTypes: string[]): string {

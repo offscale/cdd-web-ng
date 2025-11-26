@@ -16,6 +16,7 @@ export class ResponseHeaderRegistryGenerator {
         const sourceFile = this.project.createSourceFile(filePath, "", { overwrite: true });
 
         const registry: Record<string, Record<string, Record<string, string>>> = {};
+        const headerConfigMap: Record<string, any> = {};
         let headerCount = 0;
 
         this.parser.operations.forEach((op: PathInfo) => {
@@ -32,9 +33,14 @@ export class ResponseHeaderRegistryGenerator {
                         const headerDef = this.parser.resolve(headerOrRef) as HeaderObject;
                         if (!headerDef) return;
 
-                        const typeHint = this.getHeaderTypeHint(headerDef);
+                        const { typeHint, xmlConfig } = this.getHeaderTypeInfo(headerDef);
                         if (typeHint) {
                             headerConfig[headerName] = typeHint;
+                            // Store XML config if present, keyed uniquely by context
+                            if (typeHint === 'xml' && xmlConfig) {
+                                const key = `${op.operationId}_${statusCode}_${headerName}`;
+                                headerConfigMap[key] = xmlConfig;
+                            }
                         }
                     });
 
@@ -61,6 +67,20 @@ export class ResponseHeaderRegistryGenerator {
                 }],
                 docs: ["Registry of Response Headers defined in the API."]
             });
+
+            // If we have any XML configs, export them.
+            // We always export the variable to simplify imports in the service, defaulting to empty object.
+            sourceFile.addVariableStatement({
+                isExported: true,
+                declarationKind: VariableDeclarationKind.Const,
+                declarations: [{
+                    name: "API_HEADER_XML_CONFIGS",
+                    initializer: Object.keys(headerConfigMap).length > 0
+                        ? JSON.stringify(headerConfigMap, null, 2)
+                        : "{}"
+                }],
+                docs: ["Registry of XML Configurations for Response Headers."]
+            });
         } else {
             sourceFile.addStatements("export {};");
         }
@@ -69,25 +89,62 @@ export class ResponseHeaderRegistryGenerator {
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
     }
 
-    private getHeaderTypeHint(header: HeaderObject): string {
+    private getHeaderTypeInfo(header: HeaderObject): { typeHint: string, xmlConfig?: any } {
         if (header.content) {
             const contentType = Object.keys(header.content)[0];
             if (contentType && contentType.includes('json')) {
-                return 'json';
+                return { typeHint: 'json' };
             }
-            return 'string';
+            if (contentType && contentType.includes('xml')) {
+                const schema = header.content[contentType].schema as SwaggerDefinition;
+                if (schema) {
+                    return { typeHint: 'xml', xmlConfig: this.getXmlConfig(schema, 3) };
+                }
+                return { typeHint: 'xml' };
+            }
+            return { typeHint: 'string' };
         }
 
+        // Swagger 2.0 / OAS 3.0 simple schema support
         const schema = header.schema || header;
         const resolvedSchema = this.parser.resolve(schema) as SwaggerDefinition;
 
-        if (!resolvedSchema) return 'string';
+        if (!resolvedSchema) return { typeHint: 'string' };
 
-        if (resolvedSchema.type === 'array') return 'array';
-        if (resolvedSchema.type === 'integer' || resolvedSchema.type === 'number') return 'number';
-        if (resolvedSchema.type === 'boolean') return 'boolean';
-        if (resolvedSchema.type === 'object') return 'json';
+        if (resolvedSchema.type === 'array') return { typeHint: 'array' };
+        if (resolvedSchema.type === 'integer' || resolvedSchema.type === 'number') return { typeHint: 'number' };
+        if (resolvedSchema.type === 'boolean') return { typeHint: 'boolean' };
+        if (resolvedSchema.type === 'object') return { typeHint: 'json' };
 
-        return 'string';
+        return { typeHint: 'string' };
+    }
+
+    /**
+     * Recursively extracts XML configuration from a schema definition.
+     * Used to configure the runtime XmlParser.
+     */
+    private getXmlConfig(schema: SwaggerDefinition | undefined, depth: number): any {
+        if (!schema || depth <= 0) return {};
+        const resolved = this.parser.resolve(schema);
+        if (!resolved) return {};
+
+        const config: any = {};
+        if (resolved.xml?.name) config.name = resolved.xml.name;
+        if (resolved.xml?.attribute) config.attribute = true;
+        if (resolved.xml?.wrapped) config.wrapped = true;
+        if (resolved.xml?.prefix) config.prefix = resolved.xml.prefix;
+        if (resolved.xml?.namespace) config.namespace = resolved.xml.namespace;
+        if (resolved.xml?.nodeType) config.nodeType = resolved.xml.nodeType;
+
+        if (resolved.properties) {
+            config.properties = {};
+            Object.entries(resolved.properties).forEach(([propName, propSchema]) => {
+                const propConfig = this.getXmlConfig(propSchema, depth - 1);
+                if (Object.keys(propConfig).length > 0) {
+                    config.properties[propName] = propConfig;
+                }
+            });
+        }
+        return config;
     }
 }

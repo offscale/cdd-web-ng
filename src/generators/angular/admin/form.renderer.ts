@@ -50,6 +50,10 @@ export class ValidationRenderer {
                 return `Validators.minLength(${rule.value})`;
             case 'maxItems':
                 return `Validators.maxLength(${rule.value})`;
+            case 'const':
+                // If rule.value is a string, wrap in quotes. Otherwise stringify JSON.
+                const val = typeof rule.value === 'string' ? `'${rule.value}'` : JSON.stringify(rule.value);
+                return `CustomValidators.constValidator(${val})`;
             default:
                 // This ensures that if a new rule is added, we don't fail silently.
                 const exhaustiveCheck: never = rule;

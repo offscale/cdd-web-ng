@@ -61,7 +61,7 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
         const methodBody = serviceFile.getClassOrThrow('FormDataService').getMethodOrThrow('postWithFormData').getBodyText()!;
         expect(methodBody).toContain('const formData = new FormData();');
         expect(methodBody).toContain("if (file != null) { formData.append('file', file); }");
-        expect(methodBody).toContain('return this.http.post(url, formData, requestOptions as any);');
+        expect(methodBody).toContain('return this.http.post<any>(url, formData, requestOptions as any);');
     });
 
     it('should generate methods for application/x-www-form-urlencoded', () => {
@@ -70,7 +70,7 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
         const methodBody = serviceFile.getClassOrThrow('UrlEncodedService').getMethodOrThrow('postWithUrlEncoded').getBodyText()!;
         expect(methodBody).toContain('let formBody = new HttpParams();');
         expect(methodBody).toContain("if (grantType != null) { formBody = formBody.append('grant_type', grantType); }");
-        expect(methodBody).toContain('return this.http.post(url, formBody, requestOptions as any);');
+        expect(methodBody).toContain('return this.http.post<any>(url, formBody, requestOptions as any);');
     });
 
     it('should not import models for services that only return primitives', () => {
@@ -144,5 +144,45 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
 
         const noContentServiceFile = project.getSourceFileOrThrow('/out/services/noContentResponse.service.ts');
         expect(noContentServiceFile).toBeDefined();
+    });
+
+    it('should generate EventSource logic for text/event-stream', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'SSE Test', version: '1.0' },
+            paths: {
+                '/events': {
+                    get: {
+                        tags: ['SSE'],
+                        responses: {
+                            '200': {
+                                content: {
+                                    'text/event-stream': {
+                                        schema: {
+                                            type: 'object',
+                                            properties: {
+                                                id: { type: 'number' },
+                                                message: { type: 'string' }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        const project = run(spec);
+        const serviceFile = project.getSourceFileOrThrow('/out/services/sse.service.ts');
+        const method = serviceFile.getClassOrThrow('SseService').getMethodOrThrow('getEvents');
+
+        const returnType = method.getReturnType().getText();
+        expect(returnType).toContain('Observable<');
+
+        const body = method.getBodyText()!;
+        expect(body).toContain('new EventSource(url)');
+        expect(body).toContain('JSON.parse(event.data)');
     });
 });

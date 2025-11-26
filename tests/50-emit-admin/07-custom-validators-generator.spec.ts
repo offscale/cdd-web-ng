@@ -20,12 +20,14 @@ describe('Admin: CustomValidatorsGenerator', () => {
             'exclusiveMinimum',
             'exclusiveMaximum',
             'multipleOf',
-            'uniqueItems'
+            'uniqueItems',
+            'constValidator'
         ]));
 
         // Check a method body for correctness
-        const exclusiveMinimumMethod = validatorClass.getStaticMethodOrThrow('exclusiveMinimum');
-        const body = exclusiveMinimumMethod.getBodyText();
-        expect(body).toContain('return { exclusiveMinimum: { min, actual: control.value } };');
+        const constValidatorMethod = validatorClass.getStaticMethodOrThrow('constValidator');
+        const body = constValidatorMethod.getBodyText();
+        expect(body).toContain('if (control.value !== constant)');
+        expect(body).toContain('return { const: { required: constant, actual: control.value } };');
     });
 });

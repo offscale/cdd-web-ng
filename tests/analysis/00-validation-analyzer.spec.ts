@@ -76,4 +76,13 @@ describe('Analysis: validation.analyzer', () => {
         const rules = analyzeValidationRules(schema);
         expect(rules[0]).toEqual({ type: 'pattern', value: '\\d' });
     });
+
+    it('should map const validator (OAS 3.1)', () => {
+        const schema: SwaggerDefinition = {
+            type: 'string',
+            const: 'exact-value'
+        };
+        const rules = analyzeValidationRules(schema);
+        expect(rules).toContainEqual({ type: 'const', value: 'exact-value' });
+    });
 });

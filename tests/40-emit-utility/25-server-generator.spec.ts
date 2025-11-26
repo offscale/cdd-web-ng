@@ -49,7 +49,7 @@ describe('Emitter: ServerGenerator', () => {
         expect(API_SERVERS[1].name).toBe('staging');
     });
 
-    it('should handle empty servers gracefully', () => {
+    it('should generate default server for OAS specs with empty servers array', () => {
         const spec: SwaggerSpec = {
             openapi: '3.0.0',
             info: { title: 'E', version: '1' },
@@ -59,11 +59,19 @@ describe('Emitter: ServerGenerator', () => {
         const project = runGenerator(spec);
         const sourceFile = project.getSourceFileOrThrow('/out/servers.ts');
 
-        // This is the fix: use a regex to tolerate different spacing.
-        expect(sourceFile.getText()).toMatch(/export\s*{\s*};/);
+        expect(sourceFile.getText()).toContain('export const API_SERVERS');
+        expect(sourceFile.getText()).toContain('"url": "/"');
+    });
 
-        const vars = sourceFile.getVariableStatements();
-        expect(vars.length).toBe(0);
+    it('should not generate servers for Swagger 2.0 specs without servers', () => {
+        const spec: SwaggerSpec = {
+            swagger: '2.0',
+            info: { title: 'E', version: '1' },
+            paths: {}
+        } as any;
+        const project = runGenerator(spec);
+        const sourceFile = project.getSourceFileOrThrow('/out/servers.ts');
+        expect(sourceFile.getText()).toMatch(/export\s*{\s*};/);
     });
 
     it('should handle undefined parser.servers array (defensive fallback coverage)', () => {

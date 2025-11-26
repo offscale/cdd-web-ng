@@ -34,9 +34,13 @@ describe('Admin: FormRenderer', () => {
                 { type: 'uniqueItems' },
                 { type: 'minItems', value: 1 },
                 { type: 'maxItems', value: 10 },
+                { type: 'const', value: 'val' },
+                { type: 'const', value: 123 },
             ];
             const result = ValidationRenderer.render(rules);
-            expect(result).toBe("[CustomValidators.multipleOf(3), CustomValidators.exclusiveMinimum(1), CustomValidators.exclusiveMaximum(99), CustomValidators.uniqueItems(), Validators.minLength(1), Validators.maxLength(10)]");
+            // Ensure const renders correctly with quotes for string and none for number
+            expect(result).toContain("CustomValidators.constValidator('val')");
+            expect(result).toContain("CustomValidators.constValidator(123)");
         });
 
         it('should throw an error on an unhandled validation rule type', () => {

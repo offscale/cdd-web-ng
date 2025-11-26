@@ -51,7 +51,8 @@ export class XmlBuilderGenerator {
             returnType: "string",
             docs: ["Serializes a data object into an XML string."],
             statements: `
-    if (data === null || data === undefined) return ''; 
+    if (data === undefined) return ''; 
+    // Null is passed through to be handled as xsi:nil="true" if it is an element
     return this.buildElement(rootTag, data, config || {}); 
             `
         });
@@ -76,7 +77,27 @@ export class XmlBuilderGenerator {
     const nodeType = config.nodeType; 
     const isNone = nodeType === 'none'; 
 
-    // 2. Handle Arrays
+    // 2. Handle Null Value (OAS 3.2 / Appendix G)
+    if (data === null) {
+        // "Implementations SHOULD handle null values for elements by producing an empty element with xsi:nil='true'."
+        // Default nodeType is 'element'
+        if (nodeType === 'element' || nodeType === undefined) {
+             let attrs = ' xsi:nil="true"';
+             // Ensure xsi namespace is available for the nil attribute
+             attrs += ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"';
+             
+             if (config.namespace) { 
+                 attrs += config.prefix 
+                    ? \` xmlns:\${config.prefix}="\${config.namespace}"\` 
+                    : \` xmlns="\${config.namespace}"\`; 
+             }
+             return \`<\${name}\${attrs} />\`;
+        }
+        // For attributes, "omit the attribute". For text/cdata, implementation defined (omit empty).
+        return '';
+    }
+
+    // 3. Handle Arrays
     if (Array.isArray(data)) { 
         const itemConfig = config.items || {}; 
         const isWrapped = config.wrapped || nodeType === 'element'; 
@@ -96,8 +117,8 @@ export class XmlBuilderGenerator {
         } 
     } 
     
-    // 3. Handle Objects
-    if (typeof data === 'object' && data !== null && !(data instanceof Date)) { 
+    // 4. Handle Objects
+    if (typeof data === 'object' && !(data instanceof Date)) { 
         let attrs = ''; 
         if (config.namespace) { 
             if (config.prefix) { 
@@ -112,20 +133,25 @@ export class XmlBuilderGenerator {
         
         Object.keys(data).forEach(key => { 
             const val = data[key]; 
-            if (val === undefined || val === null) return; 
+            if (val === undefined) return; 
             
             const propConfig = config.properties?.[key] || {}; 
             const propNodeType = propConfig.nodeType; 
             
+            // OAS 3.2 Null Attribute Handling matches "Omit the attribute"
             if (propConfig.attribute || propNodeType === 'attribute') { 
+                if (val === null) return; // Skip
                 let attrName = propConfig.name || key; 
                 if (propConfig.prefix) attrName = \`\${propConfig.prefix}:\${attrName}\`; 
                 attrs += \` \${attrName}="\${this.escapeAttribute(String(val))}"\`; 
             } else if (propNodeType === 'text') { 
+                if (val === null) return; // Skip
                 textContent += this.escapeText(String(val)); 
             } else if (propNodeType === 'cdata') { 
+                if (val === null) return; // Skip
                 textContent += \`<![CDATA[\${val}]]>\`; 
             } else { 
+                // Element recursion (handles null inside)
                 children += this.buildElement(key, val, propConfig); 
             } 
         }); 
@@ -136,7 +162,7 @@ export class XmlBuilderGenerator {
         return \`<\${name}\${attrs}>\${textContent}\${children}</\${name}>\`; 
     } 
     
-    // 4. Handle Primitives
+    // 5. Handle Primitives (Non-null)
     const rawValue = String(data); 
     
     if (nodeType === 'text') return this.escapeText(rawValue); 

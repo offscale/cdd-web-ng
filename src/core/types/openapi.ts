@@ -68,6 +68,7 @@ export interface ServerObject {
 export interface DiscriminatorObject {
     propertyName: string;
     mapping?: { [key: string]: string };
+    defaultMapping?: string;
 
     [key: string]: any;
 }
@@ -153,7 +154,10 @@ export interface RequestBody {
     required?: boolean;
     content?: Record<string, {
         schema?: SwaggerDefinition | { $ref: string };
+        itemSchema?: SwaggerDefinition | { $ref: string };
         encoding?: Record<string, EncodingProperty>;
+        prefixEncoding?: EncodingProperty[];
+        itemEncoding?: EncodingProperty;
     }>;
 
     [key: string]: any;
@@ -161,7 +165,10 @@ export interface RequestBody {
 
 export interface SwaggerResponse {
     description?: string;
-    content?: Record<string, { schema?: SwaggerDefinition | { $ref: string } }>;
+    content?: Record<string, {
+        schema?: SwaggerDefinition | { $ref: string };
+        itemSchema?: SwaggerDefinition | { $ref: string };
+    }>;
     links?: Record<string, LinkObject | { $ref: string }>;
     headers?: Record<string, HeaderObject | { $ref: string }>;
 

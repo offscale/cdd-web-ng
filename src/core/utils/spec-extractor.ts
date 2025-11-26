@@ -34,6 +34,7 @@ type UnifiedParameter = SwaggerOfficialParameter & {
  * - Merging path-level and operation-level parameters.
  * - Resolving references (if a resolver is provided).
  * - Normalizing Swagger 2.0 properties to OpenAPI 3.0 compatible structures.
+ * - Applying OAS 3.2 default serialization rules (style/explode).
  *
  * @param swaggerPaths The raw `paths` object from the specification.
  * @param resolveRef Optional callback to resolve `$ref` pointers within path items.
@@ -41,7 +42,8 @@ type UnifiedParameter = SwaggerOfficialParameter & {
  */
 export function extractPaths(
     swaggerPaths: { [p: string]: PathItem } | undefined,
-    resolveRef?: (ref: string) => PathItem | undefined
+    resolveRef?: (ref: string) => PathItem | undefined,
+    components?: { securitySchemes?: Record<string, any> } | undefined
 ): PathInfo[] {
     if (!swaggerPaths) {
         return [];
@@ -49,6 +51,9 @@ export function extractPaths(
 
     const paths: PathInfo[] = [];
     const methods = ["get", "post", "put", "patch", "delete", "options", "head", "query"];
+
+    // Create a lookup Set for security schemes to enforce precedence rules (OAS 3.2 Security Requirements)
+    const securitySchemeNames = new Set(components?.securitySchemes ? Object.keys(components.securitySchemes) : []);
 
     for (const [path, rawPathItem] of Object.entries(swaggerPaths)) {
         let pathItem = rawPathItem;
@@ -154,6 +159,21 @@ export function extractPaths(
                         }
                     }
 
+                    // OAS 3.2 Serialization Defaults
+                    if (!param.style) {
+                        if (param.in === 'query' || param.in === 'cookie') {
+                            param.style = 'form';
+                        } else if (param.in === 'path' || param.in === 'header') {
+                            param.style = 'simple';
+                        }
+                    }
+
+                    if (param.explode === undefined) {
+                        // "When style is form, the default value is true. For all other styles, the default value is false."
+                        // Note: This applies to cookie style='form' as well.
+                        param.explode = (param.style === 'form');
+                    }
+
                     if (p.required !== undefined) param.required = p.required;
                     if (p.description) param.description = p.description;
 
@@ -198,7 +218,14 @@ export function extractPaths(
                 effectiveSecurity = effectiveSecurity.map(req => {
                     const normalizedReq: { [key: string]: string[] } = {};
                     Object.keys(req).forEach(key => {
-                        normalizedReq[normalizeSecurityKey(key)] = req[key];
+                        // OAS 3.2 Precedence: If key matches a component name exactly, assume it is a Component Name.
+                        // Otherwise, treat as URI reference (used for splitting last segment).
+                        // This prevents ambiguity when a Component Name looks like a URI (e.g. "http://auth")
+                        if (securitySchemeNames.has(key)) {
+                            normalizedReq[key] = req[key];
+                        } else {
+                            normalizedReq[normalizeSecurityKey(key)] = req[key];
+                        }
                     });
                     return normalizedReq;
                 });
@@ -273,7 +300,7 @@ function path_to_method_name_suffix(path: string): string {
  */
 export function groupPathsByController(parser: SwaggerParser): Record<string, PathInfo[]> {
     const usedMethodNames = new Set<string>();
-    const allOperations = extractPaths(parser.getSpec().paths);
+    const allOperations = parser.operations; // Use parser.operations which is already extracted
     const groups: Record<string, PathInfo[]> = {};
 
     for (const operation of allOperations) {

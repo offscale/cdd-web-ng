@@ -127,7 +127,8 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
 
         if (model?.body?.type === 'xml') {
             const config = model.body.config;
-            expect(config.name).toBe('node');
+            // Ref should default to 'none'
+            expect(config.nodeType).toBe('none');
             // Should exist for a few levels deep
             expect(config.properties.child).toBeDefined();
             expect(config.properties.child.properties.child).toBeDefined();
@@ -351,5 +352,39 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
         expect(config.prefix).toBe('ex');
         expect(config.namespace).toBe('http://example.com');
         expect(config.nodeType).toBe('element');
+    });
+
+    it('should infer correct default XML nodeTypes per OAS 3.2', () => {
+        const spec = {
+            openapi: '3.2.0',
+            info: { title: 'XML Defaults', version: '1.0' },
+            components: {
+                schemas: {
+                    Target: { type: 'string', xml: { name: 'Target' } },
+                    RefWrapper: { $ref: '#/components/schemas/Target' },
+                    ArrayWrapper: { type: 'array', items: { type: 'string' } },
+                    StandardObject: { type: 'object', properties: { a: { type: 'string' } } },
+                    LegacyWrapped: { type: 'array', items: { type: 'string' }, xml: { wrapped: true } }
+                }
+            }
+        };
+        const { analyzer } = setupAnalyzer(spec);
+
+        // 1. Reference Wrapper -> Should default to 'none'
+        // We pass the wrapper directly (mimicking usage in a property or root)
+        const refConfig = (analyzer as any).getXmlConfig({ $ref: '#/components/schemas/Target' }, 5);
+        expect(refConfig.nodeType).toBe('none');
+
+        // 2. Array -> Should default to 'none'
+        const arrayConfig = (analyzer as any).getXmlConfig(spec.components.schemas.ArrayWrapper, 5);
+        expect(arrayConfig.nodeType).toBe('none');
+
+        // 3. Standard Object -> Should default to 'element'
+        const objConfig = (analyzer as any).getXmlConfig(spec.components.schemas.StandardObject, 5);
+        expect(objConfig.nodeType).toBe('element');
+
+        // 4. Legacy Wrapped Array -> Should default to 'element'
+        const wrappedConfig = (analyzer as any).getXmlConfig(spec.components.schemas.LegacyWrapped, 5);
+        expect(wrappedConfig.nodeType).toBe('element');
     });
 });

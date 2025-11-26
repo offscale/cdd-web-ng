@@ -99,7 +99,7 @@ describe('Emitter: AuthInterceptorGenerator', () => {
         expect(project.getSourceFile('/out/auth/auth.interceptor.ts')).toBeUndefined();
     });
 
-    it('should handle mutualTLS by generating a pass-through applicator', () => {
+    it('should handle mutualTLS by generating a request context clone', () => {
         const specWithMtls = {
             ...emptySpec,
             components: {
@@ -108,13 +108,16 @@ describe('Emitter: AuthInterceptorGenerator', () => {
                 },
             },
         };
-        const { project } = runGenerator(specWithMtls);
+        const { project, tokenNames } = runGenerator(specWithMtls);
         const body = project.getSourceFileOrThrow('/out/auth/auth.interceptor.ts')
             .getClassOrThrow('AuthInterceptor')!
             .getMethodOrThrow('intercept')!
             .getBodyText()!;
 
-        expect(body).toContain("'MyCert': (req) => req");
+        expect(tokenNames).toContain('httpsAgentConfig');
+        expect(body).toContain('HTTPS_AGENT_CONTEXT_TOKEN');
+        // Adjusted expectation for new implementation
+        expect(body).toContain("'MyCert': (req) => this.mtlsConfig ? req.clone({ context: req.context.set(HTTPS_AGENT_CONTEXT_TOKEN, this.mtlsConfig) }) : req");
     });
 
     it('should check context requirements before iterating', () => {

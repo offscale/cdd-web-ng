@@ -168,4 +168,130 @@ describe('Core: Input Spec Validation', () => {
             expect(() => new SwaggerParser(badSpec, config)).toThrow('Custom input validation failed');
         });
     });
+
+    describe('Component Key Validation (OAS 3.x)', () => {
+        it('should accept valid component keys', () => {
+            const spec: any = {
+                openapi: '3.0.0',
+                info: validInfo,
+                paths: {},
+                components: {
+                    schemas: {
+                        'User': {},
+                        'User.Profile': {},
+                        'user_id': {},
+                        'User-Type': {}
+                    },
+                    parameters: {
+                        'param1': {}
+                    }
+                }
+            };
+            expect(() => validateSpec(spec)).not.toThrow();
+        });
+
+        it('should throw on invalid characters (space) in component keys', () => {
+            const spec: any = {
+                openapi: '3.0.0',
+                info: validInfo,
+                paths: {},
+                components: {
+                    schemas: {
+                        'User Name': {}
+                    }
+                }
+            };
+            expect(() => validateSpec(spec)).toThrow(/Invalid component key "User Name" in "components.schemas"/);
+        });
+
+        it('should throw on invalid symbols ($) in component keys', () => {
+            const spec: any = {
+                openapi: '3.0.0',
+                info: validInfo,
+                paths: {},
+                components: {
+                    parameters: {
+                        '$limit': {}
+                    }
+                }
+            };
+            expect(() => validateSpec(spec)).toThrow(/Invalid component key "\$limit" in "components.parameters"/);
+        });
+
+        it('should throw on invalid symbols (@) in securitySchemes keys', () => {
+            const spec: any = {
+                openapi: '3.0.0',
+                info: validInfo,
+                paths: {},
+                components: {
+                    securitySchemes: {
+                        '@auth': { type: 'http', scheme: 'basic' }
+                    }
+                }
+            };
+            expect(() => validateSpec(spec)).toThrow(/Invalid component key "@auth" in "components.securitySchemes"/);
+        });
+    });
+
+    describe('Path Template Validation', () => {
+        it('should throw error when two paths have identical hierarchy but different param names', () => {
+            const spec: any = {
+                openapi: '3.0.0',
+                info: validInfo,
+                paths: {
+                    '/pets/{id}': {},
+                    '/pets/{name}': {}
+                }
+            };
+            expect(() => validateSpec(spec)).toThrow(/Ambiguous path definition detected/);
+        });
+
+        it('should accept paths with identical hierarchy if they are structurally different', () => {
+            const spec: any = {
+                openapi: '3.0.0',
+                info: validInfo,
+                paths: {
+                    '/pets/{id}/info': {},
+                    '/pets/{id}/details': {}
+                }
+            };
+            expect(() => validateSpec(spec)).not.toThrow();
+        });
+
+        it('should accept paths that differ only by fixed segments vs variables', () => {
+            const spec: any = {
+                openapi: '3.0.0',
+                info: validInfo,
+                paths: {
+                    '/pets/mine': {},
+                    '/pets/{id}': {}
+                }
+            };
+            expect(() => validateSpec(spec)).not.toThrow();
+        });
+
+        it('should throw for complex nested collisions', () => {
+            const spec: any = {
+                openapi: '3.0.0',
+                info: validInfo,
+                paths: {
+                    '/api/{version}/upload': {},
+                    '/api/{v}/upload': {}
+                }
+            };
+            expect(() => validateSpec(spec)).toThrow(/Ambiguous path definition detected/);
+        });
+
+        it('should traverse Swagger 2.0 swagger paths successfully', () => {
+            const spec: any = {
+                swagger: '2.0',
+                info: validInfo,
+                paths: {
+                    '/api/{version}': {},
+                    '/api/{v}': {}
+                }
+            };
+            expect(() => validateSpec(spec)).toThrow(/Ambiguous path definition detected/);
+        });
+    });
 });

@@ -152,11 +152,16 @@ describe('Utility: HttpParamsBuilder', () => {
         it('should serialize Array with explode=false (Comma separated)', () => {
             // Spec Example: color=blue,black
             const res = Builder.serializeCookieParam('color', ['blue', 'black'], 'form', false);
-            expect(res).toBe('color=blue,black');
+            // Since style='form' (default), commas are separators and should be encoded as per standard practice
+            // to avoid ambiguity, unless specifically opting out.
+            // OAS 3.0 examples for style=form, explode=false show "id=5,6".
+            // But for cookies, comma is special.
+            // The implementation uses %2C for form style.
+            expect(res).toBe('color=blue%2Cblack');
         });
 
         it('should serialize Object with explode=true (Keyless properties)', () => {
-            // Spec Example: R=100; G=200 (Parameter name is omitted)
+            // Spec Example: R=100; G=200 (Parameter name is omitted for object props)
             const obj = { R: 100, G: 200 };
             const res = Builder.serializeCookieParam('color', obj, 'form', true);
             expect(res).toBe('R=100; G=200');
@@ -166,15 +171,30 @@ describe('Utility: HttpParamsBuilder', () => {
             // Spec Example: color=R,100,G,200
             const obj = { R: 100, G: 200 };
             const res = Builder.serializeCookieParam('color', obj, 'form', false);
-            // The implementation encodes the value part, so commas become %2C if the encoder runs
-            // In the implementation provided: return `\${key}=\${encodeURIComponent(flat)}`;
-            // "R,100,G,200" -> "color=R%2C100%2CG%2C200"
+            // style=form -> encoded delimiter %2C
             expect(res).toBe('color=R%2C100%2CG%2C200');
+        });
+
+        it('should handle style="cookie" by NOT percent-encoding values (OAS 3.2)', () => {
+            const val = 'hello world!';
+            // form style -> percent encoded: hello%20world! (encodeURIComponent leaves !)
+            expect(Builder.serializeCookieParam('msg', val, 'form', true)).toBe('msg=hello%20world!');
+            // cookie style -> raw: hello world!
+            expect(Builder.serializeCookieParam('msg', val, 'cookie', true)).toBe('msg=hello world!');
+        });
+
+        it('should allow reserved characters if allowReserved=true via encodeReserved', () => {
+            const val = 'a/b+c';
+            // allowReserved=true -> / and + are preserved
+            // cookie style overrides this (raw), but form style preserves reserved
+            expect(Builder.serializeCookieParam('path', val, 'form', true, true)).toBe('path=a/b+c');
+            // standard form (allowReserved=false) -> percent encoded
+            expect(Builder.serializeCookieParam('path', val, 'form', true, false)).toBe('path=a%2Fb%2Bc');
         });
 
         it('should handle JSON serialization override', () => {
             const obj = { foo: 'bar' };
-            const res = Builder.serializeCookieParam('data', obj, 'form', true, 'json');
+            const res = Builder.serializeCookieParam('data', obj, 'form', true, false, 'json');
             expect(res).toContain('data=%7B'); // URL encoded JSON
         });
     });

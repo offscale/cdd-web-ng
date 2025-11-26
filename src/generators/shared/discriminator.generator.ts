@@ -22,7 +22,11 @@ export class DiscriminatorGenerator {
         const filePath = path.join(outputDir, "discriminators.ts");
         const sourceFile = this.project.createSourceFile(filePath, "", { overwrite: true });
 
-        const registry: Record<string, { propertyName: string, mapping?: Record<string, string> }> = {};
+        const registry: Record<string, {
+            propertyName: string,
+            mapping?: Record<string, string>,
+            defaultMapping?: string
+        }> = {};
         let count = 0;
 
         this.parser.schemas.forEach(entry => {
@@ -36,6 +40,7 @@ export class DiscriminatorGenerator {
 
             let propertyName = "";
             let mapping: Record<string, string> | undefined = undefined;
+            let defaultMapping: string | undefined = undefined;
 
             if (typeof rawDiscriminator === 'string') {
                 propertyName = rawDiscriminator;
@@ -50,12 +55,18 @@ export class DiscriminatorGenerator {
                         }
                     });
                 }
+                if (rawDiscriminator.defaultMapping) {
+                    defaultMapping = this.resolveModelNameFromRef(rawDiscriminator.defaultMapping);
+                }
             }
 
             if (propertyName) {
                 registry[modelName] = { propertyName };
                 if (mapping && Object.keys(mapping).length > 0) {
                     registry[modelName].mapping = mapping;
+                }
+                if (defaultMapping) {
+                    registry[modelName].defaultMapping = defaultMapping;
                 }
                 count++;
             }

@@ -26,7 +26,6 @@ describe('Emitter: ServiceMethodGenerator (Multipart Defaults)', () => {
                                             tags: { type: 'array', items: { type: 'string' } }
                                         }
                                     }
-                                    // Note: No 'encoding' map provided. OAS says default for object/array is application/json.
                                 }
                             }
                         },
@@ -64,9 +63,75 @@ describe('Emitter: ServiceMethodGenerator (Multipart Defaults)', () => {
 
         const body = serviceClass.getMethodOrThrow('uploadComplex').getBodyText()!;
 
-        // Updated Expectation: Logic delegated to MultipartBuilder
-        expect(body).toContain('const multipartConfig = {};');
+        // Since metadata is an object and tags is an array, the analyzer should inject `contentType: 'application/json'`.
+        // The config object in the generated code should reflect this.
+        expect(body).toContain('"metadata":{"contentType":"application/json"}');
+        expect(body).toContain('"tags":{"contentType":"application/json"}');
+
         expect(body).toContain('const multipartResult = MultipartBuilder.serialize(body, multipartConfig);');
-        expect(body).toContain('return this.http.post(url, multipartResult.content, requestOptions as any);');
+        expect(body).toContain('return this.http.post<any>(url, multipartResult.content, requestOptions as any);');
+    });
+
+    it('should inject Content-Transfer-Encoding header from schema contentEncoding', () => {
+        const { methodGen, serviceClass } = createTestEnv();
+
+        // Inject a new operation into the parser/spec that uses contentEncoding
+        const op: any = {
+            method: 'POST',
+            path: '/upload-encoding',
+            methodName: 'uploadWithEncoding',
+            requestBody: {
+                content: {
+                    'multipart/form-data': {
+                        schema: {
+                            type: 'object',
+                            properties: {
+                                file: { type: 'string', format: 'binary' }, // raw binary
+                                secret: { type: 'string', contentEncoding: 'base64' } // encoded text part
+                            }
+                        }
+                    }
+                }
+            },
+            responses: { '200': {} }
+        };
+
+        methodGen.addServiceMethod(serviceClass, op);
+
+        const body = serviceClass.getMethodOrThrow('uploadWithEncoding').getBodyText()!;
+
+        // Check that the config object passed to MultipartBuilder contains the header for 'secret'
+        expect(body).toContain('"secret":{');
+        expect(body).toContain('"headers":{"Content-Transfer-Encoding":"base64"}');
+    });
+
+    it('should handle multipart/byteranges with correct media type config', () => {
+        const { methodGen, serviceClass } = createTestEnv();
+
+        const op: any = {
+            method: 'POST',
+            path: '/ranges',
+            methodName: 'postRanges',
+            requestBody: {
+                content: {
+                    'multipart/byteranges': {
+                        schema: {
+                            type: 'array',
+                            items: { type: 'object' }
+                        }
+                    }
+                }
+            },
+            responses: { '200': {} }
+        };
+
+        methodGen.addServiceMethod(serviceClass, op);
+
+        const body = serviceClass.getMethodOrThrow('postRanges').getBodyText()!;
+
+        // Verify that the configuration object includes the mediaType override
+        expect(body).toContain('"mediaType":"multipart/byteranges"');
+        // Verify it calls the builder
+        expect(body).toContain('const multipartResult = MultipartBuilder.serialize(body, multipartConfig);');
     });
 });

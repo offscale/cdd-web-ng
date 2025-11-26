@@ -26,6 +26,28 @@ export type BodyVariant =
     ;
 
 /**
+ * Defines how the response should be deserialized.
+ */
+export type ResponseSerialization =
+    | 'json'
+    | 'text'
+    | 'blob'
+    | 'arraybuffer'
+    | 'sse' // text/event-stream
+    | 'json-seq' // application/json-seq (RFC 7464)
+    | 'json-lines' // application/jsonl, application/x-ndjson
+    | 'xml'; // application/xml
+
+/**
+ * Describes a potential error response from the API.
+ */
+export interface ErrorResponseInfo {
+    code: string;
+    type: string;
+    description?: string;
+}
+
+/**
  * The Intermediate Representation (IR) of a Service Method.
  * This model is framework-agnostic regarding *how* the request is made,
  * but specific about *what* the request consists of.
@@ -42,6 +64,13 @@ export interface ServiceMethodModel {
     // Method Signature
     parameters: OptionalKind<ParameterDeclarationStructure>[];
     responseType: string;
+
+    // Response Handling
+    responseSerialization: ResponseSerialization;
+    responseXmlConfig?: any;
+
+    // Error Handling
+    errorResponses: ErrorResponseInfo[];
 
     // Request Construction Logic
     pathParams: ParamSerialization[];

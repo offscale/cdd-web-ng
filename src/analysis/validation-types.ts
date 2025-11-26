@@ -18,4 +18,5 @@ export type ValidationRule =
     | { type: 'multipleOf'; value: number }
     | { type: 'uniqueItems' }
     | { type: 'minItems'; value: number }
-    | { type: 'maxItems'; value: number };
+    | { type: 'maxItems'; value: number }
+    | { type: 'const'; value: any };

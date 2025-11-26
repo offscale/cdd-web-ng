@@ -110,6 +110,8 @@ export class CallbackGenerator {
 
     private processCallbackPathItem(urlKey: string, pathItem: PathItem): PathInfo[] {
         const tempMap = { [urlKey]: pathItem };
-        return extractPaths(tempMap);
+        // Pass the main components to ensure security resolution logic within callbacks
+        // follows similar rules, although callbacks rarely define security schemes inline implicitly.
+        return extractPaths(tempMap, undefined, this.parser.spec.components);
     }
 }

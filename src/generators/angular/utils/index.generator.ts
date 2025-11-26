@@ -57,6 +57,10 @@ export class MainIndexGenerator {
             if (Object.keys(this.parser.getSecuritySchemes()).length > 0) {
                 sourceFile.addExportDeclaration({ moduleSpecifier: "./auth/auth.tokens" });
             }
+
+            // Export XmlParser/XmlBuilder
+            sourceFile.addExportDeclaration({ moduleSpecifier: "./utils/xml-builder" });
+            sourceFile.addExportDeclaration({ moduleSpecifier: "./utils/xml-parser" });
         }
 
         sourceFile.formatText();
@@ -69,9 +73,7 @@ export class ServiceIndexGenerator {
 
     public generateIndex(outputRoot: string): void {
         const servicesDir = path.join(outputRoot, "services");
-
-        // Use path.resolve for robust comparison of directory paths (normalizes separators and makes absolute)
-        // This handles cases where ts-morph internal paths and input path formats differ (e.g. windows vs posix)
+        // Use path.resolve for robust comparison of directory paths
         const absServicesDir = path.resolve(servicesDir);
 
         const serviceFiles = this.project.getSourceFiles().filter(sf => {
@@ -81,7 +83,6 @@ export class ServiceIndexGenerator {
 
         if (serviceFiles.length === 0) return;
 
-        // Create index file
         const indexPath = path.join(servicesDir, "index.ts");
         const sourceFile = this.project.createSourceFile(indexPath, "", { overwrite: true });
 

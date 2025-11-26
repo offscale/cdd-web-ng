@@ -95,6 +95,7 @@ export class WebhookGenerator {
 
     private processWebhookPathItem(name: string, pathItem: PathItem): PathInfo[] {
         const tempMap = { [name]: pathItem };
-        return extractPaths(tempMap);
+        // Pass the main components to ensure strict resolution if webhooks define security
+        return extractPaths(tempMap, undefined, this.parser.spec.components);
     }
 }

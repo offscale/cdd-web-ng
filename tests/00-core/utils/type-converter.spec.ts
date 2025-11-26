@@ -12,6 +12,43 @@ describe('Core Utils: Type Converter', () => {
     const configWithDate: GeneratorConfig = { ...config, options: { ...config.options, dateType: 'Date' } };
 
     describe('getTypeScriptType', () => {
+
+        describe('Literal Types based on `const` (OAS 3.1)', () => {
+            it('should generate a string literal type', () => {
+                const schema: SwaggerDefinition = { type: 'string', const: 'active' };
+                expect(utils.getTypeScriptType(schema, config, [])).toBe("'active'");
+            });
+
+            it('should generate a number literal type', () => {
+                const schema: SwaggerDefinition = { type: 'integer', const: 12345 };
+                expect(utils.getTypeScriptType(schema, config, [])).toBe('12345');
+            });
+
+            it('should generate a boolean literal type', () => {
+                const schema: SwaggerDefinition = { type: 'boolean', const: false };
+                expect(utils.getTypeScriptType(schema, config, [])).toBe('false');
+            });
+
+            it('should generate a null literal type via const', () => {
+                const schema: SwaggerDefinition = { type: 'null', const: null };
+                expect(utils.getTypeScriptType(schema, config, [])).toBe('null');
+            });
+
+            it('should prefer const over type/enum if present', () => {
+                const schema: SwaggerDefinition = {
+                    type: 'string',
+                    enum: ['A', 'B'],
+                    const: 'C' // Edge case where const contradicts enum (technically invalid spec, but const is strict validation)
+                };
+                expect(utils.getTypeScriptType(schema, config, [])).toBe("'C'");
+            });
+
+            it('should escape single quotes in string const', () => {
+                const schema: SwaggerDefinition = { type: 'string', const: "User's Name" };
+                expect(utils.getTypeScriptType(schema, config, [])).toBe("'User\\'s Name'");
+            });
+        });
+
         it('should return "string" for simple string schema', () => {
             const schema: SwaggerDefinition = { type: 'string' };
             expect(utils.getTypeScriptType(schema, config, [])).toBe('string');
@@ -303,14 +340,9 @@ describe('Core Utils: Type Converter', () => {
             expect(utils.isDataTypeInterface('Buffer')).toBe(false);
         });
         it('should return true for generic classes that are not primitives', () => {
-            // MyType<T> -> MyType (not primitive) -> true
             expect(utils.isDataTypeInterface('MyType<string>')).toBe(true);
         });
         it('should return false if base type is primitive generic', () => {
-            // This is theoretically tricky but Array<string> should be false if we handled Array differently
-            // but logic uses bracket replace. replace <.*>
-            // object<T> is not really TS valid syntax usually besides Map but let's see logic:
-            // object<string> -> object -> primitive -> false.
             expect(utils.isDataTypeInterface('object<string>')).toBe(false);
         });
         it('should return false for union/intersection types', () => {

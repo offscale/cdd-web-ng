@@ -36,6 +36,11 @@ export class AuthInterceptorGenerator {
             tokenImports.push('BEARER_TOKEN_TOKEN');
             tokenNames.push('bearerToken');
         }
+        if (hasMutualTLS) {
+            tokenImports.push('HTTPS_AGENT_CONFIG_TOKEN');
+            tokenImports.push('HTTPS_AGENT_CONTEXT_TOKEN');
+            tokenNames.push('httpsAgentConfig');
+        }
 
         sourceFile.addImportDeclarations([
             {
@@ -73,6 +78,15 @@ export class AuthInterceptorGenerator {
                 initializer: `inject(BEARER_TOKEN_TOKEN, { optional: true })`,
             });
         }
+        if (hasMutualTLS) {
+            interceptorClass.addProperty({
+                name: 'mtlsConfig',
+                isReadonly: true,
+                scope: Scope.Private,
+                type: 'any',
+                initializer: `inject(HTTPS_AGENT_CONFIG_TOKEN, { optional: true })`,
+            });
+        }
 
         const schemeLogicParts: string[] = [];
         const uniqueSchemesMap = this.parser.getSecuritySchemes();
@@ -90,7 +104,7 @@ export class AuthInterceptorGenerator {
                     return token ? req.clone({ headers: req.headers.set('Authorization', \`Bearer \${token}\`) }) : null; 
                 }`);
             } else if (scheme.type === 'mutualTLS') {
-                schemeLogicParts.push(`'${name}': (req) => req`);
+                schemeLogicParts.push(`'${name}': (req) => this.mtlsConfig ? req.clone({ context: req.context.set(HTTPS_AGENT_CONTEXT_TOKEN, this.mtlsConfig) }) : req`);
             }
         });
 

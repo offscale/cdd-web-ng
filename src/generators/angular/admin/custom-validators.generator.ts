@@ -106,6 +106,26 @@ export class CustomValidatorsGenerator {
                         writer.writeLine('return null;');
                     })
                     .writeLine('};')
+            },
+            {
+                name: 'constValidator',
+                isStatic: true,
+                scope: Scope.Public,
+                parameters: [{ name: 'constant', type: 'any' }],
+                returnType: 'ValidatorFn',
+                docs: ['Validator ensuring the value matches a constant (OAS 3.1 const keyword).'],
+                statements: writer => writer
+                    .writeLine('return (control: AbstractControl): ValidationErrors | null => {')
+                    .indent(() => {
+                        writer.writeLine('if (control.value === null || control.value === undefined) {');
+                        writer.indent(() => writer.writeLine('return null;'));
+                        writer.writeLine('}');
+                        writer.writeLine('if (control.value !== constant) {');
+                        writer.indent(() => writer.writeLine('return { const: { required: constant, actual: control.value } };'));
+                        writer.writeLine('}');
+                        writer.writeLine('return null;');
+                    })
+                    .writeLine('};')
             }
         ];
 

@@ -233,6 +233,7 @@ export class HttpParamsBuilderGenerator {
                 { name: "value", type: "any" },
                 { name: "style", type: "string", initializer: "'form'" },
                 { name: "explode", type: "boolean", initializer: "true" },
+                { name: "allowReserved", type: "boolean", initializer: "false" },
                 { name: "serialization", type: "'json' | undefined", hasQuestionToken: true }
             ],
             returnType: "string",
@@ -241,24 +242,45 @@ export class HttpParamsBuilderGenerator {
         if (value === null || value === undefined) return ''; 
         if (serialization === 'json') return \`\${key}=\${encodeURIComponent(JSON.stringify(value))}\`; 
         
+        // OAS 3.2 Strict: 'cookie' style does NOT percent-encode. 'form' style DOES percent-encode...
+        // UNLESS allowReserved is true, in which case we use RFC 6570-style reserved expansion
+        const isCookieStyle = style === 'cookie'; 
+        const encode = (v: any) => {
+            if (isCookieStyle) return String(v);
+            if (allowReserved) return this.encodeReserved(String(v));
+            return encodeURIComponent(String(v));
+        }; 
+
+        // If not exploding, 'form' style for cookies comma-separates values. 
+        // Since commas are not allowed in cookie values, standard 'form' behavior implies encoding. 
+        // 'cookie' style implies raw values, so use raw comma. 
+        const joinChar = isCookieStyle ? ',' : (allowReserved ? ',' : '%2C'); 
+
         if (Array.isArray(value)) { 
-            const encodedValues = value.map(v => encodeURIComponent(String(v))); 
             if (explode) { 
-                return encodedValues.map(v => \`\${key}=\${v}\`).join('; '); 
+                // Explode: 'param=v1; param=v2'  (Cookie header separates cookies with "; ") 
+                // Note: This works because the generated string is appended to the header. 
+                return value.map(v => \`\${key}=\${encode(v)}\`).join('; '); 
             } else { 
-                return \`\${key}=\${encodedValues.join(',')}\`; 
+                // No Explode
+                return \`\${key}=\${value.map(v => encode(v)).join(joinChar)}\`; 
             } 
         } 
         
         if (typeof value === 'object') { 
             if (explode) { 
-                return Object.entries(value).map(([k, v]) => \`\${k}=\${v}\`).join('; '); 
+                // Explode: 'k1=v1; k2=v2' (Parameter name omitted for object props) 
+                return Object.entries(value).map(([k, v]) => \`\${k}=\${encode(v)}\`).join('; '); 
             } else { 
-                const flat = Object.entries(value).map(([k, v]) => \`\${k},\${v}\`).join(','); 
-                return \`\${key}=\${encodeURIComponent(flat)}\`; 
+                // No Explode: 'param=k1,v1,k2,v2' 
+                const flat = Object.entries(value).map(([k, v]) => \`\${isCookieStyle ? k : encodeURIComponent(k)}\${joinChar}\${encode(v)}\`).join(joinChar); 
+                return \`\${key}=\${flat}\`; 
             } 
         } 
-        return \`\${key}=\${encodeURIComponent(String(value))}\`;`
+        
+        // Primitive logic
+        const valStr = String(value); 
+        return \`\${key}=\${encode(valStr)}\`;`
         });
 
         classDeclaration.addMethod({

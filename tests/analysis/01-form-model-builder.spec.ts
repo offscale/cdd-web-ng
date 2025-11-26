@@ -150,4 +150,51 @@ describe('Analysis: FormModelBuilder', () => {
         expect(result.polymorphicOptions?.[0].discriminatorValue).toBe('valid');
         expect(result.polymorphicOptions?.[0].modelName).toBe('ValidSub');
     });
+
+    it('should identify defaultPolymorphicOption when defaultMapping is present', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
+            components: {
+                schemas: {
+                    TestResource: {
+                        type: 'object',
+                        properties: {
+                            poly: {
+                                discriminator: {
+                                    propertyName: 'type',
+                                    defaultMapping: '#/components/schemas/DefaultSub'
+                                },
+                                oneOf: [
+                                    { $ref: '#/components/schemas/DefaultSub' },
+                                    { $ref: '#/components/schemas/OtherSub' }
+                                ]
+                            }
+                        }
+                    },
+                    DefaultSub: {
+                        type: 'object',
+                        properties: {
+                            type: { type: 'string', enum: ['default'] },
+                            propA: { type: 'string' }
+                        }
+                    },
+                    OtherSub: {
+                        type: 'object',
+                        properties: {
+                            type: { type: 'string', enum: ['other'] },
+                            propB: { type: 'string' }
+                        }
+                    }
+                }
+            }
+        };
+
+        const { builder, resource } = setup(spec);
+        const result = builder.build(resource);
+
+        expect(result.isPolymorphic).toBe(true);
+        expect(result.defaultPolymorphicOption).toBe('DefaultSub');
+        expect(result.polymorphicOptions?.length).toBe(2);
+    });
 });

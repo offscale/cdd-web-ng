@@ -57,13 +57,17 @@ export function buildErrorMessages(control: FormControlModel): HtmlElementBuilde
             case 'const':
                 errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${control.name}')?.hasError('const')) { Value must be {{ form.get('${control.name}')?.errors?.['const'].required }}. }`));
                 break;
+            case 'not':
+                errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${control.name}')?.hasError('not')) { Value matches a restricted format. }`));
+                break;
         }
     }
     return errors;
 }
 
 export function buildFormControl(control: FormControlModel): HtmlElementBuilder | null {
-    if (!control || !control.schema || control.schema.readOnly) return null;
+    // CHANGE: Removed check for control.schema.readOnly to allow ReadOnly fields to be generated
+    if (!control || !control.schema) return null;
     const labelText = pascalCase(control.name);
 
     if (control.schema.oneOf && control.schema.discriminator) {
@@ -91,6 +95,7 @@ export function buildFormControl(control: FormControlModel): HtmlElementBuilder 
             else if (items?.properties || items?.type === 'object') return createFormArray(control, labelText);
             return createChips(control, labelText);
         case 'object':
+            if (control.controlType === 'map') return createMapEditor(control, labelText);
             return control.nestedControls ? createFormGroup(control) : null;
         default:
             return null;
@@ -100,7 +105,16 @@ export function buildFormControl(control: FormControlModel): HtmlElementBuilder 
 function createInput(control: FormControlModel, label: string, type: 'text' | 'number'): HtmlElementBuilder {
     const field = _.create('mat-form-field');
     field.appendChild(_.create('mat-label').setTextContent(label));
-    field.appendChild(_.create('input').setAttribute('matInput', '').setAttribute('formControlName', control.name).setAttribute('type', type).selfClosing());
+    const input = _.create('input')
+        .setAttribute('matInput', '')
+        .setAttribute('formControlName', control.name)
+        .setAttribute('type', type);
+
+    if (control.schema?.readOnly) {
+        input.setAttribute('[readonly]', 'true');
+    }
+
+    field.appendChild(input.selfClosing());
     buildErrorMessages(control).forEach(error => field.appendChild(error));
     return field;
 }
@@ -174,14 +188,15 @@ function createChips(control: FormControlModel, label: string): HtmlElementBuild
 function createTextarea(control: FormControlModel, label: string): HtmlElementBuilder {
     const field = _.create('mat-form-field');
     field.appendChild(_.create('mat-label').setTextContent(label));
-    field.appendChild(_.create('textarea').setAttribute('matInput', '').setAttribute('formControlName', control.name));
+    const area = _.create('textarea').setAttribute('matInput', '').setAttribute('formControlName', control.name);
+    if (control.schema?.readOnly) area.setAttribute('[readonly]', 'true');
+    field.appendChild(area);
     return field;
 }
 
 function createFormGroup(control: FormControlModel): HtmlElementBuilder {
     const container = _.create('div').addClass('admin-form-group').setAttribute('formGroupName', control.name);
     container.appendChild(_.create('h3').setTextContent(pascalCase(control.name)));
-    // FIX: Iterate the nested controls from the IR model directly.
     for (const nestedControl of control.nestedControls!) {
         const builder = buildFormControl(nestedControl);
         if (builder) container.appendChild(builder);
@@ -196,7 +211,6 @@ function createFormArray(control: FormControlModel, label: string): HtmlElementB
     const itemContainer = _.create('div').setAttribute('@for', `item of ${camelCase(control.name)}Array.controls; track $index; let i = $index;`);
     itemContainer.setAttribute('[formGroupName]', 'i');
 
-    // FIX: Iterate the nested controls from the IR model directly.
     if (control.nestedControls) {
         for (const nestedControl of control.nestedControls) {
             const builder = buildFormControl(nestedControl);
@@ -208,5 +222,48 @@ function createFormArray(control: FormControlModel, label: string): HtmlElementB
     arrayContainer.appendChild(itemContainer);
     container.appendChild(arrayContainer);
     container.appendChild(_.create('button').setAttribute('mat-stroked-button', '').setAttribute('type', 'button').setAttribute('(click)', `add${pascalCase(singular(control.name))}()`).setTextContent(`Add ${pascalCase(singular(control.name))}`));
+    return container;
+}
+
+function createMapEditor(control: FormControlModel, label: string): HtmlElementBuilder {
+    const container = _.create('div').addClass('admin-map-editor');
+    container.appendChild(_.create('h3').setTextContent(label));
+
+    const arrayContainer = _.create('div').setAttribute('formArrayName', control.name);
+
+    // We iterate the FormArray of KV pairs
+    // The control name for the list getter (e.g. 'metadataMap') needs to be derived
+    const mapGetter = `${camelCase(control.name)}Map`;
+
+    const loopContainer = _.create('div').setAttribute('@for', `pair of ${mapGetter}.controls; track $index; let i = $index;`);
+    loopContainer.setAttribute('[formGroupName]', 'i').addClass('map-pair-row');
+
+    // Key Input (Always string for now)
+    const keyField = _.create('mat-form-field').addClass('map-key-field');
+    keyField.appendChild(_.create('mat-label').setTextContent('Key'));
+    keyField.appendChild(_.create('input').setAttribute('matInput', '').setAttribute('formControlName', 'key'));
+
+    // Value Input - Delegate to buildFormControl but fake the control name as 'value'
+    if (control.mapValueControl) {
+        // Create a fake control model for the value field inside the loop
+        const valueControlFake = { ...control.mapValueControl, name: 'value' };
+        const valueBuilder = buildFormControl(valueControlFake);
+
+        if (valueBuilder) {
+            // Style tweak: make it look line-inline
+            loopContainer.appendChild(keyField);
+            loopContainer.appendChild(valueBuilder);
+        }
+    }
+
+    // Remove Button
+    loopContainer.appendChild(_.create('button').setAttribute('mat-icon-button', '').setAttribute('color', 'warn').setAttribute('(click)', `remove${pascalCase(control.name)}Entry(i)`).appendChild(_.create('mat-icon').setTextContent('delete')));
+
+    arrayContainer.appendChild(loopContainer);
+    container.appendChild(arrayContainer);
+
+    // Add Button
+    container.appendChild(_.create('button').setAttribute('mat-stroked-button', '').setAttribute('type', 'button').setAttribute('(click)', `add${pascalCase(control.name)}Entry()`).setTextContent(`Add Entry`));
+
     return container;
 }

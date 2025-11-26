@@ -96,6 +96,41 @@ describe('Generators (Angular): FormComponentGenerator', () => {
             expect(classText).toContain(`'age': new FormControl<number | null>(null, [Validators.required])`);
         });
 
+        it('should generate Map helpers for additionalProperties', () => {
+            const spec = {
+                ...validBase,
+                components: {
+                    schemas: {
+                        Test: {
+                            type: 'object',
+                            properties: {
+                                settings: {
+                                    type: 'object',
+                                    additionalProperties: { type: 'boolean' }
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+            const { sourceFile } = run(spec);
+            const classText = sourceFile.getClass('TestFormComponent')?.getText()!;
+
+            // Has helpers
+            expect(classText).toContain('get settingsMap()');
+            expect(classText).toContain('createSettingsEntry()');
+            expect(classText).toContain('addSettingsEntry()');
+            expect(classText).toContain('removeSettingsEntry(index');
+
+            // Has Patch Logic for Maps
+            expect(classText).toContain("if (entity.settings && typeof entity.settings === 'object')");
+            expect(classText).toContain("this.settingsMap.push(this.createSettingsEntry({ key, value }));");
+
+            // Has Payload logic for Maps
+            expect(classText).toContain("if (Array.isArray(baseValue['settings']))");
+            expect(classText).toContain("baseValue['settings'].forEach((pair: any)");
+        });
+
         it('should handle properties with defaults', () => {
             const spec = {
                 ...validBase,
@@ -119,7 +154,7 @@ describe('Generators (Angular): FormComponentGenerator', () => {
             expect(classText).toContain(`'role': new FormControl<string | null>("user", [Validators.required])`);
         });
 
-        it('should not include readOnly properties in the form group', () => {
+        it('should include readOnly properties in form group but disable them', () => {
             const spec = {
                 ...validBase,
                 paths: {},
@@ -136,8 +171,9 @@ describe('Generators (Angular): FormComponentGenerator', () => {
             };
             const { sourceFile } = run(spec);
             const classText = sourceFile.getClass('TestFormComponent')?.getText()!;
-            // Read-only properties are filtered out, so 'id' should NOT be in the FormGroup definition
-            expect(classText).not.toContain(`'id':`);
+
+            expect(classText).toContain(`'id':`);
+            expect(classText).toContain(`this.form.get('id')?.disable({ emitEvent: false });`);
         });
 
         it('should handle oneOf with ONLY primitive types', () => {
@@ -198,7 +234,44 @@ describe('Generators (Angular): FormComponentGenerator', () => {
             const classText = sourceFile.getClass('TestFormComponent')!.getText();
 
             // Expect logic switching on the discriminator property
+            // The discriminator property name inside PolyReadonly is 'petType'
+            // So we expect updateFormForPetType
             expect(classText).toContain('updateFormForPetType');
+        });
+    });
+
+    describe('Dependent Schemas Form Generation', () => {
+        it('should create effect for conditional validation based on dependentSchemas', () => {
+            const spec = {
+                ...validBase,
+                paths: {},
+                components: {
+                    schemas: {
+                        Test: {
+                            type: 'object',
+                            properties: {
+                                hasPhone: { type: 'boolean' },
+                                phoneNumber: { type: 'string' }
+                            },
+                            dependentSchemas: {
+                                hasPhone: {
+                                    required: ['phoneNumber']
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+
+            const { sourceFile } = run(spec, { modelName: 'Test' });
+            const classText = sourceFile.getClass('TestFormComponent')!.getText();
+
+            // Expect dependent schema effect block in constructor (which is where effects live)
+            expect(classText).toContain('effect(() => {');
+            expect(classText).toContain("const hasPhoneValue = this.form.get('hasPhone')?.value;");
+            expect(classText).toContain("if (hasPhoneValue !== null && hasPhoneValue !== undefined && hasPhoneValue !== '')");
+            expect(classText).toContain("this.form.get('phoneNumber')?.addValidators(Validators.required);");
+            expect(classText).toContain("this.form.get('phoneNumber')?.removeValidators(Validators.required);");
         });
     });
 

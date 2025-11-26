@@ -85,7 +85,7 @@ describe('Emitter: AuthInterceptorGenerator', () => {
         expect(body).toContain("'OIDC':");
     });
 
-    it('should ignore apiKey in cookie', () => {
+    it('should handle apiKey in cookie correctly', () => {
         const { tokenNames, project } = runGenerator({
             ...emptySpec,
             components: {
@@ -95,8 +95,19 @@ describe('Emitter: AuthInterceptorGenerator', () => {
             },
         });
 
-        expect(tokenNames).toBeUndefined();
-        expect(project.getSourceFile('/out/auth/auth.interceptor.ts')).toBeUndefined();
+        expect(tokenNames).toEqual(['cookieAuth']);
+        const file = project.getSourceFileOrThrow('/out/auth/auth.interceptor.ts');
+        expect(file.getImportDeclaration('../utils/http-params-builder')).toBeDefined();
+
+        const body = file
+            .getClassOrThrow('AuthInterceptor')!
+            .getMethodOrThrow('intercept')!
+            .getBodyText()!;
+
+        expect(body).toContain("'CookieAuth': (req) => {");
+        expect(body).toContain("if (!this.cookieAuth) return null;");
+        expect(body).toContain("HttpParamsBuilder.serializeCookieParam('session_id', this.cookieAuth, 'form', true, false)");
+        expect(body).toContain("req.clone({ headers: req.headers.set('Cookie', newCookie) })");
     });
 
     it('should handle mutualTLS by generating a request context clone', () => {

@@ -11,11 +11,14 @@ export class AuthInterceptorGenerator {
     public generate(outputDir: string): { tokenNames: string[] } | void {
         const securitySchemes = Object.values(this.parser.getSecuritySchemes());
 
-        const hasSupportedApiKey = securitySchemes.some(s => s.type === 'apiKey' && (s.in === 'header' || s.in === 'query'));
+        const hasApiKeyHeader = securitySchemes.some(s => s.type === 'apiKey' && s.in === 'header');
+        const hasApiKeyQuery = securitySchemes.some(s => s.type === 'apiKey' && s.in === 'query');
+        const hasApiKeyCookie = securitySchemes.some(s => s.type === 'apiKey' && s.in === 'cookie');
+
         const hasBearer = securitySchemes.some(s => this.isBearerScheme(s));
         const hasMutualTLS = securitySchemes.some(s => s.type === 'mutualTLS');
 
-        if (!hasSupportedApiKey && !hasBearer && !hasMutualTLS) {
+        if (!hasApiKeyHeader && !hasApiKeyQuery && !hasApiKeyCookie && !hasBearer && !hasMutualTLS) {
             return;
         }
 
@@ -28,9 +31,13 @@ export class AuthInterceptorGenerator {
         const tokenImports: string[] = ['SECURITY_CONTEXT_TOKEN'];
         const tokenNames: string[] = [];
 
-        if (hasSupportedApiKey) {
+        if (hasApiKeyHeader || hasApiKeyQuery) {
             tokenImports.push('API_KEY_TOKEN');
             tokenNames.push('apiKey');
+        }
+        if (hasApiKeyCookie) {
+            tokenImports.push('COOKIE_AUTH_TOKEN');
+            tokenNames.push('cookieAuth');
         }
         if (hasBearer) {
             tokenImports.push('BEARER_TOKEN_TOKEN');
@@ -45,11 +52,16 @@ export class AuthInterceptorGenerator {
         sourceFile.addImportDeclarations([
             {
                 moduleSpecifier: '@angular/common/http',
-                namedImports: ['HttpEvent', 'HttpHandler', 'HttpInterceptor', 'HttpRequest'],
+                namedImports: ['HttpEvent', 'HttpHandler', 'HttpInterceptor', 'HttpRequest', 'HttpHeaders'],
             },
             { moduleSpecifier: '@angular/core', namedImports: ['inject', 'Injectable'] },
             { moduleSpecifier: 'rxjs', namedImports: ['Observable'] },
             { moduleSpecifier: './auth.tokens', namedImports: tokenImports },
+            // Helper used for correct cookie serialization logic (OAS 3.2)
+            ...(hasApiKeyCookie ? [{
+                moduleSpecifier: '../utils/http-params-builder',
+                namedImports: ['HttpParamsBuilder']
+            }] : [])
         ]);
 
         const interceptorClass = sourceFile.addClass({
@@ -60,13 +72,22 @@ export class AuthInterceptorGenerator {
             docs: ['Intercepts HTTP requests to apply authentication credentials based on OpenAPI security schemes.'],
         });
 
-        if (hasSupportedApiKey) {
+        if (hasApiKeyHeader || hasApiKeyQuery) {
             interceptorClass.addProperty({
                 name: 'apiKey',
                 isReadonly: true,
                 scope: Scope.Private,
                 type: 'string | null',
                 initializer: `inject(API_KEY_TOKEN, { optional: true })`,
+            });
+        }
+        if (hasApiKeyCookie) {
+            interceptorClass.addProperty({
+                name: 'cookieAuth',
+                isReadonly: true,
+                scope: Scope.Private,
+                type: 'string | null',
+                initializer: `inject(COOKIE_AUTH_TOKEN, { optional: true })`,
             });
         }
         if (hasBearer) {
@@ -97,6 +118,20 @@ export class AuthInterceptorGenerator {
                     schemeLogicParts.push(`'${name}': (req) => this.apiKey ? req.clone({ headers: req.headers.set('${scheme.name}', this.apiKey) }) : null`);
                 } else if (scheme.in === 'query') {
                     schemeLogicParts.push(`'${name}': (req) => this.apiKey ? req.clone({ params: req.params.set('${scheme.name}', this.apiKey) }) : null`);
+                } else if (scheme.in === 'cookie') {
+                    // Cookie handling: Must serialize correctly (form style, explode true, allowReserved false is standard for simple api keys)
+                    // NOTE: Setting Cookie header manually triggers warnings in browsers but is valid for Node/SSR
+                    schemeLogicParts.push(`'${name}': (req) => {
+                        if (!this.cookieAuth) return null;
+                        if (typeof window !== 'undefined') {
+                            console.warn('Setting "Cookie" header manually for scheme "${name}". This usually fails in browsers.');
+                        }
+                        // Simple serialization for API Key (treat as primitive string, style=form implicit)
+                        const cookieVal = HttpParamsBuilder.serializeCookieParam('${scheme.name}', this.cookieAuth, 'form', true, false);
+                        const existing = req.headers.get('Cookie') || '';
+                        const newCookie = existing ? \`\${existing}; \${cookieVal}\` : cookieVal;
+                        return req.clone({ headers: req.headers.set('Cookie', newCookie) });
+                    }`);
                 }
             } else if (this.isBearerScheme(scheme)) {
                 schemeLogicParts.push(`'${name}': (req) => { 

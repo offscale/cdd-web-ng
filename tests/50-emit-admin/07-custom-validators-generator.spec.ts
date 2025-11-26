@@ -21,7 +21,8 @@ describe('Admin: CustomValidatorsGenerator', () => {
             'exclusiveMaximum',
             'multipleOf',
             'uniqueItems',
-            'constValidator'
+            'constValidator',
+            'notValidator'
         ]));
 
         // Check a method body for correctness
@@ -29,5 +30,10 @@ describe('Admin: CustomValidatorsGenerator', () => {
         const body = constValidatorMethod.getBodyText();
         expect(body).toContain('if (control.value !== constant)');
         expect(body).toContain('return { const: { required: constant, actual: control.value } };');
+
+        const notValidatorMethod = validatorClass.getStaticMethodOrThrow('notValidator');
+        const notBody = notValidatorMethod.getBodyText();
+        expect(notBody).toContain('if (errors !== null) return null;');
+        expect(notBody).toContain('return { not: true };');
     });
 });

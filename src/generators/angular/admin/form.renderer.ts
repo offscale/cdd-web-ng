@@ -54,6 +54,13 @@ export class ValidationRenderer {
                 // If rule.value is a string, wrap in quotes. Otherwise stringify JSON.
                 const val = typeof rule.value === 'string' ? `'${rule.value}'` : JSON.stringify(rule.value);
                 return `CustomValidators.constValidator(${val})`;
+            case 'not':
+                // Recursively render inner rules.
+                // render() returns "[Rule1, Rule2]", we need compose if multiple, or just pass if one.
+                // However, ValidatorFn takes one fn. So we effectively MUST compose the inner rules array.
+                // Angular's Validators.compose takes an array.
+                const innerValidatorsArrayString = this.render(rule.rules);
+                return `CustomValidators.notValidator(Validators.compose(${innerValidatorsArrayString})!)`;
             default:
                 // This ensures that if a new rule is added, we don't fail silently.
                 const exhaustiveCheck: never = rule;
@@ -102,6 +109,13 @@ export class FormInitializerRenderer {
                 }
                 return `new FormArray([]${fbValidationString})`;
             }
+            case 'map': {
+                const fbValidationString = validationString ? `, ${validationString}` : '';
+                if (useFormBuilder) {
+                    return `this.fb.array([]${fbValidationString})`;
+                }
+                return `new FormArray([]${fbValidationString})`;
+            }
         }
     }
 
@@ -119,12 +133,31 @@ export class FormInitializerRenderer {
                 const defaultValueString = c.defaultValue !== null ? JSON.stringify(c.defaultValue) : 'null';
                 const itemAccess = `item?.${c.name} ?? ${defaultValueString}`;
 
-                const dataType = c.dataType; // Use the raw data type directly
+                const dataType = c.dataType;
 
                 return `'${c.name}': new FormControl<${dataType}>(${itemAccess}${finalValidationString})`;
             })
             .join(',\n      ');
 
         return `new FormGroup({\n      ${formControls}\n    })`;
+    }
+
+    public static renderMapItemInitializer(valueControl: FormControlModel, keyPattern?: string): string {
+        // Create validators for the key control
+        let keyValidators = ["Validators.required"];
+        if (keyPattern) {
+            // Escape keyPattern if necessary for regex literal
+            keyValidators.push(`Validators.pattern(/${keyPattern}/)`);
+        }
+        const keyValidatorString = `[${keyValidators.join(', ')}]`;
+
+        const keyInit = `new FormControl<string>(item?.key ?? '', ${keyValidatorString})`;
+
+        const validationString = ValidationRenderer.render(valueControl.validationRules);
+        const finalValidationString = validationString ? `, ${validationString}` : '';
+        const dataType = valueControl.dataType;
+
+        const valInit = `new FormControl<${dataType}>(item?.value ?? null${finalValidationString})`;
+        return `new FormGroup({ 'key': ${keyInit}, 'value': ${valInit} })`;
     }
 }

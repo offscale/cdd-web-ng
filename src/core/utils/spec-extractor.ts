@@ -24,7 +24,9 @@ type UnifiedParameter = SwaggerOfficialParameter & {
     allowReserved?: boolean,
     allowEmptyValue?: boolean,
     content?: Record<string, { schema?: SwaggerDefinition }>,
-    deprecated?: boolean
+    deprecated?: boolean,
+    example?: any,
+    examples?: Record<string, any>,
     [key: string]: any;
 };
 
@@ -136,6 +138,10 @@ export function extractPaths(
                     if (p.allowReserved !== undefined) param.allowReserved = p.allowReserved;
                     if (p.allowEmptyValue !== undefined) param.allowEmptyValue = p.allowEmptyValue;
                     if (p.deprecated !== undefined) param.deprecated = p.deprecated;
+
+                    // --- Fix for Parameter Examples (OAS 3.0 support) ---
+                    if (p.example !== undefined) param.example = p.example;
+                    if (p.examples !== undefined) param.examples = p.examples;
 
                     // Normalize swagger 2 collectionFormat to style/explode
                     if (p.collectionFormat) {
@@ -300,7 +306,8 @@ function path_to_method_name_suffix(path: string): string {
  */
 export function groupPathsByController(parser: SwaggerParser): Record<string, PathInfo[]> {
     const usedMethodNames = new Set<string>();
-    const allOperations = parser.operations; // Use parser.operations which is already extracted
+    // Use parser.operations which is already extracted
+    const allOperations = parser.operations;
     const groups: Record<string, PathInfo[]> = {};
 
     for (const operation of allOperations) {

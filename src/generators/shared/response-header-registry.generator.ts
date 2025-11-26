@@ -116,6 +116,13 @@ export class ResponseHeaderRegistryGenerator {
         if (resolvedSchema.type === 'boolean') return { typeHint: 'boolean' };
         if (resolvedSchema.type === 'object') return { typeHint: 'json' };
 
+        // Check for Date type if configured
+        if (resolvedSchema.type === 'string' && (resolvedSchema.format === 'date' || resolvedSchema.format === 'date-time')) {
+            if (this.parser.config.options.dateType === 'Date') {
+                return { typeHint: 'date' };
+            }
+        }
+
         return { typeHint: 'string' };
     }
 

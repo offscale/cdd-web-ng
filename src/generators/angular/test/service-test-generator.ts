@@ -3,7 +3,7 @@ import { Project, SourceFile } from 'ts-morph';
 import * as path from 'node:path';
 
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig, PathInfo, SwaggerDefinition } from '@src/core/types/index.js';
+import { GeneratorConfig, Parameter, PathInfo, SwaggerDefinition } from '@src/core/types/index.js';
 import {
     camelCase,
     getBasePathTokenName,
@@ -118,16 +118,8 @@ export class ServiceTestGenerator {
                     // Generate a full JSON object string for the model
                     value = this.mockDataGenerator.generate(modelName);
                 } else {
-                    // Generate a primitive value string (e.g., '123' or '"test-id"')
-                    const resolvedSchema = this.parser.resolve<SwaggerDefinition>(p.schema);
-                    // Fix: Ensure type checking handles undefined resolvedSchema safely
-                    if (resolvedSchema && (resolvedSchema.type === 'number' || resolvedSchema.type === 'integer')) {
-                        value = '123';
-                    } else if (resolvedSchema && resolvedSchema.type === 'boolean') {
-                        value = 'true';
-                    } else {
-                        value = `'test-${p.name}'`;
-                    }
+                    // Use example if available, otherwise fallback to default primitive
+                    value = this.getParameterExampleValue(p) ?? this.generateDefaultPrimitiveValue(p.schema);
                 }
                 return { name, value, type, modelName };
             });
@@ -220,6 +212,86 @@ export class ServiceTestGenerator {
             tests.push(`  });`);
         }
         return tests;
+    }
+
+    private generateDefaultPrimitiveValue(schema: SwaggerDefinition | { $ref: string } | undefined): string {
+        const resolvedSchema = this.parser.resolve<SwaggerDefinition>(schema);
+        if (resolvedSchema && (resolvedSchema.type === 'number' || resolvedSchema.type === 'integer')) {
+            return '123';
+        } else if (resolvedSchema && resolvedSchema.type === 'boolean') {
+            return 'true';
+        } else {
+            return `'test-value'`;
+        }
+    }
+
+    // Helper to extract examples from parameters, handling nested OAS structures
+    private getParameterExampleValue(param: Parameter): string | undefined {
+        let potentialValue: any = undefined;
+
+        // 1. Direct Example (OAS 3.x / Swagger 2.0)
+        if (param.example !== undefined) {
+            potentialValue = param.example;
+        }
+        // 2. Examples Map (OAS 3.x) - pick first
+        else if (param.examples && typeof param.examples === 'object') {
+            const keys = Object.keys(param.examples);
+            if (keys.length > 0) {
+                const firstExample = param.examples[keys[0]];
+                if (firstExample && typeof firstExample === 'object') {
+                    // Check if it's an Example Object with a 'value' field
+                    if ('value' in firstExample) {
+                        potentialValue = firstExample.value;
+                    } else if ('$ref' in firstExample) {
+                        // Basic Ref resolution if needed, though normally resolved by extractPaths if structure matched
+                        // We fallback to just processing it as 'any' if parser resolve fails or isn't deep enough
+                        const resolved = this.parser.resolveReference<any>(firstExample.$ref);
+                        if (resolved && 'value' in resolved) {
+                            potentialValue = resolved.value;
+                        }
+                    }
+                } else {
+                    // Literal value fallback (Swagger 2.0 allowed looser maps in some vendor extensions)
+                    potentialValue = firstExample;
+                }
+            }
+        }
+        // 3. Schema Example (OAS 3.x)
+        else if (param.schema && !('$ref' in param.schema)) {
+            const schema = param.schema as SwaggerDefinition;
+            if (schema.example !== undefined) {
+                potentialValue = schema.example;
+            } else if (schema.examples && Array.isArray(schema.examples) && schema.examples.length > 0) {
+                potentialValue = schema.examples[0];
+            }
+        }
+
+        // 4. Check Content Map (OAS 3.x Parameter Content)
+        if (potentialValue === undefined && param.content) {
+            const contentType = Object.keys(param.content)[0];
+            if (contentType) {
+                const media = param.content[contentType];
+                if (media.example !== undefined) {
+                    potentialValue = media.example;
+                } else if (media.examples) {
+                    const keys = Object.keys(media.examples);
+                    if (keys.length > 0) {
+                        const ex = media.examples[keys[0]];
+                        if (ex && typeof ex === 'object' && 'value' in ex) {
+                            potentialValue = ex.value;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (potentialValue !== undefined) {
+            if (typeof potentialValue === 'string') return `'${potentialValue}'`;
+            if (typeof potentialValue === 'object') return JSON.stringify(potentialValue);
+            return String(potentialValue);
+        }
+
+        return undefined;
     }
 
     /**

@@ -3,7 +3,12 @@ import { Project, VariableDeclarationKind } from "ts-morph";
 import * as path from "node:path";
 
 import { UTILITY_GENERATOR_HEADER_COMMENT } from "@src/core/constants.js";
-import { getBasePathTokenName, getClientContextTokenName, getInterceptorsTokenName } from "@src/core/utils/index.js";
+import {
+    getBasePathTokenName,
+    getClientContextTokenName,
+    getInterceptorsTokenName,
+    getServerVariablesTokenName
+} from "@src/core/utils/index.js";
 
 export class TokenGenerator {
     private readonly clientName: string;
@@ -32,6 +37,7 @@ export class TokenGenerator {
         ]);
 
         const basePathTokenName = getBasePathTokenName(this.clientName);
+        const serverVariablesTokenName = getServerVariablesTokenName(this.clientName);
         const interceptorsTokenName = getInterceptorsTokenName(this.clientName);
         const clientContextTokenName = getClientContextTokenName(this.clientName);
 
@@ -45,6 +51,18 @@ export class TokenGenerator {
                 },
             ],
             docs: [`Injection token for providing the base API path.`]
+        });
+
+        sourceFile.addVariableStatement({
+            isExported: true,
+            declarationKind: VariableDeclarationKind.Const,
+            declarations: [
+                {
+                    name: serverVariablesTokenName,
+                    initializer: `new InjectionToken<Record<string, string>>('${serverVariablesTokenName}')`,
+                },
+            ],
+            docs: [`Injection token for providing dynamic server variables (e.g. { port: '8080' }).`]
         });
 
         sourceFile.addVariableStatement({

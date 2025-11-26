@@ -45,7 +45,10 @@ describe('E2E: Admin UI Generation', () => {
             const initFormBody = formComponent.getMethodOrThrow('initForm').getBodyText()!;
 
             expect(initFormBody).toContain("'name': new FormControl<string | null>(null)");
-            expect(initFormBody).not.toContain("'id':"); // Should be excluded as readOnly
+
+            // readOnly properties (like 'id' in coverageSpec) should now be included but disabled
+            expect(initFormBody).toContain("'id':");
+            expect(initFormBody).toContain("this.form.get('id')?.disable");
 
             const submitBody = formComponent.getMethodOrThrow('onSubmit').getBodyText()!;
             expect(submitBody).toContain('this.usersService.createUser(finalPayload)');
@@ -73,10 +76,15 @@ describe('E2E: Admin UI Generation', () => {
             const formComponent = project.getSourceFileOrThrow('/generated/admin/pets/pets-form/pets-form.component.ts')!.getClass('PetFormComponent')!;
             const html = project.getFileSystem().readFileSync('/generated/admin/pets/pets-form/pets-form.component.html');
 
-            expect(formComponent.getProperty('discriminatorOptions')).toBeDefined();
+            // Check for generated Option properties
+            expect(formComponent.getProperty('petTypeOptions')).toBeDefined();
             expect(formComponent.getMethod('updateFormForPetType')).toBeDefined();
 
+            // Check HTML structural logic
+            // Uses isPetType('val') to check the selected type
             expect(html).toContain("@if (isPetType('cat'))");
+
+            // Check usage of specific named wrappers
             expect(html).toContain('formGroupName="cat"');
             expect(html).toContain('formControlName="huntingSkill"');
 

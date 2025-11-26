@@ -33,7 +33,19 @@ export class AuthTokensGenerator {
                     initializer: `new InjectionToken<string>('API_KEY')`,
                 },
             ],
-            docs: ["Injection token for providing an API key."]
+            docs: ["Injection token for providing an API key (Header/Query)."]
+        });
+
+        sourceFile.addVariableStatement({
+            isExported: true,
+            declarationKind: VariableDeclarationKind.Const,
+            declarations: [
+                {
+                    name: 'COOKIE_AUTH_TOKEN',
+                    initializer: `new InjectionToken<string>('COOKIE_AUTH')`,
+                },
+            ],
+            docs: ["Injection token for providing an API key via Cookie (Node/SSR mainly)."]
         });
 
         sourceFile.addVariableStatement({

@@ -1,6 +1,6 @@
 // src/core/validator.ts
 
-import { SwaggerSpec } from "@src/core/types/index.js";
+import { Parameter, SwaggerSpec } from "@src/core/types/index.js";
 
 /**
  * Error thrown when the OpenAPI specification fails validation.
@@ -40,6 +40,11 @@ function getPathTemplateSignature(path: string): string {
  * - License Object constraints (mutually exclusive `url` and `identifier`)
  * - Strict regex compliance for component keys (OAS 3.x)
  * - Path Template Hierarchy collisions (OAS 3.2)
+ * - Parameter exclusivity rules (OAS 3.2):
+ *    - `in: "query"` is exclusive with `in: "querystring"` in same operation.
+ *    - `example` and `examples` are mutually exclusive on Parameter/Object.
+ *    - `content` and `schema` are mutually exclusive on Parameter Objects.
+ *    - `in: "querystring"` MUST NOT have `style`, `explode`, or `allowReserved` present.
  *
  * @param spec The parsed specification object.
  * @throws {SpecValidationError} if the specification is invalid.
@@ -81,38 +86,116 @@ export function validateSpec(spec: SwaggerSpec): void {
         }
     }
 
-    // 4. Path Template Hierarchy Validation (OAS 3.2 Requirement)
-    // "Templated paths with the same hierarchy but different templated names MUST NOT exist as they are identical."
-    // This check applies generally to avoid ambiguity in router generation for both OAS 3 and Swagger 2.
     if (spec.paths) {
         const signatures = new Map<string, string>(); // Signature -> Original Path key
 
         for (const pathKey of Object.keys(spec.paths)) {
+            const pathItem = spec.paths[pathKey];
+
+            // 4. Path Template Hierarchy Validation (OAS 3.2 Requirement)
+            // "Templated paths with the same hierarchy but different templated names MUST NOT exist as they are identical."
+            // This check applies generally to avoid ambiguity in router generation for both OAS 3 and Swagger 2.
             const signature = getPathTemplateSignature(pathKey);
 
             // If the path doesn't contain templates, collision logic strictly relies on identical strings which JSON parse handles (last wins).
             // However, we primarily care about {a} vs {b}.
-            if (!signature.includes('{}')) {
-                continue;
+            if (signature.includes('{}')) {
+                if (signatures.has(signature)) {
+                    const existingPath = signatures.get(signature)!;
+                    // Throw if they are different string constants mapping to the same signature
+                    if (existingPath !== pathKey) {
+                        throw new SpecValidationError(
+                            `Ambiguous path definition detected. OAS 3.2 forbids identical path hierarchies with different parameter names.\n` +
+                            `Path 1: "${existingPath}"\n` +
+                            `Path 2: "${pathKey}"`
+                        );
+                    }
+                } else {
+                    signatures.set(signature, pathKey);
+                }
             }
 
-            if (signatures.has(signature)) {
-                const existingPath = signatures.get(signature)!;
-                // Throw if they are different string constants mapping to the same signature
-                if (existingPath !== pathKey) {
-                    throw new SpecValidationError(
-                        `Ambiguous path definition detected. OAS 3.2 forbids identical path hierarchies with different parameter names.\n` +
-                        `Path 1: "${existingPath}"\n` +
-                        `Path 2: "${pathKey}"`
-                    );
+            // 5. Parameter Validation (OAS 3.2 Strictness)
+            const operationKeys = ['get', 'post', 'put', 'delete', 'options', 'head', 'patch', 'trace', 'query'];
+            const pathParams = (pathItem.parameters || []) as Parameter[];
+
+            for (const method of operationKeys) {
+                const operation = (pathItem as any)[method];
+                if (operation) {
+                    const opParams = (operation.parameters || []) as Parameter[];
+                    const allParams = [...pathParams, ...opParams];
+
+                    // 5a. Query vs Querystring Exclusivity
+                    const hasQuery = allParams.some(p => p.in === 'query');
+                    const hasQuerystring = allParams.some(p => p.in === 'querystring');
+
+                    if (hasQuery && hasQuerystring) {
+                        throw new SpecValidationError(
+                            `Operation '${method.toUpperCase()} ${pathKey}' contains both 'query' and 'querystring' parameters. These are mutually exclusive.`
+                        );
+                    }
+
+                    for (const param of allParams) {
+                        // 5b. Examples Exclusivity
+                        if (param.example !== undefined && param.examples !== undefined) {
+                            throw new SpecValidationError(
+                                `Parameter '${param.name}' in '${method.toUpperCase()} ${pathKey}' contains both 'example' and 'examples'. These fields are mutually exclusive.`
+                            );
+                        }
+
+                        // 5c. Schema vs Content Exclusivity (OAS 3.2)
+                        // "Parameter Objects MUST include either a content field or a schema field, but not both."
+                        if (param.schema !== undefined && param.content !== undefined) {
+                            throw new SpecValidationError(
+                                `Parameter '${param.name}' in '${method.toUpperCase()} ${pathKey}' contains both 'schema' and 'content'. These fields are mutually exclusive.`
+                            );
+                        }
+
+                        // 5d. Querystring Strictness (OAS 3.2)
+                        // "These fields MUST NOT be used with in: 'querystring'."
+                        if (param.in === 'querystring') {
+                            if (param.style !== undefined || param.explode !== undefined || param.allowReserved !== undefined) {
+                                throw new SpecValidationError(
+                                    `Parameter '${param.name}' in '${method.toUpperCase()} ${pathKey}' has location 'querystring' but defines style/explode/allowReserved, which are forbidden.`
+                                );
+                            }
+                        }
+                    }
                 }
-            } else {
-                signatures.set(signature, pathKey);
             }
         }
     }
 
-    // 5. Check Structural Root
+    // 6. Check Components Parameters Exclusivity (OAS 3.x)
+    if (isOpenApi3 && spec.components?.parameters) {
+        for (const [name, param] of Object.entries(spec.components.parameters)) {
+            // We can only check direct definitions, not refs here easily.
+            // Assuming direct objects has example/examples.
+            if (param.example !== undefined && param.examples !== undefined) {
+                throw new SpecValidationError(
+                    `Component parameter '${name}' contains both 'example' and 'examples'. These fields are mutually exclusive.`
+                );
+            }
+
+            // OAS 3.2 check for component parameter schema vs content exclusivity
+            if (param.schema !== undefined && param.content !== undefined) {
+                throw new SpecValidationError(
+                    `Component parameter '${name}' contains both 'schema' and 'content'. These fields are mutually exclusive.`
+                );
+            }
+
+            // OAS 3.2 check for component parameter querystring constraints
+            if (param.in === 'querystring') {
+                if (param.style !== undefined || param.explode !== undefined || param.allowReserved !== undefined) {
+                    throw new SpecValidationError(
+                        `Component parameter '${name}' has location 'querystring' but defines style/explode/allowReserved, which are forbidden.`
+                    );
+                }
+            }
+        }
+    }
+
+    // 7. Check Structural Root
     // Per OAS 3.2: "at least one of the components, paths, or webhooks fields MUST be present."
     // For Swagger 2.0: 'paths' is technically required.
 
@@ -127,7 +210,7 @@ export function validateSpec(spec: SwaggerSpec): void {
             throw new SpecValidationError("OpenAPI 3.x specification must contain at least one of: 'paths', 'components', or 'webhooks'.");
         }
 
-        // 6. Check Component Key Constraints (OAS 3.x)
+        // 8. Check Component Key Constraints (OAS 3.x)
         // "All the fixed fields declared above are objects that MUST use keys that match the regular expression: ^[a-zA-Z0-9\.\-_]+$."
         if (spec.components) {
             const componentTypes = [

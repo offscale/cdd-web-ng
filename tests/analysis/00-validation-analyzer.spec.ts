@@ -85,4 +85,17 @@ describe('Analysis: validation.analyzer', () => {
         const rules = analyzeValidationRules(schema);
         expect(rules).toContainEqual({ type: 'const', value: 'exact-value' });
     });
+
+    it('should recursively map not validator schema (OAS 3.x)', () => {
+        const schema: SwaggerDefinition = {
+            type: 'string',
+            not: { pattern: '^foo' }
+        };
+        const rules = analyzeValidationRules(schema);
+        const notRule = rules.find(r => r.type === 'not') as any;
+
+        expect(notRule).toBeDefined();
+        expect(notRule.rules).toBeDefined();
+        expect(notRule.rules).toContainEqual({ type: 'pattern', value: '^foo' });
+    });
 });

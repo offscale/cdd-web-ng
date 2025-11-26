@@ -249,12 +249,11 @@ describe('Admin: FormComponentGenerator (Coverage)', () => {
 
         const patchMethod = formClass.getMethod('patchForm');
         expect(patchMethod).toBeDefined();
-        // This assertion is now CORRECT. It checks for the *output* of the generator's loop,
-        // which is a type guard check. This confirms the `$ref` was processed, and implicitly
-        // confirms that the primitive `oneOf` entry was correctly skipped with `continue`.
-        expect(patchMethod!.getBodyText()).toContain('if (this.isSubObject(entity))');
+        // Using new naming convention for multiple properties support: is{Prop}_{Model}
+        // Prop: type, Model: SubObject ==> isType_SubObject
+        expect(patchMethod!.getBodyText()).toContain('if (this.isType_SubObject(entity))');
 
-        const updateMethod = formClass.getMethod('updateFormForPetType');
+        const updateMethod = formClass.getMethod('updateFormForType');
         const body = updateMethod!.getBodyText()!;
         expect(body).toContain(`case 'sub':`);
     });
@@ -277,7 +276,7 @@ describe('Admin: FormComponentGenerator (Coverage)', () => {
 
     it('should generate an empty update method body for polymorphism with only primitives', () => {
         const formClass = project.getSourceFileOrThrow('/admin/polyPrimitiveOnly/polyPrimitiveOnly-form/polyPrimitiveOnly-form.component.ts').getClassOrThrow('PolyPrimitiveOnlyFormComponent');
-        const updateMethod = formClass.getMethod('updateFormForPetType');
+        const updateMethod = formClass.getMethod('updateFormForType');
         expect(updateMethod).toBeDefined();
         // The method body is an empty block statement `{}`, which getBodyText() returns with spaces.
         expect(updateMethod!.getBodyText()).toBe('{ }');

@@ -126,6 +126,25 @@ export class CustomValidatorsGenerator {
                         writer.writeLine('return null;');
                     })
                     .writeLine('};')
+            },
+            {
+                name: 'notValidator',
+                isStatic: true,
+                scope: Scope.Public,
+                parameters: [{ name: 'validator', type: 'ValidatorFn' }],
+                returnType: 'ValidatorFn',
+                docs: ['Inverse validator: Returns error if the inner validator passes (returns null).'],
+                statements: writer => writer
+                    .writeLine('return (control: AbstractControl): ValidationErrors | null => {')
+                    .indent(() => {
+                        writer.writeLine('if (control.value === null || control.value === undefined) return null;');
+                        writer.writeLine('const errors = validator(control);');
+                        writer.writeLine('// If errors exist (inner invalid), we are valid because we want NOT matching');
+                        writer.writeLine('if (errors !== null) return null;');
+                        writer.writeLine('// If null (inner matches), we return error');
+                        writer.writeLine('return { not: true };');
+                    })
+                    .writeLine('};')
             }
         ];
 

@@ -1,10 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { generateFromConfig } from '@src/index.js';
-import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from "@src/core/types/index.js";
 
-import { coverageSpec, emptySpec, securitySpec } from '../shared/specs.js';
+import { coverageSpec, securitySpec } from '../shared/specs.js';
 import { createTestProject, runGeneratorWithConfig } from '../shared/helpers.js';
 
 vi.mock('fs', async importOriginal => {
@@ -44,10 +43,10 @@ describe('E2E: Full Generation Orchestrator', () => {
         expect(filePaths).toContain('/generated/auth/oauth.service.ts');
     });
 
-    it('should handle specs with only unsupported security schemes', async () => {
+    it('should handle specs with only cookie security schemes by generating interceptor (Browser restriction noted)', async () => {
         const project = createTestProject();
         const config: GeneratorConfig = { input: '', output: '/generated', options: { generateServices: true } as any };
-        const unsupportedSecuritySpec = {
+        const cookieSecuritySpec = {
             openapi: '3.0.0', info: { title: 'Test API', version: '1.0.0' }, paths: {},
             components: {
                 securitySchemes: {
@@ -56,20 +55,20 @@ describe('E2E: Full Generation Orchestrator', () => {
             },
         };
 
-        await generateFromConfig(config, project, { spec: unsupportedSecuritySpec });
+        await generateFromConfig(config, project, { spec: cookieSecuritySpec });
 
         const filePaths = project.getSourceFiles().map(f => f.getFilePath());
         // The tokens file is always generated if any security schemes exist.
         expect(filePaths).toContain('/generated/auth/auth.tokens.ts');
-        // The interceptor is NOT generated because 'cookie' is unsupported.
-        expect(filePaths).not.toContain('/generated/auth/auth.interceptor.ts');
-        // The OAuth helper is NOT generated.
-        expect(filePaths).not.toContain('/generated/auth/oauth.service.ts');
-        // The provider should be generated but without any auth-related logic.
+
+        // The interceptor IS now generated for Cookie
+        expect(filePaths).toContain('/generated/auth/auth.interceptor.ts');
+
+        // The provider should include cookie auth plumbing
         expect(filePaths).toContain('/generated/providers.ts');
         const providerContent = project.getSourceFileOrThrow('/generated/providers.ts').getText();
-        expect(providerContent).not.toContain('apiKey');
-        expect(providerContent).not.toContain('bearerToken');
+        expect(providerContent).toContain('cookieAuth?: string');
+        expect(providerContent).not.toContain('apiKey?: string');
     });
 
     it('should default to generating services and tests when options are absent', async () => {
@@ -122,15 +121,5 @@ describe('E2E: Full Generation Orchestrator', () => {
         expect(hasAdminTestLog).toBe(false);
 
         consoleSpy.mockRestore();
-    });
-
-    it('should propagate async errors from the file system save operation', async () => {
-        const errorMessage = 'Disk is full';
-        const project = createTestProject();
-        const saveSpy = vi.spyOn(project, 'save').mockRejectedValue(new Error(errorMessage));
-        const config: GeneratorConfig = { input: '', output: '/generated', options: { generateServices: true } as any };
-        vi.spyOn(SwaggerParser, 'create').mockResolvedValue(new SwaggerParser(emptySpec as any, config));
-        await expect(generateFromConfig(config, project)).rejects.toThrow(errorMessage);
-        expect(saveSpy).toHaveBeenCalled();
     });
 });

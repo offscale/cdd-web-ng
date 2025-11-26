@@ -1,7 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from "@src/core/types/index.js";
 import { MockDataGenerator } from "@src/generators/angular/test/mock-data.generator.js";
+
+vi.mock('node:fs');
 
 // A single, comprehensive spec to test all branches of the mock data generator.
 const mockDataGenSpec = {
@@ -20,6 +25,8 @@ const mockDataGenSpec = {
             NullType: { type: 'null' },
             WithExample: { type: 'string', example: 'hello from example' },
             WithExamplesFallback: { type: 'string', examples: ['fallback example 1', 'fallback example 2'] },
+            WithExternalValue: { externalValue: 'examples/data.json' },
+            WithExternalUrl: { externalValue: 'http://example.com/data.json' },
             CircularA: { properties: { b: { $ref: '#/components/schemas/CircularB' } } },
             CircularB: { properties: { a: { $ref: '#/components/schemas/CircularA' } } },
             OneOfNoType: { oneOf: [{ type: 'string' }, { type: 'number' }] },
@@ -50,7 +57,8 @@ const mockDataGenSpec = {
                 properties: {
                     myDate: { type: 'string', format: 'date' },
                     myUuid: { type: 'string', format: 'uuid' },
-                    myPassword: { type: 'string', format: 'password' }
+                    myPassword: { type: 'string', format: 'password' },
+                    myBase64: { type: 'string', contentEncoding: 'base64' }
                 }
             },
             StringWithNonStringDefault: { type: 'string', default: 123 },
@@ -76,10 +84,35 @@ describe('Generated Code: MockDataGenerator (Coverage)', () => {
             output: '/out',
             options: { dateType: 'string', enumStyle: 'enum' },
         };
-        const parser = new SwaggerParser(spec as any, config);
+        // FIX: Provide a valid absolute file URI for the parser base to ensure
+        // URL resolution and fileURLToPath() work correctly in environments.
+        const documentUri = pathToFileURL(path.resolve(process.cwd(), 'spec.json')).href;
+        const parser = new SwaggerParser(spec as any, config, undefined, documentUri);
         return new MockDataGenerator(parser);
     };
     const generator = createMockGenerator(mockDataGenSpec);
+
+    afterEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('should handle externalValue by resolving local files', () => {
+        (fs.existsSync as any).mockReturnValue(true);
+        (fs.readFileSync as any).mockReturnValue(JSON.stringify({ foo: 'bar' }));
+
+        const mockString = generator.generate('WithExternalValue');
+        // MockDataGenerator returns JSON stringified value, so parsing it should give original object
+        const mock = JSON.parse(mockString);
+        expect(mock).toEqual({ foo: 'bar' });
+        expect(fs.readFileSync).toHaveBeenCalled();
+    });
+
+    it('should handle externalValue with remote URL by referencing content URL', () => {
+        const mockString = generator.generate('WithExternalUrl');
+        const mock = JSON.parse(mockString);
+        expect(mock).toContain('URL Content: http://example.com/data.json');
+        expect(fs.readFileSync).not.toHaveBeenCalled();
+    });
 
     it('should handle allOf containing a null type by ignoring it', () => {
         const mockString = generator.generate('AllOfWithNull');
@@ -189,12 +222,14 @@ describe('Generated Code: MockDataGenerator (Coverage)', () => {
         expect(JSON.parse(mockString)).toBe(123.45);
     });
 
-    it('should handle various string formats', () => {
+    it('should handle various string formats including contentEncoding', () => {
         const mockString = generator.generate('StringFormats');
         const mock = JSON.parse(mockString);
         expect(mock).toHaveProperty('myDate');
         expect(mock.myUuid).toBe('123e4567-e89b-12d3-a456-426614174000');
         expect(mock.myPassword).toBe('StrongPassword123!');
+        // The test data for base64 encoding
+        expect(mock.myBase64).toBe('dGVzdC1jb250ZW50');
     });
 
     it('should fall back to default string if default value is not a string', () => {

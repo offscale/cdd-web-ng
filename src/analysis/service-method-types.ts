@@ -10,7 +10,12 @@ export interface ParamSerialization {
     style?: string;
     explode: boolean;
     allowReserved: boolean;
-    serializationLink?: 'json' | undefined; // Explicit hint if complex serialization needed
+    /**
+     * Explicit hint if complex serialization needed.
+     * - 'json': Standard JSON.stringify
+     * - 'json-subset': Used for parameters that are technically strings but contain JSON via contentMediaType.
+     */
+    serializationLink?: 'json' | 'json-subset' | undefined;
 }
 
 /**
@@ -68,6 +73,10 @@ export interface ServiceMethodModel {
     // Response Handling
     responseSerialization: ResponseSerialization;
     responseXmlConfig?: any;
+    responseDecodingConfig?: any; // OAS 3.1 ContentDecoder config
+
+    // Request Handling (Encoding)
+    requestEncodingConfig?: any; // OAS 3.1 ContentEncoder config
 
     // Error Handling
     errorResponses: ErrorResponseInfo[];

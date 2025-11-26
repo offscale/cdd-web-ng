@@ -73,6 +73,12 @@ describe('Admin: buildErrorMessages (from IR)', () => {
         expect(output).toContain("Value must be {{ form.get('testControl')?.errors?.['const'].required }}");
     });
 
+    it('should generate "not" error message', () => {
+        const output = run([{ type: 'not', rules: [] }]);
+        expect(output).toContain("@if (form.get('testControl')?.hasError('not'))");
+        expect(output).toContain("Value matches a restricted format.");
+    });
+
     it('should produce an empty array if no rules are provided', () => {
         const output = run([]);
         expect(output).toBe("");

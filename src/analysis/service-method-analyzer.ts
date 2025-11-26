@@ -25,6 +25,7 @@ export class ServiceMethodAnalyzer {
             type: responseType,
             serialization: responseSerialization,
             xmlConfig: responseXmlConfig,
+            decodingConfig: responseDecodingConfig,
             successCode
         } = this.analyzeResponse(operation, knownTypes);
         const errorResponses = this.analyzeErrorResponses(operation, knownTypes, successCode);
@@ -45,12 +46,23 @@ export class ServiceMethodAnalyzer {
             const defaultExplode = effectiveStyle === 'form' || effectiveStyle === 'cookie';
             const explode = p.explode ?? defaultExplode;
 
+            // Check for explicit JSON content or implicit contentMediaType JSON
+            const explicitJson = this.isJsonContent(p);
+            const implicitJson = this.isJsonContentMediaType(p);
+
+            // If explicit, we use 'json' (full content negotiation logic usually implied).
+            // If only contentMediaType='application/json' on a string/param, we treat it as 'json',
+            // instructing the builder to stringify it.
+            let serializationLink: 'json' | 'json-subset' | undefined;
+            if (explicitJson) serializationLink = 'json';
+            else if (implicitJson) serializationLink = 'json';
+
             const serialization: ParamSerialization = {
                 paramName: this.isXmlContent(p) ? `${paramName}Serialized` : paramName,
                 originalName: p.name,
                 explode: explode,
                 allowReserved: p.allowReserved ?? false,
-                serializationLink: this.isJsonContent(p) ? 'json' : undefined,
+                serializationLink,
                 ...(p.style != null && { style: p.style })
             };
 
@@ -75,6 +87,20 @@ export class ServiceMethodAnalyzer {
 
         // Body Analysis
         const body = this.analyzeBody(operation, parameters);
+
+        // Request Body Encoding Analysis (OAS 3.1 auto-encoding support)
+        let requestEncodingConfig: any = undefined;
+        if (body && (body.type === 'json' || body.type === 'urlencoded')) {
+            const rbContent = operation.requestBody?.content;
+            // For URL Encoded, analyze the schema inside; for JSON, same.
+            const contentType = Object.keys(rbContent || {})[0];
+            if (contentType && rbContent?.[contentType]?.schema) {
+                const cfg = this.getEncodingConfig(rbContent[contentType].schema as SwaggerDefinition);
+                if (Object.keys(cfg).length > 0) {
+                    requestEncodingConfig = cfg;
+                }
+            }
+        }
 
         // Security
         const specSecurity = this.parser.getSpec().security;
@@ -113,6 +139,8 @@ export class ServiceMethodAnalyzer {
             responseType,
             responseSerialization,
             responseXmlConfig,
+            responseDecodingConfig,
+            requestEncodingConfig,
             errorResponses,
             pathParams,
             queryParams,
@@ -129,6 +157,7 @@ export class ServiceMethodAnalyzer {
         type: string,
         serialization: ResponseSerialization,
         xmlConfig?: any,
+        decodingConfig?: any,
         successCode?: string
     } {
         const defaultResult = { type: 'any', serialization: 'json' as ResponseSerialization };
@@ -175,9 +204,11 @@ export class ServiceMethodAnalyzer {
             if (responseObj.content['application/json']) {
                 const schema = responseObj.content['application/json']?.schema;
                 if (schema) {
+                    const decodingConfig = this.getDecodingConfig(schema as SwaggerDefinition);
                     return {
                         type: getTypeScriptType(schema as SwaggerDefinition, this.config, knownTypes),
                         serialization: 'json',
+                        decodingConfig: Object.keys(decodingConfig).length > 0 ? decodingConfig : undefined,
                         successCode: targetCode
                     };
                 }
@@ -472,6 +503,23 @@ export class ServiceMethodAnalyzer {
         return keys.some(k => k.includes('application/json') || k.includes('*/*'));
     }
 
+    private isJsonContentMediaType(p: Parameter): boolean {
+        if (!p.schema) return false;
+
+        // Direct ContentMediaType (OAS 3.1)
+        if ((p.schema as SwaggerDefinition).contentMediaType && (p.schema as SwaggerDefinition).contentMediaType!.includes('application/json')) {
+            return true;
+        }
+
+        // Look inside resolved schema
+        const resolved = this.parser.resolve(p.schema);
+        if (resolved && resolved.contentMediaType && resolved.contentMediaType.includes('application/json')) {
+            return true;
+        }
+
+        return false;
+    }
+
     private isXmlContent(p: Parameter): boolean {
         if (!p.content) return false;
         const keys = Object.keys(p.content);
@@ -532,6 +580,101 @@ export class ServiceMethodAnalyzer {
                 }
             });
         }
+        return config;
+    }
+
+    private getDecodingConfig(schema: SwaggerDefinition | undefined, depth: number = 5): any {
+        if (!schema || depth <= 0) return {};
+        const resolved = this.parser.resolve(schema);
+        if (!resolved) return {};
+
+        const config: any = {};
+
+        // Direct content schema on a string field
+        if (resolved.contentSchema && resolved.type === 'string') {
+            config.decode = true;
+            return config;
+        }
+
+        if (resolved.type === 'array' && resolved.items) {
+            const itemConfig = this.getDecodingConfig(resolved.items as SwaggerDefinition, depth - 1);
+            if (Object.keys(itemConfig).length > 0) {
+                config.items = itemConfig;
+            }
+        }
+
+        if (resolved.properties) {
+            const propConfigs: Record<string, any> = {};
+            Object.entries(resolved.properties).forEach(([propName, propSchema]) => {
+                const pConfig = this.getDecodingConfig(propSchema, depth - 1);
+                if (Object.keys(pConfig).length > 0) {
+                    propConfigs[propName] = pConfig;
+                }
+            });
+            if (Object.keys(propConfigs).length > 0) {
+                config.properties = propConfigs;
+            }
+        }
+
+        if (resolved.allOf) {
+            resolved.allOf.forEach(sub => {
+                const subConfig = this.getDecodingConfig(sub, depth - 1);
+                if (subConfig.properties) {
+                    config.properties = { ...config.properties || {}, ...subConfig.properties };
+                }
+            });
+        }
+
+        return config;
+    }
+
+    /**
+     * Builds the encoding configuration for a request body, allowing for
+     * auto-encoding of JSON strings nested within the body.
+     */
+    private getEncodingConfig(schema: SwaggerDefinition | undefined, depth: number = 5): any {
+        if (!schema || depth <= 0) return {};
+        const resolved = this.parser.resolve(schema);
+        if (!resolved) return {};
+
+        const config: any = {};
+
+        // Check if this property is a string that should contain JSON (OAS 3.1)
+        if (resolved.type === 'string' && resolved.contentMediaType && resolved.contentMediaType.includes('json')) {
+            config.encode = true;
+            return config;
+        }
+
+        if (resolved.type === 'array' && resolved.items) {
+            const itemConfig = this.getEncodingConfig(resolved.items as SwaggerDefinition, depth - 1);
+            if (Object.keys(itemConfig).length > 0) {
+                config.items = itemConfig;
+            }
+        }
+
+        if (resolved.properties) {
+            const propConfigs: Record<string, any> = {};
+            Object.entries(resolved.properties).forEach(([propName, propSchema]) => {
+                const pConfig = this.getEncodingConfig(propSchema, depth - 1);
+                if (Object.keys(pConfig).length > 0) {
+                    propConfigs[propName] = pConfig;
+                }
+            });
+            if (Object.keys(propConfigs).length > 0) {
+                config.properties = propConfigs;
+            }
+        }
+
+        // Handle allOf inheritance
+        if (resolved.allOf) {
+            resolved.allOf.forEach(sub => {
+                const subConfig = this.getEncodingConfig(sub, depth - 1);
+                if (subConfig.properties) {
+                    config.properties = { ...config.properties || {}, ...subConfig.properties };
+                }
+            });
+        }
+
         return config;
     }
 }

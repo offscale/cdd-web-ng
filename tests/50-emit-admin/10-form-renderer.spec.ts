@@ -43,7 +43,23 @@ describe('Admin: FormRenderer', () => {
             expect(result).toContain("CustomValidators.constValidator(123)");
         });
 
-        it('should throw an error on an unhandled validation rule type', () => {
+        it('should render nested `not` validator recursively', () => {
+            const rules: ValidationRule[] = [
+                {
+                    type: 'not',
+                    rules: [
+                        { type: 'pattern', value: '^foo' },
+                        { type: 'minLength', value: 5 }
+                    ]
+                }
+            ];
+            const result = ValidationRenderer.render(rules);
+            expect(result).toContain('CustomValidators.notValidator(Validators.compose(');
+            expect(result).toContain('Validators.pattern(/^foo/)');
+            expect(result).toContain('Validators.minLength(5)');
+        });
+
+        it('should throw an error on unhandled validation rule type', () => {
             const badRule = { type: 'futureValidator' } as any;
             expect(() => ValidationRenderer.render([badRule])).toThrow('Unhandled validation rule type: futureValidator');
         });
@@ -100,6 +116,20 @@ describe('Admin: FormRenderer', () => {
             expect(result).toContain("this.fb.group({");
             expect(result).toContain("'street': new FormControl<string | null>(null, [Validators.required])");
             expect(result).toContain("}, { validators: [Validators.required] })");
+        });
+
+        it('should render a customized `not` validator inside control init', () => {
+            const control: FormControlModel = {
+                name: 'restricted',
+                propertyName: 'restricted',
+                dataType: 'string',
+                defaultValue: null,
+                validationRules: [{ type: 'not', rules: [{ type: 'pattern', value: 'foo' }] } as any],
+                controlType: 'control'
+            };
+            const result = FormInitializerRenderer.renderControlInitializer(control);
+            expect(result).toContain('CustomValidators.notValidator(Validators.compose([');
+            expect(result).toContain('Validators.pattern(/foo/)');
         });
 
         it('should render a form group using standard FormGroup constructor when useFormBuilder is false', () => {
@@ -181,6 +211,20 @@ describe('Admin: FormRenderer', () => {
 
             const result = FormInitializerRenderer.renderFormArrayItemInitializer(controls);
             expect(result).toContain(`new FormControl<string | null>(item?.name ?? null)`);
+        });
+
+        it('should render map item initializer with key pattern validators', () => {
+            const valueControl: FormControlModel = {
+                name: 'val',
+                propertyName: 'val',
+                dataType: 'string',
+                defaultValue: null,
+                validationRules: [],
+                controlType: 'control'
+            };
+            const result = FormInitializerRenderer.renderMapItemInitializer(valueControl, '^[a-z]+$');
+
+            expect(result).toContain("new FormGroup({ 'key': new FormControl<string>(item?.key ?? '', [Validators.required, Validators.pattern(/^[a-z]+$/)])");
         });
     });
 });

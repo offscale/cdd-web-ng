@@ -19,4 +19,5 @@ export type ValidationRule =
     | { type: 'uniqueItems' }
     | { type: 'minItems'; value: number }
     | { type: 'maxItems'; value: number }
-    | { type: 'const'; value: any };
+    | { type: 'const'; value: any }
+    | { type: 'not'; rules: ValidationRule[] };

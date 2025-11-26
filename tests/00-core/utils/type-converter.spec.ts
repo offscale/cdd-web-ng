@@ -132,7 +132,8 @@ describe('Core Utils: Type Converter', () => {
                 contentSchema: { type: 'number' }
             };
             const result = utils.getTypeScriptType(schema, config, []);
-            expect(result).toBe('string /* JSON: number */');
+            // Expect the inner type 'number' directly now that we auto-decode
+            expect(result).toBe('number');
         });
 
         it('should return Blob for binary/non-json contentMediaType', () => {

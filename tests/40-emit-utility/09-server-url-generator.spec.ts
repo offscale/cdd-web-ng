@@ -8,9 +8,6 @@ import ts from 'typescript';
 describe('Emitter: ServerUrlGenerator', () => {
 
     const runGenerator = (servers: any[]) => {
-        // Passing empty servers [] or [undefined] will likely trigger the parser default logic
-        // if we setup the Spec correctly as openapi spec.
-        // However, SwaggerParser constructor arguments are tricky when mocked.
         const project = createTestProject();
         const parser = new SwaggerParser({
             openapi: '3.2.0',
@@ -42,7 +39,6 @@ describe('Emitter: ServerUrlGenerator', () => {
     it('should generate file with default server if no servers are defined (OAS 3.x)', () => {
         const project = runGenerator([]);
         const sourceFile = project.getSourceFile('/out/utils/server-url.ts');
-        // Expected behavior changed: Spec parser defaults empty servers to [{ "url": "/" }]
         expect(sourceFile).toBeDefined();
         expect(sourceFile!.getText()).toContain('"url": "/"');
     });
@@ -53,7 +49,8 @@ describe('Emitter: ServerUrlGenerator', () => {
         ]);
         const text = project.getSourceFileOrThrow('/out/utils/server-url.ts').getText();
         expect(text).toContain('export const API_SERVERS: ServerConfiguration[] = [');
-        expect(text).toContain('"url": "https://api.example.com"');
+        // Resolution updates URLs to be absolute and normalized (trailing slash for domains)
+        expect(text).toContain('"url": "https://api.example.com/"');
         expect(text).toContain('"name": "production"');
     });
 
@@ -66,6 +63,12 @@ describe('Emitter: ServerUrlGenerator', () => {
         ]);
 
         const { getServerUrl } = compileHelper(project);
+
+        // Template URLs starting with { are NOT resolved/normalized by parser, ensuring variables are preserved
+        // but URLs like https://{var} are resolved by URL() constructor which encodes {}.
+        // The parser decodes them back.
+        // Trailing slash is added to the *pathless* root of the resolved URL by standard URL normalization.
+        // https://{env}.example.com/v1 -> path is /v1, no trailing slash added to root.
 
         // Use default
         expect(getServerUrl(0)).toBe('https://dev.example.com/v1');
@@ -85,8 +88,9 @@ describe('Emitter: ServerUrlGenerator', () => {
 
         const { getServerUrl } = compileHelper(project);
 
-        // Valid
-        expect(getServerUrl(0, { region: 'eu' })).toBe('https://eu.api.com');
+        // Valid - Note: URL normalization adds trailing slash to the template base
+        // e.g., https://{region}.api.com/
+        expect(getServerUrl(0, { region: 'eu' })).toBe('https://eu.api.com/');
         // Invalid
         expect(() => getServerUrl(0, { region: 'mars' })).toThrow(
             'Value "mars" for variable "region" is not in the allowed enum: us, eu, asia'
@@ -101,8 +105,9 @@ describe('Emitter: ServerUrlGenerator', () => {
 
         const { getServerUrl } = compileHelper(project);
 
-        expect(getServerUrl('prod')).toBe('https://prod.api.com');
-        expect(getServerUrl('dev')).toBe('https://dev.api.com');
+        // Expect trailing slashes due to URL normalization
+        expect(getServerUrl('prod')).toBe('https://prod.api.com/');
+        expect(getServerUrl('dev')).toBe('https://dev.api.com/');
     });
 
     it('should generate logic to look up server by description (Legacy fallback)', () => {
@@ -113,8 +118,8 @@ describe('Emitter: ServerUrlGenerator', () => {
 
         const { getServerUrl } = compileHelper(project);
 
-        expect(getServerUrl('Production')).toBe('https://prod.api.com');
-        expect(getServerUrl('Development')).toBe('https://dev.api.com');
+        expect(getServerUrl('Production')).toBe('https://prod.api.com/');
+        expect(getServerUrl('Development')).toBe('https://dev.api.com/');
     });
 
     it('should throw error if server is not found', () => {
@@ -138,7 +143,8 @@ describe('Emitter: ServerUrlGenerator', () => {
         ]);
         const { getServerUrl } = compileHelper(project);
 
-        // Defaults
+        // Use Defaults. Note: Parser skips resolution for URLs starting with {
+        // So no normalization occurs.
         expect(getServerUrl(0)).toBe('https://localhost:8080/api');
         // Partial override
         expect(getServerUrl(0, { port: '3000', protocol: 'http' })).toBe('http://localhost:3000/api');

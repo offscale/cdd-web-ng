@@ -60,5 +60,13 @@ export function analyzeValidationRules(schema: SwaggerDefinition): ValidationRul
     if (schema.minItems) rules.push({ type: 'minItems', value: schema.minItems });
     if (schema.maxItems) rules.push({ type: 'maxItems', value: schema.maxItems });
 
+    // JSON Schema 'not' keyword (Inverse validation)
+    if (schema.not) {
+        const innerRules = analyzeValidationRules(schema.not);
+        if (innerRules.length > 0) {
+            rules.push({ type: 'not', rules: innerRules });
+        }
+    }
+
     return rules;
 }

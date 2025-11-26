@@ -100,6 +100,13 @@ export class XmlParserGenerator {
             Object.entries(config.properties).forEach(([key, propConfig]) => { 
                 const nodeType = propConfig.nodeType; 
                 
+                // OAS 3.2 Support: nodeType 'none' implies the property uses the current node 
+                // context directly, essentially flattening the structure (e.g. for composition or $ref naming). 
+                if (nodeType === 'none') { 
+                    result[key] = this.parseNode(node, propConfig); 
+                    return; 
+                } 
+
                 if (propConfig.attribute || nodeType === 'attribute') { 
                     const attrName = propConfig.name || key; 
                     if (node.hasAttribute(attrName)) { 
@@ -115,7 +122,7 @@ export class XmlParserGenerator {
 
                 const childTagName = propConfig.name || key; 
                 
-                if (propConfig.items && !propConfig.wrapped && propConfig.nodeType !== 'element') {
+                if (propConfig.items && !propConfig.wrapped && propConfig.nodeType !== 'element') { 
                      const items: any[] = []; 
                      const children = node.children; 
                      for(let i=0; i<children.length; i++) { 

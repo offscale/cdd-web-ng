@@ -6,11 +6,11 @@ import { SwaggerParser } from '@src/core/parser.js';
 import ts from 'typescript';
 
 describe('Emitter: Response Header Utilities', () => {
-    const createParser = (spec: any) => new SwaggerParser({
+    const createParser = (spec: any, options: any = {}) => new SwaggerParser({
         openapi: '3.0.0',
         info: { title: 'T', version: '1' },
         ...spec
-    } as any, { options: {} } as any);
+    } as any, { options } as any);
 
     describe('Registry Generator', () => {
         it('should skip generation if no response headers are defined', () => {
@@ -22,7 +22,7 @@ describe('Emitter: Response Header Utilities', () => {
             expect(file!.getText()).toContain('export { };');
         });
 
-        it('should generate registry with type hints', () => {
+        it('should generate registry with type hints including Date when configured', () => {
             const project = createTestProject();
             const spec = {
                 paths: {
@@ -36,6 +36,7 @@ describe('Emitter: Response Header Utilities', () => {
                                         'X-Int': { schema: { type: 'integer' } },
                                         'X-Bool': { schema: { type: 'boolean' } },
                                         'X-Str': { schema: { type: 'string' } },
+                                        'X-Date': { schema: { type: 'string', format: 'date-time' } },
                                         'X-Json': { content: { 'application/json': { schema: { type: 'object' } } } }
                                     }
                                 }
@@ -44,7 +45,9 @@ describe('Emitter: Response Header Utilities', () => {
                     }
                 }
             };
-            const parser = createParser(spec);
+
+            // Enable Date type
+            const parser = createParser(spec, { dateType: 'Date' });
             new ResponseHeaderRegistryGenerator(parser, project).generate('/out');
 
             const file = project.getSourceFileOrThrow('/out/response-headers.ts');
@@ -59,9 +62,45 @@ describe('Emitter: Response Header Utilities', () => {
             expect(API_RESPONSE_HEADERS['getHeaders']['200']).toEqual({
                 'X-Int': 'number',
                 'X-Bool': 'boolean',
-                'X-Str': 'string', // defaults to string
+                'X-Str': 'string',
+                'X-Date': 'date', // Detected as date
                 'X-Json': 'json'
             });
+        });
+
+        it('should generate registry with String type hint for dates when Date config is disabled', () => {
+            const project = createTestProject();
+            const spec = {
+                paths: {
+                    '/test': {
+                        get: {
+                            operationId: 'getHeadersStringDate',
+                            responses: {
+                                '200': {
+                                    headers: {
+                                        'X-Date': { schema: { type: 'string', format: 'date-time' } }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+
+            // Default is string or explicit string type
+            const parser = createParser(spec, { dateType: 'string' });
+            new ResponseHeaderRegistryGenerator(parser, project).generate('/out');
+
+            const file = project.getSourceFileOrThrow('/out/response-headers.ts');
+            const text = file.getText().replace(/import.*;/g, '');
+            const jsCode = ts.transpile(text, { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS });
+            const moduleScope = { exports: {} as any };
+            new Function('exports', jsCode)(moduleScope.exports);
+
+            const API_RESPONSE_HEADERS = moduleScope.exports.API_RESPONSE_HEADERS;
+
+            // Should default to string
+            expect(API_RESPONSE_HEADERS['getHeadersStringDate']['200']['X-Date']).toBe('string');
         });
 
         it('should handle XML content in headers', () => {
@@ -190,7 +229,8 @@ describe('Emitter: Response Header Utilities', () => {
                     '200': {
                         'X-Count': 'number',
                         'X-Valid': 'boolean',
-                        'X-Meta': 'json'
+                        'X-Meta': 'json',
+                        'X-Time': 'date'
                     }
                 }
             };
@@ -201,6 +241,7 @@ describe('Emitter: Response Header Utilities', () => {
             headersMap.set('X-Count', '42');
             headersMap.set('X-Valid', 'true');
             headersMap.set('X-Meta', '{"id":1}');
+            headersMap.set('X-Time', '2023-01-01T00:00:00.000Z');
 
             const mockHeaders = {
                 has: (k: string) => headersMap.has(k),
@@ -213,9 +254,9 @@ describe('Emitter: Response Header Utilities', () => {
 
             // Inject mock Registry
             const wrappedCode = `
-                const API_RESPONSE_HEADERS = ${JSON.stringify(API_RESPONSE_HEADERS)};
-                const API_HEADER_XML_CONFIGS = ${JSON.stringify(API_HEADER_XML_CONFIGS)};
-                const XmlParser = { parse: () => null };
+                const API_RESPONSE_HEADERS = ${JSON.stringify(API_RESPONSE_HEADERS)}; 
+                const API_HEADER_XML_CONFIGS = ${JSON.stringify(API_HEADER_XML_CONFIGS)}; 
+                const XmlParser = { parse: () => null }; 
                 ${jsCode} 
             `;
 
@@ -231,6 +272,8 @@ describe('Emitter: Response Header Utilities', () => {
             expect(result['X-Count']).toBe(42);
             expect(result['X-Valid']).toBe(true);
             expect(result['X-Meta']).toEqual({ id: 1 });
+            expect(result['X-Time']).toBeInstanceOf(Date);
+            expect(result['X-Time'].toISOString()).toBe('2023-01-01T00:00:00.000Z');
         });
 
         it('should generate a service that parses XML headers', () => {
@@ -273,8 +316,8 @@ describe('Emitter: Response Header Utilities', () => {
 
             const wrappedCode = `
                 const API_RESPONSE_HEADERS = ${JSON.stringify(API_RESPONSE_HEADERS)}; 
-                const API_HEADER_XML_CONFIGS = ${JSON.stringify(API_HEADER_XML_CONFIGS)};
-                const XmlParser = { parse: ${XmlParserMock.parse.toString()} };
+                const API_HEADER_XML_CONFIGS = ${JSON.stringify(API_HEADER_XML_CONFIGS)}; 
+                const XmlParser = { parse: ${XmlParserMock.parse.toString()} }; 
 
                 ${jsCode} 
             `;

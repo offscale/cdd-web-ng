@@ -20,11 +20,37 @@ describe('Emitter: OAuthHelperGenerator', () => {
         expect(project.getSourceFile('/out/auth/oauth.service.ts')).toBeUndefined();
     });
 
-    it('should generate service and component if oauth2 scheme is present', () => {
-        const project = runGenerator(securitySpec);
+    it('should generate service and component if Authorization Code flow is present', () => {
+        // We create a specific spec here to guarantee Authorization Code flow exists
+        const authCodeSpec = {
+            openapi: '3.0.0',
+            info: { title: 'Auth Code', version: '1' },
+            paths: {},
+            components: {
+                securitySchemes: {
+                    AuthCode: {
+                        type: 'oauth2',
+                        flows: {
+                            authorizationCode: {
+                                authorizationUrl: 'https://auth.com/auth',
+                                tokenUrl: 'https://auth.com/token',
+                                scopes: {}
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        const project = runGenerator(authCodeSpec);
         expect(project.getSourceFile('/out/auth/oauth.service.ts')).toBeDefined();
+        // Redirect component is required for Auth Code flow
         expect(project.getSourceFile('/out/auth/oauth-redirect/oauth-redirect.component.ts')).toBeDefined();
         expect(project.getFileSystem().readFileSync('/out/auth/oauth-redirect/oauth-redirect.component.html')).toBe('<p>Redirecting...</p>');
+
+        // Check content
+        const service = project.getSourceFileOrThrow('/out/auth/oauth.service.ts').getClassOrThrow('OAuthHelperService');
+        expect(service.getMethod('login')).toBeDefined();
     });
 
     it('should generate service and component if openIdConnect scheme is present', () => {
@@ -34,6 +60,109 @@ describe('Emitter: OAuthHelperGenerator', () => {
         };
         const project = runGenerator(specWithOidc);
         expect(project.getSourceFile('/out/auth/oauth.service.ts')).toBeDefined();
+        // OIDC implies the need for redirect handling usually
+        expect(project.getSourceFile('/out/auth/oauth-redirect/oauth-redirect.component.ts')).toBeDefined();
+    });
+
+    it('should generate Password flow methods if password flow is defined', () => {
+        const passwordSpec = {
+            openapi: '3.0.0',
+            info: { title: 'Password Flow', version: '1' },
+            paths: {},
+            components: {
+                securitySchemes: {
+                    PasswordAuth: {
+                        type: 'oauth2',
+                        flows: {
+                            password: { tokenUrl: 'https://auth.com/token', scopes: {} }
+                        }
+                    }
+                }
+            }
+        };
+        const project = runGenerator(passwordSpec);
+        const sourceFile = project.getSourceFileOrThrow('/out/auth/oauth.service.ts');
+        const service = sourceFile.getClassOrThrow('OAuthHelperService');
+
+        expect(service.getProperty('tokenUrl')?.getInitializer()?.getText()).toBe("'https://auth.com/token'");
+        expect(service.getProperty('http')).toBeDefined(); // HttpClient needed
+        expect(service.getMethod('loginPassword')).toBeDefined();
+
+        // Should NOT have auth code methods or redirect component for pure password flow
+        expect(service.getMethod('login')).toBeUndefined();
+        expect(project.getSourceFile('/out/auth/oauth-redirect/oauth-redirect.component.ts')).toBeUndefined();
+    });
+
+    it('should generate Client Credentials logic', () => {
+        const ccSpec = {
+            openapi: '3.0.0',
+            info: { title: 'CC Flow', version: '1' },
+            paths: {},
+            components: {
+                securitySchemes: {
+                    CC: {
+                        type: 'oauth2',
+                        flows: { clientCredentials: { tokenUrl: 'https://cc.com/token', scopes: {} } }
+                    }
+                }
+            }
+        };
+        const project = runGenerator(ccSpec);
+        const sourceFile = project.getSourceFileOrThrow('/out/auth/oauth.service.ts');
+        const service = sourceFile.getClassOrThrow('OAuthHelperService');
+
+        expect(service.getMethod('loginClientCredentials')).toBeDefined();
+        // No redirect component needed for CC flow
+        expect(project.getSourceFile('/out/auth/oauth-redirect/oauth-redirect.component.ts')).toBeUndefined();
+    });
+
+    it('should generate Implicit flow logic', () => {
+        const implicitSpec = {
+            openapi: '3.0.0',
+            info: { title: 'Implicit Flow', version: '1' },
+            paths: {},
+            components: {
+                securitySchemes: {
+                    Imp: {
+                        type: 'oauth2',
+                        flows: { implicit: { authorizationUrl: 'https://imp.com/auth', scopes: {} } }
+                    }
+                }
+            }
+        };
+        const project = runGenerator(implicitSpec);
+        const sourceFile = project.getSourceFileOrThrow('/out/auth/oauth.service.ts');
+        const service = sourceFile.getClassOrThrow('OAuthHelperService');
+
+        expect(service.getMethod('loginImplicit')).toBeDefined();
+        expect(service.getProperty('authorizationUrl')?.getInitializer()?.getText()).toBe("'https://imp.com/auth'");
+        // Implicit requires redirect component
+        expect(project.getSourceFile('/out/auth/oauth-redirect/oauth-redirect.component.ts')).toBeDefined();
+    });
+
+    it('should combine methods if multiple flows present', () => {
+        const mixedSpec = {
+            openapi: '3.0.0',
+            info: { title: 'Mixed', version: '1' },
+            paths: {},
+            components: {
+                securitySchemes: {
+                    Mixed: {
+                        type: 'oauth2',
+                        flows: {
+                            password: { tokenUrl: 't', scopes: {} },
+                            authorizationCode: { authorizationUrl: 'a', tokenUrl: 't', scopes: {} }
+                        }
+                    }
+                }
+            }
+        };
+        const project = runGenerator(mixedSpec);
+        const service = project.getSourceFileOrThrow('/out/auth/oauth.service.ts').getClassOrThrow('OAuthHelperService');
+
+        expect(service.getMethod('login')).toBeDefined(); // Auth Code
+        expect(service.getMethod('loginPassword')).toBeDefined(); // Password
+        // Redirect needed because Auth Code is present
         expect(project.getSourceFile('/out/auth/oauth-redirect/oauth-redirect.component.ts')).toBeDefined();
     });
 });

@@ -2,7 +2,12 @@ import { Project, SourceFile } from 'ts-morph';
 import * as path from 'node:path';
 import { GeneratorConfig } from '@src/core/types/index.js';
 import { SwaggerParser } from '@src/core/parser.js';
-import { getBasePathTokenName, getInterceptorsTokenName, pascalCase } from "@src/core/utils/index.js";
+import {
+    getBasePathTokenName,
+    getInterceptorsTokenName,
+    getServerVariablesTokenName,
+    pascalCase
+} from "@src/core/utils/index.js";
 import { PROVIDER_GENERATOR_HEADER_COMMENT } from '@src/core/constants.js';
 
 export class ProviderGenerator {
@@ -10,6 +15,7 @@ export class ProviderGenerator {
     private readonly capitalizedClientName: string;
     private readonly config: GeneratorConfig;
     private readonly hasApiKey: boolean;
+    private readonly hasCookieAuth: boolean;
     private readonly hasBearer: boolean;
     private readonly hasMtls: boolean;
 
@@ -18,6 +24,7 @@ export class ProviderGenerator {
         this.clientName = this.config.clientName ?? 'default';
         this.capitalizedClientName = pascalCase(this.clientName);
         this.hasApiKey = this.tokenNames.includes('apiKey');
+        this.hasCookieAuth = this.tokenNames.includes('cookieAuth');
         this.hasBearer = this.tokenNames.includes('bearerToken');
         this.hasMtls = this.tokenNames.includes('httpsAgentConfig');
     }
@@ -32,7 +39,7 @@ export class ProviderGenerator {
 
         sourceFile.insertText(0, PROVIDER_GENERATOR_HEADER_COMMENT);
 
-        const hasSecurity = this.hasApiKey || this.hasBearer || this.hasMtls;
+        const hasSecurity = this.hasApiKey || this.hasCookieAuth || this.hasBearer || this.hasMtls;
 
         this.addImports(sourceFile, hasSecurity);
         this.addConfigInterface(sourceFile);
@@ -49,7 +56,7 @@ export class ProviderGenerator {
             },
             { namedImports: ["HTTP_INTERCEPTORS", "HttpInterceptor"], moduleSpecifier: "@angular/common/http" },
             {
-                namedImports: [getBasePathTokenName(this.clientName), getInterceptorsTokenName(this.clientName)],
+                namedImports: [getBasePathTokenName(this.clientName), getServerVariablesTokenName(this.clientName), getInterceptorsTokenName(this.clientName)],
                 moduleSpecifier: "./tokens"
             },
             {
@@ -72,6 +79,7 @@ export class ProviderGenerator {
             });
             const tokenImports: string[] = [];
             if (this.hasApiKey) tokenImports.push("API_KEY_TOKEN");
+            if (this.hasCookieAuth) tokenImports.push("COOKIE_AUTH_TOKEN");
             if (this.hasBearer) tokenImports.push("BEARER_TOKEN_TOKEN");
             if (this.hasMtls) tokenImports.push("HTTPS_AGENT_CONFIG_TOKEN");
             sourceFile.addImportDeclaration({ namedImports: tokenImports, moduleSpecifier: "./auth/auth.tokens" });
@@ -86,7 +94,14 @@ export class ProviderGenerator {
                 {
                     name: "basePath",
                     type: "string",
-                    docs: ["The base path of the API endpoint."]
+                    hasQuestionToken: true,
+                    docs: ["The base path of the API endpoint. If provided, it overrides the default server URL."]
+                },
+                {
+                    name: "serverVariables",
+                    type: "Record<string, string>",
+                    hasQuestionToken: true,
+                    docs: ["Values for server variables (e.g. { port: '8080' }) to resolve the default server URL."]
                 },
                 {
                     name: "enableDateTransform",
@@ -108,7 +123,15 @@ export class ProviderGenerator {
                 name: "apiKey",
                 type: "string",
                 hasQuestionToken: true,
-                docs: ["The API key to be used for authentication."]
+                docs: ["The API key to be used for authentication (Header/Query)."]
+            });
+        }
+        if (this.hasCookieAuth) {
+            configInterface.addProperty({
+                name: "cookieAuth",
+                type: "string",
+                hasQuestionToken: true,
+                docs: ["The API key value to be set in a Cookie (Node.js/SSR only)."]
             });
         }
         if (this.hasBearer) {
@@ -141,7 +164,8 @@ export class ProviderGenerator {
             statements: writer => {
                 writer.writeLine(`const providers: Provider[] = [`);
                 writer.indent(() => {
-                    writer.writeLine(`{ provide: ${getBasePathTokenName(this.clientName)}, useValue: config.basePath },`);
+                    writer.writeLine(`{ provide: ${getBasePathTokenName(this.clientName)}, useValue: config.basePath || null },`);
+                    writer.writeLine(`{ provide: ${getServerVariablesTokenName(this.clientName)}, useValue: config.serverVariables || {} },`);
                     writer.writeLine(`{ provide: HTTP_INTERCEPTORS, useClass: ${this.capitalizedClientName}BaseInterceptor, multi: true }`);
                 });
                 writer.writeLine(`];`);
@@ -153,6 +177,11 @@ export class ProviderGenerator {
                     if (this.hasApiKey) {
                         writer.write("if (config.apiKey)").block(() => {
                             writer.writeLine(`providers.push({ provide: API_KEY_TOKEN, useValue: config.apiKey });`);
+                        });
+                    }
+                    if (this.hasCookieAuth) {
+                        writer.write("if (config.cookieAuth)").block(() => {
+                            writer.writeLine(`providers.push({ provide: COOKIE_AUTH_TOKEN, useValue: config.cookieAuth });`);
                         });
                     }
                     if (this.hasBearer) {

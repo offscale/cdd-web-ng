@@ -15,7 +15,7 @@ import {
 } from './types/index.js';
 import { extractPaths, pascalCase } from './utils/index.js';
 import { validateSpec } from './validator.js';
-import { JSON_SCHEMA_2020_12_DIALECT, OAS_3_1_DIALECT } from './constants.js';
+import { OAS_3_1_DIALECT } from './constants.js';
 import { SpecLoader } from './parser/spec-loader.js';
 import { ReferenceResolver } from './parser/reference-resolver.js';
 
@@ -51,13 +51,9 @@ export class SwaggerParser {
     ) {
         validateSpec(spec);
 
-        if (spec.jsonSchemaDialect) {
-            const dialect = spec.jsonSchemaDialect;
-            if (dialect !== OAS_3_1_DIALECT && dialect !== JSON_SCHEMA_2020_12_DIALECT) {
-                console.warn(`⚠️  Warning: The specification defines a custom jsonSchemaDialect: "${dialect}". ` +
-                    `This generator is optimized for the default OpenAPI 3.1 dialect (${OAS_3_1_DIALECT}).`);
-            }
-        }
+        // OAS 3.2 Update: Allow any jsonSchemaDialect pass-through without warning.
+        // The default is implicit (OAS_3_1_DIALECT) if not provided, but explicit custom dialects
+        // are now valid without restriction.
 
         if (config.validateInput && !config.validateInput(spec)) {
             throw new Error("Custom input validation failed.");
@@ -87,15 +83,12 @@ export class SwaggerParser {
             definition
         }));
 
-        // OAS 3.2 Requirement: If the servers field is not provided, or is an empty array,
-        // the default value would be an array consisting of a single Server Object with a url value of /.
-        if (this.spec.openapi && (!this.spec.servers || this.spec.servers.length === 0)) {
-            this.servers = [{ url: '/' }];
-        } else {
-            this.servers = this.spec.servers || [];
-        }
+        // OAS 3.2 Requirement:
+        // 1. If the servers field is not provided (or empty), default to a single server with url '/'.
+        // 2. Relative URLs MUST be resolved against the document location (or $self).
+        this.servers = this.resolveServers(this.spec.servers);
 
-        // We bind resolveReference to this instance so extractPaths can call back into the parser
+        // We bind resolveRef to this instance so extractPaths can call back into the parser
         const resolveRef = (ref: string) => this.resolveReference(ref);
 
         // Pass components context to extractPaths for strict security matching
@@ -111,12 +104,69 @@ export class SwaggerParser {
         return new SwaggerParser(entrySpec, config, cache, documentUri);
     }
 
+    /**
+     * Resolves server URLs relative to the document URI using the URL API.
+     * Handles OAS 3.x defaults and Swagger 2.0 exclusions.
+     */
+    private resolveServers(servers?: ServerObject[]): ServerObject[] {
+        // Swagger 2.0 compatibility: Do not apply OAS 3 defaults.
+        if (this.spec.swagger) {
+            return servers || [];
+        }
+
+        // OAS 3.x Default behavior for missing servers
+        if (!servers || servers.length === 0) {
+            return [{ url: '/' }];
+        }
+
+        // Determine the Base URI for resolution
+        // Priority: $self property > documentUri (retrieval location)
+        let baseUri = this.documentUri;
+        if (this.spec.$self) {
+            try {
+                // $self can be relative to documentUri
+                baseUri = new URL(this.spec.$self, this.documentUri).href;
+            } catch (e) {
+                // Fallback to documentUri if $self is malformed
+                // (ReferenceResolver usually handles this, but we do it defensively here)
+            }
+        }
+
+        return servers.map(server => {
+            if (!server.url) return server;
+
+            const rawUrl = server.url.trim();
+
+            // If the URL starts with a variable {scheme}://... we cannot use the URL constructor
+            // as valid schemes are strict. We preserve it as-is.
+            if (rawUrl.startsWith('{')) {
+                return server;
+            }
+
+            try {
+                // new URL() resolves relative paths against baseUri.
+                // It also normalizes the path (e.g., 'https://example.com' -> 'https://example.com/')
+                const resolvedUrl = new URL(rawUrl, baseUri).href;
+
+                // The URL constructor percent-encodes braces (e.g., {id} -> %7Bid%7D).
+                // We must revert this to preserve OAS Server Variables syntax.
+                const decodedUrl = resolvedUrl.replace(/%7B/g, '{').replace(/%7D/g, '}');
+
+                return { ...server, url: decodedUrl };
+            } catch (e) {
+                // If URL parsing fails (e.g., complex variables inside the authority part),
+                // fallback to returning the original string.
+                return server;
+            }
+        });
+    }
+
     public getSpec(): SwaggerSpec {
         return this.spec;
     }
 
     public getJsonSchemaDialect(): string | undefined {
-        return this.spec.jsonSchemaDialect;
+        return this.spec.jsonSchemaDialect || (this.spec.openapi?.startsWith('3.1') ? OAS_3_1_DIALECT : undefined);
     }
 
     public getDefinitions(): Record<string, SwaggerDefinition> {
@@ -153,6 +203,10 @@ export class SwaggerParser {
         return this.resolver.resolveReference(ref, currentDocUri);
     }
 
+    /**
+     * Retrieves the possible options for a polymorphic schema based on `oneOf` and `discriminator`.
+     * Supports strict mapping, explicit enum values, and implicit mapping (OAS 3.2).
+     */
     public getPolymorphicSchemaOptions(schema: SwaggerDefinition): PolymorphicOption[] {
         if (!schema.oneOf || !schema.discriminator) {
             return [];
@@ -175,11 +229,32 @@ export class SwaggerParser {
             if (!ref) return null;
 
             const resolvedSchema = this.resolveReference<SwaggerDefinition>(ref);
-            if (!resolvedSchema || !resolvedSchema.properties || !resolvedSchema.properties[dPropName]?.enum) {
+            if (!resolvedSchema) {
                 return null;
             }
-            const name = resolvedSchema.properties[dPropName].enum![0] as string;
-            return { name, schema: resolvedSchema };
+
+            // Ensure the resolved schema actually has the discriminator property
+            // This prevents implicit mapping from picking up incompatible schemas (Fixes regression tests)
+            // Note: Ideally we should check allOf merges, but for this basic utility check, properties is the primary target
+            const hasProp = resolvedSchema.properties && resolvedSchema.properties[dPropName];
+            if (!hasProp) {
+                return null;
+            }
+
+            // Strategy A: Explicit Enum in Schema
+            if (resolvedSchema.properties![dPropName]?.enum) {
+                const name = resolvedSchema.properties![dPropName].enum![0] as string;
+                return { name, schema: resolvedSchema };
+            }
+
+            // Strategy B: Implicit Mapping (Component Name derived from Ref) - OAS 3.2 Support
+            // e.g. "#/components/schemas/Cat" -> "Cat"
+            const implicitName = ref.split('/').pop();
+            if (implicitName) {
+                return { name: implicitName, schema: resolvedSchema };
+            }
+
+            return null;
         }).filter((opt): opt is PolymorphicOption => !!opt);
     }
 

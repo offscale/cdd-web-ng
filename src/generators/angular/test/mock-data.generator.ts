@@ -1,3 +1,5 @@
+import * as fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { SwaggerParser } from '@src/core/parser.js';
 import { SwaggerDefinition } from "@src/core/types/index.js";
 
@@ -58,6 +60,22 @@ export class MockDataGenerator {
                 return resolved ? this.generateValue(resolved, visited, maxDepth - 1) : { id: 'string-value' };
             }
 
+            // OAS 3.2 Example Object Support: dataValue (Validation-ready data)
+            if ((schema as any).dataValue !== undefined) {
+                return (schema as any).dataValue;
+            }
+
+            // OAS 3.0/3.1 Example Object Support: value (Literal example)
+            // Note: 'value' is deprecated in 3.2 for non-JSON targets but supported for backward compatibility
+            if ((schema as any).value !== undefined) {
+                return (schema as any).value;
+            }
+
+            // Example Object Support (OAS 3.x External Value)
+            if ((schema as any).externalValue) {
+                return this.resolveExternalValue((schema as any).externalValue);
+            }
+
             if (schema.example !== undefined) {
                 return schema.example;
             }
@@ -110,6 +128,40 @@ export class MockDataGenerator {
         }
     }
 
+    private resolveExternalValue(externalValue: string): any {
+        try {
+            // 1. Check if externalValue itself is absolute remote
+            if (externalValue.startsWith('http://') || externalValue.startsWith('https://')) {
+                return `URL Content: ${externalValue}`;
+            }
+
+            // 2. Resolve against document URI
+            const base = this.parser.documentUri || 'file://' + process.cwd() + '/';
+
+            const resolvedUrl = new URL(externalValue, base);
+
+            if (resolvedUrl.protocol === 'http:' || resolvedUrl.protocol === 'https:') {
+                return `URL Content: ${resolvedUrl.href}`;
+            }
+
+            if (resolvedUrl.protocol === 'file:') {
+                const filePath = fileURLToPath(resolvedUrl.href);
+                if (fs.existsSync(filePath)) {
+                    const content = fs.readFileSync(filePath, 'utf-8');
+                    try {
+                        return JSON.parse(content);
+                    } catch {
+                        return content;
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn(`Failed to resolve externalValue: ${externalValue}`, e);
+        }
+
+        return `External Content: ${externalValue}`;
+    }
+
     private normalizeType(schema: SwaggerDefinition): JsonSchemaType | undefined {
         const type = Array.isArray(schema.type) ? schema.type[0] : schema.type;
         return (type || (schema.properties ? 'object' : undefined)) as JsonSchemaType;
@@ -151,6 +203,12 @@ export class MockDataGenerator {
     }
 
     private generateStringValue(schema: SwaggerDefinition): string {
+        // Prioritize contentEncoding if present
+        if (schema.contentEncoding === 'base64') {
+            // "test-content" Base64 encoded
+            return 'dGVzdC1jb250ZW50';
+        }
+
         switch (schema.format) {
             case 'date-time':
             case 'date':

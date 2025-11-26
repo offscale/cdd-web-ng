@@ -95,6 +95,15 @@ function getXmlParser() {
                 ], null)
             };
         }
+        // Case 6: NodeType None (Structure Flattening)
+        if (xml.includes('<root><child>hidden</child></root>')) {
+            return {
+                getElementsByTagName: () => parserError,
+                documentElement: createNode('root', {}, [
+                    createNode('child', {}, [], 'hidden')
+                ], null)
+            };
+        }
 
         return { getElementsByTagName: () => parserError, documentElement: { tagName: 'unknown', children: [] } };
     }
@@ -173,5 +182,24 @@ describe('Utility: XmlParser', () => {
         };
         const result = XmlParser.parse(xml, config);
         expect(result.empty).toBeNull();
+    });
+
+    it('should parse composite properties transparently when nodeType is "none"', () => {
+        // Structure flattened: wrapper does NOT have a <wrapper> match,
+        // but its children (<child>) are expected to be found under <root>
+        const xml = '<root><child>hidden</child></root>';
+        const config = {
+            properties: {
+                wrapper: {
+                    nodeType: 'none',
+                    properties: {
+                        child: { name: 'child' }
+                    }
+                }
+            }
+        };
+        const result = XmlParser.parse(xml, config);
+        expect(result.wrapper).toBeDefined();
+        expect(result.wrapper.child).toBe('hidden');
     });
 });

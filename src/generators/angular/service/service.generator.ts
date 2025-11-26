@@ -6,6 +6,7 @@ import {
     camelCase,
     getBasePathTokenName,
     getClientContextTokenName,
+    getServerVariablesTokenName,
     getTypeScriptType,
     isDataTypeInterface,
     pascalCase
@@ -130,6 +131,11 @@ export class ServiceGenerator {
             namedImports: ['HttpParamsBuilder']
         });
 
+        sourceFile.addImportDeclaration({
+            moduleSpecifier: '../utils/server-url',
+            namedImports: ['getServerUrl']
+        });
+
         if (operations.some(op => op.consumes?.includes('multipart/form-data') || op.requestBody?.content?.['multipart/form-data'])) {
             sourceFile.addImportDeclaration({
                 moduleSpecifier: '../utils/multipart.builder',
@@ -145,7 +151,6 @@ export class ServiceGenerator {
         }
 
         const hasXmlResponse = operations.some(op => {
-            // Logic check simplified: Just check if any response has xml content
             if (op.responses) {
                 return Object.values(op.responses).some(r => r.content?.['application/xml']);
             }
@@ -156,6 +161,40 @@ export class ServiceGenerator {
             sourceFile.addImportDeclaration({
                 moduleSpecifier: '../utils/xml-parser',
                 namedImports: ['XmlParser']
+            });
+        }
+
+        // Check for ContentDecoder/ContentEncoder needs
+        let hasDecoding = false;
+        let hasEncoding = false;
+
+        for (const op of operations) {
+            if (op.responses) {
+                hasDecoding = hasDecoding || Object.values(op.responses).some(r => {
+                    const s = r.content?.['application/json']?.schema;
+                    return s && JSON.stringify(s).includes('contentSchema');
+                });
+            }
+
+            // Check request body for encoding
+            if (op.requestBody?.content?.['application/json']?.schema) {
+                const s = op.requestBody.content['application/json'].schema;
+                // Simple heuristic check for recursive property
+                hasEncoding = hasEncoding || JSON.stringify(s).includes('contentMediaType');
+            }
+        }
+
+        if (hasDecoding) {
+            sourceFile.addImportDeclaration({
+                moduleSpecifier: '../utils/content-decoder',
+                namedImports: ['ContentDecoder']
+            });
+        }
+
+        if (hasEncoding) {
+            sourceFile.addImportDeclaration({
+                moduleSpecifier: '../utils/content-encoder',
+                namedImports: ['ContentEncoder']
             });
         }
 
@@ -182,7 +221,7 @@ export class ServiceGenerator {
 
         sourceFile.addImportDeclaration({
             moduleSpecifier: '../tokens',
-            namedImports: [getBasePathTokenName(this.config.clientName)]
+            namedImports: [getBasePathTokenName(this.config.clientName), getServerVariablesTokenName(this.config.clientName)]
         });
 
         sourceFile.addImportDeclaration({
@@ -206,12 +245,17 @@ export class ServiceGenerator {
             isReadonly: true,
             initializer: 'inject(HttpClient)'
         });
+
+        const basePathToken = getBasePathTokenName(this.config.clientName);
+        const varsToken = getServerVariablesTokenName(this.config.clientName);
+
         serviceClass.addProperty({
             name: 'basePath',
             scope: Scope.Private,
             isReadonly: true,
             type: 'string',
-            initializer: `inject(${getBasePathTokenName(this.config.clientName)})`
+            // Priority: 1. Explicitly Provided Path -> 2. Calculated path from Servers[0] + Injected Variables
+            initializer: `inject(${basePathToken}, { optional: true }) || getServerUrl(0, inject(${varsToken}, { optional: true }) ?? {})`
         });
         const clientContextTokenName = getClientContextTokenName(this.config.clientName);
 

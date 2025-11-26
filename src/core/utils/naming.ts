@@ -30,6 +30,11 @@ export function getClientContextTokenName(clientName = "default"): string {
     return `CLIENT_CONTEXT_TOKEN_${clientSuffix}`;
 }
 
+export function getServerVariablesTokenName(clientName = "default"): string {
+    const clientSuffix = clientName.toUpperCase().replace(/[^A-Z0-9_]/g, "_");
+    return `SERVER_VARIABLES_${clientSuffix}`;
+}
+
 export function getInterceptorsTokenName(clientName = "default"): string {
     const clientSuffix = clientName.toUpperCase().replace(/[^A-Z0-9_]/g, "_");
     return `HTTP_INTERCEPTORS_${clientSuffix}`;

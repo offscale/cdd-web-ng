@@ -1,3 +1,5 @@
+// src/generators/angular/admin/form-component.generator.ts
+
 import { ClassDeclaration, Project, Scope } from 'ts-morph';
 
 import { Resource, SwaggerDefinition } from '@src/core/types/index.js';
@@ -51,7 +53,8 @@ export class FormComponentGenerator {
         // The builder creates the main interface with this name
         const formInterfaceName = analysis.interfaces.find(i => i.isTopLevel)?.name || `${pascalCase(resource.modelName)}Form`;
 
-        const oneOfImports = analysis.polymorphicOptions?.map(o => o.modelName).join(', ') || '';
+        // Collect all polymorphic models for import
+        const oneOfImports = analysis.polymorphicProperties.flatMap(p => p.options.map(o => o.modelName)).join(', ');
 
         sourceFile.addStatements([
             `import { Component, OnInit, computed, inject, signal, effect, ChangeDetectionStrategy, DestroyRef } from '@angular/core';`,
@@ -75,9 +78,11 @@ export class FormComponentGenerator {
                 }
             }
             // Also check polymorphic options, as their controls are not in the main tree
-            for (const polyOption of analysis.polymorphicOptions || []) {
-                const nested = findControlInModel(polyOption.controls, name);
-                if (nested) return nested;
+            for (const propConfig of analysis.polymorphicProperties) {
+                for (const polyOption of propConfig.options) {
+                    const nested = findControlInModel(polyOption.controls, name);
+                    if (nested) return nested;
+                }
             }
             return undefined;
         };
@@ -114,6 +119,13 @@ export class FormComponentGenerator {
                                 finalType = `FormArray<FormControl<${itemType}>>`;
                             }
                             break;
+                        case 'map':
+                            // Maps are rendered as FormArray of Key-Value tuples for editing
+                            // dataType here is the Value type
+                            // We use `any` for the generic here to simplify avoiding deep recursion in the type definition,
+                            // since the form logic handles the transformation.
+                            finalType = `FormArray<FormGroup<{ key: FormControl<string | null>, value: FormControl<any> }>>`;
+                            break;
                         case 'control':
                         default:
                             finalType = `FormControl<${control.dataType}>`;
@@ -128,16 +140,16 @@ export class FormComponentGenerator {
             name: componentName, isExported: true,
             decorators: [{
                 name: 'Component',
-                arguments: [`{
-                    selector: 'app-${resource.name}-form',
-                    standalone: true,
-                    imports: [
-                        ReactiveFormsModule,
-                        RouterModule,
-                        ${commonStandaloneImports.map(a => a[0]).join(',\n    ')}
-                    ],
-                    templateUrl: './${resource.name}-form.component.html',
-                    styleUrl: './${resource.name}-form.component.scss',
+                arguments: [`{ 
+                    selector: 'app-${resource.name}-form', 
+                    standalone: true, 
+                    imports: [ 
+                        ReactiveFormsModule, 
+                        RouterModule, 
+                        ${commonStandaloneImports.map(a => a[0]).join(',\n    ')} 
+                    ], 
+                    templateUrl: './${resource.name}-form.component.html', 
+                    styleUrl: './${resource.name}-form.component.scss', 
                     changeDetection: ChangeDetectionStrategy.OnPush
                 }`]
             }],
@@ -146,25 +158,70 @@ export class FormComponentGenerator {
 
         this.addProperties(componentClass, resource, serviceName, formInterfaceName, analysis);
 
-        if (analysis.isPolymorphic) {
+        // Dynamic Effects (Polymorphism + Dependent Schemas)
+        if (analysis.isPolymorphic || analysis.dependencyRules.length > 0) {
             componentClass.addConstructor({
-                statements: writer => writer.write(`effect(() => {
-    const type = this.form.get(this.discriminatorPropName)?.value;
-    if (type) { this.updateFormForPetType(type); }
-});`)
+                statements: writer => {
+                    writer.writeLine('// Setup dynamic form effects');
+
+                    // 1. Polymorphism logic
+                    if (analysis.isPolymorphic) {
+                        analysis.polymorphicProperties.forEach(poly => {
+                            const propName = poly.propertyName;
+                            const updateMethod = `updateFormFor${pascalCase(propName)}`;
+                            writer.write(`effect(() => { 
+    const val = this.form.get('${propName}')?.value; 
+    if (val) { this.${updateMethod}(val); } 
+});\n`);
+                        });
+                    }
+
+                    // 2. Dependent Schemas Logic (OAS 3.1)
+                    if (analysis.dependencyRules.length > 0) {
+                        writer.writeLine('// Dependent Schemas: If trigger field is present, target is required.');
+                        writer.writeLine('effect(() => {');
+
+                        // Group targets by trigger to avoid duplicate subscribes (though effect handles deps fine)
+                        const groups = new Map<string, string[]>();
+                        analysis.dependencyRules.forEach(r => {
+                            if (!groups.has(r.triggerField)) groups.set(r.triggerField, []);
+                            groups.get(r.triggerField)?.push(r.targetField);
+                        });
+
+                        groups.forEach((targets, trigger) => {
+                            writer.writeLine(`  const ${trigger}Value = this.form.get('${trigger}')?.value;`);
+                            writer.writeLine(`  if (${trigger}Value !== null && ${trigger}Value !== undefined && ${trigger}Value !== '') {`);
+                            targets.forEach(target => {
+                                writer.writeLine(`    this.form.get('${target}')?.addValidators(Validators.required);`);
+                                writer.writeLine(`    this.form.get('${target}')?.updateValueAndValidity({ emitEvent: false });`);
+                            });
+                            writer.writeLine(`  } else {`);
+                            targets.forEach(target => {
+                                writer.writeLine(`    this.form.get('${target}')?.removeValidators(Validators.required);`);
+                                writer.writeLine(`    this.form.get('${target}')?.updateValueAndValidity({ emitEvent: false });`);
+                            });
+                            writer.writeLine(`  }`);
+                        });
+
+                        writer.writeLine('});');
+                    }
+                }
             });
         }
 
-        this.addNgOnInit(componentClass, resource, serviceName, analysis.hasFormArrays || analysis.isPolymorphic);
+        this.addNgOnInit(componentClass, resource, serviceName, analysis.hasFormArrays || analysis.isPolymorphic || !!analysis.hasMaps);
         this.addInitForm(componentClass, formInterfaceName, analysis.topLevelControls);
 
         if (analysis.isPolymorphic) this.addPolymorphismLogic(componentClass, resource, analysis);
         if (analysis.hasFileUploads) this.addFileHandling(componentClass);
         if (analysis.hasFormArrays) this.addFormArrayHelpers(componentClass, analysis.topLevelControls);
-        if (analysis.hasFormArrays || analysis.isPolymorphic) this.addPatchForm(componentClass, resource, analysis);
-        if (analysis.isPolymorphic) this.addGetPayload(componentClass);
+        if (analysis.hasMaps) this.addMapHelpers(componentClass, analysis.topLevelControls);
+        if (analysis.hasFormArrays || analysis.isPolymorphic || analysis.hasMaps) this.addPatchForm(componentClass, resource, analysis);
 
-        this.addOnSubmit(componentClass, resource, serviceName, analysis.isPolymorphic);
+        // We must use getPayload if maps/polymorphism/arrays invoke structural changes
+        if (analysis.isPolymorphic || analysis.hasMaps) this.addGetPayload(componentClass, analysis);
+
+        this.addOnSubmit(componentClass, resource, serviceName, analysis.isPolymorphic || !!analysis.hasMaps);
         this.addOnCancelMethod(componentClass);
 
         sourceFile.formatText({ ensureNewLineAtEndOfFile: true });
@@ -201,21 +258,18 @@ export class FormComponentGenerator {
             },
         ]);
 
-        if (analysis.isPolymorphic && analysis.discriminatorOptions) {
-            classDeclaration.addProperties([
-                {
-                    name: 'discriminatorOptions',
-                    isReadonly: true,
-                    initializer: JSON.stringify(analysis.discriminatorOptions),
-                    docs: ["The available options for the polymorphic discriminator."]
-                },
-                {
-                    name: 'discriminatorPropName',
-                    isReadonly: true,
-                    scope: Scope.Private,
-                    initializer: `'${analysis.discriminatorPropName}'`
-                }
-            ]);
+        // Add options for EACH discriminator
+        if (analysis.isPolymorphic) {
+            analysis.polymorphicProperties.forEach(poly => {
+                classDeclaration.addProperties([
+                    {
+                        name: `${poly.propertyName}Options`,
+                        isReadonly: true,
+                        initializer: JSON.stringify(poly.discriminatorOptions),
+                        docs: [`The available options for the ${poly.propertyName} discriminator.`]
+                    }
+                ]);
+            });
         }
 
         const processedEnums = new Set<string>();
@@ -259,8 +313,39 @@ export class FormComponentGenerator {
         const formControls = controls
             .map(c => `'${c.name}': ${FormInitializerRenderer.renderControlInitializer(c)}`)
             .join(',\n      ');
-        const statement = `this.form = new FormGroup<${interfaceName}>({\n      ${formControls}\n    });`;
+
+        let statement = `this.form = new FormGroup<${interfaceName}>({\n      ${formControls}\n    });`;
+
+        // CHANGE: Disable readOnly controls immediately after initialization
+        const readOnlyPaths = this.findReadOnlyControls(controls);
+        if (readOnlyPaths.length > 0) {
+            const disableStats = readOnlyPaths.map(path => `this.form.get('${path}')?.disable({ emitEvent: false });`).join('\n    ');
+            statement += `\n    ${disableStats}`;
+        }
+
         classDeclaration.addMethod({ name: 'initForm', scope: Scope.Private, statements: statement });
+    }
+
+    /**
+     * Recursively finds paths for readOnly controls to disable.
+     */
+    private findReadOnlyControls(controls: FormControlModel[], prefix = ''): string[] {
+        let paths: string[] = [];
+        for (const control of controls) {
+            const schema = control.schema;
+            const controlPath = prefix ? `${prefix}.${control.name}` : control.name;
+
+            if (schema?.readOnly) {
+                paths.push(controlPath);
+            }
+
+            if (control.nestedControls && control.controlType === 'group') {
+                // Only recurse for groups, arrays handle their own items dynamically usually
+                // (though readOnly array implies the whole array is readOnly, handled by parent check usually)
+                paths = paths.concat(this.findReadOnlyControls(control.nestedControls, controlPath));
+            }
+        }
+        return paths;
     }
 
     private addFormArrayHelpers(classDeclaration: ClassDeclaration, topLevelControls: FormControlModel[]): void {
@@ -311,12 +396,54 @@ export class FormComponentGenerator {
         });
     }
 
-    private addOnSubmit(classDeclaration: ClassDeclaration, resource: Resource, serviceName: string, hasPolymorphism: boolean): void {
+    private addMapHelpers(classDeclaration: ClassDeclaration, topLevelControls: FormControlModel[]): void {
+        const maps = topLevelControls.filter(c => c.controlType === 'map');
+
+        maps.forEach(prop => {
+            const mapName = prop.name;
+            const pascalName = pascalCase(mapName);
+            const getterName = `${camelCase(mapName)}Map`;
+
+            classDeclaration.addGetAccessor({
+                name: getterName,
+                // Return specialized FormArray of KV pairs
+                returnType: `FormArray<FormGroup<{ key: FormControl<string | null>, value: FormControl<any> }>>`,
+                statements: `return this.form.get('${mapName}') as FormArray;`
+            });
+
+            const createMethod = classDeclaration.addMethod({
+                name: `create${pascalName}Entry`,
+                scope: Scope.Private,
+                parameters: [{ name: 'item?', type: 'any' }],
+                returnType: `FormGroup` // Simplify return type to generic FormGroup for brevity/compatibility
+            });
+
+            if (prop.mapValueControl) {
+                const initializer = FormInitializerRenderer.renderMapItemInitializer(prop.mapValueControl, prop.keyPattern);
+                createMethod.setBodyText(`return ${initializer};`);
+            } else {
+                createMethod.setBodyText(`return new FormGroup({});`);
+            }
+
+            classDeclaration.addMethod({
+                name: `add${pascalName}Entry`,
+                statements: `this.${getterName}.push(this.create${pascalName}Entry());`
+            });
+
+            classDeclaration.addMethod({
+                name: `remove${pascalName}Entry`,
+                parameters: [{ name: 'index', type: 'number' }],
+                statements: `this.${getterName}.removeAt(index);`
+            });
+        });
+    }
+
+    private addOnSubmit(classDeclaration: ClassDeclaration, resource: Resource, serviceName: string, needsPayloadTransform: boolean): void {
         const createOp = resource.operations.find(op => op.action === 'create');
         const updateOp = resource.operations.find(op => op.action === 'update');
         if (!createOp?.methodName && !updateOp?.methodName) return;
 
-        const payloadExpr = hasPolymorphism ? 'this.getPayload()' : 'this.form.getRawValue()';
+        const payloadExpr = needsPayloadTransform ? 'this.getPayload()' : 'this.form.getRawValue()';
         let body = `if (!this.form.valid) { return; }\nconst finalPayload = ${payloadExpr};\n`;
 
         if (createOp?.methodName && updateOp?.methodName) {
@@ -341,14 +468,22 @@ export class FormComponentGenerator {
 
     private addPatchForm(classDeclaration: ClassDeclaration, resource: Resource, analysis: FormAnalysisResult): void {
         const arrayProps = analysis.topLevelControls.filter(c => c.controlType === 'array' && c.nestedControls);
-        const oneOfPropName = analysis.discriminatorPropName;
+        const mapProps = analysis.topLevelControls.filter(c => c.controlType === 'map');
 
-        const allComplexProps = [...arrayProps.map(p => p.name), ...(oneOfPropName ? [oneOfPropName] : [])];
-        if (allComplexProps.length === 0) return;
+        const discriminatorProps = analysis.polymorphicProperties.map(p => p.propertyName);
 
-        let body = `const { ${allComplexProps.join(', ')}, ...rest } = entity;\n`;
+        const complexProps = [
+            ...arrayProps.map(p => p.name),
+            ...mapProps.map(p => p.name),
+            ...discriminatorProps
+        ];
+
+        if (complexProps.length === 0) return;
+
+        let body = `const { ${complexProps.join(', ')}, ...rest } = entity;\n`;
         body += 'this.form.patchValue(rest as any);\n\n';
 
+        // Patch Arrays
         arrayProps.forEach(prop => {
             const arrayGetterName = `${camelCase(singular(prop.name))}Array`;
             const createItemMethodName = `create${pascalCase(singular(prop.name))}`;
@@ -358,19 +493,35 @@ export class FormComponentGenerator {
             body += `}\n`;
         });
 
-        if (analysis.isPolymorphic && analysis.polymorphicOptions) {
-            const dPropName = analysis.discriminatorPropName!;
-            body += `\nconst petType = (entity as any).${dPropName};\n`;
-            body += `if (petType) {\n`;
-            body += `  this.form.get(this.discriminatorPropName)?.setValue(petType, { emitEvent: true });\n`;
-
-            analysis.polymorphicOptions.forEach(opt => {
-                const subSchemaName = opt.modelName;
-                const typeName = opt.discriminatorValue;
-                body += `  if (this.is${subSchemaName}(entity)) {\n`;
-                body += `    (this.form.get('${typeName}') as FormGroup)?.patchValue(entity as any);\n  }\n`;
-            });
+        // Patch Maps (Object -> Array of KV)
+        mapProps.forEach(prop => {
+            const mapGetter = `${camelCase(prop.name)}Map`;
+            const createEntry = `create${pascalCase(prop.name)}Entry`;
+            body += `if (entity.${prop.name} && typeof entity.${prop.name} === 'object') {\n`;
+            body += `  this.${mapGetter}.clear();\n`;
+            body += `  Object.entries(entity.${prop.name}).forEach(([key, value]) => {\n`;
+            body += `    this.${mapGetter}.push(this.${createEntry}({ key, value }));\n`;
+            body += `  });\n`;
             body += `}\n`;
+        });
+
+        if (analysis.isPolymorphic) {
+            analysis.polymorphicProperties.forEach(poly => {
+                const dPropName = poly.propertyName;
+
+                body += `\nconst ${dPropName}Value = (entity as any).${dPropName};\n`;
+                body += `if (${dPropName}Value) {\n`;
+                body += `  this.form.get('${dPropName}')?.setValue(${dPropName}Value, { emitEvent: true });\n`;
+
+                poly.options.forEach(opt => {
+                    const subSchemaName = opt.modelName;
+                    const typeName = opt.discriminatorValue;
+                    const isMethodName = `is${pascalCase(dPropName)}_${subSchemaName}`;
+                    body += `  if (this.${isMethodName}(entity)) {\n`;
+                    body += `    (this.form.get('${typeName}') as FormGroup)?.patchValue(entity as any);\n  }\n`;
+                });
+                body += `}\n`;
+            });
         }
         classDeclaration.addMethod({
             name: 'patchForm',
@@ -381,56 +532,89 @@ export class FormComponentGenerator {
     }
 
     private addPolymorphismLogic(classDeclaration: ClassDeclaration, resource: Resource, analysis: FormAnalysisResult) {
-        const updateMethod = classDeclaration.addMethod({
-            name: 'updateFormForPetType',
-            scope: Scope.Private,
-            parameters: [{ name: 'type', type: 'string' }]
-        });
 
-        const options = analysis.polymorphicOptions || [];
+        analysis.polymorphicProperties.forEach(poly => {
+            const dPropName = poly.propertyName;
+            const optionsName = `${dPropName}Options`;
 
-        if (options.length > 0) {
-            let switchBody = `this.discriminatorOptions.forEach(opt => this.form.removeControl(opt as any));\n\nswitch(type) {\n`;
-            options.forEach(opt => {
-                const subFormProps = opt.controls.map(c => `'${c.name}': ${FormInitializerRenderer.renderControlInitializer(c)}`).join(', ');
-                switchBody += `  case '${opt.discriminatorValue}':\n`;
-                switchBody += `    this.form.addControl('${opt.subFormName}' as any, this.fb.group({ ${subFormProps} }));\n`;
-                switchBody += '    break;\n';
-            });
-            switchBody += '}';
-            updateMethod.setBodyText(switchBody);
-        } else {
-            updateMethod.setBodyText(`{}`);
-        }
-
-        classDeclaration.addMethod({
-            name: 'isPetType',
-            parameters: [{ name: 'type', type: 'string' }],
-            returnType: 'boolean',
-            statements: `return this.form.get(this.discriminatorPropName)?.value === type;`
-        });
-
-        options.forEach(opt => {
-            const subSchemaName = opt.modelName;
-            const typeName = opt.discriminatorValue;
-            classDeclaration.addMethod({
-                name: `is${subSchemaName}`,
+            const updateMethod = classDeclaration.addMethod({
+                name: `updateFormFor${pascalCase(dPropName)}`,
                 scope: Scope.Private,
-                parameters: [{ name: 'entity', type: resource.modelName }],
-                returnType: `entity is ${subSchemaName}`,
-                statements: `return (entity as any).${analysis.discriminatorPropName} === '${typeName}';`
+                parameters: [{ name: 'type', type: 'string' }]
+            });
+
+            if (poly.options.length > 0) {
+                let switchBody = `// Remove all options for this discriminator\n`;
+                switchBody += `this.${optionsName}.forEach(opt => this.form.removeControl(opt as any));\n\nswitch(type) {\n`;
+
+                poly.options.forEach(opt => {
+                    const subFormProps = opt.controls.map(c => `'${c.name}': ${FormInitializerRenderer.renderControlInitializer(c)}`).join(', ');
+                    switchBody += `  case '${opt.discriminatorValue}':\n`;
+                    switchBody += `    this.form.addControl('${opt.subFormName}' as any, this.fb.group({ ${subFormProps} }));\n`;
+                    switchBody += '    break;\n';
+                });
+                switchBody += '}';
+                updateMethod.setBodyText(switchBody);
+            } else {
+                updateMethod.setBodyText(`{}`);
+            }
+
+            classDeclaration.addMethod({
+                name: `is${pascalCase(dPropName)}`,
+                parameters: [{ name: 'type', type: 'string' }],
+                returnType: 'boolean',
+                statements: `return this.form.get('${dPropName}')?.value === type;`
+            });
+
+            poly.options.forEach(opt => {
+                const subSchemaName = opt.modelName;
+                const typeName = opt.discriminatorValue;
+                classDeclaration.addMethod({
+                    name: `is${pascalCase(dPropName)}_${subSchemaName}`, // e.g. isPetType_Cat
+                    scope: Scope.Private,
+                    parameters: [{ name: 'entity', type: resource.modelName }],
+                    returnType: `entity is ${subSchemaName}`,
+                    statements: `return (entity as any).${dPropName} === '${typeName}';`
+                });
             });
         });
     }
 
-    private addGetPayload(classDeclaration: ClassDeclaration) {
-        const body = `const baseValue = this.form.getRawValue();
-const petType = (baseValue as any)[this.discriminatorPropName];
-if (!petType) return baseValue;
-const subFormValue = (this.form.get(petType) as FormGroup | undefined)?.value || {};
-const payload = { ...baseValue, ...subFormValue };
-this.discriminatorOptions.forEach(opt => delete (payload as any)[opt]);
-return payload;`;
+    private addGetPayload(classDeclaration: ClassDeclaration, analysis: FormAnalysisResult) {
+        // Only override payload if necessary (polymorphism or maps)
+        let body = `const baseValue = this.form.getRawValue() as any; \n`;
+
+        // 1. Maps Transformation (Array of KV -> Object)
+        const maps = analysis.topLevelControls.filter(c => c.controlType === 'map');
+        maps.forEach(m => {
+            body += `if (Array.isArray(baseValue['${m.name}'])) {\n`;
+            body += `  const mapObj: Record<string, any> = {};\n`;
+            body += `  baseValue['${m.name}'].forEach((pair: any) => { if(pair.key) mapObj[pair.key] = pair.value; });\n`;
+            body += `  baseValue['${m.name}'] = mapObj;\n`;
+            body += `}\n`;
+        });
+
+        // 2. Polymorphism
+        if (analysis.isPolymorphic) {
+            body += `let payload = { ...baseValue };\n`;
+
+            analysis.polymorphicProperties.forEach(poly => {
+                const dProp = poly.propertyName;
+                const optionsName = `${dProp}Options`;
+
+                body += `const ${dProp}Value = baseValue['${dProp}'];\n`;
+                body += `if (${dProp}Value) {\n`;
+                body += `  const subFormValue = (this.form.get(${dProp}Value) as FormGroup | undefined)?.value || {};\n`;
+                body += `  payload = { ...payload, ...subFormValue };\n`;
+                body += `}\n`;
+                body += `this.${optionsName}.forEach(opt => delete (payload as any)[opt]);\n`;
+            });
+
+            body += `return payload;`;
+        } else {
+            body += `return baseValue;`;
+        }
+
         classDeclaration.addMethod({ name: 'getPayload', scope: Scope.Private, statements: body });
     }
 

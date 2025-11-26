@@ -87,13 +87,16 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined, config:
         }
     }
 
+    // OAS 3.1 Auto-decoding support: contentSchema
+    // If a schema has contentSchema, it means the value (string) contains structure defined by contentSchema.
+    // We return the type of that inner schema instead of 'string'.
+    if (schema.contentSchema) {
+        return getTypeScriptType(schema.contentSchema, config, knownTypes);
+    }
+
     if (schema.type === 'string') {
         if (schema.contentMediaType && !schema.contentMediaType.includes('json')) {
             return 'Blob';
-        }
-        if (schema.contentSchema) {
-            const innerType = getTypeScriptType(schema.contentSchema, config, knownTypes);
-            return `string /* JSON: ${innerType} */`;
         }
     }
 

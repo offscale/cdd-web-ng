@@ -35,6 +35,8 @@ import { ServerGenerator } from '../shared/server.generator.js';
 import { ServerUrlGenerator } from '../shared/server-url.generator.js';
 import { XmlBuilderGenerator } from '../shared/xml-builder.generator.js';
 import { XmlParserGenerator } from '../shared/xml-parser.generator.js';
+import { ContentDecoderGenerator } from '../shared/content-decoder.generator.js';
+import { ContentEncoderGenerator } from '../shared/content-encoder.generator.js';
 import { InfoGenerator } from '../shared/info.generator.js';
 import { MultipartBuilderGenerator } from '../shared/multipart-builder.generator.js';
 import { ResponseHeaderRegistryGenerator } from '../shared/response-header-registry.generator.js';
@@ -113,6 +115,8 @@ export class AngularClientGenerator extends AbstractClientGenerator {
             new FileDownloadGenerator(project).generate(outputRoot);
             new XmlBuilderGenerator(project).generate(outputRoot);
             new XmlParserGenerator(project).generate(outputRoot);
+            new ContentDecoderGenerator(project).generate(outputRoot);
+            new ContentEncoderGenerator(project).generate(outputRoot);
             new MultipartBuilderGenerator(project).generate(outputRoot);
             new LinkServiceGenerator(parser, project).generate(outputRoot);
             new ResponseHeaderRegistryGenerator(parser, project).generate(outputRoot);

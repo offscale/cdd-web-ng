@@ -199,6 +199,12 @@ export class ServiceMethodGenerator {
         } else if (body) {
             if (body.type === 'raw' || body.type === 'json') {
                 bodyArgument = body.paramName;
+                // Apply encoding if configured (OAS 3.1)
+                if (model.requestEncodingConfig) {
+                    lines.push(`if (${body.paramName} !== null && ${body.paramName} !== undefined) {`);
+                    lines.push(`  ${body.paramName} = ContentEncoder.encode(${body.paramName}, ${JSON.stringify(model.requestEncodingConfig)});`);
+                    lines.push(`}`);
+                }
             } else if (body.type === 'urlencoded') {
                 lines.push(`const formBody = HttpParamsBuilder.serializeUrlEncodedBody(${body.paramName}, ${JSON.stringify(body.config)});`);
                 bodyArgument = 'formBody';
@@ -272,6 +278,13 @@ export class ServiceMethodGenerator {
             lines.push(`  map(response => {`);
             lines.push(`    if (typeof response !== 'string') return response as any;`);
             lines.push(`    return XmlParser.parse(response, ${JSON.stringify(model.responseXmlConfig)});`);
+            lines.push(`  })`);
+            lines.push(`);`);
+        } else if (model.responseDecodingConfig) {
+            // OAS 3.1 Auto-decoding (contentSchema)
+            lines.push(`return ${httpCall}.pipe(`);
+            lines.push(`  map(response => {`);
+            lines.push(`    return ContentDecoder.decode(response, ${JSON.stringify(model.responseDecodingConfig)});`);
             lines.push(`  })`);
             lines.push(`);`);
         } else {

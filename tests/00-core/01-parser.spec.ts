@@ -137,6 +137,83 @@ describe('Core: SwaggerParser', () => {
         });
     });
 
+    describe('OAS 3.2 Compliance: Server URL Resolution', () => {
+        it('should resolve relative server URLs against document URI', async () => {
+            const spec = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {},
+                servers: [{ url: 'v1/api' }, { url: '/root/api' }]
+            } as any;
+
+            // Parser treated as loaded from https://example.com/docs/openapi.json
+            const parser = new SwaggerParser(spec, config, undefined, 'https://example.com/docs/openapi.json');
+
+            expect(parser.servers[0].url).toBe('https://example.com/docs/v1/api');
+            expect(parser.servers[1].url).toBe('https://example.com/root/api');
+        });
+
+        it('should prefer $self for relative resolution if present', async () => {
+            const spec = {
+                openapi: '3.2.0',
+                $self: 'https://cdn.spec.com/latest/spec.yaml',
+                info: validInfo,
+                paths: {},
+                servers: [{ url: './v1' }]
+            } as any;
+
+            const parser = new SwaggerParser(spec, config, undefined, 'file://local/download.json');
+
+            // Should resolve against $self, not file://
+            expect(parser.servers[0].url).toBe('https://cdn.spec.com/latest/v1');
+        });
+
+        it('should resolve relative $self against document URI before resolving servers', () => {
+            const spec = {
+                openapi: '3.2.0',
+                // relative $self
+                $self: '../canon/spec.yaml',
+                info: validInfo,
+                paths: {},
+                servers: [{ url: './api' }]
+            } as any;
+
+            const parser = new SwaggerParser(spec, config, undefined, 'https://example.com/v2/draft/doc.json');
+
+            // $self resolves to https://example.com/v2/canon/spec.yaml
+            // Server resolves relative to that $self -> https://example.com/v2/canon/api
+            expect(parser.servers[0].url).toBe('https://example.com/v2/canon/api');
+        });
+
+        it('should leave template URLs untouched if they start with braces', async () => {
+            const spec = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {},
+                servers: [{ url: '{scheme}://api.com' }]
+            } as any;
+
+            const parser = new SwaggerParser(spec, config, undefined, 'https://example.com');
+            expect(parser.servers[0].url).toBe('{scheme}://api.com');
+        });
+
+        it('should preserve template variables in path during resolution', async () => {
+            const spec = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {},
+                // Relative path containing a variable
+                servers: [{ url: 'api/{version}' }]
+            } as any;
+
+            const parser = new SwaggerParser(spec, config, undefined, 'https://example.com/spec.json');
+            // Resolved URL normalizes to include trailing matching logic if applied, but here just relative checking.
+            // new URL('api/{version}', 'https://example.com/spec.json') => 'https://example.com/api/%7Bversion%7D'
+            // The implementation should revert brace encoding.
+            expect(parser.servers[0].url).toBe('https://example.com/api/{version}');
+        });
+    });
+
     describe('Reference Resolution (`resolve()` and `resolveReference()`)', () => {
         const spec = {
             openapi: '3.1.0', info: validInfo, paths: {},
@@ -363,7 +440,12 @@ describe('Core: SwaggerParser', () => {
             const parser = new SwaggerParser(parserCoverageSpec as any, { options: {} } as GeneratorConfig);
             const schema = parser.getDefinition('PolyWithInvalidRefs');
             const options = parser.getPolymorphicSchemaOptions(schema!);
-            expect(options.length).toBe(0);
+            // Updated Expectation:
+            // Sub1: has no 'type' property -> Skipped by stricter parser check
+            // Sub2: has 'type' property but no enum -> Accepted via Implicit Mapping (OAS 3.2) -> "Sub2"
+            // Total: 1 option
+            expect(options.length).toBe(1);
+            expect(options[0].name).toBe('Sub2');
         });
 
         it('should handle $dynamicRef in oneOf for getPolymorphicSchemaOptions', () => {
@@ -409,7 +491,7 @@ describe('Core: SwaggerParser', () => {
             expect(consoleWarnSpy).not.toHaveBeenCalled();
         });
 
-        it('should warn when a custom dialect is used', () => {
+        it('should accept a custom dialect without warning (OAS 3.2)', () => {
             const spec = {
                 ...validInfo,
                 openapi: '3.1.0',
@@ -417,7 +499,7 @@ describe('Core: SwaggerParser', () => {
                 paths: {}
             };
             new SwaggerParser(spec as any, { options: {} } as GeneratorConfig);
-            expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('custom jsonSchemaDialect'));
+            expect(consoleWarnSpy).not.toHaveBeenCalled();
         });
 
         it('should parse webhooks', () => {

@@ -98,8 +98,27 @@ export interface LinkObject {
 export interface ExampleObject {
     summary?: string;
     description?: string;
+    /**
+     * Embedded literal example. The `value` field and `externalValue` field are mutually exclusive.
+     * @deprecated for non-JSON serialization targets in OAS 3.2. Use `dataValue` and/or `serializedValue` instead.
+     */
     value?: any;
+    /**
+     * A URI that identifies the literal example.
+     */
     externalValue?: string;
+    /**
+     * An example of the data structure that MUST be valid according to the relevant Schema Object.
+     * If this field is present, `value` MUST be absent.
+     * (OAS 3.2)
+     */
+    dataValue?: any;
+    /**
+     * An example of the serialized form of the value.
+     * If `dataValue` is present, then this field SHOULD contain the serialization of the given data.
+     * (OAS 3.2)
+     */
+    serializedValue?: string;
 
     [key: string]: any;
 }
@@ -134,7 +153,12 @@ export interface Parameter {
     explode?: boolean;
     allowReserved?: boolean;
     allowEmptyValue?: boolean;
-    content?: Record<string, { schema?: SwaggerDefinition | { $ref: string } }>;
+    content?: Record<string, {
+        schema?: SwaggerDefinition | { $ref: string };
+        example?: any;
+        examples?: Record<string, any>;
+        encoding?: Record<string, EncodingProperty>;
+    }>;
     deprecated?: boolean;
 
     [key: string]: any;
@@ -297,6 +321,7 @@ export interface SwaggerSpec {
         callbacks?: Record<string, PathItem | { $ref: string }>;
         links?: Record<string, LinkObject | { $ref: string }>;
         headers?: Record<string, HeaderObject | { $ref: string }>;
+        parameters?: Parameter[];
     };
     securityDefinitions?: { [securityDefinitionName: string]: SecurityScheme };
 

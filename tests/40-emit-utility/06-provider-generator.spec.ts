@@ -59,7 +59,8 @@ describe('Emitter: ProviderGenerator', () => {
         expect(fileContent).toBeDefined();
         expect(fileContent).toContain('export function provideTestClient(config: TestConfig)');
         expect(fileContent).toContain('export interface TestConfig');
-        expect(fileContent).toContain('basePath: string');
+        // The fix: basePath is now optional because server-url logic can provide a default
+        expect(fileContent).toContain('basePath?: string');
         expect(fileContent).toContain('enableDateTransform?: boolean');
         expect(fileContent).not.toContain('apiKey?: string');
         expect(fileContent).not.toContain('bearerToken?:');
@@ -129,17 +130,23 @@ describe('Emitter: ProviderGenerator', () => {
         expect(fileContent).toContain(`provide: HTTP_INTERCEPTORS_TEST, useValue: customInterceptors`);
     });
 
-    it('should not include token providers for unsupported security schemes (e.g., cookie)', () => {
+    it('should include token providers for cookie authentication (Updated for OAS 3.2 Compliance)', () => {
         const spec = {
             ...emptySpec,
             components: { securitySchemes: { Cookie: { type: 'apiKey', in: 'cookie', name: 'sid' } } },
         };
+        // Run Generator
         const fileContent = runGenerator(spec, { clientName: 'Test' });
 
-        expect(fileContent).not.toContain(
+        // It SHOULD check for cookieAuth
+        expect(fileContent).toContain('cookieAuth?: string');
+        expect(fileContent).toContain('if (config.cookieAuth)');
+        expect(fileContent).toContain('providers.push({ provide: COOKIE_AUTH_TOKEN, useValue: config.cookieAuth });');
+
+        // It should ALSO register the AuthInterceptor now since cookie auth is supported via interceptor logic
+        expect(fileContent).toContain(
             'providers.push({ provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true });',
         );
-        expect(fileContent).not.toContain('API_KEY_TOKEN');
     });
 
     it('should return early if generateServices is explicitly false', () => {

@@ -61,6 +61,9 @@ export class MainIndexGenerator {
             // Export XmlParser/XmlBuilder
             sourceFile.addExportDeclaration({ moduleSpecifier: "./utils/xml-builder" });
             sourceFile.addExportDeclaration({ moduleSpecifier: "./utils/xml-parser" });
+            // Export ContentDecoder/Encoder
+            sourceFile.addExportDeclaration({ moduleSpecifier: "./utils/content-decoder" });
+            sourceFile.addExportDeclaration({ moduleSpecifier: "./utils/content-encoder" });
         }
 
         sourceFile.formatText();

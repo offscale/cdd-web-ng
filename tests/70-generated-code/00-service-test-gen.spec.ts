@@ -201,5 +201,77 @@ describe('Generated Code: Service Test Generators', () => {
             expect(result).toBeDefined();
             expect(result.size).toBe(0);
         });
+
+        it('should use parameter example value if provided in spec', () => {
+            const exampleSpec = {
+                openapi: '3.0.0',
+                info: { title: 'Param Example', version: '1.0' },
+                paths: {
+                    '/example/{id}': {
+                        get: {
+                            operationId: 'getWithExample',
+                            parameters: [
+                                {
+                                    name: 'id',
+                                    in: 'path',
+                                    required: true,
+                                    schema: { type: 'string' },
+                                    example: 'user-123'
+                                }
+                            ],
+                            responses: { '200': {} }
+                        }
+                    }
+                }
+            };
+
+            const { parser, testGen } = setupTestGen(exampleSpec);
+            const ops = parser.operations;
+            setOperationMethodNames(ops as any[]);
+
+            testGen.generateServiceTestFile('example', ops as any, '/');
+            const sourceFile = project.getSourceFileOrThrow('/example.service.spec.ts');
+            const text = sourceFile.getFullText();
+
+            // Should use 'user-123' instead of generic 'test-id'
+            expect(text).toContain("const id = 'user-123';");
+        });
+
+        it('should fallback to examples map if example field is missing', () => {
+            const examplesSpec = {
+                openapi: '3.0.0',
+                info: { title: 'Params Examples Map', version: '1.0' },
+                paths: {
+                    '/examples-map': {
+                        get: {
+                            operationId: 'getWithExamplesMap',
+                            parameters: [
+                                {
+                                    name: 'status',
+                                    in: 'query',
+                                    schema: { type: 'string' },
+                                    examples: {
+                                        active: { value: 'active-status' },
+                                        inactive: { value: 'inactive-status' }
+                                    }
+                                }
+                            ],
+                            responses: { '200': {} }
+                        }
+                    }
+                }
+            };
+
+            const { parser, testGen } = setupTestGen(examplesSpec);
+            const ops = parser.operations;
+            setOperationMethodNames(ops as any[]);
+
+            testGen.generateServiceTestFile('examples', ops as any, '/');
+            const sourceFile = project.getSourceFileOrThrow('/examples.service.spec.ts');
+            const text = sourceFile.getFullText();
+
+            // Should use first example 'active-status'
+            expect(text).toContain("const status = 'active-status';");
+        });
     });
 });

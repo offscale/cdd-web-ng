@@ -1,5 +1,7 @@
+// tests/00-core/06-input-validation.spec.ts
+
 import { describe, expect, it } from 'vitest';
-import { SpecValidationError, validateSpec } from '@src/core/validator.js'; // Assuming exported
+import { SpecValidationError, validateSpec } from '@src/core/validator.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from "@src/core/types/index.js";
 
@@ -292,6 +294,192 @@ describe('Core: Input Spec Validation', () => {
                 }
             };
             expect(() => validateSpec(spec)).toThrow(/Ambiguous path definition detected/);
+        });
+    });
+
+    describe('Parameter Validation (OAS 3.2 Strictness)', () => {
+        it('should throw if "query" and "querystring" parameters coexist in same operation', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/search': {
+                        get: {
+                            parameters: [
+                                { name: 'q', in: 'query' },
+                                { name: 'filter', in: 'querystring' }
+                            ]
+                        }
+                    }
+                }
+            };
+            expect(() => validateSpec(spec)).toThrow(/contains both 'query' and 'querystring' parameters/);
+        });
+
+        it('should throw if "query" and "querystring" coexist via path-level and operation-level inheritance', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/search': {
+                        parameters: [{ name: 'q', in: 'query' }],
+                        get: {
+                            parameters: [
+                                { name: 'filter', in: 'querystring' }
+                            ]
+                        }
+                    }
+                }
+            };
+            expect(() => validateSpec(spec)).toThrow(/contains both 'query' and 'querystring' parameters/);
+        });
+
+        it('should throw if parameter has both "example" and "examples"', () => {
+            const spec: any = {
+                openapi: '3.0.0',
+                info: validInfo,
+                paths: {
+                    '/test': {
+                        get: {
+                            parameters: [
+                                {
+                                    name: 'id',
+                                    in: 'query',
+                                    example: '123',
+                                    examples: { 'default': { value: '123' } }
+                                }
+                            ]
+                        }
+                    }
+                }
+            };
+            expect(() => validateSpec(spec)).toThrow(/contains both 'example' and 'examples'/);
+        });
+
+        it('should throw if component parameter has both "example" and "examples"', () => {
+            const spec: any = {
+                openapi: '3.0.0',
+                info: validInfo,
+                paths: {},
+                components: {
+                    parameters: {
+                        MyParam: {
+                            name: 'id',
+                            in: 'query',
+                            example: '1',
+                            examples: { 'a': { value: '1' } }
+                        }
+                    }
+                }
+            };
+            expect(() => validateSpec(spec)).toThrow(/Component parameter 'MyParam' contains both 'example' and 'examples'/);
+        });
+
+        it('should throw if parameter has both "schema" and "content"', () => {
+            const spec: any = {
+                openapi: '3.0.0',
+                info: validInfo,
+                paths: {
+                    '/test': {
+                        get: {
+                            parameters: [
+                                {
+                                    name: 'id',
+                                    in: 'query',
+                                    schema: { type: 'string' },
+                                    content: { 'application/json': { schema: { type: 'string' } } }
+                                }
+                            ]
+                        }
+                    }
+                }
+            };
+            expect(() => validateSpec(spec)).toThrow(/contains both 'schema' and 'content'/);
+        });
+
+        it('should throw if component parameter has both "schema" and "content"', () => {
+            const spec: any = {
+                openapi: '3.0.0',
+                info: validInfo,
+                paths: {},
+                components: {
+                    parameters: {
+                        MyParam: {
+                            name: 'id',
+                            in: 'query',
+                            schema: { type: 'string' },
+                            content: { 'application/json': { schema: { type: 'string' } } }
+                        }
+                    }
+                }
+            };
+            expect(() => validateSpec(spec)).toThrow(/Component parameter 'MyParam' contains both 'schema' and 'content'/);
+        });
+
+        it('should accept "example" only', () => {
+            const spec: any = {
+                openapi: '3.0.0',
+                info: validInfo,
+                paths: {
+                    '/test': {
+                        get: {
+                            parameters: [{ name: 'id', in: 'query', example: '1' }]
+                        }
+                    }
+                }
+            };
+            expect(() => validateSpec(spec)).not.toThrow();
+        });
+
+        it('should accept "examples" only', () => {
+            const spec: any = {
+                openapi: '3.0.0',
+                info: validInfo,
+                paths: {
+                    '/test': {
+                        get: {
+                            parameters: [{ name: 'id', in: 'query', examples: { a: { value: '1' } } }]
+                        }
+                    }
+                }
+            };
+            expect(() => validateSpec(spec)).not.toThrow();
+        });
+
+        it('should accept "schema" only', () => {
+            const spec: any = {
+                openapi: '3.0.0',
+                info: validInfo,
+                paths: {
+                    '/test': {
+                        get: {
+                            parameters: [{ name: 'id', in: 'query', schema: { type: 'string' } }]
+                        }
+                    }
+                }
+            };
+            expect(() => validateSpec(spec)).not.toThrow();
+        });
+
+        it('should accept "content" only', () => {
+            const spec: any = {
+                openapi: '3.0.0',
+                info: validInfo,
+                paths: {
+                    '/test': {
+                        get: {
+                            parameters: [
+                                {
+                                    name: 'id',
+                                    in: 'query',
+                                    content: { 'application/json': { schema: { type: 'string' } } }
+                                }
+                            ]
+                        }
+                    }
+                }
+            };
+            expect(() => validateSpec(spec)).not.toThrow();
         });
     });
 });

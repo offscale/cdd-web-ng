@@ -1,4 +1,4 @@
-import { OptionalKind, ParameterDeclarationStructure } from "ts-morph";
+import { OptionalKind, ParameterDeclarationStructure } from 'ts-morph';
 
 /**
  * Represents the serialization strategy for a specific parameter.
@@ -22,13 +22,12 @@ export interface ParamSerialization {
  * Describes the request body configuration.
  */
 export type BodyVariant =
-    | { type: 'json'; paramName: string; }
+    | { type: 'json'; paramName: string }
     | { type: 'xml'; paramName: string; rootName: string; config: any }
     | { type: 'multipart'; paramName: string; config: any }
     | { type: 'urlencoded'; paramName: string; config: any }
-    | { type: 'raw'; paramName: string; }
-    | { type: 'encoded-form-data'; paramName: string; mappings: string[] } // For legacy formdata loops
-    ;
+    | { type: 'raw'; paramName: string }
+    | { type: 'encoded-form-data'; paramName: string; mappings: string[] }; // For legacy formdata loops
 
 /**
  * Defines how the response should be deserialized.

@@ -5,9 +5,9 @@ import {
     PathInfo,
     Resource,
     ResourceOperation,
-    SwaggerDefinition
-} from "@src/core/types/index.js";
-import { camelCase, pascalCase, singular } from "@src/core/utils/index.js";
+    SwaggerDefinition,
+} from '@src/core/types/index.js';
+import { camelCase, pascalCase, singular } from '@src/core/utils/index.js';
 
 function getMethodName(op: PathInfo): string {
     const pathToMethodName = (path: string): string =>
@@ -17,7 +17,7 @@ function getMethodName(op: PathInfo): string {
             .map(segment =>
                 segment.startsWith('{') && segment.endsWith('}')
                     ? `By${pascalCase(segment.slice(1, -1))}`
-                    : pascalCase(segment)
+                    : pascalCase(segment),
             )
             .join('');
 
@@ -47,7 +47,18 @@ function classifyAction(path: PathInfo, method: string): ResourceOperation['acti
     if (m === 'post' && !hasIdSuffix) {
         const nonParamSegments = path.path.split('/').filter(s => s && !s.startsWith('{')).length;
         const isCustomPath = nonParamSegments > 1;
-        const customActionKeywords = ['search', 'export', 'query', 'login', 'upload', 'import', 'sync', 'item', 'reboot', 'start'];
+        const customActionKeywords = [
+            'search',
+            'export',
+            'query',
+            'login',
+            'upload',
+            'import',
+            'sync',
+            'item',
+            'reboot',
+            'start',
+        ];
         const hasCustomKeyword = opId && customActionKeywords.some(kw => opIdLower.includes(kw));
         if (isCustomPath || hasCustomKeyword) {
             // custom
@@ -63,11 +74,18 @@ function classifyAction(path: PathInfo, method: string): ResourceOperation['acti
     return camelCase(parts.join(' '));
 }
 
-function findSchema(schema: SwaggerDefinition | {
-    $ref: string
-} | undefined, parser: SwaggerParser): SwaggerDefinition | undefined {
+function findSchema(
+    schema:
+        | SwaggerDefinition
+        | {
+              $ref: string;
+          }
+        | undefined,
+    parser: SwaggerParser,
+): SwaggerDefinition | undefined {
     if (!schema) return undefined;
-    if ('$ref' in schema && typeof schema.$ref === 'string') return parser.resolveReference<SwaggerDefinition>(schema.$ref);
+    if ('$ref' in schema && typeof schema.$ref === 'string')
+        return parser.resolveReference<SwaggerDefinition>(schema.$ref);
     return schema as SwaggerDefinition;
 }
 
@@ -125,7 +143,8 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
     };
 
     allSchemas.forEach(schema => {
-        const effectiveSchema = findSchema(schema.type === 'array' ? (schema.items as SwaggerDefinition) : schema, parser) ?? schema;
+        const effectiveSchema =
+            findSchema(schema.type === 'array' ? (schema.items as SwaggerDefinition) : schema, parser) ?? schema;
         if (effectiveSchema) {
             assignPropertiesRecursive(effectiveSchema);
         }
@@ -171,12 +190,20 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
 
 // Exported for testing
 export function getModelName(resourceName: string, operations: PathInfo[]): string {
-    const op = operations.find(o => o.method === 'POST')
-        ?? operations.find(o => o.method === 'GET')
-        ?? operations.find(o => o.method === 'QUERY');
-    const schema = op?.requestBody?.content?.['application/json']?.schema ?? op?.responses?.['200']?.content?.['application/json']?.schema;
+    const op =
+        operations.find(o => o.method === 'POST') ??
+        operations.find(o => o.method === 'GET') ??
+        operations.find(o => o.method === 'QUERY');
+    const schema =
+        op?.requestBody?.content?.['application/json']?.schema ??
+        op?.responses?.['200']?.content?.['application/json']?.schema;
     if (schema) {
-        const ref = '$ref' in schema ? schema.$ref : schema.type === 'array' && schema.items && !Array.isArray(schema.items) && '$ref' in schema.items ? schema.items.$ref : null;
+        const ref =
+            '$ref' in schema
+                ? schema.$ref
+                : schema.type === 'array' && schema.items && !Array.isArray(schema.items) && '$ref' in schema.items
+                  ? schema.items.$ref
+                  : null;
         if (ref) return pascalCase(ref.split('/').pop()!);
     }
     return singular(pascalCase(resourceName));
@@ -237,7 +264,7 @@ export function discoverAdminResources(parser: SwaggerParser): Resource[] {
             isEditable: group.operations.some(op => ['POST', 'PUT', 'PATCH'].includes(op.method)),
             formProperties,
             listProperties: formProperties.filter(
-                p => !p.schema.readOnly && ['string', 'number', 'integer', 'boolean'].includes(p.schema.type as string)
+                p => !p.schema.readOnly && ['string', 'number', 'integer', 'boolean'].includes(p.schema.type as string),
             ),
         });
     }

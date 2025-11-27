@@ -1,73 +1,74 @@
-import * as path from "node:path";
-import { Project, Scope } from "ts-morph";
-import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../../core/constants.js";
-import { SwaggerParser } from "@src/core/parser.js";
+import * as path from 'node:path';
+import { Project, Scope } from 'ts-morph';
+import { UTILITY_GENERATOR_HEADER_COMMENT } from '@src/core/constants.js';
+import { SwaggerParser } from '@src/core/parser.js';
 
 export class LinkServiceGenerator {
     constructor(
         private readonly parser: SwaggerParser,
-        private readonly project: Project
-    ) {
-    }
+        private readonly project: Project,
+    ) {}
 
     public generate(outputDir: string): void {
-        const hasLinks = this.parser.operations.some(op =>
-            op.responses && Object.values(op.responses).some(r => r.links && Object.keys(r.links).length > 0)
-        ) || (this.parser.links && Object.keys(this.parser.links).length > 0);
+        const hasLinks =
+            this.parser.operations.some(
+                op => op.responses && Object.values(op.responses).some(r => r.links && Object.keys(r.links).length > 0),
+            ) ||
+            (this.parser.links && Object.keys(this.parser.links).length > 0);
 
         if (!hasLinks) {
             return;
         }
 
-        const utilsDir = path.join(outputDir, "utils");
-        const filePath = path.join(utilsDir, "link.service.ts");
-        const sourceFile = this.project.createSourceFile(filePath, "", { overwrite: true });
+        const utilsDir = path.join(outputDir, 'utils');
+        const filePath = path.join(utilsDir, 'link.service.ts');
+        const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
         sourceFile.addImportDeclarations([
-            { moduleSpecifier: "@angular/core", namedImports: ["Injectable"] },
-            { moduleSpecifier: "@angular/common/http", namedImports: ["HttpResponse", "HttpRequest"] },
-            { moduleSpecifier: "../links", namedImports: ["API_LINKS"] },
+            { moduleSpecifier: '@angular/core', namedImports: ['Injectable'] },
+            { moduleSpecifier: '@angular/common/http', namedImports: ['HttpResponse', 'HttpRequest'] },
+            { moduleSpecifier: '../links', namedImports: ['API_LINKS'] },
         ]);
 
         const linkServiceClass = sourceFile.addClass({
-            name: "LinkService",
+            name: 'LinkService',
             isExported: true,
-            decorators: [{ name: "Injectable", arguments: ["{ providedIn: 'root' }"] }],
-            docs: ["Service to resolve OpenAPI Links from HTTP Responses using runtime expressions."]
+            decorators: [{ name: 'Injectable', arguments: ["{ providedIn: 'root' }"] }],
+            docs: ['Service to resolve OpenAPI Links from HTTP Responses using runtime expressions.'],
         });
 
         sourceFile.addInterface({
-            name: "ResolvedLink",
+            name: 'ResolvedLink',
             isExported: true,
             properties: [
-                { name: "targetOperationId", type: "string", hasQuestionToken: true },
-                { name: "operationRef", type: "string", hasQuestionToken: true },
-                { name: "parameters", type: "Record<string, any>" },
-                { name: "body", type: "any", hasQuestionToken: true },
-                { name: "targetServer", type: "string", hasQuestionToken: true }
-            ]
+                { name: 'targetOperationId', type: 'string', hasQuestionToken: true },
+                { name: 'operationRef', type: 'string', hasQuestionToken: true },
+                { name: 'parameters', type: 'Record<string, any>' },
+                { name: 'body', type: 'any', hasQuestionToken: true },
+                { name: 'targetServer', type: 'string', hasQuestionToken: true },
+            ],
         });
 
         linkServiceClass.addMethod({
-            name: "resolveLink",
+            name: 'resolveLink',
             scope: Scope.Public,
             parameters: [
-                { name: "operationId", type: "string" },
-                { name: "response", type: "HttpResponse<any>" },
-                { name: "linkName", type: "string" },
-                { name: "request", type: "HttpRequest<any>", hasQuestionToken: true },
-                { name: "urlTemplate", type: "string", hasQuestionToken: true }
+                { name: 'operationId', type: 'string' },
+                { name: 'response', type: 'HttpResponse<any>' },
+                { name: 'linkName', type: 'string' },
+                { name: 'request', type: 'HttpRequest<any>', hasQuestionToken: true },
+                { name: 'urlTemplate', type: 'string', hasQuestionToken: true },
             ],
-            returnType: "ResolvedLink | null",
+            returnType: 'ResolvedLink | null',
             docs: [
-                "Resolves a link target based on the operation ID and response context.",
-                "@param operationId The operation ID originating the response.",
-                "@param response The HTTP response received.",
-                "@param linkName The name of the link to resolve.",
-                "@param request The original HTTP request (optional).",
-                "@param urlTemplate The OpenAPI path template (e.g. '/users/{id}') used for the request."
+                'Resolves a link target based on the operation ID and response context.',
+                '@param operationId The operation ID originating the response.',
+                '@param response The HTTP response received.',
+                '@param linkName The name of the link to resolve.',
+                '@param request The original HTTP request (optional).',
+                "@param urlTemplate The OpenAPI path template (e.g. '/users/{id}') used for the request.",
             ],
             statements: `
         const status = response.status.toString(); 
@@ -115,14 +116,14 @@ export class LinkServiceGenerator {
             parameters, 
             body, 
             targetServer
-        };`
+        };`,
         });
 
         linkServiceClass.addMethod({
-            name: "resolveServer",
+            name: 'resolveServer',
             scope: Scope.Private,
-            parameters: [{ name: "server", type: "any" }],
-            returnType: "string",
+            parameters: [{ name: 'server', type: 'any' }],
+            returnType: 'string',
             statements: `
         let url = server.url; 
         if (server.variables) { 
@@ -137,13 +138,13 @@ export class LinkServiceGenerator {
                 url = url.replace(new RegExp('{' + key + '}', 'g'), value); 
             }); 
         } 
-        return url;`
+        return url;`,
         });
 
         linkServiceClass.addMethod({
-            name: "extractHeaders",
+            name: 'extractHeaders',
             scope: Scope.Private,
-            parameters: [{ name: "headers", type: "any" }],
+            parameters: [{ name: 'headers', type: 'any' }],
             statements: `
         const result: Record<string, string> = {}; 
         if (!headers) return result; 
@@ -152,13 +153,13 @@ export class LinkServiceGenerator {
             const val = typeof headers.get === 'function' ? headers.get(key) : headers[key]; 
             if (val !== null && val !== undefined) result[key.toLowerCase()] = String(val); 
         }); 
-        return result;`
+        return result;`,
         });
 
         linkServiceClass.addMethod({
-            name: "extractQueryParams",
+            name: 'extractQueryParams',
             scope: Scope.Private,
-            parameters: [{ name: "params", type: "any" }],
+            parameters: [{ name: 'params', type: 'any' }],
             statements: `
         const result: Record<string, string> = {}; 
         if (!params) return result; 
@@ -167,17 +168,17 @@ export class LinkServiceGenerator {
             const val = typeof params.get === 'function' ? params.get(key) : params[key]; 
             if (val !== null && val !== undefined) result[key] = String(val); 
         }); 
-        return result;`
+        return result;`,
         });
 
         linkServiceClass.addMethod({
-            name: "extractPathParams",
+            name: 'extractPathParams',
             scope: Scope.Private,
             parameters: [
-                { name: "template", type: "string | undefined" },
-                { name: "fullUrl", type: "string | undefined" }
+                { name: 'template', type: 'string | undefined' },
+                { name: 'fullUrl', type: 'string | undefined' },
             ],
-            returnType: "Record<string, string>",
+            returnType: 'Record<string, string>',
             statements: `
         const params: Record<string, string> = {}; 
         if (!template || !fullUrl) return params; 
@@ -209,15 +210,15 @@ export class LinkServiceGenerator {
         } catch (e) { 
             console.warn('LinkService: Failed to extract path params', e); 
         } 
-        return params;`
+        return params;`,
         });
 
         linkServiceClass.addMethod({
-            name: "evaluate",
+            name: 'evaluate',
             scope: Scope.Private,
             parameters: [
-                { name: "expression", type: "any" },
-                { name: "context", type: "any" }
+                { name: 'expression', type: 'any' },
+                { name: 'context', type: 'any' },
             ],
             statements: `
         if (typeof expression !== 'string') return expression; 
@@ -229,15 +230,15 @@ export class LinkServiceGenerator {
                 return val !== undefined ? String(val) : ''; 
             }); 
         } 
-        return this.evaluateExpression(expression, context);`
+        return this.evaluateExpression(expression, context);`,
         });
 
         linkServiceClass.addMethod({
-            name: "evaluateExpression",
+            name: 'evaluateExpression',
             scope: Scope.Private,
             parameters: [
-                { name: "expr", type: "string" },
-                { name: "context", type: "any" }
+                { name: 'expr', type: 'string' },
+                { name: 'context', type: 'any' },
             ],
             statements: `
         if (expr === '$statusCode') return context.statusCode; 
@@ -275,15 +276,15 @@ export class LinkServiceGenerator {
                 return context.request.path[token]; 
             } 
         } 
-        return undefined;`
+        return undefined;`,
         });
 
         linkServiceClass.addMethod({
-            name: "resolvePointer",
+            name: 'resolvePointer',
             scope: Scope.Private,
             parameters: [
-                { name: "obj", type: "any" },
-                { name: "pointer", type: "string" }
+                { name: 'obj', type: 'any' },
+                { name: 'pointer', type: 'string' },
             ],
             statements: `
         if (obj === null || obj === undefined) return undefined; 
@@ -303,7 +304,7 @@ export class LinkServiceGenerator {
                 current = current[unescaped]; 
             } 
         } 
-        return current;`
+        return current;`,
         });
 
         sourceFile.formatText();

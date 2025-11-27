@@ -13,8 +13,8 @@ describe('E2E: Admin UI Generation', () => {
                 admin: true,
                 generateServices: true,
                 dateType: 'string',
-                enumStyle: 'enum'
-            } as any
+                enumStyle: 'enum',
+            } as any,
         });
         return project;
     };
@@ -26,8 +26,12 @@ describe('E2E: Admin UI Generation', () => {
 
         beforeAll(async () => {
             project = await runAdminGen(coverageSpec);
-            listComponent = project.getSourceFileOrThrow('/generated/admin/users/users-list/users-list.component.ts').getClass('UsersListComponent')!;
-            formComponent = project.getSourceFileOrThrow('/generated/admin/users/users-form/users-form.component.ts').getClass('UserFormComponent')!;
+            listComponent = project
+                .getSourceFileOrThrow('/generated/admin/users/users-list/users-list.component.ts')
+                .getClass('UsersListComponent')!;
+            formComponent = project
+                .getSourceFileOrThrow('/generated/admin/users/users-form/users-form.component.ts')
+                .getClass('UserFormComponent')!;
             routingFile = project.getSourceFileOrThrow('/generated/admin/users/users.routes.ts')!;
         });
 
@@ -73,8 +77,12 @@ describe('E2E: Admin UI Generation', () => {
     describe('Polymorphism E2E', () => {
         it('should correctly generate a dynamic polymorphic form', async () => {
             project = await runAdminGen(polymorphismSpec);
-            const formComponent = project.getSourceFileOrThrow('/generated/admin/pets/pets-form/pets-form.component.ts')!.getClass('PetFormComponent')!;
-            const html = project.getFileSystem().readFileSync('/generated/admin/pets/pets-form/pets-form.component.html');
+            const formComponent = project
+                .getSourceFileOrThrow('/generated/admin/pets/pets-form/pets-form.component.ts')!
+                .getClass('PetFormComponent')!;
+            const html = project
+                .getFileSystem()
+                .readFileSync('/generated/admin/pets/pets-form/pets-form.component.html');
 
             // Check for generated Option properties
             expect(formComponent.getProperty('petTypeOptions')).toBeDefined();
@@ -108,9 +116,11 @@ describe('E2E: Admin UI Generation', () => {
                     '/bad-pets': {
                         post: {
                             tags: ['BadPets'],
-                            requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/BadPet' } } } }
-                        }
-                    }
+                            requestBody: {
+                                content: { 'application/json': { schema: { $ref: '#/components/schemas/BadPet' } } },
+                            },
+                        },
+                    },
                 },
                 components: {
                     ...polymorphismSpec.components,
@@ -119,21 +129,23 @@ describe('E2E: Admin UI Generation', () => {
                         BadPet: {
                             type: 'object',
                             oneOf: [{ $ref: '#/components/schemas/BadCat' }],
-                            discriminator: { propertyName: 'petType' }
+                            discriminator: { propertyName: 'petType' },
                         },
                         BadCat: {
                             type: 'object',
                             allOf: [
                                 { $ref: '#/components/schemas/BasePet' }, // This one is good
-                                { $ref: '#/components/schemas/NonExistentSchema' } // This one is bad
+                                { $ref: '#/components/schemas/NonExistentSchema' }, // This one is bad
                             ],
-                            properties: { petType: { type: 'string', enum: ['badcat'] } }
-                        }
-                    }
-                }
+                            properties: { petType: { type: 'string', enum: ['badcat'] } },
+                        },
+                    },
+                },
             };
             project = await runAdminGen(specWithBadRef);
-            const html = project.getFileSystem().readFileSync('/generated/admin/badPets/badPets-form/badPets-form.component.html');
+            const html = project
+                .getFileSystem()
+                .readFileSync('/generated/admin/badPets/badPets-form/badPets-form.component.html');
 
             expect(html).toBeDefined();
             expect(html).toContain('formControlName="name"');

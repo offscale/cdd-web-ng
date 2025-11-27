@@ -29,12 +29,12 @@ describe('Emitter: LinkServiceGenerator', () => {
                         responses: {
                             '200': {
                                 description: 'ok',
-                                links: { 'next': { operationId: 'nextOp' } }
-                            }
-                        }
-                    }
-                }
-            }
+                                links: { next: { operationId: 'nextOp' } },
+                            },
+                        },
+                    },
+                },
+            },
         };
         const parser = createParser(specWithLinks);
 
@@ -49,19 +49,19 @@ describe('Emitter: LinkServiceGenerator', () => {
             target: ts.ScriptTarget.ES2020,
             module: ts.ModuleKind.CommonJS,
             experimentalDecorators: true,
-            emitDecoratorMetadata: true
+            emitDecoratorMetadata: true,
         });
 
         // Mock Dependencies
         const API_LINKS = {
-            'op1': {
+            op1: {
                 '200': {
-                    'nextPage': {
+                    nextPage: {
                         operationId: 'op2',
-                        parameters: { id: '$response.body#/nextId' }
-                    }
-                }
-            }
+                        parameters: { id: '$response.body#/nextId' },
+                    },
+                },
+            },
         };
 
         const responseMock = {
@@ -70,8 +70,8 @@ describe('Emitter: LinkServiceGenerator', () => {
             body: { nextId: 123 },
             headers: {
                 keys: () => [],
-                get: () => null
-            }
+                get: () => null,
+            },
         };
 
         const moduleScope = { exports: {} as any };
@@ -104,7 +104,7 @@ describe('Emitter: LinkServiceGenerator', () => {
             openapi: '3.0.0',
             info: { title: 'Header Test', version: '1.0' },
             components: { links: { Test: {} } },
-            paths: {}
+            paths: {},
         };
         const parser = createParser(spec);
         new LinkServiceGenerator(parser, project).generate('/out');
@@ -114,28 +114,28 @@ describe('Emitter: LinkServiceGenerator', () => {
         const jsCode = ts.transpile(code, {
             target: ts.ScriptTarget.ES2020,
             module: ts.ModuleKind.CommonJS,
-            experimentalDecorators: true
+            experimentalDecorators: true,
         });
 
         const API_LINKS = {
-            'opHeading': {
+            opHeading: {
                 '201': {
-                    'detail': {
+                    detail: {
                         operationId: 'getDetail',
                         parameters: {
                             uuid: '$response.header.x-resource-id',
-                            static: 'constant'
-                        }
-                    }
-                }
-            }
+                            static: 'constant',
+                        },
+                    },
+                },
+            },
         };
 
         const headerMap = new Map([['x-resource-id', 'abc-123']]);
         const responseMock = {
             status: 201,
             headers: headerMap,
-            body: {}
+            body: {},
         };
 
         const moduleScope = { exports: {} as any };
@@ -161,7 +161,7 @@ describe('Emitter: LinkServiceGenerator', () => {
             openapi: '3.0.0',
             info: { title: 'T', version: '1' },
             paths: {},
-            components: { links: { L: {} } }
+            components: { links: { L: {} } },
         };
         const parser = createParser(spec);
         new LinkServiceGenerator(parser, project).generate('/out');
@@ -171,13 +171,13 @@ describe('Emitter: LinkServiceGenerator', () => {
         const jsCode = ts.transpile(code, {
             target: ts.ScriptTarget.ES2020,
             module: ts.ModuleKind.CommonJS,
-            experimentalDecorators: true
+            experimentalDecorators: true,
         });
 
         const API_LINKS = {
-            'createItem': {
+            createItem: {
                 '201': {
-                    'getRelated': {
+                    getRelated: {
                         operationId: 'search',
                         parameters: {
                             // request expressions
@@ -186,11 +186,11 @@ describe('Emitter: LinkServiceGenerator', () => {
                             q: '$request.query.filter',
                             h: '$request.header.x-req-id',
                             b: '$request.body#/data/nested',
-                            p: '$request.path.id' // NEW path param request
-                        }
-                    }
-                }
-            }
+                            p: '$request.path.id', // NEW path param request
+                        },
+                    },
+                },
+            },
         };
 
         // Mock HttpRequest
@@ -199,7 +199,7 @@ describe('Emitter: LinkServiceGenerator', () => {
             method: 'POST',
             body: { data: { nested: 'foo' } },
             headers: new Map([['x-req-id', 'req-99']]),
-            params: new Map([['filter', 'active']])
+            params: new Map([['filter', 'active']]),
         };
 
         const responseMock = { status: 201, headers: {}, body: {} };
@@ -232,7 +232,7 @@ describe('Emitter: LinkServiceGenerator', () => {
             openapi: '3.0.0',
             info: { title: 'T', version: '1' },
             paths: {},
-            components: { links: { L: {} } }
+            components: { links: { L: {} } },
         };
         const parser = createParser(spec);
         new LinkServiceGenerator(parser, project).generate('/out');
@@ -242,21 +242,21 @@ describe('Emitter: LinkServiceGenerator', () => {
         const jsCode = ts.transpile(code, {
             target: ts.ScriptTarget.ES2020,
             module: ts.ModuleKind.CommonJS,
-            experimentalDecorators: true
+            experimentalDecorators: true,
         });
 
         const API_LINKS = {
-            'op1': {
+            op1: {
                 '200': {
-                    'crossServer': {
+                    crossServer: {
                         operationId: 'op2',
                         server: {
                             url: 'https://{region}.api.com/v1',
-                            variables: { region: { default: 'eu-west' } }
-                        }
-                    }
-                }
-            }
+                            variables: { region: { default: 'eu-west' } },
+                        },
+                    },
+                },
+            },
         };
 
         const responseMock = { status: 200, headers: {}, body: {} };
@@ -282,7 +282,7 @@ describe('Emitter: LinkServiceGenerator', () => {
             openapi: '3.0.0',
             info: { title: 'T', version: '1' },
             paths: {},
-            components: { links: { L: {} } }
+            components: { links: { L: {} } },
         };
         const parser = createParser(spec);
         new LinkServiceGenerator(parser, project).generate('/out');
@@ -292,26 +292,26 @@ describe('Emitter: LinkServiceGenerator', () => {
         const jsCode = ts.transpile(code, {
             target: ts.ScriptTarget.ES2020,
             module: ts.ModuleKind.CommonJS,
-            experimentalDecorators: true
+            experimentalDecorators: true,
         });
 
         const API_LINKS = {
-            'opInvalid': {
+            opInvalid: {
                 '200': {
-                    'invalidServer': {
+                    invalidServer: {
                         operationId: 'opTarget',
                         server: {
                             url: 'https://{region}.api.com',
                             variables: {
                                 region: {
                                     default: 'mars', // Invalid value
-                                    enum: ['earth', 'moon']
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+                                    enum: ['earth', 'moon'],
+                                },
+                            },
+                        },
+                    },
+                },
+            },
         };
 
         const responseMock = { status: 200, headers: {}, body: {} };
@@ -325,7 +325,8 @@ describe('Emitter: LinkServiceGenerator', () => {
         new Function('exports', 'Injectable', wrappedCode)(moduleScope.exports, mockInjectable);
         const service = new moduleScope.exports.LinkService();
 
-        expect(() => service.resolveLink('opInvalid', responseMock, 'invalidServer'))
-            .toThrow('Value "mars" for variable "region" is not in the allowed enum: earth, moon');
+        expect(() => service.resolveLink('opInvalid', responseMock, 'invalidServer')).toThrow(
+            'Value "mars" for variable "region" is not in the allowed enum: earth, moon',
+        );
     });
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createTestProject } from '../shared/helpers.js';
 import ts from 'typescript';
-import { XmlParserGenerator } from "@src/generators/shared/xml-parser.generator.js";
+import { XmlParserGenerator } from '@src/generators/shared/xml-parser.generator.js';
 
 /**
  * Helper to compile and return the XmlParser class from the generated code.
@@ -17,7 +17,7 @@ function getXmlParser() {
 
     const jsCode = ts.transpile(codeWithoutExports, {
         target: ts.ScriptTarget.ESNext,
-        module: ts.ModuleKind.CommonJS
+        module: ts.ModuleKind.CommonJS,
     });
 
     const moduleScope = { exports: {} as any };
@@ -44,7 +44,7 @@ function getXmlParser() {
             hasAttribute: (k: string) => k in attributes,
             getAttribute: (k: string) => attributes[k],
             getAttributeNS: (_ns: string, k: string) => attributes[k], // ignore NS for simple mock
-            hasAttributeNS: (_ns: string, k: string) => k in attributes
+            hasAttributeNS: (_ns: string, k: string) => k in attributes,
         });
 
         // Hardcoded object creation based on expected test inputs
@@ -52,56 +52,52 @@ function getXmlParser() {
         if (xml.includes('<root><val>123</val></root>')) {
             return {
                 getElementsByTagName: () => parserError,
-                documentElement: createNode('root', {}, [
-                    createNode('val', {}, [], '123')
-                ], null)
+                documentElement: createNode('root', {}, [createNode('val', {}, [], '123')], null),
             };
         }
         // Case 2: Attributes
         if (xml.includes('<root id="5">text</root>')) {
             return {
                 getElementsByTagName: () => parserError,
-                documentElement: createNode('root', { id: "5" }, [], 'text')
+                documentElement: createNode('root', { id: '5' }, [], 'text'),
             };
         }
         // Case 3: Wrapped Array
         if (xml.includes('<list><item>A</item><item>B</item></list>')) {
             return {
                 getElementsByTagName: () => parserError,
-                documentElement: createNode('root', {}, [
-                    createNode('list', {}, [
-                        createNode('item', {}, [], 'A'),
-                        createNode('item', {}, [], 'B')
-                    ], '')
-                ], null)
+                documentElement: createNode(
+                    'root',
+                    {},
+                    [createNode('list', {}, [createNode('item', {}, [], 'A'), createNode('item', {}, [], 'B')], '')],
+                    null,
+                ),
             };
         }
         // Case 4: Unwrapped Array
         if (xml.includes('<root><tag>A</tag><tag>B</tag></root>')) {
             return {
                 getElementsByTagName: () => parserError,
-                documentElement: createNode('root', {}, [
-                    createNode('tag', {}, [], 'A'),
-                    createNode('tag', {}, [], 'B')
-                ], null)
+                documentElement: createNode(
+                    'root',
+                    {},
+                    [createNode('tag', {}, [], 'A'), createNode('tag', {}, [], 'B')],
+                    null,
+                ),
             };
         }
         // Case 5: Null
         if (xml.includes('nil="true"') && xml.includes('empty')) {
             return {
                 getElementsByTagName: () => parserError,
-                documentElement: createNode('root', {}, [
-                    createNode('empty', { nil: 'true' }, [], '')
-                ], null)
+                documentElement: createNode('root', {}, [createNode('empty', { nil: 'true' }, [], '')], null),
             };
         }
         // Case 6: NodeType None (Structure Flattening)
         if (xml.includes('<root><child>hidden</child></root>')) {
             return {
                 getElementsByTagName: () => parserError,
-                documentElement: createNode('root', {}, [
-                    createNode('child', {}, [], 'hidden')
-                ], null)
+                documentElement: createNode('root', {}, [createNode('child', {}, [], 'hidden')], null),
             };
         }
 
@@ -121,8 +117,8 @@ describe('Utility: XmlParser', () => {
         const xml = '<root><val>123</val></root>';
         const config = {
             properties: {
-                val: { name: 'val' }
-            }
+                val: { name: 'val' },
+            },
         };
         const result = XmlParser.parse(xml, config);
         expect(result.val).toBe('123');
@@ -133,11 +129,11 @@ describe('Utility: XmlParser', () => {
         const config = {
             properties: {
                 id: { attribute: true },
-                content: { nodeType: 'text' }
-            }
+                content: { nodeType: 'text' },
+            },
         };
         const result = XmlParser.parse(xml, config);
-        expect(result.id).toBe("5");
+        expect(result.id).toBe('5');
         expect(result.content).toBe('text');
     });
 
@@ -149,9 +145,9 @@ describe('Utility: XmlParser', () => {
                 myList: {
                     name: 'list',
                     wrapped: true,
-                    items: { name: 'item' }
-                }
-            }
+                    items: { name: 'item' },
+                },
+            },
         };
         const result = XmlParser.parse(xml, config);
         expect(result.myList).toEqual(['A', 'B']);
@@ -165,9 +161,9 @@ describe('Utility: XmlParser', () => {
                 tags: {
                     name: 'tag',
                     wrapped: false,
-                    items: { name: 'tag' } // Effectively treated as repeated elements matching property name
-                }
-            }
+                    items: { name: 'tag' }, // Effectively treated as repeated elements matching property name
+                },
+            },
         };
         const result = XmlParser.parse(xml, config);
         expect(result.tags).toEqual(['A', 'B']);
@@ -177,8 +173,8 @@ describe('Utility: XmlParser', () => {
         const xml = '<root><empty nil="true" /></root>';
         const config = {
             properties: {
-                empty: { name: 'empty' }
-            }
+                empty: { name: 'empty' },
+            },
         };
         const result = XmlParser.parse(xml, config);
         expect(result.empty).toBeNull();
@@ -193,10 +189,10 @@ describe('Utility: XmlParser', () => {
                 wrapper: {
                     nodeType: 'none',
                     properties: {
-                        child: { name: 'child' }
-                    }
-                }
-            }
+                        child: { name: 'child' },
+                    },
+                },
+            },
         };
         const result = XmlParser.parse(xml, config);
         expect(result.wrapper).toBeDefined();

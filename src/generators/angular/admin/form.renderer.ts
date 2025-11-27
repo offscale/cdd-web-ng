@@ -1,5 +1,5 @@
-import { ValidationRule } from "@src/analysis/validation-types.js";
-import { FormControlModel } from "@src/analysis/form-types.js";
+import { ValidationRule } from '@src/analysis/validation-types.js';
+import { FormControlModel } from '@src/analysis/form-types.js';
 
 /**
  * Renders an abstract ValidationRule IR into an Angular-specific validator string.
@@ -15,7 +15,7 @@ export class ValidationRenderer {
      */
     public static render(rules: ValidationRule[]): string {
         if (!rules || rules.length === 0) {
-            return "";
+            return '';
         }
         const renderedRules = rules.map(rule => this.renderRule(rule));
         return `[${renderedRules.join(', ')}]`;
@@ -100,7 +100,6 @@ export class FormInitializerRenderer {
                 }
                 const finalValidatorString = fbValidatorOptions ? `, ${fbValidatorOptions}` : '';
                 return `new FormGroup({${nestedInits}}${finalValidatorString})`;
-
             }
             case 'array': {
                 const fbValidationString = validationString ? `, ${validationString}` : '';
@@ -144,7 +143,7 @@ export class FormInitializerRenderer {
 
     public static renderMapItemInitializer(valueControl: FormControlModel, keyPattern?: string): string {
         // Create validators for the key control
-        let keyValidators = ["Validators.required"];
+        let keyValidators = ['Validators.required'];
         if (keyPattern) {
             // Escape keyPattern if necessary for regex literal
             keyValidators.push(`Validators.pattern(/${keyPattern}/)`);

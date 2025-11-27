@@ -1,7 +1,7 @@
 // src/core/validator.ts
 
-import { Parameter, SwaggerSpec } from "@src/core/types/index.js";
-import { isUrl } from "@src/core/utils/index.js";
+import { Parameter, SwaggerSpec } from '@src/core/types/index.js';
+import { isUrl } from '@src/core/utils/index.js';
 
 /**
  * Error thrown when the OpenAPI specification fails validation.
@@ -24,12 +24,15 @@ export class SpecValidationError extends Error {
  * @returns A normalized signature string.
  */
 function getPathTemplateSignature(path: string): string {
-    return path.split('/').map(segment => {
-        if (segment.startsWith('{') && segment.endsWith('}')) {
-            return '{}';
-        }
-        return segment;
-    }).join('/');
+    return path
+        .split('/')
+        .map(segment => {
+            if (segment.startsWith('{') && segment.endsWith('}')) {
+                return '{}';
+            }
+            return segment;
+        })
+        .join('/');
 }
 
 /**
@@ -55,7 +58,7 @@ function getPathTemplateSignature(path: string): string {
  */
 export function validateSpec(spec: SwaggerSpec): void {
     if (!spec) {
-        throw new SpecValidationError("Specification cannot be null or undefined.");
+        throw new SpecValidationError('Specification cannot be null or undefined.');
     }
 
     // 1. Check Version Header
@@ -63,7 +66,9 @@ export function validateSpec(spec: SwaggerSpec): void {
     const isOpenApi3 = typeof spec.openapi === 'string' && spec.openapi.startsWith('3.');
 
     if (!isSwag2 && !isOpenApi3) {
-        throw new SpecValidationError("Unsupported or missing OpenAPI/Swagger version. Specification must contain 'swagger: \"2.x\"' or 'openapi: \"3.x\"'.");
+        throw new SpecValidationError(
+            'Unsupported or missing OpenAPI/Swagger version. Specification must contain \'swagger: "2.x"\' or \'openapi: "3.x"\'.',
+        );
     }
 
     // 2. Check Info Object
@@ -86,7 +91,9 @@ export function validateSpec(spec: SwaggerSpec): void {
         const hasIdentifier = spec.info.license.identifier !== undefined && spec.info.license.identifier !== null;
 
         if (hasUrl && hasIdentifier) {
-            throw new SpecValidationError("License object cannot contain both 'url' and 'identifier' fields. They are mutually exclusive.");
+            throw new SpecValidationError(
+                "License object cannot contain both 'url' and 'identifier' fields. They are mutually exclusive.",
+            );
         }
     }
 
@@ -110,8 +117,8 @@ export function validateSpec(spec: SwaggerSpec): void {
                     if (existingPath !== pathKey) {
                         throw new SpecValidationError(
                             `Ambiguous path definition detected. OAS 3.2 forbids identical path hierarchies with different parameter names.\n` +
-                            `Path 1: "${existingPath}"\n` +
-                            `Path 2: "${pathKey}"`
+                                `Path 1: "${existingPath}"\n` +
+                                `Path 2: "${pathKey}"`,
                         );
                     }
                 } else {
@@ -135,7 +142,7 @@ export function validateSpec(spec: SwaggerSpec): void {
 
                     if (hasQuery && hasQuerystring) {
                         throw new SpecValidationError(
-                            `Operation '${method.toUpperCase()} ${pathKey}' contains both 'query' and 'querystring' parameters. These are mutually exclusive.`
+                            `Operation '${method.toUpperCase()} ${pathKey}' contains both 'query' and 'querystring' parameters. These are mutually exclusive.`,
                         );
                     }
 
@@ -143,7 +150,7 @@ export function validateSpec(spec: SwaggerSpec): void {
                         // 5b. Examples Exclusivity
                         if (param.example !== undefined && param.examples !== undefined) {
                             throw new SpecValidationError(
-                                `Parameter '${param.name}' in '${method.toUpperCase()} ${pathKey}' contains both 'example' and 'examples'. These fields are mutually exclusive.`
+                                `Parameter '${param.name}' in '${method.toUpperCase()} ${pathKey}' contains both 'example' and 'examples'. These fields are mutually exclusive.`,
                             );
                         }
 
@@ -152,7 +159,7 @@ export function validateSpec(spec: SwaggerSpec): void {
                             // "Parameter Objects MUST include either a content field or a schema field, but not both."
                             if (param.schema !== undefined && param.content !== undefined) {
                                 throw new SpecValidationError(
-                                    `Parameter '${param.name}' in '${method.toUpperCase()} ${pathKey}' contains both 'schema' and 'content'. These fields are mutually exclusive.`
+                                    `Parameter '${param.name}' in '${method.toUpperCase()} ${pathKey}' contains both 'schema' and 'content'. These fields are mutually exclusive.`,
                                 );
                             }
 
@@ -161,7 +168,7 @@ export function validateSpec(spec: SwaggerSpec): void {
                             if (param.content) {
                                 if (Object.keys(param.content).length !== 1) {
                                     throw new SpecValidationError(
-                                        `Parameter '${param.name}' in '${method.toUpperCase()} ${pathKey}' has an invalid 'content' map. It MUST contain exactly one entry.`
+                                        `Parameter '${param.name}' in '${method.toUpperCase()} ${pathKey}' has an invalid 'content' map. It MUST contain exactly one entry.`,
                                     );
                                 }
                             }
@@ -170,7 +177,7 @@ export function validateSpec(spec: SwaggerSpec): void {
                             if (param.allowEmptyValue) {
                                 if (param.in !== 'query') {
                                     throw new SpecValidationError(
-                                        `Parameter '${param.name}' in '${method.toUpperCase()} ${pathKey}' defines 'allowEmptyValue' but location is not 'query'.`
+                                        `Parameter '${param.name}' in '${method.toUpperCase()} ${pathKey}' defines 'allowEmptyValue' but location is not 'query'.`,
                                     );
                                 }
                                 // "If style is used... the value of allowEmptyValue SHALL be ignored." -> We treat explicit definition as error/warning territory in strict mode
@@ -178,7 +185,7 @@ export function validateSpec(spec: SwaggerSpec): void {
                                 // The requirement "forbidden if style is used" comes from the prompt description.
                                 if (param.style) {
                                     throw new SpecValidationError(
-                                        `Parameter '${param.name}' in '${method.toUpperCase()} ${pathKey}' defines 'allowEmptyValue' alongside 'style'. This is forbidden.`
+                                        `Parameter '${param.name}' in '${method.toUpperCase()} ${pathKey}' defines 'allowEmptyValue' alongside 'style'. This is forbidden.`,
                                     );
                                 }
                             }
@@ -187,9 +194,13 @@ export function validateSpec(spec: SwaggerSpec): void {
                         // 5d. Querystring Strictness (OAS 3.2)
                         // "These fields MUST NOT be used with in: 'querystring'."
                         if (param.in === 'querystring') {
-                            if (param.style !== undefined || param.explode !== undefined || param.allowReserved !== undefined) {
+                            if (
+                                param.style !== undefined ||
+                                param.explode !== undefined ||
+                                param.allowReserved !== undefined
+                            ) {
                                 throw new SpecValidationError(
-                                    `Parameter '${param.name}' in '${method.toUpperCase()} ${pathKey}' has location 'querystring' but defines style/explode/allowReserved, which are forbidden.`
+                                    `Parameter '${param.name}' in '${method.toUpperCase()} ${pathKey}' has location 'querystring' but defines style/explode/allowReserved, which are forbidden.`,
                                 );
                             }
                         }
@@ -206,14 +217,14 @@ export function validateSpec(spec: SwaggerSpec): void {
             // Assuming direct objects has example/examples.
             if (param.example !== undefined && param.examples !== undefined) {
                 throw new SpecValidationError(
-                    `Component parameter '${name}' contains both 'example' and 'examples'. These fields are mutually exclusive.`
+                    `Component parameter '${name}' contains both 'example' and 'examples'. These fields are mutually exclusive.`,
                 );
             }
 
             // OAS 3.2 check for component parameter schema vs content exclusivity
             if (param.schema !== undefined && param.content !== undefined) {
                 throw new SpecValidationError(
-                    `Component parameter '${name}' contains both 'schema' and 'content'. These fields are mutually exclusive.`
+                    `Component parameter '${name}' contains both 'schema' and 'content'. These fields are mutually exclusive.`,
                 );
             }
 
@@ -221,7 +232,7 @@ export function validateSpec(spec: SwaggerSpec): void {
             if (param.content) {
                 if (Object.keys(param.content).length !== 1) {
                     throw new SpecValidationError(
-                        `Component parameter '${name}' has an invalid 'content' map. It MUST contain exactly one entry.`
+                        `Component parameter '${name}' has an invalid 'content' map. It MUST contain exactly one entry.`,
                     );
                 }
             }
@@ -230,12 +241,12 @@ export function validateSpec(spec: SwaggerSpec): void {
             if (param.allowEmptyValue) {
                 if (param.in !== 'query') {
                     throw new SpecValidationError(
-                        `Component parameter '${name}' defines 'allowEmptyValue' but location is not 'query'.`
+                        `Component parameter '${name}' defines 'allowEmptyValue' but location is not 'query'.`,
                     );
                 }
                 if (param.style) {
                     throw new SpecValidationError(
-                        `Component parameter '${name}' defines 'allowEmptyValue' alongside 'style'. This is forbidden.`
+                        `Component parameter '${name}' defines 'allowEmptyValue' alongside 'style'. This is forbidden.`,
                     );
                 }
             }
@@ -244,7 +255,7 @@ export function validateSpec(spec: SwaggerSpec): void {
             if (param.in === 'querystring') {
                 if (param.style !== undefined || param.explode !== undefined || param.allowReserved !== undefined) {
                     throw new SpecValidationError(
-                        `Component parameter '${name}' has location 'querystring' but defines style/explode/allowReserved, which are forbidden.`
+                        `Component parameter '${name}' has location 'querystring' but defines style/explode/allowReserved, which are forbidden.`,
                     );
                 }
             }
@@ -263,15 +274,25 @@ export function validateSpec(spec: SwaggerSpec): void {
 
     if (isOpenApi3) {
         if (!hasPaths && !hasComponents && !hasWebhooks) {
-            throw new SpecValidationError("OpenAPI 3.x specification must contain at least one of: 'paths', 'components', or 'webhooks'.");
+            throw new SpecValidationError(
+                "OpenAPI 3.x specification must contain at least one of: 'paths', 'components', or 'webhooks'.",
+            );
         }
 
         // 8. Check Component Key Constraints (OAS 3.x)
         // "All the fixed fields declared above are objects that MUST use keys that match the regular expression: ^[a-zA-Z0-9\.\-_]+$."
         if (spec.components) {
             const componentTypes = [
-                'schemas', 'responses', 'parameters', 'examples', 'requestBodies',
-                'headers', 'securitySchemes', 'links', 'callbacks', 'pathItems'
+                'schemas',
+                'responses',
+                'parameters',
+                'examples',
+                'requestBodies',
+                'headers',
+                'securitySchemes',
+                'links',
+                'callbacks',
+                'pathItems',
             ];
             const validKeyRegex = /^[a-zA-Z0-9\.\-_]+$/;
 
@@ -280,7 +301,9 @@ export function validateSpec(spec: SwaggerSpec): void {
                 if (componentGroup) {
                     for (const key of Object.keys(componentGroup)) {
                         if (!validKeyRegex.test(key)) {
-                            throw new SpecValidationError(`Invalid component key "${key}" in "components.${type}". Keys must match regex: ^[a-zA-Z0-9\\.\\-_]+$`);
+                            throw new SpecValidationError(
+                                `Invalid component key "${key}" in "components.${type}". Keys must match regex: ^[a-zA-Z0-9\\.\\-_]+$`,
+                            );
                         }
                     }
                 }
@@ -297,7 +320,9 @@ export function validateSpec(spec: SwaggerSpec): void {
                 // Fallback regex for simple URI scheme check if 'new URL()' is too strict contextually/environmentally
                 // Check for scheme (alpha + alphanumeric/+-.) followed by colon
                 if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(spec.jsonSchemaDialect)) {
-                    throw new SpecValidationError(`Field 'jsonSchemaDialect' must be a valid URI. Value: "${spec.jsonSchemaDialect}"`);
+                    throw new SpecValidationError(
+                        `Field 'jsonSchemaDialect' must be a valid URI. Value: "${spec.jsonSchemaDialect}"`,
+                    );
                 }
             }
         }

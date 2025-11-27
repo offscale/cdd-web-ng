@@ -4,10 +4,9 @@ import { Project } from 'ts-morph';
 
 import { SwaggerParser } from '@src/core/parser.js';
 import { SecurityGenerator } from '@src/generators/shared/security.generator.js';
-import { GeneratorConfig, SwaggerSpec } from "@src/core/types/index.js";
+import { GeneratorConfig, SwaggerSpec } from '@src/core/types/index.js';
 
 describe('Emitter: SecurityGenerator', () => {
-
     const runGenerator = (spec: Partial<SwaggerSpec>) => {
         const project = new Project({ useInMemoryFileSystem: true });
         const config: GeneratorConfig = { input: '', output: '/out', options: {} };
@@ -22,7 +21,7 @@ describe('Emitter: SecurityGenerator', () => {
             openapi: '3.0.0',
             info: { title: 'Empty', version: '1.0' },
             paths: {},
-            components: {}
+            components: {},
         });
 
         const sourceFile = project.getSourceFile('/out/security.ts');
@@ -42,9 +41,9 @@ describe('Emitter: SecurityGenerator', () => {
                 securitySchemes: {
                     ApiKeyHeader: { type: 'apiKey', in: 'header', name: 'X-API-KEY' },
                     ApiKeyQuery: { type: 'apiKey', in: 'query', name: 'api_key' },
-                    ApiKeyCookie: { type: 'apiKey', in: 'cookie', name: 'SESSIONID' }
-                }
-            }
+                    ApiKeyCookie: { type: 'apiKey', in: 'cookie', name: 'SESSIONID' },
+                },
+            },
         });
 
         const sourceFile = project.getSourceFileOrThrow('/out/security.ts');
@@ -65,13 +64,13 @@ describe('Emitter: SecurityGenerator', () => {
         const schemes: any = {
             BasicAuth: {
                 type: 'http',
-                scheme: 'basic'
+                scheme: 'basic',
             },
             BearerAuth: {
                 type: 'http',
                 scheme: 'bearer',
-                bearerFormat: 'JWT'
-            }
+                bearerFormat: 'JWT',
+            },
         };
 
         const project = runGenerator({
@@ -79,8 +78,8 @@ describe('Emitter: SecurityGenerator', () => {
             info: { title: 'HTTP', version: '1.0' },
             paths: {},
             components: {
-                securitySchemes: schemes
-            }
+                securitySchemes: schemes,
+            },
         });
 
         const sourceFile = project.getSourceFileOrThrow('/out/security.ts');
@@ -106,16 +105,16 @@ describe('Emitter: SecurityGenerator', () => {
                         flows: {
                             implicit: {
                                 authorizationUrl: 'https://example.com/auth',
-                                scopes: { 'read:users': 'Read Users' }
+                                scopes: { 'read:users': 'Read Users' },
                             },
                             password: {
                                 tokenUrl: 'https://example.com/token',
-                                scopes: {}
-                            }
-                        }
-                    }
-                }
-            }
+                                scopes: {},
+                            },
+                        },
+                    },
+                },
+            },
         });
 
         const sourceFile = project.getSourceFileOrThrow('/out/security.ts');
@@ -136,10 +135,10 @@ describe('Emitter: SecurityGenerator', () => {
                 securitySchemes: {
                     OpenID: {
                         type: 'openIdConnect',
-                        openIdConnectUrl: 'https://example.com/.well-known/openid-configuration'
-                    }
-                }
-            }
+                        openIdConnectUrl: 'https://example.com/.well-known/openid-configuration',
+                    },
+                },
+            },
         });
 
         const sourceFile = project.getSourceFileOrThrow('/out/security.ts');
@@ -157,14 +156,14 @@ describe('Emitter: SecurityGenerator', () => {
             paths: {},
             securityDefinitions: {
                 LegacyBasic: {
-                    type: 'basic'
+                    type: 'basic',
                 },
                 LegacyApiKey: {
                     type: 'apiKey',
                     in: 'header',
-                    name: 'X-Auth'
-                }
-            }
+                    name: 'X-Auth',
+                },
+            },
         } as any);
 
         const sourceFile = project.getSourceFileOrThrow('/out/security.ts');

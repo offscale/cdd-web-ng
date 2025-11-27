@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { generateFromConfig } from '@src/index.js';
-import { GeneratorConfig } from "@src/core/types/index.js";
+import { GeneratorConfig } from '@src/core/types/index.js';
 
 import { coverageSpec, securitySpec } from '../shared/specs.js';
 import { createTestProject, runGeneratorWithConfig } from '../shared/helpers.js';
@@ -47,7 +47,9 @@ describe('E2E: Full Generation Orchestrator', () => {
         const project = createTestProject();
         const config: GeneratorConfig = { input: '', output: '/generated', options: { generateServices: true } as any };
         const cookieSecuritySpec = {
-            openapi: '3.0.0', info: { title: 'Test API', version: '1.0.0' }, paths: {},
+            openapi: '3.0.0',
+            info: { title: 'Test API', version: '1.0.0' },
+            paths: {},
             components: {
                 securitySchemes: {
                     CookieAuth: { type: 'apiKey', in: 'cookie', name: 'session_id' },
@@ -80,15 +82,16 @@ describe('E2E: Full Generation Orchestrator', () => {
     });
 
     it('should default to generating admin tests when admin option is present but test option is absent', async () => {
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {
-        });
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
         await runGeneratorWithConfig(coverageSpec, { admin: true });
 
         const logCalls = consoleSpy.mock.calls.flat();
 
         expect(logCalls).toEqual(expect.arrayContaining(['🚀 Generating Admin UI...']));
-        expect(logCalls).toEqual(expect.arrayContaining([expect.stringContaining('Test generation for admin UI is stubbed.')]));
+        expect(logCalls).toEqual(
+            expect.arrayContaining([expect.stringContaining('Test generation for admin UI is stubbed.')]),
+        );
 
         consoleSpy.mockRestore();
     });
@@ -112,8 +115,7 @@ describe('E2E: Full Generation Orchestrator', () => {
     });
 
     it('should skip admin test generation when config is false', async () => {
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {
-        });
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
         await runGeneratorWithConfig(coverageSpec, { admin: true, generateAdminTests: false });
         const logCalls = consoleSpy.mock.calls.flat();
 

@@ -8,8 +8,7 @@ import { UTILITY_GENERATOR_HEADER_COMMENT } from '@src/core/constants.js';
  * for advanced OpenAPI schema validation keywords not covered by Angular's built-in validators.
  */
 export class CustomValidatorsGenerator {
-    constructor(private project: Project) {
-    }
+    constructor(private project: Project) {}
 
     public generate(adminDir: string): void {
         const sharedDir = path.join(adminDir, 'shared');
@@ -21,7 +20,7 @@ export class CustomValidatorsGenerator {
 
         sourceFile.addImportDeclaration({
             moduleSpecifier: '@angular/forms',
-            namedImports: ['AbstractControl', 'ValidationErrors', 'ValidatorFn']
+            namedImports: ['AbstractControl', 'ValidationErrors', 'ValidatorFn'],
         });
 
         const validatorsClass = sourceFile.addClass({
@@ -43,16 +42,21 @@ export class CustomValidatorsGenerator {
                 parameters: [{ name: 'min', type: 'number' }],
                 returnType: 'ValidatorFn',
                 docs: ['Validator determining if value is strictly greater than min.'],
-                statements: writer => writer
-                    .writeLine('return (control: AbstractControl): ValidationErrors | null => {')
-                    .indent(() => {
-                        // Validation failure if value <= min
-                        writer.writeLine('if (control.value === null || control.value === undefined || control.value <= min) {');
-                        writer.indent(() => writer.writeLine('return { exclusiveMinimum: { min, actual: control.value } };'));
-                        writer.writeLine('}');
-                        writer.writeLine('return null;');
-                    })
-                    .writeLine('};')
+                statements: writer =>
+                    writer
+                        .writeLine('return (control: AbstractControl): ValidationErrors | null => {')
+                        .indent(() => {
+                            // Validation failure if value <= min
+                            writer.writeLine(
+                                'if (control.value === null || control.value === undefined || control.value <= min) {',
+                            );
+                            writer.indent(() =>
+                                writer.writeLine('return { exclusiveMinimum: { min, actual: control.value } };'),
+                            );
+                            writer.writeLine('}');
+                            writer.writeLine('return null;');
+                        })
+                        .writeLine('};'),
             },
             {
                 name: 'exclusiveMaximum',
@@ -61,16 +65,21 @@ export class CustomValidatorsGenerator {
                 parameters: [{ name: 'max', type: 'number' }],
                 returnType: 'ValidatorFn',
                 docs: ['Validator determining if value is strictly less than max.'],
-                statements: writer => writer
-                    .writeLine('return (control: AbstractControl): ValidationErrors | null => {')
-                    .indent(() => {
-                        // Validation failure if value >= max
-                        writer.writeLine('if (control.value === null || control.value === undefined || control.value >= max) {');
-                        writer.indent(() => writer.writeLine('return { exclusiveMaximum: { max, actual: control.value } };'));
-                        writer.writeLine('}');
-                        writer.writeLine('return null;');
-                    })
-                    .writeLine('};')
+                statements: writer =>
+                    writer
+                        .writeLine('return (control: AbstractControl): ValidationErrors | null => {')
+                        .indent(() => {
+                            // Validation failure if value >= max
+                            writer.writeLine(
+                                'if (control.value === null || control.value === undefined || control.value >= max) {',
+                            );
+                            writer.indent(() =>
+                                writer.writeLine('return { exclusiveMaximum: { max, actual: control.value } };'),
+                            );
+                            writer.writeLine('}');
+                            writer.writeLine('return null;');
+                        })
+                        .writeLine('};'),
             },
             {
                 name: 'multipleOf',
@@ -78,34 +87,40 @@ export class CustomValidatorsGenerator {
                 scope: Scope.Public,
                 parameters: [{ name: 'factor', type: 'number' }],
                 returnType: 'ValidatorFn',
-                statements: writer => writer
-                    .writeLine('return (control: AbstractControl): ValidationErrors | null => {')
-                    .indent(() => {
-                        writer.writeLine('if (control.value === null || control.value === undefined || control.value % factor !== 0) {');
-                        writer.indent(() => writer.writeLine('return { multipleOf: { factor, actual: control.value } };'));
-                        writer.writeLine('}');
-                        writer.writeLine('return null;');
-                    })
-                    .writeLine('};')
+                statements: writer =>
+                    writer
+                        .writeLine('return (control: AbstractControl): ValidationErrors | null => {')
+                        .indent(() => {
+                            writer.writeLine(
+                                'if (control.value === null || control.value === undefined || control.value % factor !== 0) {',
+                            );
+                            writer.indent(() =>
+                                writer.writeLine('return { multipleOf: { factor, actual: control.value } };'),
+                            );
+                            writer.writeLine('}');
+                            writer.writeLine('return null;');
+                        })
+                        .writeLine('};'),
             },
             {
                 name: 'uniqueItems',
                 isStatic: true,
                 scope: Scope.Public,
                 returnType: 'ValidatorFn',
-                statements: writer => writer
-                    .writeLine('return (control: AbstractControl): ValidationErrors | null => {')
-                    .indent(() => {
-                        writer.writeLine('if (!Array.isArray(control.value)) {');
-                        writer.indent(() => writer.writeLine('return null;'));
-                        writer.writeLine('}');
-                        writer.writeLine('const unique = new Set(control.value);');
-                        writer.writeLine('if (unique.size !== control.value.length) {');
-                        writer.indent(() => writer.writeLine('return { uniqueItems: true };'));
-                        writer.writeLine('}');
-                        writer.writeLine('return null;');
-                    })
-                    .writeLine('};')
+                statements: writer =>
+                    writer
+                        .writeLine('return (control: AbstractControl): ValidationErrors | null => {')
+                        .indent(() => {
+                            writer.writeLine('if (!Array.isArray(control.value)) {');
+                            writer.indent(() => writer.writeLine('return null;'));
+                            writer.writeLine('}');
+                            writer.writeLine('const unique = new Set(control.value);');
+                            writer.writeLine('if (unique.size !== control.value.length) {');
+                            writer.indent(() => writer.writeLine('return { uniqueItems: true };'));
+                            writer.writeLine('}');
+                            writer.writeLine('return null;');
+                        })
+                        .writeLine('};'),
             },
             {
                 name: 'constValidator',
@@ -114,18 +129,21 @@ export class CustomValidatorsGenerator {
                 parameters: [{ name: 'constant', type: 'any' }],
                 returnType: 'ValidatorFn',
                 docs: ['Validator ensuring the value matches a constant (OAS 3.1 const keyword).'],
-                statements: writer => writer
-                    .writeLine('return (control: AbstractControl): ValidationErrors | null => {')
-                    .indent(() => {
-                        writer.writeLine('if (control.value === null || control.value === undefined) {');
-                        writer.indent(() => writer.writeLine('return null;'));
-                        writer.writeLine('}');
-                        writer.writeLine('if (control.value !== constant) {');
-                        writer.indent(() => writer.writeLine('return { const: { required: constant, actual: control.value } };'));
-                        writer.writeLine('}');
-                        writer.writeLine('return null;');
-                    })
-                    .writeLine('};')
+                statements: writer =>
+                    writer
+                        .writeLine('return (control: AbstractControl): ValidationErrors | null => {')
+                        .indent(() => {
+                            writer.writeLine('if (control.value === null || control.value === undefined) {');
+                            writer.indent(() => writer.writeLine('return null;'));
+                            writer.writeLine('}');
+                            writer.writeLine('if (control.value !== constant) {');
+                            writer.indent(() =>
+                                writer.writeLine('return { const: { required: constant, actual: control.value } };'),
+                            );
+                            writer.writeLine('}');
+                            writer.writeLine('return null;');
+                        })
+                        .writeLine('};'),
             },
             {
                 name: 'notValidator',
@@ -134,18 +152,21 @@ export class CustomValidatorsGenerator {
                 parameters: [{ name: 'validator', type: 'ValidatorFn' }],
                 returnType: 'ValidatorFn',
                 docs: ['Inverse validator: Returns error if the inner validator passes (returns null).'],
-                statements: writer => writer
-                    .writeLine('return (control: AbstractControl): ValidationErrors | null => {')
-                    .indent(() => {
-                        writer.writeLine('if (control.value === null || control.value === undefined) return null;');
-                        writer.writeLine('const errors = validator(control);');
-                        writer.writeLine('// If errors exist (inner invalid), we are valid because we want NOT matching');
-                        writer.writeLine('if (errors !== null) return null;');
-                        writer.writeLine('// If null (inner matches), we return error');
-                        writer.writeLine('return { not: true };');
-                    })
-                    .writeLine('};')
-            }
+                statements: writer =>
+                    writer
+                        .writeLine('return (control: AbstractControl): ValidationErrors | null => {')
+                        .indent(() => {
+                            writer.writeLine('if (control.value === null || control.value === undefined) return null;');
+                            writer.writeLine('const errors = validator(control);');
+                            writer.writeLine(
+                                '// If errors exist (inner invalid), we are valid because we want NOT matching',
+                            );
+                            writer.writeLine('if (errors !== null) return null;');
+                            writer.writeLine('// If null (inner matches), we return error');
+                            writer.writeLine('return { not: true };');
+                        })
+                        .writeLine('};'),
+            },
         ];
 
         validatorsClass.addMethods(methods);

@@ -3,8 +3,7 @@ import { Project, VariableDeclarationKind } from 'ts-morph';
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '@src/core/constants.js';
 
 export class AuthTokensGenerator {
-    constructor(private project: Project) {
-    }
+    constructor(private project: Project) {}
 
     public generate(outputDir: string): void {
         const authDir = path.join(outputDir, 'auth');
@@ -21,7 +20,7 @@ export class AuthTokensGenerator {
             {
                 moduleSpecifier: '@angular/common/http',
                 namedImports: ['HttpContextToken'],
-            }
+            },
         ]);
 
         sourceFile.addVariableStatement({
@@ -33,7 +32,7 @@ export class AuthTokensGenerator {
                     initializer: `new InjectionToken<string>('API_KEY')`,
                 },
             ],
-            docs: ["Injection token for providing an API key (Header/Query)."]
+            docs: ['Injection token for providing an API key (Header/Query).'],
         });
 
         sourceFile.addVariableStatement({
@@ -45,7 +44,7 @@ export class AuthTokensGenerator {
                     initializer: `new InjectionToken<string>('COOKIE_AUTH')`,
                 },
             ],
-            docs: ["Injection token for providing an API key via Cookie (Node/SSR mainly)."]
+            docs: ['Injection token for providing an API key via Cookie (Node/SSR mainly).'],
         });
 
         sourceFile.addVariableStatement({
@@ -57,7 +56,7 @@ export class AuthTokensGenerator {
                     initializer: `new InjectionToken<string | (() => string)>('BEARER_TOKEN')`,
                 },
             ],
-            docs: ["Injection token for providing a bearer token or a function that returns a bearer token."]
+            docs: ['Injection token for providing a bearer token or a function that returns a bearer token.'],
         });
 
         sourceFile.addVariableStatement({
@@ -69,7 +68,7 @@ export class AuthTokensGenerator {
                     initializer: `new InjectionToken<any>('HTTPS_AGENT_CONFIG')`,
                 },
             ],
-            docs: ["Injection token for mTLS/HTTPS Agent configuration (Node.js/SSR only)."]
+            docs: ['Injection token for mTLS/HTTPS Agent configuration (Node.js/SSR only).'],
         });
 
         sourceFile.addVariableStatement({
@@ -81,7 +80,7 @@ export class AuthTokensGenerator {
                     initializer: `new HttpContextToken<any>(() => null)`,
                 },
             ],
-            docs: ["HttpContextToken to pass mTLS configuration to the underlying HttpHandler."]
+            docs: ['HttpContextToken to pass mTLS configuration to the underlying HttpHandler.'],
         });
 
         sourceFile.addVariableStatement({
@@ -93,9 +92,7 @@ export class AuthTokensGenerator {
                     initializer: `new HttpContextToken<Record<string, string[]>[]>(() => [])`,
                 },
             ],
-            docs: [
-                "Context token containing the full Security Requirement Object for the request.",
-            ]
+            docs: ['Context token containing the full Security Requirement Object for the request.'],
         });
 
         sourceFile.formatText();

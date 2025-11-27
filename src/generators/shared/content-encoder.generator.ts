@@ -1,44 +1,45 @@
-import * as path from "node:path";
-import { Project, Scope } from "ts-morph";
-import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../core/constants.js";
+import * as path from 'node:path';
+import { Project, Scope } from 'ts-morph';
+import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../core/constants.js';
 
 export class ContentEncoderGenerator {
-    constructor(private project: Project) {
-    }
+    constructor(private project: Project) {}
 
     public generate(outputDir: string): void {
-        const utilsDir = path.join(outputDir, "utils");
-        const filePath = path.join(utilsDir, "content-encoder.ts");
+        const utilsDir = path.join(outputDir, 'utils');
+        const filePath = path.join(utilsDir, 'content-encoder.ts');
 
-        const sourceFile = this.project.createSourceFile(filePath, "", { overwrite: true });
+        const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
         sourceFile.addInterface({
-            name: "ContentEncoderConfig",
+            name: 'ContentEncoderConfig',
             isExported: true,
             properties: [
-                { name: "encode", type: "boolean", hasQuestionToken: true, docs: ["If true, stringify the value."] },
-                { name: "properties", type: "Record<string, ContentEncoderConfig>", hasQuestionToken: true },
-                { name: "items", type: "ContentEncoderConfig", hasQuestionToken: true }
-            ]
+                { name: 'encode', type: 'boolean', hasQuestionToken: true, docs: ['If true, stringify the value.'] },
+                { name: 'properties', type: 'Record<string, ContentEncoderConfig>', hasQuestionToken: true },
+                { name: 'items', type: 'ContentEncoderConfig', hasQuestionToken: true },
+            ],
         });
 
         const classDeclaration = sourceFile.addClass({
-            name: "ContentEncoder",
+            name: 'ContentEncoder',
             isExported: true,
-            docs: ["Utility to auto-encode content into strings (e.g. JSON.stringify) based on OAS 3.1 contentMediaType."],
+            docs: [
+                'Utility to auto-encode content into strings (e.g. JSON.stringify) based on OAS 3.1 contentMediaType.',
+            ],
         });
 
         classDeclaration.addMethod({
-            name: "encode",
+            name: 'encode',
             isStatic: true,
             scope: Scope.Public,
             parameters: [
-                { name: "data", type: "any" },
-                { name: "config", type: "ContentEncoderConfig", hasQuestionToken: true }
+                { name: 'data', type: 'any' },
+                { name: 'config', type: 'ContentEncoderConfig', hasQuestionToken: true },
             ],
-            returnType: "any",
+            returnType: 'any',
             statements: `
         if (data === null || data === undefined || !config) { 
             return data; 
@@ -73,7 +74,7 @@ export class ContentEncoderGenerator {
             } 
         } 
 
-        return data;`
+        return data;`,
         });
 
         sourceFile.formatText();

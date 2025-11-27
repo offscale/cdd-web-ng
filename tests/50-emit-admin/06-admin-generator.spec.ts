@@ -7,7 +7,6 @@ import { SwaggerParser } from '@src/core/parser.js';
 import { CustomValidatorsGenerator } from '@src/generators/angular/admin/custom-validators.generator.js';
 
 describe('Admin: AdminGenerator (Orchestrator)', () => {
-
     it('should call specialist generators for each suitable resource', async () => {
         const project = createTestProject();
         const parser = new SwaggerParser(coverageSpec as any, { options: { admin: true } } as any);
@@ -21,8 +20,12 @@ describe('Admin: AdminGenerator (Orchestrator)', () => {
         expect(project.getSourceFile('/out/admin/users/users.routes.ts')).toBeDefined();
 
         // Publications: Has only form operations
-        expect(project.getSourceFile('/out/admin/publications/publications-list/publications-list.component.ts')).toBeUndefined();
-        expect(project.getSourceFile('/out/admin/publications/publications-form/publications-form.component.ts')).toBeDefined();
+        expect(
+            project.getSourceFile('/out/admin/publications/publications-list/publications-list.component.ts'),
+        ).toBeUndefined();
+        expect(
+            project.getSourceFile('/out/admin/publications/publications-form/publications-form.component.ts'),
+        ).toBeDefined();
 
         // Logs: Has only list operations
         expect(project.getSourceFile('/out/admin/logs/logs-list/logs-list.component.ts')).toBeDefined();
@@ -61,8 +64,7 @@ describe('Admin: AdminGenerator (Orchestrator)', () => {
     });
 
     it('should warn and exit gracefully if no resources are discovered', async () => {
-        const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
-        });
+        const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
         vi.spyOn(resourceDiscovery, 'discoverAdminResources').mockReturnValue([]);
 
         const project = createTestProject();
@@ -71,7 +73,9 @@ describe('Admin: AdminGenerator (Orchestrator)', () => {
         const adminGen = new AdminGenerator(parser, project);
 
         await adminGen.generate('/out');
-        expect(consoleWarnSpy).toHaveBeenCalledWith("⚠️ No resources suitable for admin UI generation were found. Skipping.");
+        expect(consoleWarnSpy).toHaveBeenCalledWith(
+            '⚠️ No resources suitable for admin UI generation were found. Skipping.',
+        );
 
         vi.restoreAllMocks();
     });

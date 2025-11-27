@@ -1,31 +1,30 @@
-import { Project, VariableDeclarationKind } from "ts-morph";
-import * as path from "node:path";
-import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../../core/constants.js";
+import { Project, VariableDeclarationKind } from 'ts-morph';
+import * as path from 'node:path';
+import { UTILITY_GENERATOR_HEADER_COMMENT } from '@src/core/constants.js';
 
 export class DateTransformerGenerator {
-    constructor(private project: Project) {
-    }
+    constructor(private project: Project) {}
 
     public generate(outputDir: string): void {
-        const utilsDir = path.join(outputDir, "utils");
-        const filePath = path.join(utilsDir, "date-transformer.ts");
+        const utilsDir = path.join(outputDir, 'utils');
+        const filePath = path.join(utilsDir, 'date-transformer.ts');
 
-        const sourceFile = this.project.createSourceFile(filePath, "", { overwrite: true });
+        const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
         sourceFile.addImportDeclarations([
             {
-                namedImports: ["HttpEvent", "HttpHandler", "HttpInterceptor", "HttpRequest", "HttpResponse"],
-                moduleSpecifier: "@angular/common/http",
+                namedImports: ['HttpEvent', 'HttpHandler', 'HttpInterceptor', 'HttpRequest', 'HttpResponse'],
+                moduleSpecifier: '@angular/common/http',
             },
             {
-                namedImports: ["Injectable"],
-                moduleSpecifier: "@angular/core",
+                namedImports: ['Injectable'],
+                moduleSpecifier: '@angular/core',
             },
             {
-                namedImports: ["Observable", "map"],
-                moduleSpecifier: "rxjs",
+                namedImports: ['Observable', 'map'],
+                moduleSpecifier: 'rxjs',
             },
         ]);
 
@@ -34,19 +33,19 @@ export class DateTransformerGenerator {
             declarationKind: VariableDeclarationKind.Const,
             declarations: [
                 {
-                    name: "ISO_DATE_REGEX",
+                    name: 'ISO_DATE_REGEX',
                     initializer: `/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$/`,
                 },
             ],
-            docs: ["A regex pattern to identify strings that are likely ISO 8601 date-time formats."]
+            docs: ['A regex pattern to identify strings that are likely ISO 8601 date-time formats.'],
         });
 
         sourceFile.addFunction({
-            name: "transformDates",
+            name: 'transformDates',
             isExported: true,
-            parameters: [{ name: "body", type: "any" }],
-            returnType: "any",
-            docs: ["Recursively traverses an object or array and converts ISO date strings to Date objects."],
+            parameters: [{ name: 'body', type: 'any' }],
+            returnType: 'any',
+            docs: ['Recursively traverses an object or array and converts ISO date strings to Date objects.'],
             statements: `
     if (body === null || body === undefined || typeof body !== 'object') { 
         return body; 
@@ -67,23 +66,23 @@ export class DateTransformerGenerator {
             transformedBody[key] = value; 
         } 
     } 
-    return transformedBody;`
+    return transformedBody;`,
         });
 
         sourceFile.addClass({
-            name: "DateInterceptor",
+            name: 'DateInterceptor',
             isExported: true,
             decorators: [{ name: 'Injectable', arguments: [`{ providedIn: 'root' }`] }],
-            implements: ["HttpInterceptor"],
-            docs: ["Intercepts HTTP responses and transforms ISO date strings to Date objects in the response body."],
+            implements: ['HttpInterceptor'],
+            docs: ['Intercepts HTTP responses and transforms ISO date strings to Date objects in the response body.'],
             methods: [
                 {
-                    name: "intercept",
+                    name: 'intercept',
                     parameters: [
-                        { name: "req", type: "HttpRequest<any>" },
-                        { name: "next", type: "HttpHandler" },
+                        { name: 'req', type: 'HttpRequest<any>' },
+                        { name: 'next', type: 'HttpHandler' },
                     ],
-                    returnType: "Observable<HttpEvent<any>>",
+                    returnType: 'Observable<HttpEvent<any>>',
                     statements: `
     return next.handle(req).pipe( 
         map(event => { 

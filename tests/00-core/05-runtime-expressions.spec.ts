@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
+
 import { evaluateJsonPointer, evaluateRuntimeExpression, RuntimeContext } from '@src/core/runtime-expressions.js';
 
 describe('Core: Runtime Expression Evaluator', () => {
-
     const mockContext: RuntimeContext = {
         url: 'https://example.com/users/123',
         method: 'POST',
@@ -11,35 +11,35 @@ describe('Core: Runtime Expression Evaluator', () => {
             headers: {
                 'Content-Type': 'application/json',
                 'X-Request-ID': 'req-1',
-                'Accept': ['application/json', 'text/html']
+                Accept: ['application/json', 'text/html'],
             },
             query: {
                 search: 'foo',
-                tags: ['a', 'b']
+                tags: ['a', 'b'],
             },
             path: {
-                id: '123'
+                id: '123',
             },
             body: {
                 user: {
                     id: 999,
-                    roles: ['admin', 'editor']
-                }
-            }
+                    roles: ['admin', 'editor'],
+                },
+            },
         },
         response: {
             headers: {
-                'Location': 'https://example.com/users/999',
-                'X-Rate-Limit': '100'
+                Location: 'https://example.com/users/999',
+                'X-Rate-Limit': '100',
             },
             body: {
                 success: true,
                 id: 999,
                 meta: {
-                    timestamp: 1234567890
-                }
-            }
-        }
+                    timestamp: 1234567890,
+                },
+            },
+        },
     };
 
     describe('JSON Pointer Evaluation', () => {
@@ -47,8 +47,8 @@ describe('Core: Runtime Expression Evaluator', () => {
             foo: 'bar',
             nested: { val: 1 },
             arr: [10, 20],
-            "slashed/prop": "ok",
-            "tilde~prop": "ok"
+            'slashed/prop': 'ok',
+            'tilde~prop': 'ok',
         };
 
         it('should resolve top-level properties', () => {
@@ -133,7 +133,9 @@ describe('Core: Runtime Expression Evaluator', () => {
 
         describe('$response sources', () => {
             it('should resolve response header', () => {
-                expect(evaluateRuntimeExpression('$response.header.Location', mockContext)).toBe('https://example.com/users/999');
+                expect(evaluateRuntimeExpression('$response.header.Location', mockContext)).toBe(
+                    'https://example.com/users/999',
+                );
             });
 
             it('should resolve response body via pointer', () => {
@@ -146,7 +148,7 @@ describe('Core: Runtime Expression Evaluator', () => {
                     url: mockContext.url,
                     method: mockContext.method,
                     statusCode: mockContext.statusCode,
-                    request: mockContext.request
+                    request: mockContext.request,
                     // response is undefined
                 };
                 expect(evaluateRuntimeExpression('$response.body', noRes)).toBeUndefined();

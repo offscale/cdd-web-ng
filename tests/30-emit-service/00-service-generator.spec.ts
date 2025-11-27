@@ -1,29 +1,33 @@
 import { describe, expect, it } from 'vitest';
+
 import { Project, Scope } from 'ts-morph';
+
 import { ServiceGenerator } from '@src/generators/angular/service/service.generator.js';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from "@src/core/types/index.js";
-import { branchCoverageSpec, coverageSpec, fullCRUD_Users } from '../shared/specs.js';
-import { groupPathsByController } from "@src/core/utils/index.js";
-import { TypeGenerator } from "@src/generators/shared/type.generator.js";
+import { GeneratorConfig } from '@src/core/types/index.js';
+import { groupPathsByController } from '@src/core/utils/index.js';
+import { TypeGenerator } from '@src/generators/shared/type.generator.js';
 import { TokenGenerator } from '@src/generators/angular/utils/token.generator.js';
 // Using ParameterSerializerGenerator instead of HttpParamsBuilderGenerator
 import { ParameterSerializerGenerator } from '@src/generators/shared/parameter-serializer.generator.js';
 import { AuthTokensGenerator } from '@src/generators/angular/utils/auth-tokens.generator.js';
 
-describe('Generators (Angular): ServiceGenerator', () => {
+import { branchCoverageSpec, coverageSpec, fullCRUD_Users } from '../shared/specs.js';
 
+describe('Generators (Angular): ServiceGenerator', () => {
     const createTestEnvironment = (spec: any, configOverrides: Partial<GeneratorConfig['options']> = {}) => {
         const project = new Project({ useInMemoryFileSystem: true });
         const config: GeneratorConfig = {
-            input: '', output: '/out', clientName: 'default',
-            options: { dateType: 'string', enumStyle: 'enum', framework: 'angular', ...configOverrides }
+            input: '',
+            output: '/out',
+            clientName: 'default',
+            options: { dateType: 'string', enumStyle: 'enum', framework: 'angular', ...configOverrides },
         };
 
         const safeSpec = {
             openapi: '3.0.0',
             info: { title: 'Test', version: '1.0' },
-            ...spec
+            ...spec,
         };
 
         const parser = new SwaggerParser(safeSpec, config);
@@ -44,21 +48,29 @@ describe('Generators (Angular): ServiceGenerator', () => {
 
     it('should handle methods with query, path, and body parameters', () => {
         const project = createTestEnvironment(coverageSpec);
-        const serviceClass = project.getSourceFileOrThrow('/out/services/users.service.ts').getClassOrThrow('UsersService');
-        const method = serviceClass.getMethods().find(m => m.getName() === 'updateUser' && m.getParameters().some(p => p.getName() === 'user'))!;
+        const serviceClass = project
+            .getSourceFileOrThrow('/out/services/users.service.ts')
+            .getClassOrThrow('UsersService');
+        const method = serviceClass
+            .getMethods()
+            .find(m => m.getName() === 'updateUser' && m.getParameters().some(p => p.getName() === 'user'))!;
         const body = method.getBodyText() ?? '';
 
-        expect(body).toContain("const basePath = this.basePath;");
+        expect(body).toContain('const basePath = this.basePath;');
         // Updated expectation: ParameterSerializer
-        expect(body).toContain("const url = `${basePath}/users/${ParameterSerializer.serializePathParam('id', id, 'simple', false, false)}`;");
+        expect(body).toContain(
+            "const url = `${basePath}/users/${ParameterSerializer.serializePathParam('id', id, 'simple', false, false)}`;",
+        );
         // Expect generic call now
-        expect(body).toContain("return this.http.put<any>(url, user, requestOptions as any);");
-        expect(body).not.toContain("finalOptions.body = user;");
+        expect(body).toContain('return this.http.put<any>(url, user, requestOptions as any);');
+        expect(body).not.toContain('finalOptions.body = user;');
     });
 
     it('should generate a void return type for 204 responses', () => {
         const project = createTestEnvironment(coverageSpec);
-        const serviceClass = project.getSourceFileOrThrow('/out/services/noContent.service.ts').getClassOrThrow('NoContentService');
+        const serviceClass = project
+            .getSourceFileOrThrow('/out/services/noContent.service.ts')
+            .getClassOrThrow('NoContentService');
         const method = serviceClass.getMethodOrThrow('deleteNoContent');
         const firstOverload = method.getOverloads()[0]!;
         expect(firstOverload.getReturnType().getText()).toBe('Observable<void>');
@@ -66,7 +78,7 @@ describe('Generators (Angular): ServiceGenerator', () => {
 
     it('should use a custom method name when provided in config', () => {
         const project = createTestEnvironment(coverageSpec, {
-            customizeMethodName: (opId: string) => `custom_${opId.replace(/-/g, '_')}`
+            customizeMethodName: (opId: string) => `custom_${opId.replace(/-/g, '_')}`,
         });
         const serviceFile = project.getSourceFileOrThrow('/out/services/customName.service.ts');
         const serviceClass = serviceFile.getClassOrThrow('CustomNameService');
@@ -75,7 +87,7 @@ describe('Generators (Angular): ServiceGenerator', () => {
 
     it('should fall back to path-based name if customizer exists but op has no ID', () => {
         const project = createTestEnvironment(branchCoverageSpec, {
-            customizeMethodName: (opId: string) => `custom_${opId}`
+            customizeMethodName: (opId: string) => `custom_${opId}`,
         });
         const serviceFile = project.getSourceFileOrThrow('/out/services/noOperationId.service.ts');
         const serviceClass = serviceFile.getClassOrThrow('NoOperationIdService');
@@ -124,7 +136,9 @@ describe('Generators (Angular): ServiceGenerator', () => {
 
     it('should generate a correct create-context method', () => {
         const project = createTestEnvironment(coverageSpec);
-        const serviceClass = project.getSourceFileOrThrow('/out/services/users.service.ts').getClassOrThrow('UsersService');
+        const serviceClass = project
+            .getSourceFileOrThrow('/out/services/users.service.ts')
+            .getClassOrThrow('UsersService');
         const method = serviceClass.getMethodOrThrow('createContextWithClientId');
         expect(method.getScope()).toBe(Scope.Private);
         const body = method.getBodyText() ?? '';
@@ -135,24 +149,24 @@ describe('Generators (Angular): ServiceGenerator', () => {
         const specWithOverride = {
             ...coverageSpec,
             components: {
-                securitySchemes: { Basic: { type: 'http', scheme: 'basic' } }
+                securitySchemes: { Basic: { type: 'http', scheme: 'basic' } },
             },
             paths: {
                 '/public': {
                     get: {
                         tags: ['Public'],
                         security: [],
-                        responses: { '200': {} }
-                    }
+                        responses: { '200': {} },
+                    },
                 },
                 '/protected': {
                     get: {
                         tags: ['Public'],
-                        responses: { '200': {} }
-                    }
-                }
+                        responses: { '200': {} },
+                    },
+                },
             },
-            security: [{ Basic: [] }]
+            security: [{ Basic: [] }],
         };
 
         const project = createTestEnvironment(specWithOverride);
@@ -175,11 +189,11 @@ describe('Generators (Angular): ServiceGenerator', () => {
                     get: {
                         tags: ['Public'],
                         security: [],
-                        responses: { '200': {} }
-                    }
-                }
+                        responses: { '200': {} },
+                    },
+                },
             },
-            components: {}
+            components: {},
         };
 
         const project = createTestEnvironment(specWithoutGlobalSec);

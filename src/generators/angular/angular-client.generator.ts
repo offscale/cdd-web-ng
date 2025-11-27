@@ -4,17 +4,17 @@ import { posix as path } from 'node:path';
 
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from '@src/core/types/index.js';
-import { camelCase, pascalCase } from "@src/core/utils/index.js";
+import { camelCase, pascalCase } from '@src/core/utils/index.js';
 
 import { AbstractClientGenerator } from '../../core/generator.js';
 
 // Core Generators
-import { TypeGenerator } from "@src/generators/shared/type.generator.js";
+import { TypeGenerator } from '@src/generators/shared/type.generator.js';
 
 // Angular Generators
 import { AdminGenerator } from './admin/admin.generator.js';
 import { ServiceGenerator } from './service/service.generator.js';
-import { ServiceTestGenerator } from "./test/service-test-generator.js";
+import { ServiceTestGenerator } from './test/service-test-generator.js';
 
 // Angular Utilities
 import { TokenGenerator } from './utils/token.generator.js';
@@ -37,7 +37,7 @@ import { ExtensionTokensGenerator } from './utils/extension-tokens.generator.js'
 import { WebhookHelperGenerator } from './utils/webhook-helper.generator.js';
 
 // Shared Utilities
-import { ParameterSerializerGenerator } from "../shared/parameter-serializer.generator.js";
+import { ParameterSerializerGenerator } from '../shared/parameter-serializer.generator.js';
 import { ServerGenerator } from '../shared/server.generator.js';
 import { ServerUrlGenerator } from '../shared/server-url.generator.js';
 import { XmlBuilderGenerator } from '../shared/xml-builder.generator.js';
@@ -47,12 +47,12 @@ import { ContentEncoderGenerator } from '../shared/content-encoder.generator.js'
 import { InfoGenerator } from '../shared/info.generator.js';
 import { MultipartBuilderGenerator } from '../shared/multipart-builder.generator.js';
 import { ResponseHeaderRegistryGenerator } from '../shared/response-header-registry.generator.js';
-import { CallbackGenerator } from "@src/generators/shared/callback.generator.js";
-import { WebhookGenerator } from "@src/generators/shared/webhook.generator.js";
-import { LinkGenerator } from "@src/generators/shared/link.generator.js";
-import { DiscriminatorGenerator } from "@src/generators/shared/discriminator.generator.js";
-import { SecurityGenerator } from "@src/generators/shared/security.generator.js";
-import { TagGenerator } from "@src/generators/shared/tag.generator.js";
+import { CallbackGenerator } from '@src/generators/shared/callback.generator.js';
+import { WebhookGenerator } from '@src/generators/shared/webhook.generator.js';
+import { LinkGenerator } from '@src/generators/shared/link.generator.js';
+import { DiscriminatorGenerator } from '@src/generators/shared/discriminator.generator.js';
+import { SecurityGenerator } from '@src/generators/shared/security.generator.js';
+import { TagGenerator } from '@src/generators/shared/tag.generator.js';
 
 function getControllerCanonicalName(op: any): string {
     if (Array.isArray(op.tags) && op.tags[0]) {
@@ -73,8 +73,12 @@ function groupPathsByCanonicalController(parser: SwaggerParser): Record<string, 
 }
 
 export class AngularClientGenerator extends AbstractClientGenerator {
-
-    public async generate(project: Project, parser: SwaggerParser, config: GeneratorConfig, outputRoot: string): Promise<void> {
+    public async generate(
+        project: Project,
+        parser: SwaggerParser,
+        config: GeneratorConfig,
+        outputRoot: string,
+    ): Promise<void> {
         // 1. Models
         new TypeGenerator(parser, project, config).generate(outputRoot);
         console.log('✅ Models generated.');
@@ -93,7 +97,7 @@ export class AngularClientGenerator extends AbstractClientGenerator {
         new TagGenerator(parser, project).generate(outputRoot);
 
         // 3. Services and Angular Specifics
-        if ((config.options.generateServices ?? true)) {
+        if (config.options.generateServices ?? true) {
             const servicesDir = path.join(outputRoot, 'services');
             const controllerGroups = groupPathsByCanonicalController(parser);
 

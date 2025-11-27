@@ -1,49 +1,49 @@
 name: Tests and coverage
 
 on:
-  push:
-    branches:
-      - master
+    push:
+        branches:
+            - master
 
 jobs:
-  tests_and_coverage:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
+    tests_and_coverage:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 'lts/*'
+            - uses: actions/setup-node@v6
+              with:
+                  node-version: 'lts/*'
 
-      - name: Install requirements
-        run: npm ci
+            - name: Install requirements
+              run: npm ci
 
-      - name: Generate docs (also checks types)
-        run: npm run-script docs
+            - name: Generate docs (also checks types)
+              run: npm run-script docs
 
-      - name: Run tests and collect coverage
-        run: npm run-script test:coverage
+            - name: Run tests and collect coverage
+              run: npm run-script test:coverage
 
-      - name: Upload coverage report artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: ./coverage
+            - name: Upload coverage report artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: coverage-report
+                  path: ./coverage
 
-      - name: Upload coverage reports to Codecov with GitHub Action
-        uses: codecov/codecov-action@v5
-        with:
-          files: ./coverage/lcov.info
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+            - name: Upload coverage reports to Codecov with GitHub Action
+              uses: codecov/codecov-action@v5
+              with:
+                  files: ./coverage/lcov.info
+              env:
+                  CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-      - name: Upload test results to Codecov
-        if: ${{ !cancelled() }}
-        uses: codecov/test-results-action@v1
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          #          flags: report-type="test_results"
-          flags: unittests
-          files: ./coverage/junit.xml
-          disable_search: true
-          verbose: true
+            - name: Upload test results to Codecov
+              if: ${{ !cancelled() }}
+              uses: codecov/test-results-action@v1
+              with:
+                  token: ${{ secrets.CODECOV_TOKEN }}
+                  #          flags: report-type="test_results"
+                  flags: unittests
+                  files: ./coverage/junit.xml
+                  disable_search: true
+                  verbose: true

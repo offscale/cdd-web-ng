@@ -6,11 +6,15 @@ import { SwaggerParser } from '@src/core/parser.js';
 import ts from 'typescript';
 
 describe('Emitter: Response Header Utilities', () => {
-    const createParser = (spec: any, options: any = {}) => new SwaggerParser({
-        openapi: '3.0.0',
-        info: { title: 'T', version: '1' },
-        ...spec
-    } as any, { options } as any);
+    const createParser = (spec: any, options: any = {}) =>
+        new SwaggerParser(
+            {
+                openapi: '3.0.0',
+                info: { title: 'T', version: '1' },
+                ...spec,
+            } as any,
+            { options } as any,
+        );
 
     describe('Registry Generator', () => {
         it('should skip generation if no response headers are defined', () => {
@@ -37,13 +41,13 @@ describe('Emitter: Response Header Utilities', () => {
                                         'X-Bool': { schema: { type: 'boolean' } },
                                         'X-Str': { schema: { type: 'string' } },
                                         'X-Date': { schema: { type: 'string', format: 'date-time' } },
-                                        'X-Json': { content: { 'application/json': { schema: { type: 'object' } } } }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                                        'X-Json': { content: { 'application/json': { schema: { type: 'object' } } } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
             };
 
             const parser = createParser(spec, { dateType: 'Date' });
@@ -63,7 +67,7 @@ describe('Emitter: Response Header Utilities', () => {
                 'X-Bool': 'boolean',
                 'X-Str': 'string',
                 'X-Date': 'date',
-                'X-Json': 'json'
+                'X-Json': 'json',
             });
         });
 
@@ -77,13 +81,13 @@ describe('Emitter: Response Header Utilities', () => {
                             responses: {
                                 '200': {
                                     headers: {
-                                        'X-Date': { schema: { type: 'string', format: 'date-time' } }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                                        'X-Date': { schema: { type: 'string', format: 'date-time' } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
             };
 
             const parser = createParser(spec, { dateType: 'string' });
@@ -117,17 +121,17 @@ describe('Emitter: Response Header Utilities', () => {
                                                     schema: {
                                                         type: 'object',
                                                         properties: { id: { type: 'integer' } },
-                                                        xml: { name: 'Data' }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                                                        xml: { name: 'Data' },
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
             };
             const parser = createParser(spec);
             new ResponseHeaderRegistryGenerator(parser, project).generate('/out');
@@ -157,15 +161,15 @@ describe('Emitter: Response Header Utilities', () => {
                                 '200': {
                                     description: 'ok',
                                     headers: {
-                                        'Link': { schema: { type: 'string' } }, // Should detect 'linkset' from name
+                                        Link: { schema: { type: 'string' } }, // Should detect 'linkset' from name
                                         'X-Link-Set': { content: { 'application/linkset': {} } }, // Explicit header content type
-                                        'X-Str': { schema: { type: 'string' } }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                                        'X-Str': { schema: { type: 'string' } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
             };
 
             const parser = createParser(spec);
@@ -180,16 +184,15 @@ describe('Emitter: Response Header Utilities', () => {
             const API_RESPONSE_HEADERS = moduleScope.exports.API_RESPONSE_HEADERS;
 
             expect(API_RESPONSE_HEADERS['getLinkHeaders']['200']).toEqual({
-                'Link': 'linkset',
+                Link: 'linkset',
                 'X-Link-Set': 'linkset',
-                'X-Str': 'string'
+                'X-Str': 'string',
             });
         });
 
         it('should handle edge cases: bad refs, non-json content, unknown schema types', () => {
             const project = createTestProject();
-            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
-            });
+            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
             const spec = {
                 paths: {
@@ -204,13 +207,13 @@ describe('Emitter: Response Header Utilities', () => {
                                         'X-Html': { content: { 'text/html': {} } },
                                         'X-Bad-Ref': { schema: { $ref: '#/components/schemas/Missing' } },
                                         'X-Unknown': { schema: { type: 'something-else' } },
-                                        'X-Arr': { schema: { type: 'array' } }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                                        'X-Arr': { schema: { type: 'array' } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
             };
 
             const parser = createParser(spec);
@@ -244,18 +247,18 @@ describe('Emitter: Response Header Utilities', () => {
             const jsCode = ts.transpile(code, {
                 target: ts.ScriptTarget.ES2020,
                 module: ts.ModuleKind.CommonJS,
-                experimentalDecorators: true
+                experimentalDecorators: true,
             });
 
             const API_RESPONSE_HEADERS = {
-                'op1': {
+                op1: {
                     '200': {
                         'X-Count': 'number',
                         'X-Valid': 'boolean',
                         'X-Meta': 'json',
-                        'X-Time': 'date'
-                    }
-                }
+                        'X-Time': 'date',
+                    },
+                },
             };
             const API_HEADER_XML_CONFIGS = {};
 
@@ -268,7 +271,7 @@ describe('Emitter: Response Header Utilities', () => {
             const mockHeaders = {
                 has: (k: string) => headersMap.has(k),
                 get: (k: string) => headersMap.get(k),
-                getAll: (k: string) => [headersMap.get(k)]
+                getAll: (k: string) => [headersMap.get(k)],
             };
 
             const moduleScope = { exports: {} as any };
@@ -306,18 +309,18 @@ describe('Emitter: Response Header Utilities', () => {
             const jsCode = ts.transpile(code, {
                 target: ts.ScriptTarget.ES2020,
                 module: ts.ModuleKind.CommonJS,
-                experimentalDecorators: true
+                experimentalDecorators: true,
             });
 
             const XmlParserMock = {
-                parse: (xml: string, config: any) => ({ parsed: true, root: config.name, raw: xml })
+                parse: (xml: string, config: any) => ({ parsed: true, root: config.name, raw: xml }),
             };
 
             const API_RESPONSE_HEADERS = {
-                'op1': { '200': { 'X-Data': 'xml' } }
+                op1: { '200': { 'X-Data': 'xml' } },
             };
             const API_HEADER_XML_CONFIGS = {
-                'op1_200_X-Data': { name: 'RootDetails' }
+                'op1_200_X-Data': { name: 'RootDetails' },
             };
 
             const headersMap = new Map<string, string>();
@@ -326,7 +329,7 @@ describe('Emitter: Response Header Utilities', () => {
             const mockHeaders = {
                 has: (k: string) => headersMap.has(k),
                 get: (k: string) => headersMap.get(k),
-                getAll: (k: string) => [headersMap.get(k)]
+                getAll: (k: string) => [headersMap.get(k)],
             };
 
             const moduleScope = { exports: {} as any };
@@ -351,7 +354,7 @@ describe('Emitter: Response Header Utilities', () => {
             expect(result['X-Data']).toEqual({
                 parsed: true,
                 root: 'RootDetails',
-                raw: '<RootDetails><val>1</val></RootDetails>'
+                raw: '<RootDetails><val>1</val></RootDetails>',
             });
         });
 
@@ -365,15 +368,15 @@ describe('Emitter: Response Header Utilities', () => {
             const jsCode = ts.transpile(code, {
                 target: ts.ScriptTarget.ES2020,
                 module: ts.ModuleKind.CommonJS,
-                experimentalDecorators: true
+                experimentalDecorators: true,
             });
 
             const API_RESPONSE_HEADERS = {
-                'op1': {
+                op1: {
                     '200': {
-                        'Link': 'linkset'
-                    }
-                }
+                        Link: 'linkset',
+                    },
+                },
             };
             const API_HEADER_XML_CONFIGS = {};
             const XmlParser = { parse: () => null };
@@ -385,7 +388,7 @@ describe('Emitter: Response Header Utilities', () => {
             const mockHeaders = {
                 has: (k: string) => headersMap.has(k),
                 get: (k: string) => headersMap.get(k),
-                getAll: (k: string) => [headersMap.get(k)]
+                getAll: (k: string) => [headersMap.get(k)],
             };
 
             const moduleScope = { exports: {} as any };

@@ -3,12 +3,11 @@
 import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig, PathInfo } from "@src/core/types/index.js";
-import { TypeGenerator } from "@src/generators/shared/type.generator.js";
-import { ServiceMethodGenerator } from "@src/generators/angular/service/service-method.generator.js";
+import { GeneratorConfig, PathInfo } from '@src/core/types/index.js';
+import { TypeGenerator } from '@src/generators/shared/type.generator.js';
+import { ServiceMethodGenerator } from '@src/generators/angular/service/service-method.generator.js';
 
 describe('Emitter: ServiceMethodGenerator (Response Precedence)', () => {
-
     const createTestEnv = () => {
         const spec = {
             openapi: '3.0.0',
@@ -18,16 +17,16 @@ describe('Emitter: ServiceMethodGenerator (Response Precedence)', () => {
                 schemas: {
                     SpecificModel: { type: 'object', properties: { id: { type: 'string' } } },
                     GenericModel: { type: 'string' },
-                    DefaultModel: { type: 'number' }
-                }
-            }
+                    DefaultModel: { type: 'number' },
+                },
+            },
         };
         const config: GeneratorConfig = { input: '', output: '/out', options: { dateType: 'Date', enumStyle: 'enum' } };
 
         const project = new Project({ useInMemoryFileSystem: true });
         const parser = new SwaggerParser(spec as any, config);
 
-        // Pre-generate types so the generator recognizes "SpecificModel" as a type name 
+        // Pre-generate types so the generator recognizes "SpecificModel" as a type name
         new TypeGenerator(parser, project, config).generate('/out');
 
         const methodGen = new ServiceMethodGenerator(config, parser);
@@ -44,12 +43,12 @@ describe('Emitter: ServiceMethodGenerator (Response Precedence)', () => {
             methodName: 'testSpecific',
             responses: {
                 '2XX': {
-                    content: { 'application/json': { schema: { $ref: '#/components/schemas/GenericModel' } } }
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/GenericModel' } } },
                 },
                 '200': {
-                    content: { 'application/json': { schema: { $ref: '#/components/schemas/SpecificModel' } } }
-                }
-            }
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/SpecificModel' } } },
+                },
+            },
         } as any;
 
         const { methodGen, serviceClass } = createTestEnv();
@@ -67,10 +66,10 @@ describe('Emitter: ServiceMethodGenerator (Response Precedence)', () => {
             methodName: 'testRange',
             responses: {
                 '2XX': {
-                    content: { 'application/json': { schema: { $ref: '#/components/schemas/GenericModel' } } }
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/GenericModel' } } },
                 },
-                '400': { description: 'Bad Request' }
-            }
+                '400': { description: 'Bad Request' },
+            },
         } as any;
 
         const { methodGen, serviceClass } = createTestEnv();
@@ -86,11 +85,11 @@ describe('Emitter: ServiceMethodGenerator (Response Precedence)', () => {
             path: '/test',
             methodName: 'testDefault',
             responses: {
-                'default': {
-                    content: { 'application/json': { schema: { $ref: '#/components/schemas/DefaultModel' } } }
+                default: {
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/DefaultModel' } } },
                 },
-                '500': { description: 'Server Error' }
-            }
+                '500': { description: 'Server Error' },
+            },
         } as any;
 
         const { methodGen, serviceClass } = createTestEnv();

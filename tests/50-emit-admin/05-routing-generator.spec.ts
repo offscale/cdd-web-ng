@@ -27,7 +27,7 @@ describe('Admin: RoutingGenerator', () => {
 
     it('should generate a master routes file with a default redirect', () => {
         const fileContent = project.getSourceFileOrThrow('/admin/admin.routes.ts').getText();
-        expect(fileContent).toContain("export const adminRoutes: Routes = [");
+        expect(fileContent).toContain('export const adminRoutes: Routes = [');
         expect(fileContent).toContain("{ path: '', pathMatch: 'full', redirectTo: 'users' }");
     });
 
@@ -55,7 +55,9 @@ describe('Admin: RoutingGenerator', () => {
     it('should generate an empty master routes file if no resources are provided', () => {
         const localProject = createTestProject();
         new RoutingGenerator(localProject).generateMaster([], '/admin');
-        const varDecl = localProject.getSourceFileOrThrow('/admin/admin.routes.ts').getVariableDeclarationOrThrow('adminRoutes');
+        const varDecl = localProject
+            .getSourceFileOrThrow('/admin/admin.routes.ts')
+            .getVariableDeclarationOrThrow('adminRoutes');
         expect(varDecl.getInitializer()?.getText()).toMatch(/\[\s*\]/);
     });
 });

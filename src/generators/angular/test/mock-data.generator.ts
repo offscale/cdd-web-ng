@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { SwaggerParser } from '@src/core/parser.js';
-import { SwaggerDefinition } from "@src/core/types/index.js";
+import { SwaggerDefinition } from '@src/core/types/index.js';
 
 type JsonSchemaType = 'object' | 'array' | 'string' | 'number' | 'integer' | 'boolean' | 'null';
 
@@ -9,8 +9,7 @@ type JsonSchemaType = 'object' | 'array' | 'string' | 'number' | 'integer' | 'bo
  * Generates mock JSON strings for Service tests.
  */
 export class MockDataGenerator {
-    constructor(private parser: SwaggerParser) {
-    }
+    constructor(private parser: SwaggerParser) {}
 
     public generate(schemaName: string): string {
         const schemaDef = this.parser.schemas.find(s => s.name === schemaName)?.definition;
@@ -195,11 +194,7 @@ export class MockDataGenerator {
         return obj;
     }
 
-    private generateArrayValue(
-        schema: SwaggerDefinition,
-        visited: Set<SwaggerDefinition>,
-        maxDepth: number,
-    ): any[] {
+    private generateArrayValue(schema: SwaggerDefinition, visited: Set<SwaggerDefinition>, maxDepth: number): any[] {
         if (!schema.items || Array.isArray(schema.items)) {
             return [];
         }
@@ -222,11 +217,11 @@ export class MockDataGenerator {
             case 'date':
                 return new Date().toISOString();
             case 'email':
-                return "test@example.com";
+                return 'test@example.com';
             case 'uuid':
-                return "123e4567-e89b-12d3-a456-426614174000";
+                return '123e4567-e89b-12d3-a456-426614174000';
             case 'password':
-                return "StrongPassword123!";
+                return 'StrongPassword123!';
             default:
                 return typeof schema.default === 'string' ? schema.default : 'string-value';
         }

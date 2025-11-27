@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { Project, Scope } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from "@src/core/types/index.js";
-import { ServiceMethodGenerator } from "@src/generators/angular/service/service-method.generator.js";
-import { TypeGenerator } from "@src/generators/shared/type.generator.js";
+import { GeneratorConfig } from '@src/core/types/index.js';
+import { ServiceMethodGenerator } from '@src/generators/angular/service/service-method.generator.js';
+import { TypeGenerator } from '@src/generators/shared/type.generator.js';
 
 const sequentialSpec = {
     openapi: '3.0.0',
@@ -16,15 +16,16 @@ const sequentialSpec = {
                     '200': {
                         content: {
                             'application/json-seq': {
-                                itemSchema: { // OAS 3.2 specific
+                                itemSchema: {
+                                    // OAS 3.2 specific
                                     type: 'object',
-                                    properties: { id: { type: 'number' } }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+                                    properties: { id: { type: 'number' } },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
         },
         '/json-lines': {
             get: {
@@ -32,16 +33,18 @@ const sequentialSpec = {
                 responses: {
                     '200': {
                         content: {
-                            'application/jsonl': { // Common alias for ndjson
-                                schema: { // Standard array schema usage
+                            'application/jsonl': {
+                                // Common alias for ndjson
+                                schema: {
+                                    // Standard array schema usage
                                     type: 'array',
-                                    items: { type: 'string' }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+                                    items: { type: 'string' },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
         },
         '/ndjson': {
             get: {
@@ -50,19 +53,18 @@ const sequentialSpec = {
                     '200': {
                         content: {
                             'application/x-ndjson': {
-                                schema: { type: 'array', items: { type: 'boolean' } }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+                                schema: { type: 'array', items: { type: 'boolean' } },
+                            },
+                        },
+                    },
+                },
+            },
+        },
     },
-    components: {}
+    components: {},
 };
 
 describe('Emitter: ServiceMethodGenerator (Sequential Media Types)', () => {
-
     const createTestEnv = () => {
         const config: GeneratorConfig = { input: '', output: '/out', options: { dateType: 'Date', enumStyle: 'enum' } };
         const project = new Project({ useInMemoryFileSystem: true });
@@ -81,13 +83,13 @@ describe('Emitter: ServiceMethodGenerator (Sequential Media Types)', () => {
             scope: Scope.Private,
             isReadonly: true,
             type: 'string',
-            initializer: "''"
+            initializer: "''",
         });
         serviceClass.addMethod({
             name: 'createContextWithClientId',
             scope: Scope.Private,
             returnType: 'any',
-            statements: 'return {};'
+            statements: 'return {};',
         });
 
         return { methodGen, serviceClass, parser };

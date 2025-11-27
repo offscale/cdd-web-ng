@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+
 import { Project } from 'ts-morph';
-import { TypeGenerator } from "@src/generators/shared/type.generator.js";
+
+import { TypeGenerator } from '@src/generators/shared/type.generator.js';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from "@src/core/types/index.js";
+import { GeneratorConfig } from '@src/core/types/index.js';
 
 const typeGenSpec = {
     openapi: '3.0.0',
@@ -15,13 +17,13 @@ const typeGenSpec = {
                         'application/json': {
                             schema: {
                                 type: 'object',
-                                properties: { userId: { type: 'string' }, timestamp: { type: 'string' } }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+                                properties: { userId: { type: 'string' }, timestamp: { type: 'string' } },
+                            },
+                        },
+                    },
+                },
+            },
+        },
     },
     webhooks: {
         'user.created': {
@@ -31,13 +33,13 @@ const typeGenSpec = {
                         'application/json': {
                             schema: {
                                 type: 'object',
-                                properties: { userId: { type: 'string' }, timestamp: { type: 'string' } }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+                                properties: { userId: { type: 'string' }, timestamp: { type: 'string' } },
+                            },
+                        },
+                    },
+                },
+            },
+        },
     },
     components: {
         schemas: {
@@ -46,10 +48,13 @@ const typeGenSpec = {
             EmptyEnum: { type: 'string', enum: [] },
             Base: { type: 'object', properties: { id: { type: 'string' } } },
             Extended: {
-                allOf: [{ $ref: '#/components/schemas/Base' }, {
-                    type: 'object',
-                    properties: { name: { type: 'string' } }
-                }]
+                allOf: [
+                    { $ref: '#/components/schemas/Base' },
+                    {
+                        type: 'object',
+                        properties: { name: { type: 'string' } },
+                    },
+                ],
             },
             AnyValue: { anyOf: [{ type: 'string' }, { type: 'number' }] },
             QuotedProps: { type: 'object', properties: { 'with-hyphen': { type: 'string' } } },
@@ -60,9 +65,9 @@ const typeGenSpec = {
             ComplexAlias: { anyOf: [{ type: 'string' }, { $ref: '#/components/schemas/Base' }] },
             DocModel: { type: 'object', externalDocs: { url: 'https://example.com', description: 'More info' } },
             ReadOnlyObj: { type: 'object', properties: { id: { type: 'string', readOnly: true } } },
-            WriteOnlyObj: { type: 'object', properties: { id: { type: 'string', writeOnly: true } } }
-        }
-    }
+            WriteOnlyObj: { type: 'object', properties: { id: { type: 'string', writeOnly: true } } },
+        },
+    },
 };
 
 describe('Emitter: TypeGenerator', () => {
@@ -148,7 +153,7 @@ describe('Emitter: TypeGenerator', () => {
         const idProp = readOnlyObj.getPropertyOrThrow('id');
         // In response models, readOnly props exist and should technically be 'readonly' in TS
         // The current implementation marks them as such via isReadonly: options.excludeWriteOnly && !!propDef.readOnly
-        // Wait, logic: isReadonly: options.excludeWriteOnly && !!propDef.readOnly. 
+        // Wait, logic: isReadonly: options.excludeWriteOnly && !!propDef.readOnly.
         // Response generation: excludeWriteOnly: true. So yes.
         expect(idProp.isReadonly()).toBe(true);
 

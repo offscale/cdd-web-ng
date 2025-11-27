@@ -1,8 +1,8 @@
-import * as path from "node:path";
-import { Project, VariableDeclarationKind } from "ts-morph";
-import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../core/constants.js";
+import * as path from 'node:path';
+import { Project, VariableDeclarationKind } from 'ts-morph';
+import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../core/constants.js';
 import { SwaggerParser } from '@src/core/parser.js';
-import { LinkObject, PathInfo } from "@src/core/types/index.js";
+import { LinkObject, PathInfo } from '@src/core/types/index.js';
 
 /**
  * Generates the `links.ts` file.
@@ -11,13 +11,12 @@ import { LinkObject, PathInfo } from "@src/core/types/index.js";
 export class LinkGenerator {
     constructor(
         private readonly parser: SwaggerParser,
-        private readonly project: Project
-    ) {
-    }
+        private readonly project: Project,
+    ) {}
 
     public generate(outputDir: string): void {
-        const filePath = path.join(outputDir, "links.ts");
-        const sourceFile = this.project.createSourceFile(filePath, "", { overwrite: true });
+        const filePath = path.join(outputDir, 'links.ts');
+        const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
         const linksRegistry: Record<string, Record<string, Record<string, LinkObject>>> = {};
         let linkCount = 0;
@@ -42,7 +41,7 @@ export class LinkGenerator {
                                 ...(link.parameters ? { parameters: link.parameters } : {}),
                                 ...(link.requestBody ? { requestBody: link.requestBody } : {}),
                                 ...(link.description ? { description: link.description } : {}),
-                                ...(link.server ? { server: link.server } : {})
+                                ...(link.server ? { server: link.server } : {}),
                             };
 
                             responseLinks[linkName] = cleanLink;
@@ -66,17 +65,19 @@ export class LinkGenerator {
             sourceFile.addVariableStatement({
                 isExported: true,
                 declarationKind: VariableDeclarationKind.Const,
-                declarations: [{
-                    name: "API_LINKS",
-                    initializer: JSON.stringify(linksRegistry, null, 2)
-                }],
+                declarations: [
+                    {
+                        name: 'API_LINKS',
+                        initializer: JSON.stringify(linksRegistry, null, 2),
+                    },
+                ],
                 docs: [
-                    "Registry of Links defined in the API.",
-                    "Structure: operationId -> responseStatusCode -> linkName -> LinkObject"
-                ]
+                    'Registry of Links defined in the API.',
+                    'Structure: operationId -> responseStatusCode -> linkName -> LinkObject',
+                ],
             });
         } else {
-            sourceFile.addStatements("export {};");
+            sourceFile.addStatements('export {};');
         }
 
         sourceFile.formatText();

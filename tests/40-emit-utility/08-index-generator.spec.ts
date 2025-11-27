@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from "@src/core/types/index.js";
+import { GeneratorConfig } from '@src/core/types/index.js';
 import { MainIndexGenerator, ServiceIndexGenerator } from '@src/generators/angular/utils/index.generator.js';
 import { emptySpec, securitySpec } from '../shared/specs.js';
 import { createTestProject } from '../shared/helpers.js';
@@ -59,11 +59,11 @@ describe('Emitter: IndexGenerators', () => {
                     '/test': {
                         get: {
                             responses: {
-                                '200': { headers: { 'X-Test': { schema: { type: 'string' } } } }
-                            }
-                        }
-                    }
-                }
+                                '200': { headers: { 'X-Test': { schema: { type: 'string' } } } },
+                            },
+                        },
+                    },
+                },
             };
             const content = runGenerator(specWithHeaders, { generateServices: true });
             expect(content).toContain(`export * from "./response-headers";`);
@@ -86,7 +86,7 @@ describe('Emitter: IndexGenerators', () => {
             const project = createTestProject();
             const config: GeneratorConfig = {
                 output: '/',
-                options: { framework: 'angular', generateServices: false }
+                options: { framework: 'angular', generateServices: false },
             } as any;
             const parser = new SwaggerParser(emptySpec as any, config);
             new MainIndexGenerator(project, parser.config, parser).generateMainIndex('/');
@@ -121,7 +121,10 @@ describe('Emitter: IndexGenerators', () => {
             const outPath = path.resolve('/out');
 
             project.createSourceFile(path.join(outPath, 'services/users.service.ts'), 'export class UsersService {}');
-            project.createSourceFile(path.join(outPath, 'services/products.service.ts'), 'export class ProductsService {}');
+            project.createSourceFile(
+                path.join(outPath, 'services/products.service.ts'),
+                'export class ProductsService {}',
+            );
             project.createSourceFile(path.join(outPath, 'services/helpers.ts'), 'export const helper = 1;');
             project.createSourceFile(path.join(outPath, 'services/internal.service.ts'), 'class InternalService {}');
             project.createSourceFile(path.join(outPath, 'services/empty.service.ts'), '');

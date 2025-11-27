@@ -1,5 +1,5 @@
-import { SwaggerDefinition } from "@src/core/types/index.js";
-import { ValidationRule } from "./validation-types.js";
+import { SwaggerDefinition } from '@src/core/types/index.js';
+import { ValidationRule } from './validation-types.js';
 
 /**
  * Analyzes a SwaggerDefinition to extract a framework-agnostic list of validation rules.

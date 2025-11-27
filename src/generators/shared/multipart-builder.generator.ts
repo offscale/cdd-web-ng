@@ -1,77 +1,78 @@
-import * as path from "node:path";
-import { Project, Scope } from "ts-morph";
-import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../core/constants.js";
+import * as path from 'node:path';
+import { Project, Scope } from 'ts-morph';
+import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../core/constants.js';
 
 /**
  * Generates the `utils/multipart-builder.ts` file.
  * Pure TS class to build multipart/form-data and multipart/mixed payloads using Browser APIs (FormData/Blob).
  */
 export class MultipartBuilderGenerator {
-    constructor(private project: Project) {
-    }
+    constructor(private project: Project) {}
 
     public generate(outputDir: string): void {
-        const utilsDir = path.join(outputDir, "utils");
-        const filePath = path.join(utilsDir, "multipart-builder.ts");
+        const utilsDir = path.join(outputDir, 'utils');
+        const filePath = path.join(utilsDir, 'multipart-builder.ts');
 
-        const sourceFile = this.project.createSourceFile(filePath, "", { overwrite: true });
+        const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
         sourceFile.addInterface({
-            name: "EncodingConfig",
+            name: 'EncodingConfig',
             isExported: true,
             properties: [
-                { name: "contentType", type: "string", hasQuestionToken: true },
-                { name: "headers", type: "Record<string, string>", hasQuestionToken: true },
-                { name: "style", type: "string", hasQuestionToken: true },
-                { name: "explode", type: "boolean", hasQuestionToken: true },
-                { name: "encoding", type: "Record<string, EncodingConfig>", hasQuestionToken: true }
-            ]
+                { name: 'contentType', type: 'string', hasQuestionToken: true },
+                { name: 'headers', type: 'Record<string, string>', hasQuestionToken: true },
+                { name: 'style', type: 'string', hasQuestionToken: true },
+                { name: 'explode', type: 'boolean', hasQuestionToken: true },
+                { name: 'encoding', type: 'Record<string, EncodingConfig>', hasQuestionToken: true },
+            ],
         });
 
         // OAS 3.2 Multipart Configuration
         sourceFile.addInterface({
-            name: "MultipartConfig",
+            name: 'MultipartConfig',
             isExported: true,
             properties: [
-                { name: "mediaType", type: "string", hasQuestionToken: true },
-                { name: "encoding", type: "Record<string, EncodingConfig>", hasQuestionToken: true },
-                { name: "prefixEncoding", type: "EncodingConfig[]", hasQuestionToken: true },
-                { name: "itemEncoding", type: "EncodingConfig", hasQuestionToken: true }
-            ]
+                { name: 'mediaType', type: 'string', hasQuestionToken: true },
+                { name: 'encoding', type: 'Record<string, EncodingConfig>', hasQuestionToken: true },
+                { name: 'prefixEncoding', type: 'EncodingConfig[]', hasQuestionToken: true },
+                { name: 'itemEncoding', type: 'EncodingConfig', hasQuestionToken: true },
+            ],
         });
 
         sourceFile.addInterface({
-            name: "MultipartResult",
+            name: 'MultipartResult',
             isExported: true,
             properties: [
-                { name: "content", type: "FormData | Blob" },
-                { name: "headers", type: "Record<string, string>", hasQuestionToken: true }
-            ]
+                { name: 'content', type: 'FormData | Blob' },
+                { name: 'headers', type: 'Record<string, string>', hasQuestionToken: true },
+            ],
         });
 
         const classDeclaration = sourceFile.addClass({
-            name: "MultipartBuilder",
+            name: 'MultipartBuilder',
             isExported: true,
-            docs: ["Utility to build multipart payloads (form-data, mixed, byteranges) with support for OAS 3.2 Array bodies."],
+            docs: [
+                'Utility to build multipart payloads (form-data, mixed, byteranges) with support for OAS 3.2 Array bodies.',
+            ],
         });
 
         classDeclaration.addMethod({
-            name: "serialize",
+            name: 'serialize',
             isStatic: true,
             scope: Scope.Public,
             parameters: [
-                { name: "body", type: "any" },
+                { name: 'body', type: 'any' },
                 // Supports both Legacy Map (Record) and New Config Object
                 {
-                    name: "configInput",
-                    type: "MultipartConfig | Record<string, EncodingConfig>",
+                    name: 'configInput',
+                    type: 'MultipartConfig | Record<string, EncodingConfig>',
                     hasQuestionToken: true,
-                    initializer: "{}"
-                }
+                    initializer: '{}',
+                },
             ],
-            returnType: "MultipartResult",
+            returnType: 'MultipartResult',
             statements: `
         if (body === null || body === undefined) {
             return { content: new FormData() };
@@ -103,18 +104,18 @@ export class MultipartBuilderGenerator {
             return this.serializeObjectManual(body, config);
         }
 
-        return this.serializeNative(body, encodingMap);`
+        return this.serializeNative(body, encodingMap);`,
         });
 
         classDeclaration.addMethod({
-            name: "serializeNative",
+            name: 'serializeNative',
             isStatic: true,
             scope: Scope.Private,
             parameters: [
-                { name: "body", type: "any" },
-                { name: "encodings", type: "Record<string, EncodingConfig>" }
+                { name: 'body', type: 'any' },
+                { name: 'encodings', type: 'Record<string, EncodingConfig>' },
             ],
-            returnType: "MultipartResult",
+            returnType: 'MultipartResult',
             statements: `
         const formData = new FormData();
 
@@ -131,18 +132,18 @@ export class MultipartBuilderGenerator {
             }
         });
 
-        return { content: formData };`
+        return { content: formData };`,
         });
 
         classDeclaration.addMethod({
-            name: "appendFormData",
+            name: 'appendFormData',
             isStatic: true,
             scope: Scope.Private,
             parameters: [
-                { name: "formData", type: "FormData" },
-                { name: "key", type: "string" },
-                { name: "value", type: "any" },
-                { name: "contentType", type: "string", hasQuestionToken: true }
+                { name: 'formData', type: 'FormData' },
+                { name: 'key', type: 'string' },
+                { name: 'value', type: 'any' },
+                { name: 'contentType', type: 'string', hasQuestionToken: true },
             ],
             statements: `
         if (value instanceof Blob || value instanceof File) {
@@ -156,18 +157,18 @@ export class MultipartBuilderGenerator {
             formData.append(key, blob);
         } else {
             formData.append(key, String(value));
-        }`
+        }`,
         });
 
         classDeclaration.addMethod({
-            name: "serializeObjectManual",
+            name: 'serializeObjectManual',
             isStatic: true,
             scope: Scope.Private,
             parameters: [
-                { name: "body", type: "any" },
-                { name: "config", type: "MultipartConfig" }
+                { name: 'body', type: 'any' },
+                { name: 'config', type: 'MultipartConfig' },
             ],
-            returnType: "MultipartResult",
+            returnType: 'MultipartResult',
             statements: `
         const boundary = this.generateBoundary();
         const parts: (string | Blob)[] = [];
@@ -196,18 +197,18 @@ export class MultipartBuilderGenerator {
         return { 
             content: blob, 
             headers: { 'Content-Type': \`\${mediaType}; boundary=\${boundary}\` } 
-        };`
+        };`,
         });
 
         classDeclaration.addMethod({
-            name: "serializeArrayManual",
+            name: 'serializeArrayManual',
             isStatic: true,
             scope: Scope.Private,
             parameters: [
-                { name: "body", type: "any[]" },
-                { name: "config", type: "MultipartConfig" }
+                { name: 'body', type: 'any[]' },
+                { name: 'config', type: 'MultipartConfig' },
             ],
-            returnType: "MultipartResult",
+            returnType: 'MultipartResult',
             statements: `
         const boundary = this.generateBoundary();
         const parts: (string | Blob)[] = [];
@@ -238,20 +239,20 @@ export class MultipartBuilderGenerator {
         return { 
             content: blob, 
             headers: { 'Content-Type': \`\${forcedType}; boundary=\${boundary}\` } 
-        };`
+        };`,
         });
 
         // Helper method to reduce duplication between Object and Array handling
         classDeclaration.addMethod({
-            name: "appendPart",
+            name: 'appendPart',
             isStatic: true,
             scope: Scope.Private,
             parameters: [
-                { name: "parts", type: "(string | Blob)[]" },
-                { name: "value", type: "any" },
-                { name: "config", type: "EncodingConfig" },
-                { name: "boundary", type: "string" },
-                { name: "defaultDisposition", type: "string", hasQuestionToken: true }
+                { name: 'parts', type: '(string | Blob)[]' },
+                { name: 'value', type: 'any' },
+                { name: 'config', type: 'EncodingConfig' },
+                { name: 'boundary', type: 'string' },
+                { name: 'defaultDisposition', type: 'string', hasQuestionToken: true },
             ],
             statements: `
         const crlf = '\\r\\n';
@@ -330,15 +331,15 @@ export class MultipartBuilderGenerator {
         parts.push('--' + boundary + crlf + headersStr + crlf);
         parts.push(payload);
         parts.push(crlf);
-            `
+            `,
         });
 
         classDeclaration.addMethod({
-            name: "generateBoundary",
+            name: 'generateBoundary',
             isStatic: true,
             scope: Scope.Private,
-            returnType: "string",
-            statements: `return '----' + Math.random().toString(36).substring(2);`
+            returnType: 'string',
+            statements: `return '----' + Math.random().toString(36).substring(2);`,
         });
 
         sourceFile.formatText();

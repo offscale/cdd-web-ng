@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from "@src/core/types/index.js";
-import { ServiceMethodGenerator } from "@src/generators/angular/service/service-method.generator.js";
-import { TypeGenerator } from "@src/generators/shared/type.generator.js";
-import { ServiceGenerator } from "@src/generators/angular/service/service.generator.js";
+import { GeneratorConfig } from '@src/core/types/index.js';
+import { ServiceMethodGenerator } from '@src/generators/angular/service/service-method.generator.js';
+import { TypeGenerator } from '@src/generators/shared/type.generator.js';
+import { ServiceGenerator } from '@src/generators/angular/service/service.generator.js';
 
 const errorTypingSpec = {
     openapi: '3.0.0',
@@ -21,21 +21,21 @@ const errorTypingSpec = {
                             'application/json': {
                                 schema: {
                                     type: 'object',
-                                    properties: { name: { type: 'string' } }
-                                }
-                            }
-                        }
+                                    properties: { name: { type: 'string' } },
+                                },
+                            },
+                        },
                     },
                     '404': {
                         description: 'Not Found',
-                        content: { 'application/json': { schema: { $ref: '#/components/schemas/NotFoundError' } } }
+                        content: { 'application/json': { schema: { $ref: '#/components/schemas/NotFoundError' } } },
                     },
                     '500': {
                         description: 'Server Error',
-                        content: { 'application/json': { schema: { $ref: '#/components/schemas/ServerError' } } }
-                    }
-                }
-            }
+                        content: { 'application/json': { schema: { $ref: '#/components/schemas/ServerError' } } },
+                    },
+                },
+            },
         },
         '/delete/{id}': {
             delete: {
@@ -49,31 +49,30 @@ const errorTypingSpec = {
                             'application/json': {
                                 schema: {
                                     type: 'object',
-                                    properties: { msg: { type: 'string' } }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+                                    properties: { msg: { type: 'string' } },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
     },
     components: {
         schemas: {
             NotFoundError: { type: 'object', properties: { code: { type: 'integer' }, message: { type: 'string' } } },
-            ServerError: { type: 'object', properties: { traceId: { type: 'string' } } }
-        }
-    }
+            ServerError: { type: 'object', properties: { traceId: { type: 'string' } } },
+        },
+    },
 };
 
 describe('Emitter: Error Typing Support', () => {
-
     const createTestEnv = () => {
         const config: GeneratorConfig = {
             input: '',
             output: '/out',
             clientName: 'TestClient',
-            options: { dateType: 'string', enumStyle: 'enum' }
+            options: { dateType: 'string', enumStyle: 'enum' },
         };
         const project = new Project({ useInMemoryFileSystem: true });
         const parser = new SwaggerParser(errorTypingSpec as any, config);
@@ -117,7 +116,10 @@ describe('Emitter: Error Typing Support', () => {
         gen.addServiceMethod(cls, op);
 
         const method = cls.getMethodOrThrow('getUser');
-        const docs = method.getJsDocs().map(d => d.getInnerText()).join('\n');
+        const docs = method
+            .getJsDocs()
+            .map(d => d.getInnerText())
+            .join('\n');
         expect(docs).toContain('@throws {GetUserError}');
     });
 
@@ -156,7 +158,9 @@ describe('Emitter: Error Typing Support', () => {
         serviceGen.generateServiceFile('users', ops, '/out/services');
 
         const sourceFile = project.getSourceFileOrThrow('/out/services/users.service.ts');
-        const namedImports = sourceFile.getImportDeclaration(d => d.getModuleSpecifierValue().includes('models'))!.getNamedImports();
+        const namedImports = sourceFile
+            .getImportDeclaration(d => d.getModuleSpecifierValue().includes('models'))!
+            .getNamedImports();
         const names = namedImports.map(n => n.getName());
 
         // Should include NotFoundError and ServerError because they are used in error response types

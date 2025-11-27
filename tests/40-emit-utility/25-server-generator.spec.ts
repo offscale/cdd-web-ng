@@ -6,7 +6,7 @@ import { Project } from 'ts-morph';
 
 import { SwaggerParser } from '@src/core/parser.js';
 import { ServerGenerator } from '@src/generators/shared/server.generator.js';
-import { SwaggerSpec } from "@src/core/types/index.js";
+import { SwaggerSpec } from '@src/core/types/index.js';
 
 import { createTestProject } from '../shared/helpers.js';
 
@@ -16,12 +16,11 @@ const multiEnvSpec: SwaggerSpec = {
     paths: {},
     servers: [
         { url: 'https://api.production.com/v1', description: 'Production', name: 'prod' },
-        { url: 'https://api.staging.com/v1', description: 'Staging', name: 'staging' }
-    ]
+        { url: 'https://api.staging.com/v1', description: 'Staging', name: 'staging' },
+    ],
 } as any;
 
 describe('Emitter: ServerGenerator', () => {
-
     const runGenerator = (spec: SwaggerSpec) => {
         const project = createTestProject();
         const parser = new SwaggerParser(spec, { options: {} } as any);
@@ -54,7 +53,7 @@ describe('Emitter: ServerGenerator', () => {
             openapi: '3.0.0',
             info: { title: 'E', version: '1' },
             paths: {},
-            servers: []
+            servers: [],
         } as any;
         const project = runGenerator(spec);
         const sourceFile = project.getSourceFileOrThrow('/out/servers.ts');
@@ -67,7 +66,7 @@ describe('Emitter: ServerGenerator', () => {
         const spec: SwaggerSpec = {
             swagger: '2.0',
             info: { title: 'E', version: '1' },
-            paths: {}
+            paths: {},
         } as any;
         const project = runGenerator(spec);
         const sourceFile = project.getSourceFileOrThrow('/out/servers.ts');
@@ -78,7 +77,7 @@ describe('Emitter: ServerGenerator', () => {
         const project = createTestProject();
         // Mock parser structure to force undefined servers, hitting the fallback branch `|| []`
         const parser = {
-            servers: undefined
+            servers: undefined,
         } as unknown as SwaggerParser;
 
         new ServerGenerator(parser, project).generate('/out');

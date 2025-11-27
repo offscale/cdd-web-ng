@@ -4,12 +4,10 @@ import { ValidationRule } from '@src/analysis/validation-types.js';
 import { FormControlModel } from '@src/analysis/form-types.js';
 
 describe('Admin: FormRenderer', () => {
-
     describe('ValidationRenderer', () => {
-
         it('should return an empty string for empty or null rules', () => {
-            expect(ValidationRenderer.render([])).toBe("");
-            expect(ValidationRenderer.render(null as any)).toBe("");
+            expect(ValidationRenderer.render([])).toBe('');
+            expect(ValidationRenderer.render(null as any)).toBe('');
         });
 
         it('should render all standard validation rules correctly', () => {
@@ -23,7 +21,9 @@ describe('Admin: FormRenderer', () => {
                 { type: 'pattern', value: '^\\d+$' },
             ];
             const result = ValidationRenderer.render(rules);
-            expect(result).toBe("[Validators.required, Validators.email, Validators.minLength(5), Validators.maxLength(50), Validators.min(0), Validators.max(100), Validators.pattern(/^\\d+$/)]");
+            expect(result).toBe(
+                '[Validators.required, Validators.email, Validators.minLength(5), Validators.maxLength(50), Validators.min(0), Validators.max(100), Validators.pattern(/^\\d+$/)]',
+            );
         });
 
         it('should render all custom validation rules correctly', () => {
@@ -40,7 +40,7 @@ describe('Admin: FormRenderer', () => {
             const result = ValidationRenderer.render(rules);
             // Ensure const renders correctly with quotes for string and none for number
             expect(result).toContain("CustomValidators.constValidator('val')");
-            expect(result).toContain("CustomValidators.constValidator(123)");
+            expect(result).toContain('CustomValidators.constValidator(123)');
         });
 
         it('should render nested `not` validator recursively', () => {
@@ -49,9 +49,9 @@ describe('Admin: FormRenderer', () => {
                     type: 'not',
                     rules: [
                         { type: 'pattern', value: '^foo' },
-                        { type: 'minLength', value: 5 }
-                    ]
-                }
+                        { type: 'minLength', value: 5 },
+                    ],
+                },
             ];
             const result = ValidationRenderer.render(rules);
             expect(result).toContain('CustomValidators.notValidator(Validators.compose(');
@@ -61,7 +61,9 @@ describe('Admin: FormRenderer', () => {
 
         it('should throw an error on unhandled validation rule type', () => {
             const badRule = { type: 'futureValidator' } as any;
-            expect(() => ValidationRenderer.render([badRule])).toThrow('Unhandled validation rule type: futureValidator');
+            expect(() => ValidationRenderer.render([badRule])).toThrow(
+                'Unhandled validation rule type: futureValidator',
+            );
         });
     });
 
@@ -71,9 +73,9 @@ describe('Admin: FormRenderer', () => {
                 name: 'name',
                 propertyName: 'name',
                 dataType: 'string | null',
-                defaultValue: "Default Name",
+                defaultValue: 'Default Name',
                 validationRules: [{ type: 'required' }],
-                controlType: 'control'
+                controlType: 'control',
             };
 
             const result = FormInitializerRenderer.renderControlInitializer(control);
@@ -87,7 +89,7 @@ describe('Admin: FormRenderer', () => {
                 dataType: 'string | null',
                 defaultValue: null,
                 validationRules: [],
-                controlType: 'control'
+                controlType: 'control',
             };
 
             const result = FormInitializerRenderer.renderControlInitializer(control);
@@ -102,20 +104,22 @@ describe('Admin: FormRenderer', () => {
                 defaultValue: null,
                 validationRules: [{ type: 'required' }],
                 controlType: 'group',
-                nestedControls: [{
-                    name: 'street',
-                    propertyName: 'street',
-                    dataType: 'string | null',
-                    defaultValue: null,
-                    validationRules: [{ type: 'required' }],
-                    controlType: 'control'
-                }]
+                nestedControls: [
+                    {
+                        name: 'street',
+                        propertyName: 'street',
+                        dataType: 'string | null',
+                        defaultValue: null,
+                        validationRules: [{ type: 'required' }],
+                        controlType: 'control',
+                    },
+                ],
             };
 
             const result = FormInitializerRenderer.renderControlInitializer(control);
-            expect(result).toContain("this.fb.group({");
+            expect(result).toContain('this.fb.group({');
             expect(result).toContain("'street': new FormControl<string | null>(null, [Validators.required])");
-            expect(result).toContain("}, { validators: [Validators.required] })");
+            expect(result).toContain('}, { validators: [Validators.required] })');
         });
 
         it('should render a customized `not` validator inside control init', () => {
@@ -125,7 +129,7 @@ describe('Admin: FormRenderer', () => {
                 dataType: 'string',
                 defaultValue: null,
                 validationRules: [{ type: 'not', rules: [{ type: 'pattern', value: 'foo' }] } as any],
-                controlType: 'control'
+                controlType: 'control',
             };
             const result = FormInitializerRenderer.renderControlInitializer(control);
             expect(result).toContain('CustomValidators.notValidator(Validators.compose([');
@@ -140,21 +144,23 @@ describe('Admin: FormRenderer', () => {
                 defaultValue: null,
                 validationRules: [{ type: 'required' }],
                 controlType: 'group',
-                nestedControls: [{
-                    name: 'street',
-                    propertyName: 'street',
-                    dataType: 'string | null',
-                    defaultValue: null,
-                    validationRules: [{ type: 'required' }],
-                    controlType: 'control'
-                }]
+                nestedControls: [
+                    {
+                        name: 'street',
+                        propertyName: 'street',
+                        dataType: 'string | null',
+                        defaultValue: null,
+                        validationRules: [{ type: 'required' }],
+                        controlType: 'control',
+                    },
+                ],
             };
 
             const result = FormInitializerRenderer.renderControlInitializer(control, false);
-            expect(result).toContain("new FormGroup({");
+            expect(result).toContain('new FormGroup({');
             // Using explicit check for the nested part format
             expect(result).toContain("'street': new FormControl<string | null>(null, [Validators.required])");
-            expect(result).toContain("}, { validators: [Validators.required] })");
+            expect(result).toContain('}, { validators: [Validators.required] })');
         });
 
         it('should render a simple form array using FormBuilder', () => {
@@ -164,7 +170,7 @@ describe('Admin: FormRenderer', () => {
                 dataType: '(string | null)[]',
                 defaultValue: null,
                 validationRules: [{ type: 'minItems', value: 1 }],
-                controlType: 'array'
+                controlType: 'array',
             };
 
             const result = FormInitializerRenderer.renderControlInitializer(control);
@@ -178,7 +184,7 @@ describe('Admin: FormRenderer', () => {
                 dataType: '(string | null)[]',
                 defaultValue: null,
                 validationRules: [{ type: 'minItems', value: 1 }],
-                controlType: 'array'
+                controlType: 'array',
             };
 
             const result = FormInitializerRenderer.renderControlInitializer(control, false);
@@ -186,28 +192,32 @@ describe('Admin: FormRenderer', () => {
         });
 
         it('should render a form array item initializer using default values', () => {
-            const controls: FormControlModel[] = [{
-                name: 'name',
-                propertyName: 'name',
-                dataType: 'string | null',
-                defaultValue: 'Default Item',
-                validationRules: [],
-                controlType: 'control'
-            }];
+            const controls: FormControlModel[] = [
+                {
+                    name: 'name',
+                    propertyName: 'name',
+                    dataType: 'string | null',
+                    defaultValue: 'Default Item',
+                    validationRules: [],
+                    controlType: 'control',
+                },
+            ];
 
             const result = FormInitializerRenderer.renderFormArrayItemInitializer(controls);
             expect(result).toContain(`new FormControl<string | null>(item?.name ?? "Default Item")`);
         });
 
         it('should render a form array item initializer falling back to null', () => {
-            const controls: FormControlModel[] = [{
-                name: 'name',
-                propertyName: 'name',
-                dataType: 'string | null',
-                defaultValue: null,
-                validationRules: [],
-                controlType: 'control'
-            }];
+            const controls: FormControlModel[] = [
+                {
+                    name: 'name',
+                    propertyName: 'name',
+                    dataType: 'string | null',
+                    defaultValue: null,
+                    validationRules: [],
+                    controlType: 'control',
+                },
+            ];
 
             const result = FormInitializerRenderer.renderFormArrayItemInitializer(controls);
             expect(result).toContain(`new FormControl<string | null>(item?.name ?? null)`);
@@ -220,11 +230,13 @@ describe('Admin: FormRenderer', () => {
                 dataType: 'string',
                 defaultValue: null,
                 validationRules: [],
-                controlType: 'control'
+                controlType: 'control',
             };
             const result = FormInitializerRenderer.renderMapItemInitializer(valueControl, '^[a-z]+$');
 
-            expect(result).toContain("new FormGroup({ 'key': new FormControl<string>(item?.key ?? '', [Validators.required, Validators.pattern(/^[a-z]+$/)])");
+            expect(result).toContain(
+                "new FormGroup({ 'key': new FormControl<string>(item?.key ?? '', [Validators.required, Validators.pattern(/^[a-z]+$/)])",
+            );
         });
     });
 });

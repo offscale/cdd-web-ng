@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+
 import { Project } from 'ts-morph';
-import { TypeGenerator } from "@src/generators/shared/type.generator.js";
+
+import { TypeGenerator } from '@src/generators/shared/type.generator.js';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from "@src/core/types/index.js";
+import { GeneratorConfig } from '@src/core/types/index.js';
 
 describe('Emitter: TypeGenerator (dependentSchemas)', () => {
     const setup = (schema: any) => {
@@ -12,7 +14,7 @@ describe('Emitter: TypeGenerator (dependentSchemas)', () => {
             openapi: '3.1.0',
             info: { title: 'Dependent', version: '1' },
             paths: {},
-            components: { schemas: { DependentModel: schema } }
+            components: { schemas: { DependentModel: schema } },
         };
         const parser = new SwaggerParser(spec as any, config);
         new TypeGenerator(parser, project, config).generate('/out');
@@ -23,16 +25,16 @@ describe('Emitter: TypeGenerator (dependentSchemas)', () => {
         const sourceFile = setup({
             type: 'object',
             properties: {
-                paymentMethod: { type: 'string', enum: ['credit_card', 'paypal'] }
+                paymentMethod: { type: 'string', enum: ['credit_card', 'paypal'] },
             },
             dependentSchemas: {
                 paymentMethod: {
                     properties: {
-                        creditCardNumber: { type: 'string' }
+                        creditCardNumber: { type: 'string' },
                     },
-                    required: ['creditCardNumber']
-                }
-            }
+                    required: ['creditCardNumber'],
+                },
+            },
         });
 
         const typeAlias = sourceFile.getTypeAliasOrThrow('DependentModel');
@@ -43,7 +45,9 @@ describe('Emitter: TypeGenerator (dependentSchemas)', () => {
 
         // Intersection part structure: (({ paymentMethod: any } & Dependency) | { paymentMethod?: never })
         // Adjusted expectation: inline objects inside intersection do not have trailing semicolons
-        expect(typeText).toContain("& (({ paymentMethod: any } & { creditCardNumber: string }) | { paymentMethod?: never })");
+        expect(typeText).toContain(
+            '& (({ paymentMethod: any } & { creditCardNumber: string }) | { paymentMethod?: never })',
+        );
     });
 
     it('should handle multiple dependentSchemas', () => {
@@ -51,27 +55,27 @@ describe('Emitter: TypeGenerator (dependentSchemas)', () => {
             type: 'object',
             properties: {
                 a: { type: 'string' },
-                b: { type: 'string' }
+                b: { type: 'string' },
             },
             dependentSchemas: {
                 a: { properties: { c: { type: 'number' } } },
-                b: { properties: { d: { type: 'boolean' } } }
-            }
+                b: { properties: { d: { type: 'boolean' } } },
+            },
         });
 
         const typeText = sourceFile.getTypeAliasOrThrow('DependentModel').getTypeNodeOrThrow().getText();
 
-        expect(typeText).toContain("& (({ a: any } & { c?: number }) | { a?: never })");
-        expect(typeText).toContain("& (({ b: any } & { d?: boolean }) | { b?: never })");
+        expect(typeText).toContain('& (({ a: any } & { c?: number }) | { a?: never })');
+        expect(typeText).toContain('& (({ b: any } & { d?: boolean }) | { b?: never })');
     });
 
     it('should properly escape property names in dependentSchemas key', () => {
         const sourceFile = setup({
             type: 'object',
-            properties: { "my-prop": { type: 'string' } },
+            properties: { 'my-prop': { type: 'string' } },
             dependentSchemas: {
-                "my-prop": { properties: { extra: { type: 'string' } } }
-            }
+                'my-prop': { properties: { extra: { type: 'string' } } },
+            },
         });
 
         const typeText = sourceFile.getTypeAliasOrThrow('DependentModel').getTypeNodeOrThrow().getText();

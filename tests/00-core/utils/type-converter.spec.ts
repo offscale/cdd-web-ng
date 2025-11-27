@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import * as utils from '@src/core/utils/type-converter.js';
 
+import * as utils from '@src/core/utils/type-converter.js';
 import { GeneratorConfig, SwaggerDefinition } from '@src/core/types/index.js';
 
 describe('Core Utils: Type Converter', () => {
@@ -12,7 +12,6 @@ describe('Core Utils: Type Converter', () => {
     const configWithDate: GeneratorConfig = { ...config, options: { ...config.options, dateType: 'Date' } };
 
     describe('getTypeScriptType', () => {
-
         describe('Literal Types based on `const` (OAS 3.1)', () => {
             it('should generate a string literal type', () => {
                 const schema: SwaggerDefinition = { type: 'string', const: 'active' };
@@ -38,7 +37,7 @@ describe('Core Utils: Type Converter', () => {
                 const schema: SwaggerDefinition = {
                     type: 'string',
                     enum: ['A', 'B'],
-                    const: 'C' // Edge case where const contradicts enum (technically invalid spec, but const is strict validation)
+                    const: 'C', // Edge case where const contradicts enum (technically invalid spec, but const is strict validation)
                 };
                 expect(utils.getTypeScriptType(schema, config, [])).toBe("'C'");
             });
@@ -92,7 +91,9 @@ describe('Core Utils: Type Converter', () => {
         });
 
         it('should handle allOf compositions (intersection)', () => {
-            const schema: SwaggerDefinition = { allOf: [{ $ref: '#/components/schemas/A' }, { $ref: '#/components/schemas/B' }] };
+            const schema: SwaggerDefinition = {
+                allOf: [{ $ref: '#/components/schemas/A' }, { $ref: '#/components/schemas/B' }],
+            };
             expect(utils.getTypeScriptType(schema, config, ['A', 'B'])).toBe('A & B');
         });
 
@@ -118,10 +119,16 @@ describe('Core Utils: Type Converter', () => {
 
         it('should handle null values in enums', () => {
             const schema: SwaggerDefinition = { type: 'string', enum: ['A', null as any] };
-            expect(utils.getTypeScriptType(schema, {
-                ...config,
-                options: { enumStyle: 'union' } as any
-            }, [])).toBe("'A' | null");
+            expect(
+                utils.getTypeScriptType(
+                    schema,
+                    {
+                        ...config,
+                        options: { enumStyle: 'union' } as any,
+                    },
+                    [],
+                ),
+            ).toBe("'A' | null");
         });
 
         // STRING Variants
@@ -129,7 +136,7 @@ describe('Core Utils: Type Converter', () => {
             const schema: SwaggerDefinition = {
                 type: 'string',
                 contentMediaType: 'application/json',
-                contentSchema: { type: 'number' }
+                contentSchema: { type: 'number' },
             };
             const result = utils.getTypeScriptType(schema, config, []);
             // Expect the inner type 'number' directly now that we auto-decode
@@ -180,7 +187,7 @@ describe('Core Utils: Type Converter', () => {
         it('should handle tuple types (items as array)', () => {
             const schema: SwaggerDefinition = {
                 type: 'array',
-                items: [{ type: 'string' }, { type: 'number' }]
+                items: [{ type: 'string' }, { type: 'number' }],
             };
             expect(utils.getTypeScriptType(schema, config, [])).toBe('[string, number]');
         });
@@ -188,7 +195,7 @@ describe('Core Utils: Type Converter', () => {
         it('should correctly wrap union types in arrays with parentheses', () => {
             const schema: SwaggerDefinition = {
                 type: 'array',
-                items: { oneOf: [{ type: 'string' }, { type: 'number' }] }
+                items: { oneOf: [{ type: 'string' }, { type: 'number' }] },
             };
             expect(utils.getTypeScriptType(schema, config, [])).toBe('(string | number)[]');
         });
@@ -220,8 +227,8 @@ describe('Core Utils: Type Converter', () => {
                 required: ['req'],
                 properties: {
                     req: { type: 'string' },
-                    opt: { type: 'number' }
-                }
+                    opt: { type: 'number' },
+                },
             };
             const res = utils.getTypeScriptType(schema, config, []);
             expect(res).toContain('req: string');
@@ -231,7 +238,7 @@ describe('Core Utils: Type Converter', () => {
         it('should quote invalid identifier keys', () => {
             const schema: SwaggerDefinition = {
                 type: 'object',
-                properties: { 'mk.1': { type: 'string' } }
+                properties: { 'mk.1': { type: 'string' } },
             };
             const res = utils.getTypeScriptType(schema, config, []);
             expect(res).toContain("'mk.1'?: string");
@@ -276,8 +283,8 @@ describe('Core Utils: Type Converter', () => {
             const rb = {
                 content: {
                     'text/plain': { schema: { type: 'string' } },
-                    'application/json': { schema: { type: 'number' } }
-                }
+                    'application/json': { schema: { type: 'number' } },
+                },
             };
             expect(utils.getRequestBodyType(rb as any, config, [])).toBe('number');
         });
@@ -285,8 +292,8 @@ describe('Core Utils: Type Converter', () => {
         it('should fallback to first available key if no priority match', () => {
             const rb = {
                 content: {
-                    'image/png': { schema: { type: 'string', format: 'binary' } }
-                }
+                    'image/png': { schema: { type: 'string', format: 'binary' } },
+                },
             };
             expect(utils.getRequestBodyType(rb as any, config, [])).toBe('Blob');
         });
@@ -294,8 +301,10 @@ describe('Core Utils: Type Converter', () => {
         it('should return "any" if content map exists but fallback schema is missing', () => {
             const rb = {
                 content: {
-                    'image/png': { /* no schema */ }
-                }
+                    'image/png': {
+                        /* no schema */
+                    },
+                },
             };
             expect(utils.getRequestBodyType(rb as any, config, [])).toBe('any');
         });
@@ -323,7 +332,13 @@ describe('Core Utils: Type Converter', () => {
         });
 
         it('should return "void" if fallback content has no schema', () => {
-            const resp = { content: { 'image/png': { /* no schema */ } } };
+            const resp = {
+                content: {
+                    'image/png': {
+                        /* no schema */
+                    },
+                },
+            };
             expect(utils.getResponseType(resp as any, config, [])).toBe('void');
         });
     });

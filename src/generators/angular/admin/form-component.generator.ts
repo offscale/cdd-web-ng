@@ -1,10 +1,10 @@
 import { ClassDeclaration, Project, Scope } from 'ts-morph';
 
 import { Resource, SwaggerDefinition } from '@src/core/types/index.js';
-import { camelCase, pascalCase, singular } from "@src/core/utils/index.js";
+import { camelCase, pascalCase, singular } from '@src/core/utils/index.js';
 import { SwaggerParser } from '@src/core/parser.js';
-import { FormModelBuilder } from "@src/analysis/form-model.builder.js";
-import { FormAnalysisResult, FormControlModel } from "@src/analysis/form-types.js";
+import { FormModelBuilder } from '@src/analysis/form-model.builder.js';
+import { FormAnalysisResult, FormControlModel } from '@src/analysis/form-types.js';
 
 import { commonStandaloneImports } from './common-imports.js';
 import { generateFormComponentHtml } from './html/form-component-html.builder.js';
@@ -20,8 +20,10 @@ export class FormComponentGenerator {
      * @param project The ts-morph Project instance.
      * @param parser The SwaggerParser instance.
      */
-    constructor(private readonly project: Project, private readonly parser: SwaggerParser) {
-    }
+    constructor(
+        private readonly project: Project,
+        private readonly parser: SwaggerParser,
+    ) {}
 
     public generate(resource: Resource, outDir: string): { usesCustomValidators: boolean } {
         const formDir = `${outDir}/${resource.name}/${resource.name}-form`;
@@ -40,8 +42,12 @@ export class FormComponentGenerator {
         return { usesCustomValidators: tsResult.usesCustomValidators };
     }
 
-    private generateFormComponentTs(resource: Resource, outDir: string, analysis: FormAnalysisResult): {
-        usesCustomValidators: boolean
+    private generateFormComponentTs(
+        resource: Resource,
+        outDir: string,
+        analysis: FormAnalysisResult,
+    ): {
+        usesCustomValidators: boolean;
     } {
         const componentName = `${pascalCase(resource.modelName)}FormComponent`;
         const serviceName = `${pascalCase(resource.name)}Service`;
@@ -49,22 +55,27 @@ export class FormComponentGenerator {
         const formFilePath = `${outDir}/${resource.name}-form.component.ts`;
         const sourceFile = this.project.createSourceFile(formFilePath, undefined, { overwrite: true });
         // The builder creates the main interface with this name
-        const formInterfaceName = analysis.interfaces.find(i => i.isTopLevel)?.name || `${pascalCase(resource.modelName)}Form`;
+        const formInterfaceName =
+            analysis.interfaces.find(i => i.isTopLevel)?.name || `${pascalCase(resource.modelName)}Form`;
 
         // Collect all polymorphic models for import
         const oneOfImports = analysis.polymorphicProperties.flatMap(p => p.options.map(o => o.modelName)).join(', ');
 
-        sourceFile.addStatements([
-            `import { Component, OnInit, computed, inject, signal, effect, ChangeDetectionStrategy, DestroyRef } from '@angular/core';`,
-            `import { takeUntilDestroyed } from '@angular/core/rxjs-interop';`,
-            `import { FormBuilder, FormGroup, FormArray, Validators, FormControl, ReactiveFormsModule } from '@angular/forms';`,
-            `import { ActivatedRoute, Router, RouterModule } from '@angular/router';`,
-            ...commonStandaloneImports.map(a => `import { ${a[0]} } from "${a[1]}";`),
-            `import { MatSnackBar } from '@angular/material/snack-bar';`,
-            `import { ${serviceName} } from '../../../services/${camelCase(resource.name)}.service';`,
-            `import { ${resource.modelName}${oneOfImports ? ', ' + oneOfImports : ''} } from '../../../models';`,
-            analysis.usesCustomValidators ? `import { CustomValidators } from '../../shared/custom-validators';` : ''
-        ].filter(Boolean));
+        sourceFile.addStatements(
+            [
+                `import { Component, OnInit, computed, inject, signal, effect, ChangeDetectionStrategy, DestroyRef } from '@angular/core';`,
+                `import { takeUntilDestroyed } from '@angular/core/rxjs-interop';`,
+                `import { FormBuilder, FormGroup, FormArray, Validators, FormControl, ReactiveFormsModule } from '@angular/forms';`,
+                `import { ActivatedRoute, Router, RouterModule } from '@angular/router';`,
+                ...commonStandaloneImports.map(a => `import { ${a[0]} } from "${a[1]}";`),
+                `import { MatSnackBar } from '@angular/material/snack-bar';`,
+                `import { ${serviceName} } from '@src/services/${camelCase(resource.name)}.service';`,
+                `import { ${resource.modelName}${oneOfImports ? ', ' + oneOfImports : ''} } from '@src/models';`,
+                analysis.usesCustomValidators
+                    ? `import { CustomValidators } from '../../shared/custom-validators';`
+                    : '',
+            ].filter(Boolean),
+        );
 
         // Helper function to find a control model by name, searching recursively
         const findControlInModel = (controls: FormControlModel[], name: string): FormControlModel | undefined => {
@@ -108,10 +119,12 @@ export class FormComponentGenerator {
                             finalType = `FormGroup<${control.dataType}>`;
                             break;
                         case 'array':
-                            if (control.nestedControls) { // Array of FormGroups
+                            if (control.nestedControls) {
+                                // Array of FormGroups
                                 const itemType = control.dataType.replace('[]', '');
                                 finalType = `FormArray<FormGroup<${itemType}>>`;
-                            } else { // Array of FormControls (primitives)
+                            } else {
+                                // Array of FormControls (primitives)
                                 const itemType = control.dataType.replace(/[()]/g, '').replace('[]', '');
                                 finalType = `FormArray<FormControl<${itemType}>>`;
                             }
@@ -129,15 +142,18 @@ export class FormComponentGenerator {
                             break;
                     }
                     return { name: control.name, type: finalType };
-                })
+                }),
             });
         });
 
         const componentClass = sourceFile.addClass({
-            name: componentName, isExported: true,
-            decorators: [{
-                name: 'Component',
-                arguments: [`{
+            name: componentName,
+            isExported: true,
+            decorators: [
+                {
+                    name: 'Component',
+                    arguments: [
+                        `{
                     selector: 'app-${resource.name}-form',
                     standalone: true,
                     imports: [
@@ -148,9 +164,11 @@ export class FormComponentGenerator {
                     templateUrl: './${resource.name}-form.component.html',
                     styleUrl: './${resource.name}-form.component.scss',
                     changeDetection: ChangeDetectionStrategy.OnPush
-                }`]
-            }],
-            implements: ['OnInit']
+                }`,
+                    ],
+                },
+            ],
+            implements: ['OnInit'],
         });
 
         this.addProperties(componentClass, resource, serviceName, formInterfaceName, analysis);
@@ -187,33 +205,47 @@ export class FormComponentGenerator {
 
                         groups.forEach((targets, trigger) => {
                             writer.writeLine(`  const ${trigger}Value = this.form.get('${trigger}')?.value;`);
-                            writer.writeLine(`  if (${trigger}Value !== null && ${trigger}Value !== undefined && ${trigger}Value !== '') {`);
+                            writer.writeLine(
+                                `  if (${trigger}Value !== null && ${trigger}Value !== undefined && ${trigger}Value !== '') {`,
+                            );
                             targets.forEach(target => {
                                 writer.writeLine(`    this.form.get('${target}')?.addValidators(Validators.required);`);
-                                writer.writeLine(`    this.form.get('${target}')?.updateValueAndValidity({ emitEvent: false });`);
+                                writer.writeLine(
+                                    `    this.form.get('${target}')?.updateValueAndValidity({ emitEvent: false });`,
+                                );
                             });
                             writer.writeLine(`  } else {`);
                             targets.forEach(target => {
-                                writer.writeLine(`    this.form.get('${target}')?.removeValidators(Validators.required);`);
-                                writer.writeLine(`    this.form.get('${target}')?.updateValueAndValidity({ emitEvent: false });`);
+                                writer.writeLine(
+                                    `    this.form.get('${target}')?.removeValidators(Validators.required);`,
+                                );
+                                writer.writeLine(
+                                    `    this.form.get('${target}')?.updateValueAndValidity({ emitEvent: false });`,
+                                );
                             });
                             writer.writeLine(`  }`);
                         });
 
                         writer.writeLine('});');
                     }
-                }
+                },
             });
         }
 
-        this.addNgOnInit(componentClass, resource, serviceName, analysis.hasFormArrays || analysis.isPolymorphic || !!analysis.hasMaps);
+        this.addNgOnInit(
+            componentClass,
+            resource,
+            serviceName,
+            analysis.hasFormArrays || analysis.isPolymorphic || !!analysis.hasMaps,
+        );
         this.addInitForm(componentClass, formInterfaceName, analysis.topLevelControls);
 
         if (analysis.isPolymorphic) this.addPolymorphismLogic(componentClass, resource, analysis);
         if (analysis.hasFileUploads) this.addFileHandling(componentClass);
         if (analysis.hasFormArrays) this.addFormArrayHelpers(componentClass, analysis.topLevelControls);
         if (analysis.hasMaps) this.addMapHelpers(componentClass, analysis.topLevelControls);
-        if (analysis.hasFormArrays || analysis.isPolymorphic || analysis.hasMaps) this.addPatchForm(componentClass, resource, analysis);
+        if (analysis.hasFormArrays || analysis.isPolymorphic || analysis.hasMaps)
+            this.addPatchForm(componentClass, resource, analysis);
 
         // Always add getPayload to ensure readOnly fields are stripped and structural transformations are applied
         this.addGetPayload(componentClass, analysis);
@@ -226,13 +258,19 @@ export class FormComponentGenerator {
         return { usesCustomValidators: analysis.usesCustomValidators };
     }
 
-    private addProperties(classDeclaration: ClassDeclaration, resource: Resource, serviceName: string, formInterfaceName: string, analysis: FormAnalysisResult): void {
+    private addProperties(
+        classDeclaration: ClassDeclaration,
+        resource: Resource,
+        serviceName: string,
+        formInterfaceName: string,
+        analysis: FormAnalysisResult,
+    ): void {
         classDeclaration.addProperties([
             {
                 name: 'fb',
                 isReadonly: true,
                 initializer: 'inject(FormBuilder)',
-                docs: ["Injects Angular's FormBuilder service."]
+                docs: ["Injects Angular's FormBuilder service."],
             },
             { name: 'route', isReadonly: true, initializer: 'inject(ActivatedRoute)' },
             { name: 'router', isReadonly: true, initializer: 'inject(Router)' },
@@ -241,18 +279,18 @@ export class FormComponentGenerator {
                 name: `${camelCase(serviceName)}`,
                 isReadonly: true,
                 type: serviceName,
-                initializer: `inject(${serviceName})`
+                initializer: `inject(${serviceName})`,
             },
             {
                 name: `form!: FormGroup<${formInterfaceName}>`,
-                docs: ["The main reactive form group for this component."]
+                docs: ['The main reactive form group for this component.'],
             },
             { name: 'destroyRef', scope: Scope.Private, isReadonly: true, initializer: 'inject(DestroyRef)' },
             { name: 'id = signal<string | null>(null)' },
             { name: 'isEditMode = computed(() => !!this.id())' },
             {
                 name: 'formTitle',
-                initializer: `computed(() => this.isEditMode() ? 'Edit ${resource.modelName}' : 'Create ${resource.modelName}')`
+                initializer: `computed(() => this.isEditMode() ? 'Edit ${resource.modelName}' : 'Create ${resource.modelName}')`,
             },
         ]);
 
@@ -264,8 +302,8 @@ export class FormComponentGenerator {
                         name: `${poly.propertyName}Options`,
                         isReadonly: true,
                         initializer: JSON.stringify(poly.discriminatorOptions),
-                        docs: [`The available options for the ${poly.propertyName} discriminator.`]
-                    }
+                        docs: [`The available options for the ${poly.propertyName} discriminator.`],
+                    },
                 ]);
             });
         }
@@ -283,7 +321,7 @@ export class FormComponentGenerator {
                         classDeclaration.addProperty({
                             name: optionsName,
                             isReadonly: true,
-                            initializer: JSON.stringify(itemsSchema.enum)
+                            initializer: JSON.stringify(itemsSchema.enum),
                         });
                         processedEnums.add(optionsName);
                     }
@@ -296,7 +334,12 @@ export class FormComponentGenerator {
         findEnums(analysis.topLevelControls);
     }
 
-    private addNgOnInit(classDeclaration: ClassDeclaration, resource: Resource, serviceName: string, needsComplexPatch: boolean): void {
+    private addNgOnInit(
+        classDeclaration: ClassDeclaration,
+        resource: Resource,
+        serviceName: string,
+        needsComplexPatch: boolean,
+    ): void {
         const getByIdOp = resource.operations.find(op => op.action === 'getById');
         const patchCall = needsComplexPatch ? 'this.patchForm(entity)' : 'this.form.patchValue(entity as any)';
         let body = `this.initForm();\nconst id = this.route.snapshot.paramMap.get('id');\nif (id) {\n  this.id.set(id);`;
@@ -317,7 +360,9 @@ export class FormComponentGenerator {
         // CHANGE: Disable readOnly controls immediately after initialization
         const readOnlyPaths = this.findReadOnlyControls(controls);
         if (readOnlyPaths.length > 0) {
-            const disableStats = readOnlyPaths.map(path => `this.form.get('${path}')?.disable({ emitEvent: false });`).join('\n    ');
+            const disableStats = readOnlyPaths
+                .map(path => `this.form.get('${path}')?.disable({ emitEvent: false });`)
+                .join('\n    ');
             statement += `\n    ${disableStats}`;
         }
 
@@ -369,14 +414,14 @@ export class FormComponentGenerator {
                 name: arrayGetterName,
                 returnType: `FormArray<FormGroup<${arrayItemInterfaceName}>>`,
                 statements: `return this.form.get('${arrayName}') as FormArray<FormGroup<${arrayItemInterfaceName}>>;`,
-                docs: [`Getter for the ${singularCamel} FormArray.`]
+                docs: [`Getter for the ${singularCamel} FormArray.`],
             });
 
             const createMethod = classDeclaration.addMethod({
                 name: `create${singularPascal}`,
                 scope: Scope.Private,
                 parameters: [{ name: 'item?', type: 'any' }],
-                returnType: `FormGroup<${arrayItemInterfaceName}>`
+                returnType: `FormGroup<${arrayItemInterfaceName}>`,
             });
 
             const initializerString = FormInitializerRenderer.renderFormArrayItemInitializer(prop.nestedControls!);
@@ -406,18 +451,21 @@ export class FormComponentGenerator {
                 name: getterName,
                 // Return specialized FormArray of KV pairs
                 returnType: `FormArray<FormGroup<{ key: FormControl<string | null>, value: FormControl<any> }>>`,
-                statements: `return this.form.get('${mapName}') as FormArray;`
+                statements: `return this.form.get('${mapName}') as FormArray;`,
             });
 
             const createMethod = classDeclaration.addMethod({
                 name: `create${pascalName}Entry`,
                 scope: Scope.Private,
                 parameters: [{ name: 'item?', type: 'any' }],
-                returnType: `FormGroup` // Simplify return type to generic FormGroup for brevity/compatibility
+                returnType: `FormGroup`, // Simplify return type to generic FormGroup for brevity/compatibility
             });
 
             if (prop.mapValueControl) {
-                const initializer = FormInitializerRenderer.renderMapItemInitializer(prop.mapValueControl, prop.keyPattern);
+                const initializer = FormInitializerRenderer.renderMapItemInitializer(
+                    prop.mapValueControl,
+                    prop.keyPattern,
+                );
                 createMethod.setBodyText(`return ${initializer};`);
             } else {
                 createMethod.setBodyText(`return new FormGroup({});`);
@@ -425,18 +473,23 @@ export class FormComponentGenerator {
 
             classDeclaration.addMethod({
                 name: `add${pascalName}Entry`,
-                statements: `this.${getterName}.push(this.create${pascalName}Entry());`
+                statements: `this.${getterName}.push(this.create${pascalName}Entry());`,
             });
 
             classDeclaration.addMethod({
                 name: `remove${pascalName}Entry`,
                 parameters: [{ name: 'index', type: 'number' }],
-                statements: `this.${getterName}.removeAt(index);`
+                statements: `this.${getterName}.removeAt(index);`,
             });
         });
     }
 
-    private addOnSubmit(classDeclaration: ClassDeclaration, resource: Resource, serviceName: string, needsPayloadTransform: boolean): void {
+    private addOnSubmit(
+        classDeclaration: ClassDeclaration,
+        resource: Resource,
+        serviceName: string,
+        needsPayloadTransform: boolean,
+    ): void {
         const createOp = resource.operations.find(op => op.action === 'create');
         const updateOp = resource.operations.find(op => op.action === 'update');
         if (!createOp?.methodName && !updateOp?.methodName) return;
@@ -460,7 +513,7 @@ export class FormComponentGenerator {
     private addOnCancelMethod(classDeclaration: ClassDeclaration): void {
         classDeclaration.addMethod({
             name: 'onCancel',
-            statements: `this.router.navigate(['../'], { relativeTo: this.route });`
+            statements: `this.router.navigate(['../'], { relativeTo: this.route });`,
         });
     }
 
@@ -470,11 +523,7 @@ export class FormComponentGenerator {
 
         const discriminatorProps = analysis.polymorphicProperties.map(p => p.propertyName);
 
-        const complexProps = [
-            ...arrayProps.map(p => p.name),
-            ...mapProps.map(p => p.name),
-            ...discriminatorProps
-        ];
+        const complexProps = [...arrayProps.map(p => p.name), ...mapProps.map(p => p.name), ...discriminatorProps];
 
         if (complexProps.length === 0) return;
 
@@ -525,12 +574,11 @@ export class FormComponentGenerator {
             name: 'patchForm',
             scope: Scope.Private,
             parameters: [{ name: 'entity', type: resource.modelName || 'any' }],
-            statements: body
+            statements: body,
         });
     }
 
     private addPolymorphismLogic(classDeclaration: ClassDeclaration, resource: Resource, analysis: FormAnalysisResult) {
-
         analysis.polymorphicProperties.forEach(poly => {
             const dPropName = poly.propertyName;
             const optionsName = `${dPropName}Options`;
@@ -538,7 +586,7 @@ export class FormComponentGenerator {
             const updateMethod = classDeclaration.addMethod({
                 name: `updateFormFor${pascalCase(dPropName)}`,
                 scope: Scope.Private,
-                parameters: [{ name: 'type', type: 'string' }]
+                parameters: [{ name: 'type', type: 'string' }],
             });
 
             if (poly.options.length > 0) {
@@ -546,7 +594,9 @@ export class FormComponentGenerator {
                 switchBody += `this.${optionsName}.forEach(opt => this.form.removeControl(opt as any));\n\nswitch(type) {\n`;
 
                 poly.options.forEach(opt => {
-                    const subFormProps = opt.controls.map(c => `'${c.name}': ${FormInitializerRenderer.renderControlInitializer(c)}`).join(', ');
+                    const subFormProps = opt.controls
+                        .map(c => `'${c.name}': ${FormInitializerRenderer.renderControlInitializer(c)}`)
+                        .join(', ');
                     switchBody += `  case '${opt.discriminatorValue}':\n`;
                     switchBody += `    this.form.addControl('${opt.subFormName}' as any, this.fb.group({ ${subFormProps} }));\n`;
                     switchBody += '    break;\n';
@@ -561,7 +611,7 @@ export class FormComponentGenerator {
                 name: `is${pascalCase(dPropName)}`,
                 parameters: [{ name: 'type', type: 'string' }],
                 returnType: 'boolean',
-                statements: `return this.form.get('${dPropName}')?.value === type;`
+                statements: `return this.form.get('${dPropName}')?.value === type;`,
             });
 
             poly.options.forEach(opt => {
@@ -572,7 +622,7 @@ export class FormComponentGenerator {
                     scope: Scope.Private,
                     parameters: [{ name: 'entity', type: resource.modelName }],
                     returnType: `entity is ${subSchemaName}`,
-                    statements: `return (entity as any).${dPropName} === '${typeName}';`
+                    statements: `return (entity as any).${dPropName} === '${typeName}';`,
                 });
             });
         });
@@ -582,17 +632,15 @@ export class FormComponentGenerator {
         let body = `const baseValue = this.form.getRawValue() as any; \n`;
 
         // We start by creating a shallow copy.
-        // Note: Nested objects are still references, but we primarily modify top-level structural keys 
+        // Note: Nested objects are still references, but we primarily modify top-level structural keys
         // (readOnly deletion, Maps transformation, Polymorphism merging).
         body += `let payload = { ...baseValue };\n`;
 
         // 1. Strip ReadOnly Fields (COMPLIANCE FIX)
         // Identify top-level read-only fields and remove them from the payload to ensure payload hygiene.
-        // Note: We use analysis.topLevelControls rather than resource.formProperties because the controls 
+        // Note: We use analysis.topLevelControls rather than resource.formProperties because the controls
         // have parsed validation rules/schema info readily available.
-        const readOnlyFields = analysis.topLevelControls
-            .filter(c => c.schema && c.schema.readOnly)
-            .map(c => c.name);
+        const readOnlyFields = analysis.topLevelControls.filter(c => c.schema && c.schema.readOnly).map(c => c.name);
 
         if (readOnlyFields.length > 0) {
             body += `\n// Strip readOnly fields\n`;
@@ -634,8 +682,11 @@ export class FormComponentGenerator {
     private addFileHandling(classDeclaration: ClassDeclaration) {
         classDeclaration.addMethod({
             name: 'onFileSelected',
-            parameters: [{ name: 'event', type: 'Event' }, { name: 'formControlName', type: 'string' }],
-            statements: `const file = (event.target as HTMLInputElement).files?.[0];\nif (file) {\n    this.form.patchValue({ [formControlName]: file } as any);\n    this.form.get(formControlName)?.markAsDirty();\n}`
+            parameters: [
+                { name: 'event', type: 'Event' },
+                { name: 'formControlName', type: 'string' },
+            ],
+            statements: `const file = (event.target as HTMLInputElement).files?.[0];\nif (file) {\n    this.form.patchValue({ [formControlName]: file } as any);\n    this.form.get(formControlName)?.markAsDirty();\n}`,
         });
     }
 

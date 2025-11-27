@@ -1,4 +1,4 @@
-import { BodyParameter, Parameter as SwaggerOfficialParameter, Response } from "swagger-schema-official";
+import { BodyParameter, Parameter as SwaggerOfficialParameter, Response } from 'swagger-schema-official';
 import {
     HeaderObject,
     Parameter,
@@ -7,26 +7,26 @@ import {
     RequestBody,
     SpecOperation,
     SwaggerDefinition,
-    SwaggerResponse
-} from "../types/index.js";
-import { camelCase, normalizeSecurityKey, pascalCase } from "./index.js";
-import { SwaggerParser } from "@src/core/parser.js";
+    SwaggerResponse,
+} from '../types/index.js';
+import { camelCase, normalizeSecurityKey, pascalCase } from './index.js';
+import { SwaggerParser } from '@src/core/parser.js';
 
 // Union type handling both Swagger 2.0 and OpenAPI 3.x property names
 type UnifiedParameter = SwaggerOfficialParameter & {
-    schema?: SwaggerDefinition | { $ref: string },
-    type?: string,
-    format?: string,
-    items?: SwaggerDefinition | { $ref: string }
-    collectionFormat?: 'csv' | 'ssv' | 'tsv' | 'pipes' | 'multi' | string,
-    style?: string,
-    explode?: boolean,
-    allowReserved?: boolean,
-    allowEmptyValue?: boolean,
-    content?: Record<string, { schema?: SwaggerDefinition }>,
-    deprecated?: boolean,
-    example?: any,
-    examples?: Record<string, any>,
+    schema?: SwaggerDefinition | { $ref: string };
+    type?: string;
+    format?: string;
+    items?: SwaggerDefinition | { $ref: string };
+    collectionFormat?: 'csv' | 'ssv' | 'tsv' | 'pipes' | 'multi' | string;
+    style?: string;
+    explode?: boolean;
+    allowReserved?: boolean;
+    allowEmptyValue?: boolean;
+    content?: Record<string, { schema?: SwaggerDefinition }>;
+    deprecated?: boolean;
+    example?: any;
+    examples?: Record<string, any>;
     [key: string]: any;
 };
 
@@ -45,14 +45,14 @@ type UnifiedParameter = SwaggerOfficialParameter & {
 export function extractPaths(
     swaggerPaths: { [p: string]: PathItem } | undefined,
     resolveRef?: (ref: string) => PathItem | undefined,
-    components?: { securitySchemes?: Record<string, any> } | undefined
+    components?: { securitySchemes?: Record<string, any> } | undefined,
 ): PathInfo[] {
     if (!swaggerPaths) {
         return [];
     }
 
     const paths: PathInfo[] = [];
-    const methods = ["get", "post", "put", "patch", "delete", "options", "head", "query"];
+    const methods = ['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'query'];
 
     // Create a lookup Set for security schemes to enforce precedence rules (OAS 3.2 Security Requirements)
     const securitySchemeNames = new Set(components?.securitySchemes ? Object.keys(components.securitySchemes) : []);
@@ -106,7 +106,7 @@ export function extractPaths(
             const bodyParam = allParams.find(p => p && p.in === 'body') as BodyParameter | undefined;
 
             const parameters = nonBodyParams
-                .filter((p) => p !== undefined && p !== null)
+                .filter(p => p !== undefined && p !== null)
                 .map((p): Parameter => {
                     let finalSchema = p.schema;
 
@@ -119,20 +119,22 @@ export function extractPaths(
 
                     if (!finalSchema) {
                         const baseSchema: SwaggerDefinition = {};
-                        if (p.type !== undefined) baseSchema.type = p.type as Exclude<SwaggerDefinition['type'], undefined>;
+                        if (p.type !== undefined)
+                            baseSchema.type = p.type as Exclude<SwaggerDefinition['type'], undefined>;
                         if (p.format !== undefined) baseSchema.format = p.format;
-                        if (p.items !== undefined) baseSchema.items = p.items as SwaggerDefinition | SwaggerDefinition[];
+                        if (p.items !== undefined)
+                            baseSchema.items = p.items as SwaggerDefinition | SwaggerDefinition[];
                         finalSchema = baseSchema;
                     }
 
                     const param: Parameter = {
                         name: p.name,
                         // Explicit cast is safe here as we've filtered/processed known 'in' types
-                        in: p.in as "query" | "path" | "header" | "cookie" | "querystring",
+                        in: p.in as 'query' | 'path' | 'header' | 'cookie' | 'querystring',
                         schema: finalSchema as SwaggerDefinition,
                     };
 
-                    if (p.content) param.content = p.content as Record<string, { schema?: SwaggerDefinition; }>;
+                    if (p.content) param.content = p.content as Record<string, { schema?: SwaggerDefinition }>;
                     if (p.style !== undefined) param.style = p.style;
                     if (p.explode !== undefined) param.explode = p.explode;
                     if (p.allowReserved !== undefined) param.allowReserved = p.allowReserved;
@@ -177,7 +179,7 @@ export function extractPaths(
                     if (param.explode === undefined) {
                         // "When style is form, the default value is true. For all other styles, the default value is false."
                         // Note: This applies to cookie style='form' as well.
-                        param.explode = (param.style === 'form');
+                        param.explode = param.style === 'form';
                     }
 
                     if (p.required !== undefined) param.required = p.required;
@@ -192,8 +194,9 @@ export function extractPaths(
                     return param;
                 });
 
-            const requestBody = operation.requestBody
-                || (bodyParam ? { content: { 'application/json': { schema: bodyParam.schema } } } : undefined);
+            const requestBody =
+                operation.requestBody ||
+                (bodyParam ? { content: { 'application/json': { schema: bodyParam.schema } } } : undefined);
 
             const normalizedResponses: Record<string, SwaggerResponse> = {};
             if (operation.responses) {
@@ -206,13 +209,13 @@ export function extractPaths(
                             description: swagger2Response.description,
                             headers: headers,
                             content: {
-                                'application/json': { schema: swagger2Response.schema as unknown as SwaggerDefinition }
-                            }
-                        }
+                                'application/json': { schema: swagger2Response.schema as unknown as SwaggerDefinition },
+                            },
+                        };
                     } else {
                         normalizedResponses[code] = {
                             ...(resp as SwaggerResponse),
-                            headers: headers
+                            headers: headers,
                         };
                     }
                 }
@@ -289,12 +292,16 @@ function getControllerName(operation: PathInfo): string {
  * Helper function to generate a method name from a URL path.
  */
 function path_to_method_name_suffix(path: string): string {
-    return path.split('/').filter(Boolean).map(segment => {
-        if (segment.startsWith('{') && segment.endsWith('}')) {
-            return `By${pascalCase(segment.slice(1, -1))}`;
-        }
-        return pascalCase(segment);
-    }).join('');
+    return path
+        .split('/')
+        .filter(Boolean)
+        .map(segment => {
+            if (segment.startsWith('{') && segment.endsWith('}')) {
+                return `By${pascalCase(segment.slice(1, -1))}`;
+            }
+            return pascalCase(segment);
+        })
+        .join('');
 }
 
 /**

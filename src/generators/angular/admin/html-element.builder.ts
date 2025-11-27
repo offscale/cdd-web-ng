@@ -66,13 +66,20 @@ export class HtmlElementBuilder {
 
         let content = '';
         if (this.innerHtml) {
-            content = `\n${this.innerHtml.split('\n').map(line => `${'  '.repeat(indentationLevel + 1)}${line.trim()}`).join('\n')}\n${indent}`;
+            content = `\n${this.innerHtml
+                .split('\n')
+                .map(line => `${'  '.repeat(indentationLevel + 1)}${line.trim()}`)
+                .join('\n')}\n${indent}`;
         } else if (this.textContent) {
             content = this.textContent;
         } else if (this.children.length > 0) {
-            content = `\n${this.children.map(child =>
-                child instanceof HtmlElementBuilder ? child.render(indentationLevel + 1) : `${'  '.repeat(indentationLevel + 1)}${child}`
-            ).join('\n')}\n${indent}`;
+            content = `\n${this.children
+                .map(child =>
+                    child instanceof HtmlElementBuilder
+                        ? child.render(indentationLevel + 1)
+                        : `${'  '.repeat(indentationLevel + 1)}${child}`,
+                )
+                .join('\n')}\n${indent}`;
         }
 
         return `${openingTag}${content}</${this.tagName}>`;

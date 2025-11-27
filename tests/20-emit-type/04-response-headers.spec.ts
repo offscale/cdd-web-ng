@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+
 import { Project } from 'ts-morph';
-import { TypeGenerator } from "@src/generators/shared/type.generator.js";
+
+import { TypeGenerator } from '@src/generators/shared/type.generator.js';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from "@src/core/types/index.js";
+import { GeneratorConfig } from '@src/core/types/index.js';
 
 const headerSpec = {
     openapi: '3.0.0',
@@ -17,33 +19,33 @@ const headerSpec = {
                         headers: {
                             'X-Total-Count': {
                                 description: 'Total number of items',
-                                schema: { type: 'integer' }
+                                schema: { type: 'integer' },
                             },
                             'X-Rate-Limit': {
-                                schema: { type: 'integer' }
+                                schema: { type: 'integer' },
                             },
                             'X-Complex-Header': {
                                 description: 'Header defined via content map',
                                 content: {
                                     'application/json': {
-                                        schema: { type: 'object', properties: { id: { type: 'string' } } }
-                                    }
-                                }
+                                        schema: { type: 'object', properties: { id: { type: 'string' } } },
+                                    },
+                                },
                             },
                             'X-Old-Header': {
                                 description: 'An old header',
                                 schema: { type: 'string' },
-                                deprecated: true
+                                deprecated: true,
                             },
-                            'Link': {
-                                schema: { type: 'string' }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+                            Link: {
+                                schema: { type: 'string' },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    },
 };
 
 describe('Emitter: Response Header Type Generation', () => {
@@ -105,12 +107,12 @@ describe('Emitter: Response Header Type Generation', () => {
                     head: {
                         responses: {
                             '200': {
-                                headers: { 'X-Length': { schema: { type: 'integer' } } }
-                            }
-                        }
-                    }
-                }
-            }
+                                headers: { 'X-Length': { schema: { type: 'integer' } } },
+                            },
+                        },
+                    },
+                },
+            },
         };
         const sourceFile = runGenerator(spec);
         // Name should be HeadItems200Headers
@@ -127,13 +129,13 @@ describe('Emitter: Response Header Type Generation', () => {
                         responses: {
                             '200': {
                                 headers: {
-                                    'X-Legacy': { type: 'string', description: 'Legacy Header' }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+                                    'X-Legacy': { type: 'string', description: 'Legacy Header' },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
         };
         const sourceFile = runGenerator(spec);
         const headersInterface = sourceFile.getInterfaceOrThrow('GetLegacy200Headers');

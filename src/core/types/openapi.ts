@@ -87,7 +87,7 @@ export interface XmlObject {
 export interface LinkObject {
     operationRef?: string;
     operationId?: string;
-    parameters?: { [name: string]: any | string; };
+    parameters?: { [name: string]: any | string };
     requestBody?: any | string;
     description?: string;
     server?: ServerObject;
@@ -143,7 +143,7 @@ export interface HeaderObject {
 
 export interface Parameter {
     name: string;
-    in: "query" | "path" | "header" | "cookie" | "formData" | "querystring";
+    in: 'query' | 'path' | 'header' | 'cookie' | 'formData' | 'querystring';
     required?: boolean;
     schema?: SwaggerDefinition | { $ref: string };
     type?: 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'file';
@@ -153,12 +153,15 @@ export interface Parameter {
     explode?: boolean;
     allowReserved?: boolean;
     allowEmptyValue?: boolean;
-    content?: Record<string, {
-        schema?: SwaggerDefinition | { $ref: string };
-        example?: any;
-        examples?: Record<string, any>;
-        encoding?: Record<string, EncodingProperty>;
-    }>;
+    content?: Record<
+        string,
+        {
+            schema?: SwaggerDefinition | { $ref: string };
+            example?: any;
+            examples?: Record<string, any>;
+            encoding?: Record<string, EncodingProperty>;
+        }
+    >;
     deprecated?: boolean;
 
     [key: string]: any;
@@ -176,23 +179,29 @@ export interface EncodingProperty {
 
 export interface RequestBody {
     required?: boolean;
-    content?: Record<string, {
-        schema?: SwaggerDefinition | { $ref: string };
-        itemSchema?: SwaggerDefinition | { $ref: string };
-        encoding?: Record<string, EncodingProperty>;
-        prefixEncoding?: EncodingProperty[];
-        itemEncoding?: EncodingProperty;
-    }>;
+    content?: Record<
+        string,
+        {
+            schema?: SwaggerDefinition | { $ref: string };
+            itemSchema?: SwaggerDefinition | { $ref: string };
+            encoding?: Record<string, EncodingProperty>;
+            prefixEncoding?: EncodingProperty[];
+            itemEncoding?: EncodingProperty;
+        }
+    >;
 
     [key: string]: any;
 }
 
 export interface SwaggerResponse {
     description?: string;
-    content?: Record<string, {
-        schema?: SwaggerDefinition | { $ref: string };
-        itemSchema?: SwaggerDefinition | { $ref: string };
-    }>;
+    content?: Record<
+        string,
+        {
+            schema?: SwaggerDefinition | { $ref: string };
+            itemSchema?: SwaggerDefinition | { $ref: string };
+        }
+    >;
     links?: Record<string, LinkObject | { $ref: string }>;
     headers?: Record<string, HeaderObject | { $ref: string }>;
 
@@ -200,7 +209,16 @@ export interface SwaggerResponse {
 }
 
 export interface SwaggerDefinition {
-    type?: "string" | "number" | "integer" | "boolean" | "object" | "array" | "file" | "null" | ("string" | "number" | "integer" | "boolean" | "object" | "array" | "null")[];
+    type?:
+        | 'string'
+        | 'number'
+        | 'integer'
+        | 'boolean'
+        | 'object'
+        | 'array'
+        | 'file'
+        | 'null'
+        | ('string' | 'number' | 'integer' | 'boolean' | 'object' | 'array' | 'null')[];
     format?: string;
     description?: string;
     default?: unknown;

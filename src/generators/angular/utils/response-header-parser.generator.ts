@@ -1,46 +1,45 @@
-import * as path from "node:path";
-import { Project, Scope } from "ts-morph";
-import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../../core/constants.js";
+import * as path from 'node:path';
+import { Project, Scope } from 'ts-morph';
+import { UTILITY_GENERATOR_HEADER_COMMENT } from '@src/core/constants.js';
 
 export class ResponseHeaderParserGenerator {
-    constructor(private project: Project) {
-    }
+    constructor(private project: Project) {}
 
     public generate(outputDir: string): void {
-        const utilsDir = path.join(outputDir, "utils");
-        const filePath = path.join(utilsDir, "response-header.service.ts");
-        const sourceFile = this.project.createSourceFile(filePath, "", { overwrite: true });
+        const utilsDir = path.join(outputDir, 'utils');
+        const filePath = path.join(utilsDir, 'response-header.service.ts');
+        const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
         sourceFile.addImportDeclarations([
-            { moduleSpecifier: "@angular/core", namedImports: ["Injectable"] },
-            { moduleSpecifier: "@angular/common/http", namedImports: ["HttpHeaders"] },
+            { moduleSpecifier: '@angular/core', namedImports: ['Injectable'] },
+            { moduleSpecifier: '@angular/common/http', namedImports: ['HttpHeaders'] },
             {
-                moduleSpecifier: "../response-headers",
-                namedImports: ["API_RESPONSE_HEADERS", "API_HEADER_XML_CONFIGS"]
+                moduleSpecifier: '../response-headers',
+                namedImports: ['API_RESPONSE_HEADERS', 'API_HEADER_XML_CONFIGS'],
             },
-            { moduleSpecifier: "./xml-parser", namedImports: ["XmlParser"] },
-            { moduleSpecifier: "./linkset-parser", namedImports: ["LinkSetParser"] },
+            { moduleSpecifier: './xml-parser', namedImports: ['XmlParser'] },
+            { moduleSpecifier: './linkset-parser', namedImports: ['LinkSetParser'] },
         ]);
 
         const serviceClass = sourceFile.addClass({
-            name: "ResponseHeaderService",
+            name: 'ResponseHeaderService',
             isExported: true,
-            decorators: [{ name: "Injectable", arguments: ["{ providedIn: 'root' }"] }],
-            docs: ["Service to parse and coerce response headers into typed objects based on API metadata."]
+            decorators: [{ name: 'Injectable', arguments: ["{ providedIn: 'root' }"] }],
+            docs: ['Service to parse and coerce response headers into typed objects based on API metadata.'],
         });
 
         serviceClass.addMethod({
-            name: "parse",
-            typeParameters: [{ name: "T" }],
+            name: 'parse',
+            typeParameters: [{ name: 'T' }],
             scope: Scope.Public,
             parameters: [
-                { name: "headers", type: "HttpHeaders" },
-                { name: "operationId", type: "string" },
-                { name: "statusCode", type: "number | string" }
+                { name: 'headers', type: 'HttpHeaders' },
+                { name: 'operationId', type: 'string' },
+                { name: 'statusCode', type: 'number | string' },
             ],
-            returnType: "T",
+            returnType: 'T',
             statements: `
         const result: any = {};
         const opHeaders = (API_RESPONSE_HEADERS as any)[operationId];
@@ -66,18 +65,18 @@ export class ResponseHeaderParserGenerator {
             }
         });
 
-        return result as T;`
+        return result as T;`,
         });
 
         serviceClass.addMethod({
-            name: "coerce",
+            name: 'coerce',
             scope: Scope.Private,
             parameters: [
-                { name: "value", type: "string" },
-                { name: "type", type: "string" },
-                { name: "xmlConfig", type: "any", hasQuestionToken: true }
+                { name: 'value', type: 'string' },
+                { name: 'type', type: 'string' },
+                { name: 'xmlConfig', type: 'any', hasQuestionToken: true },
             ],
-            returnType: "any",
+            returnType: 'any',
             statements: `
         switch (type) {
             case 'number': return parseFloat(value);
@@ -92,17 +91,17 @@ export class ResponseHeaderParserGenerator {
             case 'linkset':
                 return LinkSetParser.parseHeader(value);
             default: return value;
-        }`
+        }`,
         });
 
         serviceClass.addMethod({
-            name: "parseLinkSetBody",
-            typeParameters: [{ name: "T" }],
+            name: 'parseLinkSetBody',
+            typeParameters: [{ name: 'T' }],
             scope: Scope.Public,
-            parameters: [{ name: "body", type: "any" }],
-            returnType: "any",
+            parameters: [{ name: 'body', type: 'any' }],
+            returnType: 'any',
             statements: `
-            return LinkSetParser.parseJson(body);`
+            return LinkSetParser.parseJson(body);`,
         });
 
         sourceFile.formatText();

@@ -14,8 +14,10 @@ interface OAuthFlowConfig {
 }
 
 export class OAuthHelperGenerator {
-    constructor(private parser: SwaggerParser, private project: Project) {
-    }
+    constructor(
+        private parser: SwaggerParser,
+        private project: Project,
+    ) {}
 
     public generate(outputDir: string): void {
         const securitySchemes = Object.values(this.parser.getSecuritySchemes());
@@ -31,7 +33,7 @@ export class OAuthHelperGenerator {
             hasImplicit: false,
             hasPassword: false,
             hasClientCredentials: false,
-            hasAuthorizationCode: false
+            hasAuthorizationCode: false,
         };
 
         for (const scheme of oauthSchemes) {
@@ -42,7 +44,8 @@ export class OAuthHelperGenerator {
             } else if (scheme.flows) {
                 if (scheme.flows.implicit) {
                     config.hasImplicit = true;
-                    if (!config.authorizationUrl) config.authorizationUrl = (scheme.flows.implicit as any).authorizationUrl;
+                    if (!config.authorizationUrl)
+                        config.authorizationUrl = (scheme.flows.implicit as any).authorizationUrl;
                 }
                 if (scheme.flows.password) {
                     config.hasPassword = true;
@@ -54,7 +57,8 @@ export class OAuthHelperGenerator {
                 }
                 if (scheme.flows.authorizationCode) {
                     config.hasAuthorizationCode = true;
-                    if (!config.authorizationUrl) config.authorizationUrl = (scheme.flows.authorizationCode as any).authorizationUrl;
+                    if (!config.authorizationUrl)
+                        config.authorizationUrl = (scheme.flows.authorizationCode as any).authorizationUrl;
                     if (!config.tokenUrl) config.tokenUrl = (scheme.flows.authorizationCode as any).tokenUrl;
                 }
             }
@@ -78,7 +82,7 @@ export class OAuthHelperGenerator {
         const imports = [
             { moduleSpecifier: '@angular/core', namedImports: ['Injectable', 'inject'] },
             { moduleSpecifier: '@angular/router', namedImports: ['Router'] },
-            { moduleSpecifier: 'angular-oauth2-oidc', namedImports: ['OAuthService', 'AuthConfig'] }
+            { moduleSpecifier: 'angular-oauth2-oidc', namedImports: ['OAuthService', 'AuthConfig'] },
         ];
 
         if (config.hasPassword || config.hasClientCredentials) {
@@ -91,14 +95,14 @@ export class OAuthHelperGenerator {
             name: 'OAuthHelperService',
             isExported: true,
             decorators: [{ name: 'Injectable', arguments: [`{ providedIn: 'root' }`] }],
-            docs: ["Service to manage OAuth2 tokens and flows."],
+            docs: ['Service to manage OAuth2 tokens and flows.'],
         });
 
         // Properties
         serviceClass.addProperties([
             { name: 'oAuthService', scope: Scope.Private, isReadonly: true, initializer: 'inject(OAuthService)' },
             { name: 'router', scope: Scope.Private, isReadonly: true, initializer: 'inject(Router)' },
-            { name: 'TOKEN_KEY', isReadonly: true, scope: Scope.Private, initializer: "'oauth_token'" }
+            { name: 'TOKEN_KEY', isReadonly: true, scope: Scope.Private, initializer: "'oauth_token'" },
         ]);
 
         if (config.hasPassword || config.hasClientCredentials) {
@@ -106,7 +110,7 @@ export class OAuthHelperGenerator {
                 name: 'http',
                 scope: Scope.Private,
                 isReadonly: true,
-                initializer: 'inject(HttpClient)'
+                initializer: 'inject(HttpClient)',
             });
         }
 
@@ -114,14 +118,14 @@ export class OAuthHelperGenerator {
             serviceClass.addProperty({
                 name: 'authorizationUrl',
                 isReadonly: true,
-                initializer: `'${config.authorizationUrl}'`
+                initializer: `'${config.authorizationUrl}'`,
             });
         }
         if (config.tokenUrl) {
             serviceClass.addProperty({
                 name: 'tokenUrl',
                 isReadonly: true,
-                initializer: `'${config.tokenUrl}'`
+                initializer: `'${config.tokenUrl}'`,
             });
         }
 
@@ -149,16 +153,16 @@ export class OAuthHelperGenerator {
             {
                 name: 'setToken',
                 parameters: [{ name: 'token', type: 'string' }],
-                statements: `localStorage.setItem(this.TOKEN_KEY, token);`
+                statements: `localStorage.setItem(this.TOKEN_KEY, token);`,
             },
             {
                 name: 'getToken',
                 returnType: 'string | null',
-                statements: `return this.oAuthService.getAccessToken() || localStorage.getItem(this.TOKEN_KEY);`
+                statements: `return this.oAuthService.getAccessToken() || localStorage.getItem(this.TOKEN_KEY);`,
             },
             {
                 name: 'clearToken',
-                statements: `this.oAuthService.logOut();\nlocalStorage.removeItem(this.TOKEN_KEY);`
+                statements: `this.oAuthService.logOut();\nlocalStorage.removeItem(this.TOKEN_KEY);`,
             },
             {
                 name: 'configure',
@@ -170,8 +174,8 @@ export class OAuthHelperGenerator {
             this.oAuthService.configure(config);
         }
         await this.oAuthService.loadDiscoveryDocumentAndTryLogin();
-                `
-            }
+                `,
+            },
         ]);
     }
 
@@ -180,7 +184,7 @@ export class OAuthHelperGenerator {
             name: 'login',
             docs: ['Initiates the Authorization Code flow (PKCE).'],
             parameters: [{ name: 'redirectUrl', type: 'string', hasQuestionToken: true }],
-            statements: `this.oAuthService.initCodeFlow(redirectUrl);`
+            statements: `this.oAuthService.initCodeFlow(redirectUrl);`,
         });
     }
 
@@ -189,7 +193,7 @@ export class OAuthHelperGenerator {
             name: 'loginImplicit',
             docs: ['Initiates the Implicit flow.'],
             parameters: [{ name: 'redirectUrl', type: 'string', hasQuestionToken: true }],
-            statements: `this.oAuthService.initImplicitFlow(redirectUrl);`
+            statements: `this.oAuthService.initImplicitFlow(redirectUrl);`,
         });
     }
 
@@ -199,7 +203,7 @@ export class OAuthHelperGenerator {
             docs: ['Exchanges username/password for a token (Resource Owner Password Flow).'],
             parameters: [
                 { name: 'username', type: 'string' },
-                { name: 'password', type: 'string' }
+                { name: 'password', type: 'string' },
             ],
             returnType: 'Promise<any>',
             statements: `
@@ -219,7 +223,7 @@ export class OAuthHelperGenerator {
                 },
                 error: reject
             });
-        });`
+        });`,
         });
     }
 
@@ -229,7 +233,7 @@ export class OAuthHelperGenerator {
             docs: ['Obtains a token using Client Credentials Flow.'],
             parameters: [
                 { name: 'clientId', type: 'string' },
-                { name: 'clientSecret', type: 'string' }
+                { name: 'clientSecret', type: 'string' },
             ],
             returnType: 'Promise<any>',
             statements: `
@@ -248,7 +252,7 @@ export class OAuthHelperGenerator {
                 },
                 error: reject
             });
-        });`
+        });`,
         });
     }
 
@@ -265,26 +269,30 @@ export class OAuthHelperGenerator {
         tsFile.addImportDeclarations([
             {
                 moduleSpecifier: '@angular/core',
-                namedImports: ['Component', 'OnInit', 'inject', 'ChangeDetectionStrategy']
+                namedImports: ['Component', 'OnInit', 'inject', 'ChangeDetectionStrategy'],
             },
             { moduleSpecifier: '@angular/router', namedImports: ['ActivatedRoute', 'Router'] },
             { moduleSpecifier: 'rxjs/operators', namedImports: ['first'] },
-            { moduleSpecifier: '../oauth.service', namedImports: ['OAuthHelperService'] }
+            { moduleSpecifier: '../oauth.service', namedImports: ['OAuthHelperService'] },
         ]);
 
         tsFile.addClass({
             name: 'OauthRedirectComponent',
             isExported: true,
             implements: ['OnInit'],
-            decorators: [{
-                name: 'Component',
-                arguments: [`{ 
+            decorators: [
+                {
+                    name: 'Component',
+                    arguments: [
+                        `{ 
                     selector: 'app-oauth-redirect', 
                     templateUrl: './oauth-redirect.component.html', 
                     changeDetection: ChangeDetectionStrategy.OnPush
-                }`]
-            }],
-            docs: ["Handles the redirect from an OAuth provider."],
+                }`,
+                    ],
+                },
+            ],
+            docs: ['Handles the redirect from an OAuth provider.'],
             properties: [
                 { name: 'route', scope: Scope.Private, isReadonly: true, initializer: 'inject(ActivatedRoute)' },
                 { name: 'router', scope: Scope.Private, isReadonly: true, initializer: 'inject(Router)' },
@@ -292,26 +300,28 @@ export class OAuthHelperGenerator {
                     name: 'oauthService',
                     scope: Scope.Private,
                     isReadonly: true,
-                    initializer: 'inject(OAuthHelperService)'
-                }
+                    initializer: 'inject(OAuthHelperService)',
+                },
             ],
-            methods: [{
-                name: 'ngOnInit',
-                statements: [
-                    `this.route.fragment.pipe(first()).subscribe(fragment => {`,
-                    `  if (fragment) {`,
-                    `    const params = new URLSearchParams(fragment);`,
-                    `    const accessToken = params.get('access_token');`,
-                    `    if (accessToken) {`,
-                    `      this.oauthService.setToken(accessToken);`,
-                    `      this.router.navigate(['/']);`,
-                    `    } else {`,
-                    `      console.error('OAuth redirect fragment did not contain access_token');`,
-                    `    }`,
-                    `  }`,
-                    `});`
-                ]
-            }]
+            methods: [
+                {
+                    name: 'ngOnInit',
+                    statements: [
+                        `this.route.fragment.pipe(first()).subscribe(fragment => {`,
+                        `  if (fragment) {`,
+                        `    const params = new URLSearchParams(fragment);`,
+                        `    const accessToken = params.get('access_token');`,
+                        `    if (accessToken) {`,
+                        `      this.oauthService.setToken(accessToken);`,
+                        `      this.router.navigate(['/']);`,
+                        `    } else {`,
+                        `      console.error('OAuth redirect fragment did not contain access_token');`,
+                        `    }`,
+                        `  }`,
+                        `});`,
+                    ],
+                },
+            ],
         });
 
         tsFile.formatText();

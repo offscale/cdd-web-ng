@@ -5,8 +5,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import yaml from 'js-yaml';
 import { generateFromConfig } from './index.js';
-import { GeneratorConfig, GeneratorConfigOptions } from "@src/core/types/index.js";
-import { isUrl } from "@src/core/utils/index.js";
+import { GeneratorConfig, GeneratorConfigOptions } from '@src/core/types/index.js';
+import { isUrl } from '@src/core/utils/index.js';
 
 const packageJsonPath = new URL('../package.json', import.meta.url);
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
@@ -122,15 +122,19 @@ async function runGeneration(options: CliOptions) {
         }
 
         console.log('🚀 Starting code generation with the following configuration:');
-        console.log(yaml.dump({ ...finalConfigInProgress }, {
-            indent: 2,
-            skipInvalid: true
-        }));
+        console.log(
+            yaml.dump(
+                { ...finalConfigInProgress },
+                {
+                    indent: 2,
+                    skipInvalid: true,
+                },
+            ),
+        );
 
         await generateFromConfig(finalConfigInProgress as GeneratorConfig);
-
     } catch (error) {
-        console.error("❌ Generation failed:", error instanceof Error ? error.message : String(error));
+        console.error('❌ Generation failed:', error instanceof Error ? error.message : String(error));
         process.exit(1);
     } finally {
         const duration = (Date.now() - startTime) / 1000;
@@ -139,10 +143,7 @@ async function runGeneration(options: CliOptions) {
 }
 
 const program = new Command();
-program
-    .name('cdd_web_ng')
-    .description('OpenAPI ↔ Client SDK (Angular, React, Vue) code generator')
-    .version(packageJson.version);
+program.name('cdd_web_ng').description('OpenAPI ↔ Angular').version(packageJson.version);
 
 program
     .command('from_openapi')
@@ -151,7 +152,11 @@ program
     .option('-i, --input <path>', 'Path or URL to the OpenAPI spec (overrides config)')
     .option('-o, --output <path>', 'Output directory for generated files (overrides config)')
     .option('--clientName <name>', 'Name for the generated client (used for DI tokens)')
-    .addOption(new Option('--framework <framework>', 'Target framework').choices(['angular', 'react', 'vue']).default('angular'))
+    .addOption(
+        new Option('--framework <framework>', 'Target framework')
+            .choices(['angular', 'react', 'vue'])
+            .default('angular'),
+    )
     .addOption(new Option('--dateType <type>', 'Date type to use').choices(['string', 'Date']))
     .addOption(new Option('--enumStyle <style>', 'Style for enums').choices(['enum', 'union']))
     .option('--admin', 'Generate an admin UI (Angular only)')
@@ -164,9 +169,9 @@ program
     .command('to_openapi')
     .description('Generate an OpenAPI specification from TypeScript code (Not yet implemented)')
     .requiredOption('-f, --file <path>', 'Path to the input TypeScript source file or directory')
-    .addOption(new Option('--format <format>', 'Output format for the OpenAPI spec')
-        .choices(['json', 'yaml'])
-        .default('yaml'))
+    .addOption(
+        new Option('--format <format>', 'Output format for the OpenAPI spec').choices(['json', 'yaml']).default('yaml'),
+    )
     .action((options: ToActionOptions) => {
         console.log('\n`to_openapi` command is a stub and is not yet implemented.');
         console.log('Provided Options:');

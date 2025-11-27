@@ -1,35 +1,41 @@
-import * as path from "node:path";
-import { Project, VariableDeclarationKind } from "ts-morph";
-import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../core/constants.js";
+import * as path from 'node:path';
+import { Project, VariableDeclarationKind } from 'ts-morph';
+import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../core/constants.js';
 import { SwaggerParser } from '@src/core/parser.js';
-import { extractPaths, getRequestBodyType, getResponseType, pascalCase } from "@src/core/utils/index.js";
-import { PathInfo, PathItem } from "@src/core/types/index.js";
+import { extractPaths, getRequestBodyType, getResponseType, pascalCase } from '@src/core/utils/index.js';
+import { PathInfo, PathItem } from '@src/core/types/index.js';
 
 export class WebhookGenerator {
     constructor(
         private readonly parser: SwaggerParser,
-        private readonly project: Project
-    ) {
-    }
+        private readonly project: Project,
+    ) {}
 
     public generate(outputDir: string): void {
-        const filePath = path.join(outputDir, "webhooks.ts");
-        const sourceFile = this.project.createSourceFile(filePath, "", { overwrite: true });
+        const filePath = path.join(outputDir, 'webhooks.ts');
+        const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
         const requiredModels = new Set<string>();
         const registerModel = (type: string) => {
-            if (type && type !== 'any' && /^[A-Z]/.test(type) && !['Date', 'Blob', 'File'].includes(type) && !type.includes('{') && !type.includes('<')) {
+            if (
+                type &&
+                type !== 'any' &&
+                /^[A-Z]/.test(type) &&
+                !['Date', 'Blob', 'File'].includes(type) &&
+                !type.includes('{') &&
+                !type.includes('<')
+            ) {
                 const modelName = type.replace(/\[\]/g, '');
                 requiredModels.add(modelName);
             }
         };
 
         const webhooksFound: {
-            name: string,
-            interfaceName: string,
-            method: string,
-            requestType: string,
-            responseType: string
+            name: string;
+            interfaceName: string;
+            method: string;
+            requestType: string;
+            responseType: string;
         }[] = [];
         const webhooks = this.parser.spec.webhooks || {};
 
@@ -40,8 +46,16 @@ export class WebhookGenerator {
             const subPaths = this.processWebhookPathItem(webhookName, resolved);
 
             subPaths.forEach(sub => {
-                const requestType = getRequestBodyType(sub.requestBody, this.parser.config, this.parser.schemas.map(s => s.name));
-                const responseType = getResponseType(sub.responses?.[Object.keys(sub.responses || {})[0]], this.parser.config, this.parser.schemas.map(s => s.name));
+                const requestType = getRequestBodyType(
+                    sub.requestBody,
+                    this.parser.config,
+                    this.parser.schemas.map(s => s.name),
+                );
+                const responseType = getResponseType(
+                    sub.responses?.[Object.keys(sub.responses || {})[0]],
+                    this.parser.config,
+                    this.parser.schemas.map(s => s.name),
+                );
 
                 registerModel(requestType);
 
@@ -51,14 +65,14 @@ export class WebhookGenerator {
                     method: sub.method,
                     interfaceName,
                     requestType,
-                    responseType
+                    responseType,
                 });
 
                 sourceFile.addTypeAlias({
                     isExported: true,
                     name: interfaceName,
                     type: requestType,
-                    docs: [`Payload definition for webhook '${webhookName}' (${sub.method}).`]
+                    docs: [`Payload definition for webhook '${webhookName}' (${sub.method}).`],
                 });
             });
         });
@@ -67,26 +81,32 @@ export class WebhookGenerator {
             const modelsImport = Array.from(requiredModels);
             if (modelsImport.length > 0) {
                 sourceFile.addImportDeclaration({
-                    moduleSpecifier: "./models",
-                    namedImports: modelsImport
+                    moduleSpecifier: './models',
+                    namedImports: modelsImport,
                 });
             }
 
             sourceFile.addVariableStatement({
                 isExported: true,
                 declarationKind: VariableDeclarationKind.Const,
-                declarations: [{
-                    name: "API_WEBHOOKS",
-                    initializer: JSON.stringify(webhooksFound.map(c => ({
-                        name: c.name,
-                        method: c.method,
-                        interfaceName: c.interfaceName
-                    })), null, 2)
-                }],
-                docs: ["Metadata registry for identified webhooks."]
+                declarations: [
+                    {
+                        name: 'API_WEBHOOKS',
+                        initializer: JSON.stringify(
+                            webhooksFound.map(c => ({
+                                name: c.name,
+                                method: c.method,
+                                interfaceName: c.interfaceName,
+                            })),
+                            null,
+                            2,
+                        ),
+                    },
+                ],
+                docs: ['Metadata registry for identified webhooks.'],
             });
         } else {
-            sourceFile.addStatements("export {};");
+            sourceFile.addStatements('export {};');
         }
 
         sourceFile.formatText();

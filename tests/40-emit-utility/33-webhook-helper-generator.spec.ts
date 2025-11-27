@@ -26,9 +26,9 @@ describe('Emitter: WebhookHelperGenerator', () => {
             paths: {},
             webhooks: {
                 'user.created': {
-                    post: { responses: { '200': { description: 'ok' } } }
-                }
-            }
+                    post: { responses: { '200': { description: 'ok' } } },
+                },
+            },
         };
         const parser = createParser(spec);
 
@@ -47,8 +47,8 @@ describe('Emitter: WebhookHelperGenerator', () => {
             paths: {},
             webhooks: {
                 'order.shipped': { post: { responses: { '200': {} } } },
-                'order.cancelled': { put: { responses: { '200': {} } } }
-            }
+                'order.cancelled': { put: { responses: { '200': {} } } },
+            },
         };
         const parser = createParser(spec);
 
@@ -67,7 +67,7 @@ describe('Emitter: WebhookHelperGenerator', () => {
         const jsService = ts.transpile(serviceCode, { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS });
         const jsDefs = ts.transpile(definitionsCode, {
             target: ts.ScriptTarget.ES2020,
-            module: ts.ModuleKind.CommonJS
+            module: ts.ModuleKind.CommonJS,
         });
 
         const moduleScope = { exports: {} as any };

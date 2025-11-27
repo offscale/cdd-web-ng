@@ -8,11 +8,8 @@ import { runGeneratorWithConfig } from '../shared/helpers.js';
 import { coverageSpec } from '../fixtures/coverage.fixture.js';
 
 describe('E2E: Angular Generator Output', () => {
-
-    beforeAll(async () => {
-    });
-    afterAll(async () => {
-    });
+    beforeAll(async () => {});
+    afterAll(async () => {});
 
     /**
      * Returns true if any generated file's name ends with one of the given names, regardless of slashes.
@@ -20,17 +17,21 @@ describe('E2E: Angular Generator Output', () => {
     function hasFile(project: Project, name: string): boolean {
         // This works with both forward and backward slashes
         const fileNameNormalized = name.replace(/[\\/]/g, path.sep);
-        return project.getSourceFiles().some(f =>
-            f.getBaseName() === name ||
-            f.getFilePath().endsWith(name) ||
-            f.getFilePath().endsWith(path.sep + name) ||
-            f.getFilePath().endsWith(fileNameNormalized)
-        );
+        return project
+            .getSourceFiles()
+            .some(
+                f =>
+                    f.getBaseName() === name ||
+                    f.getFilePath().endsWith(name) ||
+                    f.getFilePath().endsWith(path.sep + name) ||
+                    f.getFilePath().endsWith(fileNameNormalized),
+            );
     }
 
     it('should generate an admin module when requested', async () => {
         const project = await runGeneratorWithConfig(coverageSpec, {
-            framework: 'angular', admin: true
+            framework: 'angular',
+            admin: true,
         });
 
         // Accept any path ending in the file—across slashes intentionally
@@ -47,14 +48,14 @@ describe('E2E: Angular Generator Output', () => {
                 '/test': {
                     get: {
                         operationId: 'getTest',
-                        responses: { '200': { description: 'OK' } }
-                    }
-                }
+                        responses: { '200': { description: 'OK' } },
+                    },
+                },
             },
         };
 
         const project = await runGeneratorWithConfig(noSecuritySpec, {
-            framework: 'angular'
+            framework: 'angular',
         });
 
         expect(hasFile(project, 'auth.interceptor.ts')).toBe(false);

@@ -6,8 +6,8 @@ import {
     getBasePathTokenName,
     getInterceptorsTokenName,
     getServerVariablesTokenName,
-    pascalCase
-} from "@src/core/utils/index.js";
+    pascalCase,
+} from '@src/core/utils/index.js';
 import { PROVIDER_GENERATOR_HEADER_COMMENT } from '@src/core/constants.js';
 
 export class ProviderGenerator {
@@ -19,7 +19,11 @@ export class ProviderGenerator {
     private readonly hasBearer: boolean;
     private readonly hasMtls: boolean;
 
-    constructor(parser: SwaggerParser, private project: Project, private tokenNames: string[] = []) {
+    constructor(
+        parser: SwaggerParser,
+        private project: Project,
+        private tokenNames: string[] = [],
+    ) {
         this.config = parser.config;
         this.clientName = this.config.clientName ?? 'default';
         this.capitalizedClientName = pascalCase(this.clientName);
@@ -34,8 +38,8 @@ export class ProviderGenerator {
             return;
         }
 
-        const filePath = path.join(outputDir, "providers.ts");
-        const sourceFile = this.project.createSourceFile(filePath, "", { overwrite: true });
+        const filePath = path.join(outputDir, 'providers.ts');
+        const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
         sourceFile.insertText(0, PROVIDER_GENERATOR_HEADER_COMMENT);
 
@@ -51,38 +55,42 @@ export class ProviderGenerator {
     private addImports(sourceFile: SourceFile, hasSecurity: boolean): void {
         sourceFile.addImportDeclarations([
             {
-                namedImports: ["EnvironmentProviders", "Provider", "makeEnvironmentProviders"],
-                moduleSpecifier: "@angular/core"
+                namedImports: ['EnvironmentProviders', 'Provider', 'makeEnvironmentProviders'],
+                moduleSpecifier: '@angular/core',
             },
-            { namedImports: ["HTTP_INTERCEPTORS", "HttpInterceptor"], moduleSpecifier: "@angular/common/http" },
+            { namedImports: ['HTTP_INTERCEPTORS', 'HttpInterceptor'], moduleSpecifier: '@angular/common/http' },
             {
-                namedImports: [getBasePathTokenName(this.clientName), getServerVariablesTokenName(this.clientName), getInterceptorsTokenName(this.clientName)],
-                moduleSpecifier: "./tokens"
+                namedImports: [
+                    getBasePathTokenName(this.clientName),
+                    getServerVariablesTokenName(this.clientName),
+                    getInterceptorsTokenName(this.clientName),
+                ],
+                moduleSpecifier: './tokens',
             },
             {
                 namedImports: [`${this.capitalizedClientName}BaseInterceptor`],
-                moduleSpecifier: "./utils/base-interceptor"
+                moduleSpecifier: './utils/base-interceptor',
             },
         ]);
 
-        if (this.config.options.dateType === "Date") {
+        if (this.config.options.dateType === 'Date') {
             sourceFile.addImportDeclaration({
-                namedImports: ["DateInterceptor"],
-                moduleSpecifier: "./utils/date-transformer"
+                namedImports: ['DateInterceptor'],
+                moduleSpecifier: './utils/date-transformer',
             });
         }
 
         if (hasSecurity) {
             sourceFile.addImportDeclaration({
-                namedImports: ["AuthInterceptor"],
-                moduleSpecifier: "./auth/auth.interceptor"
+                namedImports: ['AuthInterceptor'],
+                moduleSpecifier: './auth/auth.interceptor',
             });
             const tokenImports: string[] = [];
-            if (this.hasApiKey) tokenImports.push("API_KEY_TOKEN");
-            if (this.hasCookieAuth) tokenImports.push("COOKIE_AUTH_TOKEN");
-            if (this.hasBearer) tokenImports.push("BEARER_TOKEN_TOKEN");
-            if (this.hasMtls) tokenImports.push("HTTPS_AGENT_CONFIG_TOKEN");
-            sourceFile.addImportDeclaration({ namedImports: tokenImports, moduleSpecifier: "./auth/auth.tokens" });
+            if (this.hasApiKey) tokenImports.push('API_KEY_TOKEN');
+            if (this.hasCookieAuth) tokenImports.push('COOKIE_AUTH_TOKEN');
+            if (this.hasBearer) tokenImports.push('BEARER_TOKEN_TOKEN');
+            if (this.hasMtls) tokenImports.push('HTTPS_AGENT_CONFIG_TOKEN');
+            sourceFile.addImportDeclaration({ namedImports: tokenImports, moduleSpecifier: './auth/auth.tokens' });
         }
     }
 
@@ -92,62 +100,62 @@ export class ProviderGenerator {
             isExported: true,
             properties: [
                 {
-                    name: "basePath",
-                    type: "string",
+                    name: 'basePath',
+                    type: 'string',
                     hasQuestionToken: true,
-                    docs: ["The base path of the API endpoint. If provided, it overrides the default server URL."]
+                    docs: ['The base path of the API endpoint. If provided, it overrides the default server URL.'],
                 },
                 {
-                    name: "serverVariables",
-                    type: "Record<string, string>",
+                    name: 'serverVariables',
+                    type: 'Record<string, string>',
                     hasQuestionToken: true,
-                    docs: ["Values for server variables (e.g. { port: '8080' }) to resolve the default server URL."]
+                    docs: ["Values for server variables (e.g. { port: '8080' }) to resolve the default server URL."],
                 },
                 {
-                    name: "enableDateTransform",
-                    type: "boolean",
+                    name: 'enableDateTransform',
+                    type: 'boolean',
                     hasQuestionToken: true,
-                    docs: ["If true, automatically transforms ISO date strings. Default: true"]
+                    docs: ['If true, automatically transforms ISO date strings. Default: true'],
                 },
                 {
-                    name: "interceptors",
+                    name: 'interceptors',
                     type: `(new (...args: any[]) => HttpInterceptor)[]`,
                     hasQuestionToken: true,
-                    docs: ["An array of custom HttpInterceptor classes."]
+                    docs: ['An array of custom HttpInterceptor classes.'],
                 },
             ],
-            docs: [`Configuration for the ${this.capitalizedClientName} API client.`]
+            docs: [`Configuration for the ${this.capitalizedClientName} API client.`],
         });
         if (this.hasApiKey) {
             configInterface.addProperty({
-                name: "apiKey",
-                type: "string",
+                name: 'apiKey',
+                type: 'string',
                 hasQuestionToken: true,
-                docs: ["The API key to be used for authentication (Header/Query)."]
+                docs: ['The API key to be used for authentication (Header/Query).'],
             });
         }
         if (this.hasCookieAuth) {
             configInterface.addProperty({
-                name: "cookieAuth",
-                type: "string",
+                name: 'cookieAuth',
+                type: 'string',
                 hasQuestionToken: true,
-                docs: ["The API key value to be set in a Cookie (Node.js/SSR only)."]
+                docs: ['The API key value to be set in a Cookie (Node.js/SSR only).'],
             });
         }
         if (this.hasBearer) {
             configInterface.addProperty({
-                name: "bearerToken",
-                type: "string | (() => string)",
+                name: 'bearerToken',
+                type: 'string | (() => string)',
                 hasQuestionToken: true,
-                docs: ["The Bearer token or a function returning the token."]
+                docs: ['The Bearer token or a function returning the token.'],
             });
         }
         if (this.hasMtls) {
             configInterface.addProperty({
-                name: "httpsAgentConfig",
-                type: "any",
+                name: 'httpsAgentConfig',
+                type: 'any',
                 hasQuestionToken: true,
-                docs: ["Configuration for the HTTPS Agent (e.g. PFX, Cert, Key) for Mutual TLS."]
+                docs: ['Configuration for the HTTPS Agent (e.g. PFX, Cert, Key) for Mutual TLS.'],
             });
         }
     }
@@ -156,59 +164,77 @@ export class ProviderGenerator {
         sourceFile.addFunction({
             name: `provide${this.capitalizedClientName}Client`,
             isExported: true,
-            parameters: [{ name: "config", type: `${this.capitalizedClientName}Config` }],
-            returnType: "EnvironmentProviders",
+            parameters: [{ name: 'config', type: `${this.capitalizedClientName}Config` }],
+            returnType: 'EnvironmentProviders',
             docs: [
                 `Provides the necessary services and configuration for the ${this.capitalizedClientName} API client.`,
             ],
             statements: writer => {
                 writer.writeLine(`const providers: Provider[] = [`);
                 writer.indent(() => {
-                    writer.writeLine(`{ provide: ${getBasePathTokenName(this.clientName)}, useValue: config.basePath || null },`);
-                    writer.writeLine(`{ provide: ${getServerVariablesTokenName(this.clientName)}, useValue: config.serverVariables || {} },`);
-                    writer.writeLine(`{ provide: HTTP_INTERCEPTORS, useClass: ${this.capitalizedClientName}BaseInterceptor, multi: true }`);
+                    writer.writeLine(
+                        `{ provide: ${getBasePathTokenName(this.clientName)}, useValue: config.basePath || null },`,
+                    );
+                    writer.writeLine(
+                        `{ provide: ${getServerVariablesTokenName(this.clientName)}, useValue: config.serverVariables || {} },`,
+                    );
+                    writer.writeLine(
+                        `{ provide: HTTP_INTERCEPTORS, useClass: ${this.capitalizedClientName}BaseInterceptor, multi: true }`,
+                    );
                 });
                 writer.writeLine(`];`);
 
                 if (hasSecurity) {
                     writer.blankLine();
-                    writer.writeLine(`providers.push({ provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true });`);
+                    writer.writeLine(
+                        `providers.push({ provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true });`,
+                    );
 
                     if (this.hasApiKey) {
-                        writer.write("if (config.apiKey)").block(() => {
+                        writer.write('if (config.apiKey)').block(() => {
                             writer.writeLine(`providers.push({ provide: API_KEY_TOKEN, useValue: config.apiKey });`);
                         });
                     }
                     if (this.hasCookieAuth) {
-                        writer.write("if (config.cookieAuth)").block(() => {
-                            writer.writeLine(`providers.push({ provide: COOKIE_AUTH_TOKEN, useValue: config.cookieAuth });`);
+                        writer.write('if (config.cookieAuth)').block(() => {
+                            writer.writeLine(
+                                `providers.push({ provide: COOKIE_AUTH_TOKEN, useValue: config.cookieAuth });`,
+                            );
                         });
                     }
                     if (this.hasBearer) {
-                        writer.write("if (config.bearerToken)").block(() => {
-                            writer.writeLine(`providers.push({ provide: BEARER_TOKEN_TOKEN, useValue: config.bearerToken });`);
+                        writer.write('if (config.bearerToken)').block(() => {
+                            writer.writeLine(
+                                `providers.push({ provide: BEARER_TOKEN_TOKEN, useValue: config.bearerToken });`,
+                            );
                         });
                     }
                     if (this.hasMtls) {
-                        writer.write("if (config.httpsAgentConfig)").block(() => {
-                            writer.writeLine(`providers.push({ provide: HTTPS_AGENT_CONFIG_TOKEN, useValue: config.httpsAgentConfig });`);
+                        writer.write('if (config.httpsAgentConfig)').block(() => {
+                            writer.writeLine(
+                                `providers.push({ provide: HTTPS_AGENT_CONFIG_TOKEN, useValue: config.httpsAgentConfig });`,
+                            );
                         });
                     }
                 }
 
                 writer.blankLine();
-                writer.writeLine("const customInterceptors = config.interceptors?.map(InterceptorClass => new InterceptorClass()) || [];");
+                writer.writeLine(
+                    'const customInterceptors = config.interceptors?.map(InterceptorClass => new InterceptorClass()) || [];',
+                );
 
-                if (this.config.options.dateType === "Date") {
-                    writer.write("if (config.enableDateTransform !== false)").block(() => {
+                if (this.config.options.dateType === 'Date') {
+                    writer.write('if (config.enableDateTransform !== false)').block(() => {
                         writer.writeLine('customInterceptors.unshift(new DateInterceptor());');
                     });
                 }
 
-                writer.writeLine(`providers.push({ provide: ${getInterceptorsTokenName(this.clientName)}, useValue: customInterceptors });`);
+                writer.writeLine(
+                    `providers.push({ provide: ${getInterceptorsTokenName(this.clientName)}, useValue: customInterceptors });`,
+                );
                 writer.blankLine();
-                writer.writeLine("return makeEnvironmentProviders(providers);");
-            }
+                writer.writeLine('return makeEnvironmentProviders(providers);');
+            },
         });
     }
 }

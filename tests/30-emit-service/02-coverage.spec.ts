@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { ImportDeclaration, Project } from 'ts-morph';
 import { ServiceGenerator } from '@src/generators/angular/service/service.generator.js';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from "@src/core/types/index.js";
+import { GeneratorConfig } from '@src/core/types/index.js';
 import { branchCoverageSpec, coverageSpecPart2 } from '../shared/specs.js';
-import { groupPathsByController } from "@src/core/utils/index.js";
+import { groupPathsByController } from '@src/core/utils/index.js';
 import { createTestProject } from '../shared/helpers.js';
 
 describe('Generators (Angular): Service Generators (Coverage)', () => {
@@ -27,7 +27,9 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
     it('should import models for parameter types that are interfaces', () => {
         const project = run(branchCoverageSpec);
         const serviceFile = project.getSourceFileOrThrow('/out/services/paramIsRef.service.ts');
-        const modelImport = serviceFile.getImportDeclaration((imp: ImportDeclaration) => imp.getModuleSpecifierValue() === '../models');
+        const modelImport = serviceFile.getImportDeclaration(
+            (imp: ImportDeclaration) => imp.getModuleSpecifierValue() === '../models',
+        );
         expect(modelImport).toBeDefined();
         expect(modelImport!.getNamedImports().map((i: any) => i.getName())).toContain('User');
     });
@@ -51,14 +53,17 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
         };
         const project = run(spec);
         const serviceFile = project.getSourceFileOrThrow('/out/services/primitives.service.ts');
-        const modelImport = serviceFile.getImportDeclaration((imp) => imp.getModuleSpecifierValue() === '../models');
-        expect(modelImport!.getNamedImports().map((i) => i.getName())).toEqual(['RequestOptions']);
+        const modelImport = serviceFile.getImportDeclaration(imp => imp.getModuleSpecifierValue() === '../models');
+        expect(modelImport!.getNamedImports().map(i => i.getName())).toEqual(['RequestOptions']);
     });
 
     it('should generate methods for multipart/form-data', () => {
         const project = run(coverageSpecPart2);
         const serviceFile = project.getSourceFileOrThrow('/out/services/formData.service.ts');
-        const methodBody = serviceFile.getClassOrThrow('FormDataService').getMethodOrThrow('postWithFormData').getBodyText()!;
+        const methodBody = serviceFile
+            .getClassOrThrow('FormDataService')
+            .getMethodOrThrow('postWithFormData')
+            .getBodyText()!;
         expect(methodBody).toContain('const formData = new FormData();');
         expect(methodBody).toContain("if (file != null) { formData.append('file', file); }");
         expect(methodBody).toContain('return this.http.post<any>(url, formData, requestOptions as any);');
@@ -67,7 +72,10 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
     it('should generate methods for application/x-www-form-urlencoded', () => {
         const project = run(coverageSpecPart2);
         const serviceFile = project.getSourceFileOrThrow('/out/services/urlEncoded.service.ts');
-        const methodBody = serviceFile.getClassOrThrow('UrlEncodedService').getMethodOrThrow('postWithUrlEncoded').getBodyText()!;
+        const methodBody = serviceFile
+            .getClassOrThrow('UrlEncodedService')
+            .getMethodOrThrow('postWithUrlEncoded')
+            .getBodyText()!;
         expect(methodBody).toContain('let formBody = new HttpParams();');
         expect(methodBody).toContain("if (grantType != null) { formBody = formBody.append('grant_type', grantType); }");
         expect(methodBody).toContain('return this.http.post<any>(url, formBody, requestOptions as any);');
@@ -76,7 +84,9 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
     it('should not import models for services that only return primitives', () => {
         const project = run(coverageSpecPart2);
         const serviceFile = project.getSourceFileOrThrow('/out/services/primitiveResponse.service.ts');
-        const modelImport = serviceFile.getImportDeclaration((imp: ImportDeclaration) => imp.getModuleSpecifierValue() === '../models');
+        const modelImport = serviceFile.getImportDeclaration(
+            (imp: ImportDeclaration) => imp.getModuleSpecifierValue() === '../models',
+        );
         expect(modelImport).toBeDefined();
         expect(modelImport!.getNamedImports().map((i: any) => i.getName())).toEqual(['RequestOptions']);
     });
@@ -116,30 +126,32 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
                         tags: ['DefaultResponse'],
                         responses: {
                             default: {
-                                content: { 'application/json': { schema: { $ref: '#/components/schemas/User' } } }
-                            }
-                        }
-                    }
+                                content: { 'application/json': { schema: { $ref: '#/components/schemas/User' } } },
+                            },
+                        },
+                    },
                 },
                 '/no-content-response': {
                     get: {
                         tags: ['NoContentResponse'],
                         responses: {
-                            '200': { description: 'OK' }
-                        }
-                    }
-                }
+                            '200': { description: 'OK' },
+                        },
+                    },
+                },
             },
             components: {
                 schemas: {
-                    User: { type: 'object', properties: { name: { type: 'string' } } }
-                }
-            }
+                    User: { type: 'object', properties: { name: { type: 'string' } } },
+                },
+            },
         };
 
         const project = run(spec);
         const serviceFile = project.getSourceFileOrThrow('/out/services/defaultResponse.service.ts');
-        const modelImport = serviceFile.getImportDeclaration((imp: ImportDeclaration) => imp.getModuleSpecifierValue() === '../models');
+        const modelImport = serviceFile.getImportDeclaration(
+            (imp: ImportDeclaration) => imp.getModuleSpecifierValue() === '../models',
+        );
         expect(modelImport!.getNamedImports().map((i: any) => i.getName())).toContain('User');
 
         const noContentServiceFile = project.getSourceFileOrThrow('/out/services/noContentResponse.service.ts');
@@ -162,16 +174,16 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
                                             type: 'object',
                                             properties: {
                                                 id: { type: 'number' },
-                                                message: { type: 'string' }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+                                                message: { type: 'string' },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
         };
 
         const project = run(spec);

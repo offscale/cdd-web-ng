@@ -1,6 +1,6 @@
 import { IndentationText, ModuleKind, Project, ScriptTarget } from 'ts-morph';
 import { generateFromConfig } from '@src/index.js';
-import { GeneratorConfig } from "@src/core/types/index.js";
+import { GeneratorConfig } from '@src/core/types/index.js';
 
 /**
  * Creates a standard ts-morph project instance for use in tests.
@@ -16,12 +16,12 @@ export function createTestProject(): Project {
             target: ScriptTarget.ESNext,
             module: ModuleKind.ESNext,
             moduleResolution: 99, // NodeNext
-            lib: ["ES2022", "DOM"],
+            lib: ['ES2022', 'DOM'],
             strict: true,
             esModuleInterop: true,
             allowArbitraryExtensions: true,
-            resolveJsonModule: true
-        }
+            resolveJsonModule: true,
+        },
     });
 }
 
@@ -32,7 +32,10 @@ export function createTestProject(): Project {
  * @param config The full generator config options.
  * @returns A promise that resolves to the `Project` instance containing all generated files.
  */
-export async function runGeneratorWithConfig(spec: object, config: Partial<GeneratorConfig['options']>): Promise<Project> {
+export async function runGeneratorWithConfig(
+    spec: object,
+    config: Partial<GeneratorConfig['options']>,
+): Promise<Project> {
     const project = createTestProject();
 
     const fullConfig: GeneratorConfig = {
@@ -68,9 +71,9 @@ export async function runGenerator(spec: object, genConfig?: Partial<GeneratorCo
             enumStyle: 'enum',
             generateServices: true,
             admin: false,
-            generateServiceTests: true
+            generateServiceTests: true,
         },
-        ...genConfig
+        ...genConfig,
     };
 
     await generateFromConfig(config, project, { spec });

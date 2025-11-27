@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { Project, Scope } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from "@src/core/types/index.js";
-import { ServiceMethodGenerator } from "@src/generators/angular/service/service-method.generator.js";
-import { TypeGenerator } from "@src/generators/shared/type.generator.js";
+import { GeneratorConfig } from '@src/core/types/index.js';
+import { ServiceMethodGenerator } from '@src/generators/angular/service/service-method.generator.js';
+import { TypeGenerator } from '@src/generators/shared/type.generator.js';
 
 const encodingSpec = {
     openapi: '3.1.0',
@@ -13,10 +13,10 @@ const encodingSpec = {
             Metadata: {
                 type: 'object',
                 properties: {
-                    version: { type: 'number' }
-                }
-            }
-        }
+                    version: { type: 'number' },
+                },
+            },
+        },
     },
     paths: {
         '/encode-request': {
@@ -32,15 +32,15 @@ const encodingSpec = {
                                     // Implicit intent: User sends object, client stringifies it
                                     config: {
                                         type: 'string',
-                                        contentMediaType: 'application/json'
-                                    }
-                                }
-                            }
-                        }
-                    }
+                                        contentMediaType: 'application/json',
+                                    },
+                                },
+                            },
+                        },
+                    },
                 },
-                responses: { '200': {} }
-            }
+                responses: { '200': {} },
+            },
         },
         '/nested-encoding': {
             post: {
@@ -56,28 +56,27 @@ const encodingSpec = {
                                         items: {
                                             type: 'object',
                                             properties: {
-                                                raw: { type: 'string', contentMediaType: 'application/json' }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                                                raw: { type: 'string', contentMediaType: 'application/json' },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
                 },
-                responses: { '200': {} }
-            }
-        }
-    }
+                responses: { '200': {} },
+            },
+        },
+    },
 };
 
 describe('Emitter: ServiceMethodGenerator (Request Encoding)', () => {
-
     const createTestEnv = () => {
         const config: GeneratorConfig = {
             input: '',
             output: '/out',
-            options: { enumStyle: 'enum', framework: 'angular' }
+            options: { enumStyle: 'enum', framework: 'angular' },
         };
         const project = new Project({ useInMemoryFileSystem: true });
         const parser = new SwaggerParser(encodingSpec as any, config);
@@ -93,13 +92,13 @@ describe('Emitter: ServiceMethodGenerator (Request Encoding)', () => {
             scope: Scope.Private,
             isReadonly: true,
             type: 'string',
-            initializer: "''"
+            initializer: "''",
         });
         serviceClass.addMethod({
             name: 'createContextWithClientId',
             scope: Scope.Private,
             returnType: 'any',
-            statements: 'return {};'
+            statements: 'return {};',
         });
 
         return { methodGen, serviceClass };
@@ -112,7 +111,7 @@ describe('Emitter: ServiceMethodGenerator (Request Encoding)', () => {
             path: '/encode-request',
             methodName: 'postEncodedData',
             requestBody: encodingSpec.paths['/encode-request'].post.requestBody,
-            responses: encodingSpec.paths['/encode-request'].post.responses
+            responses: encodingSpec.paths['/encode-request'].post.responses,
         };
 
         methodGen.addServiceMethod(serviceClass, op);
@@ -132,7 +131,7 @@ describe('Emitter: ServiceMethodGenerator (Request Encoding)', () => {
             path: '/nested-encoding',
             methodName: 'postNested',
             requestBody: encodingSpec.paths['/nested-encoding'].post.requestBody,
-            responses: encodingSpec.paths['/nested-encoding'].post.responses
+            responses: encodingSpec.paths['/nested-encoding'].post.responses,
         };
 
         methodGen.addServiceMethod(serviceClass, op);

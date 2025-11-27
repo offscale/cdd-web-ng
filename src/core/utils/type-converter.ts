@@ -1,14 +1,26 @@
-import { GeneratorConfig, RequestBody, SwaggerDefinition, SwaggerResponse } from "../types/index.js";
-import { pascalCase } from "./string.js";
+import { GeneratorConfig, RequestBody, SwaggerDefinition, SwaggerResponse } from '../types/index.js';
+import { pascalCase } from './string.js';
 
 export function isDataTypeInterface(type: string): boolean {
     if (!type) return false;
     // Eliminate array brackets and generic wrappers for the base check
-    const baseType = type.replace(/\[\]/g, '').replace(/<.*>/g, '').trim();
+    const baseType = type.replace(/\[]/g, '').replace(/<.*>/g, '').trim();
 
     const primitives = [
-        'string', 'number', 'boolean', 'any', 'void', 'undefined', 'null', 'unknown',
-        'never', 'object', 'Date', 'Blob', 'File', 'Buffer'
+        'string',
+        'number',
+        'boolean',
+        'any',
+        'void',
+        'undefined',
+        'null',
+        'unknown',
+        'never',
+        'object',
+        'Date',
+        'Blob',
+        'File',
+        'Buffer',
     ];
 
     if (primitives.includes(baseType)) return false;
@@ -32,7 +44,11 @@ function formatLiteralValue(val: unknown): string {
     return 'any';
 }
 
-export function getTypeScriptType(schema: SwaggerDefinition | undefined, config: GeneratorConfig, knownTypes: string[] = []): string {
+export function getTypeScriptType(
+    schema: SwaggerDefinition | undefined,
+    config: GeneratorConfig,
+    knownTypes: string[] = [],
+): string {
     if (!schema) return 'any';
 
     // JSON Schema 2020-12: dependentSchemas support
@@ -122,7 +138,8 @@ export function getTypeScriptType(schema: SwaggerDefinition | undefined, config:
         case 'object':
             return getObjectType(schema, config, knownTypes);
         case undefined:
-            if (schema.properties || schema.additionalProperties || schema.unevaluatedProperties) return getObjectType(schema, config, knownTypes);
+            if (schema.properties || schema.additionalProperties || schema.unevaluatedProperties)
+                return getObjectType(schema, config, knownTypes);
             return 'any';
         default:
             return 'any';
@@ -137,7 +154,8 @@ function getNumberType(schema: SwaggerDefinition, config: GeneratorConfig): stri
 
 function getStringType(schema: SwaggerDefinition, config: GeneratorConfig): string {
     if (schema.enum) return schema.enum.map(s => `'${s}'`).join(' | ');
-    if (schema.format === 'date' || schema.format === 'date-time') return config.options.dateType === 'Date' ? 'Date' : 'string';
+    if (schema.format === 'date' || schema.format === 'date-time')
+        return config.options.dateType === 'Date' ? 'Date' : 'string';
     if (schema.format === 'binary') return 'Blob';
     return 'string';
 }
@@ -152,17 +170,18 @@ function getArrayType(schema: SwaggerDefinition, config: GeneratorConfig, knownT
         if (schema.items && !Array.isArray(schema.items)) {
             const itemsSchema = schema.items as SwaggerDefinition;
             const innerType = getTypeScriptType(itemsSchema, config, knownTypes);
-            const safeInnerType = (innerType.includes('|') || innerType.includes('&')) ? `(${innerType})` : innerType;
+            const safeInnerType = innerType.includes('|') || innerType.includes('&') ? `(${innerType})` : innerType;
             restType = `, ...${safeInnerType}[]`;
         }
 
         return `[${prefixTypes.join(', ')}${restType}]`;
     }
 
-    if (Array.isArray(schema.items)) return `[${schema.items.map(s => getTypeScriptType(s, config, knownTypes)).join(', ')}]`;
+    if (Array.isArray(schema.items))
+        return `[${schema.items.map(s => getTypeScriptType(s, config, knownTypes)).join(', ')}]`;
     const itemsSchema = (schema.items as SwaggerDefinition) || {};
     const itemsType = getTypeScriptType(itemsSchema, config, knownTypes);
-    return (itemsType.includes('|') || itemsType.includes('&')) ? `(${itemsType})[]` : `${itemsType}[]`;
+    return itemsType.includes('|') || itemsType.includes('&') ? `(${itemsType})[]` : `${itemsType}[]`;
 }
 
 function getObjectType(schema: SwaggerDefinition, config: GeneratorConfig, knownTypes: string[]): string {
@@ -170,17 +189,19 @@ function getObjectType(schema: SwaggerDefinition, config: GeneratorConfig, known
 
     // 1. additionalProperties
     if (schema.additionalProperties) {
-        const valueType = schema.additionalProperties === true
-            ? 'any'
-            : getTypeScriptType(schema.additionalProperties as SwaggerDefinition, config, knownTypes);
+        const valueType =
+            schema.additionalProperties === true
+                ? 'any'
+                : getTypeScriptType(schema.additionalProperties as SwaggerDefinition, config, knownTypes);
         indexSignatureTypes.push(valueType);
     }
 
     // 2. unevaluatedProperties (OAS 3.1)
     if (schema.unevaluatedProperties) {
-        const valueType = schema.unevaluatedProperties === true
-            ? 'any'
-            : getTypeScriptType(schema.unevaluatedProperties as SwaggerDefinition, config, knownTypes);
+        const valueType =
+            schema.unevaluatedProperties === true
+                ? 'any'
+                : getTypeScriptType(schema.unevaluatedProperties as SwaggerDefinition, config, knownTypes);
         indexSignatureTypes.push(valueType);
     }
 
@@ -198,7 +219,9 @@ function getObjectType(schema: SwaggerDefinition, config: GeneratorConfig, known
     // If both are explicitly false, closed.
     // If one is false and other missing, it depends on interpretation, but generally safe to close if all known dynamic props are forbidden.
     // However, standard JSON schema implies if additionalProperties is explicitly false, no extra props.
-    const explicitlyClosed = schema.additionalProperties === false && (schema.unevaluatedProperties === false || schema.unevaluatedProperties === undefined);
+    const explicitlyClosed =
+        schema.additionalProperties === false &&
+        (schema.unevaluatedProperties === false || schema.unevaluatedProperties === undefined);
 
     if (schema.properties) {
         if (Object.keys(schema.properties).length === 0) {
@@ -225,11 +248,21 @@ function getObjectType(schema: SwaggerDefinition, config: GeneratorConfig, known
     return indexSignatureType ? `{ [key: string]: ${indexSignatureType} }` : '{ [key: string]: any }';
 }
 
-export function getRequestBodyType(requestBody: RequestBody | undefined, config: GeneratorConfig, knownTypes: string[]): string {
+export function getRequestBodyType(
+    requestBody: RequestBody | undefined,
+    config: GeneratorConfig,
+    knownTypes: string[],
+): string {
     if (!requestBody || !requestBody.content) return 'any';
 
     const content = requestBody.content;
-    const priority = ['application/json', 'application/x-json', 'multipart/form-data', 'application/x-www-form-urlencoded', 'text/plain'];
+    const priority = [
+        'application/json',
+        'application/x-json',
+        'multipart/form-data',
+        'application/x-www-form-urlencoded',
+        'text/plain',
+    ];
     for (const key of priority) {
         if (content[key] && content[key].schema) return getTypeScriptType(content[key].schema!, config, knownTypes);
     }
@@ -239,11 +272,17 @@ export function getRequestBodyType(requestBody: RequestBody | undefined, config:
     return 'any';
 }
 
-export function getResponseType(response: SwaggerResponse | undefined, config: GeneratorConfig, knownTypes: string[]): string {
+export function getResponseType(
+    response: SwaggerResponse | undefined,
+    config: GeneratorConfig,
+    knownTypes: string[],
+): string {
     if (!response || !response.content) return 'void';
     const content = response.content;
-    if (content['application/json']?.schema) return getTypeScriptType(content['application/json'].schema!, config, knownTypes);
+    if (content['application/json']?.schema)
+        return getTypeScriptType(content['application/json'].schema!, config, knownTypes);
     const keys = Object.keys(content);
-    if (keys.length > 0 && content[keys[0]].schema) return getTypeScriptType(content[keys[0]].schema!, config, knownTypes);
+    if (keys.length > 0 && content[keys[0]].schema)
+        return getTypeScriptType(content[keys[0]].schema!, config, knownTypes);
     return 'void';
 }

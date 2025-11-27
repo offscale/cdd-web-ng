@@ -7,8 +7,8 @@ import {
     getServerVariablesTokenName,
     getTypeScriptType,
     isDataTypeInterface,
-    pascalCase
-} from "@src/core/utils/index.js";
+    pascalCase,
+} from '@src/core/utils/index.js';
 import { ServiceMethodGenerator } from './service-method.generator.js';
 import { AbstractServiceGenerator } from '../../base/service.base.js';
 
@@ -34,58 +34,68 @@ export class ServiceGenerator extends AbstractServiceGenerator {
     protected generateImports(sourceFile: SourceFile, operations: PathInfo[]): void {
         sourceFile.addImportDeclaration({
             moduleSpecifier: '@angular/core',
-            namedImports: ['Injectable', 'inject']
+            namedImports: ['Injectable', 'inject'],
         });
 
         const httpImports = ['HttpClient', 'HttpRequest', 'HttpResponse', 'HttpHeaders', 'HttpEvent', 'HttpParams'];
         sourceFile.addImportDeclaration({
             moduleSpecifier: '@angular/common/http',
-            namedImports: httpImports
+            namedImports: httpImports,
         });
 
         sourceFile.addImportDeclaration({
             moduleSpecifier: 'rxjs',
-            namedImports: ['Observable']
+            namedImports: ['Observable'],
         });
 
         sourceFile.addImportDeclaration({
             moduleSpecifier: 'rxjs/operators',
-            namedImports: ['map', 'filter', 'tap']
+            namedImports: ['map', 'filter', 'tap'],
         });
 
         sourceFile.addImportDeclaration({
             moduleSpecifier: '../utils/request-context',
-            namedImports: ['createRequestOption', 'RequestOptions', 'HttpRequestOptions']
+            namedImports: ['createRequestOption', 'RequestOptions', 'HttpRequestOptions'],
         });
 
         // CHANGE: Use new generic serializer
         sourceFile.addImportDeclaration({
             moduleSpecifier: '../utils/parameter-serializer',
-            namedImports: ['ParameterSerializer']
+            namedImports: ['ParameterSerializer'],
         });
 
         // CHANGE: Use Identity Codec for Angular HttpParams compatibility
         sourceFile.addImportDeclaration({
             moduleSpecifier: '../utils/http-params-builder',
-            namedImports: ['ApiParameterCodec']
+            namedImports: ['ApiParameterCodec'],
         });
 
         sourceFile.addImportDeclaration({
             moduleSpecifier: '../utils/server-url',
-            namedImports: ['getServerUrl']
+            namedImports: ['getServerUrl'],
         });
 
-        if (operations.some(op => op.consumes?.includes('multipart/form-data') || op.requestBody?.content?.['multipart/form-data'])) {
+        if (
+            operations.some(
+                op => op.consumes?.includes('multipart/form-data') || op.requestBody?.content?.['multipart/form-data'],
+            )
+        ) {
             sourceFile.addImportDeclaration({
                 moduleSpecifier: '../utils/multipart.builder',
-                namedImports: ['MultipartBuilder']
+                namedImports: ['MultipartBuilder'],
             });
         }
 
-        if (operations.some(op => op.parameters?.some(p => p.content?.['application/xml']) || op.requestBody?.content?.['application/xml'])) {
+        if (
+            operations.some(
+                op =>
+                    op.parameters?.some(p => p.content?.['application/xml']) ||
+                    op.requestBody?.content?.['application/xml'],
+            )
+        ) {
             sourceFile.addImportDeclaration({
                 moduleSpecifier: '../utils/xml.builder',
-                namedImports: ['XmlBuilder']
+                namedImports: ['XmlBuilder'],
             });
         }
 
@@ -99,7 +109,7 @@ export class ServiceGenerator extends AbstractServiceGenerator {
         if (hasXmlResponse) {
             sourceFile.addImportDeclaration({
                 moduleSpecifier: '../utils/xml-parser',
-                namedImports: ['XmlParser']
+                namedImports: ['XmlParser'],
             });
         }
 
@@ -109,10 +119,12 @@ export class ServiceGenerator extends AbstractServiceGenerator {
 
         for (const op of operations) {
             if (op.responses) {
-                hasDecoding = hasDecoding || Object.values(op.responses).some(r => {
-                    const s = r.content?.['application/json']?.schema;
-                    return s && JSON.stringify(s).includes('contentSchema');
-                });
+                hasDecoding =
+                    hasDecoding ||
+                    Object.values(op.responses).some(r => {
+                        const s = r.content?.['application/json']?.schema;
+                        return s && JSON.stringify(s).includes('contentSchema');
+                    });
             }
 
             // Check request body for encoding
@@ -126,14 +138,14 @@ export class ServiceGenerator extends AbstractServiceGenerator {
         if (hasDecoding) {
             sourceFile.addImportDeclaration({
                 moduleSpecifier: '../utils/content-decoder',
-                namedImports: ['ContentDecoder']
+                namedImports: ['ContentDecoder'],
             });
         }
 
         if (hasEncoding) {
             sourceFile.addImportDeclaration({
                 moduleSpecifier: '../utils/content-encoder',
-                namedImports: ['ContentEncoder']
+                namedImports: ['ContentEncoder'],
             });
         }
 
@@ -146,7 +158,7 @@ export class ServiceGenerator extends AbstractServiceGenerator {
         if (hasSecurity) {
             sourceFile.addImportDeclaration({
                 moduleSpecifier: '../auth/auth.tokens',
-                namedImports: ['SECURITY_CONTEXT_TOKEN']
+                namedImports: ['SECURITY_CONTEXT_TOKEN'],
             });
         }
 
@@ -154,7 +166,7 @@ export class ServiceGenerator extends AbstractServiceGenerator {
         if (hasExtensions) {
             sourceFile.addImportDeclaration({
                 moduleSpecifier: '../tokens/extensions.token',
-                namedImports: ['EXTENSIONS_CONTEXT_TOKEN']
+                namedImports: ['EXTENSIONS_CONTEXT_TOKEN'],
             });
         }
 
@@ -173,7 +185,10 @@ export class ServiceGenerator extends AbstractServiceGenerator {
 
                         const schema = jsonSchema || xmlSchema || wildcardSchema;
                         if (schema) {
-                            const typeName = getTypeScriptType(schema, this.config, knownTypes).replace(/\[\]| \| null/g, '');
+                            const typeName = getTypeScriptType(schema, this.config, knownTypes).replace(
+                                /\[\]| \| null/g,
+                                '',
+                            );
                             if (isDataTypeInterface(typeName)) {
                                 modelImports.add(typeName);
                             }
@@ -183,31 +198,43 @@ export class ServiceGenerator extends AbstractServiceGenerator {
             }
 
             (op.parameters ?? []).forEach(param => {
-                const paramType = getTypeScriptType(param.schema, this.config, knownTypes).replace(/\[\]| \| null/g, '');
+                const paramType = getTypeScriptType(param.schema, this.config, knownTypes).replace(
+                    /\[\]| \| null/g,
+                    '',
+                );
                 if (isDataTypeInterface(paramType)) {
                     modelImports.add(paramType);
                 }
             });
 
             if (op.requestBody?.content?.['application/json']?.schema) {
-                const bodyType = getTypeScriptType(op.requestBody.content['application/json'].schema, this.config, knownTypes).replace(/\[\]| \| null/g, '');
+                const bodyType = getTypeScriptType(
+                    op.requestBody.content['application/json'].schema,
+                    this.config,
+                    knownTypes,
+                ).replace(/\[\]| \| null/g, '');
                 if (isDataTypeInterface(bodyType)) {
                     modelImports.add(bodyType);
                 }
             }
         }
 
-        const validModels = Array.from(modelImports).filter(m => /^[A-Z]/.test(m) && !['Date', 'Blob', 'File'].includes(m));
+        const validModels = Array.from(modelImports).filter(
+            m => /^[A-Z]/.test(m) && !['Date', 'Blob', 'File'].includes(m),
+        );
         if (validModels.length > 0) {
             sourceFile.addImportDeclaration({
                 moduleSpecifier: '../models',
-                namedImports: validModels
+                namedImports: validModels,
             });
         }
 
         sourceFile.addImportDeclaration({
             moduleSpecifier: '../tokens',
-            namedImports: [getBasePathTokenName(this.config.clientName), getServerVariablesTokenName(this.config.clientName)]
+            namedImports: [
+                getBasePathTokenName(this.config.clientName),
+                getServerVariablesTokenName(this.config.clientName),
+            ],
         });
     }
 
@@ -232,7 +259,7 @@ export class ServiceGenerator extends AbstractServiceGenerator {
             name: 'http',
             scope: Scope.Private,
             isReadonly: true,
-            initializer: 'inject(HttpClient)'
+            initializer: 'inject(HttpClient)',
         });
 
         const basePathToken = getBasePathTokenName(this.config.clientName);
@@ -244,25 +271,25 @@ export class ServiceGenerator extends AbstractServiceGenerator {
             isReadonly: true,
             type: 'string',
             // Priority: 1. Explicitly Provided Path -> 2. Calculated path from Servers[0] + Injected Variables
-            initializer: `inject(${basePathToken}, { optional: true }) || getServerUrl(0, inject(${varsToken}, { optional: true }) ?? {})`
+            initializer: `inject(${basePathToken}, { optional: true }) || getServerUrl(0, inject(${varsToken}, { optional: true }) ?? {})`,
         });
         const clientContextTokenName = getClientContextTokenName(this.config.clientName);
 
         serviceClass.addProperty({
-            name: "clientContextToken",
+            name: 'clientContextToken',
             type: `HttpContextToken<string>`,
             scope: Scope.Private,
             isReadonly: true,
-            initializer: clientContextTokenName
+            initializer: clientContextTokenName,
         });
 
         serviceClass.addMethod({
-            name: "createContextWithClientId",
+            name: 'createContextWithClientId',
             scope: Scope.Private,
             parameters: [{ name: 'existingContext', type: 'HttpContext', hasQuestionToken: true }],
             returnType: 'HttpContext',
-            statements: `const context = existingContext || new HttpContext();\nreturn context.set(this.clientContextToken, '${this.config.clientName || "default"}');`,
-            docs: ["Creates a new HttpContext or enhances an existing one with the client identifier token."],
+            statements: `const context = existingContext || new HttpContext();\nreturn context.set(this.clientContextToken, '${this.config.clientName || 'default'}');`,
+            docs: ['Creates a new HttpContext or enhances an existing one with the client identifier token.'],
         });
     }
 }

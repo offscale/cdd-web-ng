@@ -1,38 +1,41 @@
-import { Project, VariableDeclarationKind } from "ts-morph";
+import { Project, VariableDeclarationKind } from 'ts-morph';
 
-import * as path from "node:path";
+import * as path from 'node:path';
 
-import { UTILITY_GENERATOR_HEADER_COMMENT } from "@src/core/constants.js";
+import { UTILITY_GENERATOR_HEADER_COMMENT } from '@src/core/constants.js';
 import {
     getBasePathTokenName,
     getClientContextTokenName,
     getInterceptorsTokenName,
-    getServerVariablesTokenName
-} from "@src/core/utils/index.js";
+    getServerVariablesTokenName,
+} from '@src/core/utils/index.js';
 
 export class TokenGenerator {
     private readonly clientName: string;
 
-    constructor(private project: Project, clientName?: string) {
-        this.clientName = clientName || "default";
+    constructor(
+        private project: Project,
+        clientName?: string,
+    ) {
+        this.clientName = clientName || 'default';
     }
 
     public generate(outputDir: string): void {
-        const tokensDir = path.join(outputDir, "tokens");
-        const filePath = path.join(tokensDir, "index.ts");
+        const tokensDir = path.join(outputDir, 'tokens');
+        const filePath = path.join(tokensDir, 'index.ts');
 
-        const sourceFile = this.project.createSourceFile(filePath, "", { overwrite: true });
+        const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
         sourceFile.addImportDeclarations([
             {
-                namedImports: ["InjectionToken"],
-                moduleSpecifier: "@angular/core",
+                namedImports: ['InjectionToken'],
+                moduleSpecifier: '@angular/core',
             },
             {
-                namedImports: ["HttpInterceptor", "HttpContextToken"],
-                moduleSpecifier: "@angular/common/http",
+                namedImports: ['HttpInterceptor', 'HttpContextToken'],
+                moduleSpecifier: '@angular/common/http',
             },
         ]);
 
@@ -50,7 +53,7 @@ export class TokenGenerator {
                     initializer: `new InjectionToken<string>('${basePathTokenName}')`,
                 },
             ],
-            docs: [`Injection token for providing the base API path.`]
+            docs: [`Injection token for providing the base API path.`],
         });
 
         sourceFile.addVariableStatement({
@@ -62,7 +65,7 @@ export class TokenGenerator {
                     initializer: `new InjectionToken<Record<string, string>>('${serverVariablesTokenName}')`,
                 },
             ],
-            docs: [`Injection token for providing dynamic server variables (e.g. { port: '8080' }).`]
+            docs: [`Injection token for providing dynamic server variables (e.g. { port: '8080' }).`],
         });
 
         sourceFile.addVariableStatement({
@@ -74,7 +77,7 @@ export class TokenGenerator {
                     initializer: `new InjectionToken<HttpInterceptor[]>('${interceptorsTokenName}', { providedIn: 'root', factory: () => [] })`,
                 },
             ],
-            docs: [`Injection token for client-specific interceptors.`]
+            docs: [`Injection token for client-specific interceptors.`],
         });
 
         sourceFile.addVariableStatement({
@@ -86,7 +89,7 @@ export class TokenGenerator {
                     initializer: `new HttpContextToken<string>(() => '${this.clientName}')`,
                 },
             ],
-            docs: [`HttpContextToken identifying requests for this client.`]
+            docs: [`HttpContextToken identifying requests for this client.`],
         });
 
         sourceFile.formatText();

@@ -13,7 +13,7 @@ export default defineConfig({
             '@src': path.resolve(__dirname, './src'),
         },
         outputFile: {
-            junit: 'coverage/junit.xml'
+            junit: 'coverage/junit.xml',
         },
         coverage: {
             provider: 'istanbul',
@@ -21,11 +21,15 @@ export default defineConfig({
             reportsDirectory: './coverage',
             include: ['src/**/*.ts'],
             exclude: [
-                'src/cli.ts', 'src/custom.d.ts', 'src/index.ts',
+                'src/cli.ts',
+                'src/custom.d.ts',
+                'src/index.ts',
                 // Exclude the barrel files themselves, coverage should focus on implementation
-                'src/core/types.ts', 'src/core/utils.ts', 'src/core/constants.ts',
+                'src/core/types.ts',
+                'src/core/utils.ts',
+                'src/core/constants.ts',
                 '**/index.ts',
-                'tests/fixtures/**' // Data
+                'tests/fixtures/**', // Data
             ],
         },
     },
@@ -37,11 +41,11 @@ export default defineConfig({
                     const fileContent = fs.readFileSync(id, 'utf-8');
                     return {
                         code: `export default ${JSON.stringify(fileContent)};`,
-                        map: null
+                        map: null,
                     };
                 }
                 return;
-            }
-        }
-    ]
+            },
+        },
+    ],
 });

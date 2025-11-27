@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
+
 import { Project, Scope } from 'ts-morph';
+
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig, PathInfo } from "@src/core/types/index.js";
+import { GeneratorConfig, PathInfo } from '@src/core/types/index.js';
+import { TypeGenerator } from '@src/generators/shared/type.generator.js';
+import { ServiceMethodGenerator } from '@src/generators/angular/service/service-method.generator.js';
+import { ParameterSerializerGenerator } from '@src/generators/shared/parameter-serializer.generator.js';
+import { XmlBuilderGenerator } from '@src/generators/shared/xml-builder.generator.js';
+
 import { finalCoveragePushSpec, finalCoverageSpec } from '../fixtures/coverage.fixture.js';
-import { TypeGenerator } from "@src/generators/shared/type.generator.js";
-import { ServiceMethodGenerator } from "@src/generators/angular/service/service-method.generator.js";
-import { ParameterSerializerGenerator } from "@src/generators/shared/parameter-serializer.generator.js";
-import { XmlBuilderGenerator } from "@src/generators/shared/xml-builder.generator.js";
 
 const specBodyTests = {
     openapi: '3.0.0',
@@ -24,18 +27,18 @@ const specBodyTests = {
                                 type: 'object',
                                 properties: {
                                     profile: { type: 'object' },
-                                    avatar: { type: 'string', format: 'binary' }
-                                }
+                                    avatar: { type: 'string', format: 'binary' },
+                                },
                             },
                             encoding: {
                                 profile: { contentType: 'application/json' },
-                                avatar: { contentType: 'image/png' }
-                            }
-                        }
-                    }
+                                avatar: { contentType: 'image/png' },
+                            },
+                        },
+                    },
                 },
-                responses: { '200': {} }
-            }
+                responses: { '200': {} },
+            },
         },
         '/urlencoded-encoding': {
             post: {
@@ -46,17 +49,17 @@ const specBodyTests = {
                             schema: {
                                 type: 'object',
                                 properties: {
-                                    tags: { type: 'array', items: { type: 'string' } }
-                                }
+                                    tags: { type: 'array', items: { type: 'string' } },
+                                },
                             },
                             encoding: {
-                                tags: { style: 'spaceDelimited', explode: false }
-                            }
-                        }
-                    }
+                                tags: { style: 'spaceDelimited', explode: false },
+                            },
+                        },
+                    },
                 },
-                responses: { '200': {} }
-            }
+                responses: { '200': {} },
+            },
         },
         '/xml-endpoint': {
             post: {
@@ -69,14 +72,14 @@ const specBodyTests = {
                                 xml: { name: 'RequestRoot' },
                                 properties: {
                                     id: { type: 'integer', xml: { attribute: true } },
-                                    name: { type: 'string' }
-                                }
-                            }
-                        }
-                    }
+                                    name: { type: 'string' },
+                                },
+                            },
+                        },
+                    },
                 },
-                responses: { '200': {} }
-            }
+                responses: { '200': {} },
+            },
         },
         '/readonly-test': {
             post: {
@@ -84,12 +87,12 @@ const specBodyTests = {
                 requestBody: {
                     content: {
                         'application/json': {
-                            schema: { $ref: '#/components/schemas/ReadOnlyModel' }
-                        }
-                    }
+                            schema: { $ref: '#/components/schemas/ReadOnlyModel' },
+                        },
+                    },
                 },
-                responses: { '200': {} }
-            }
+                responses: { '200': {} },
+            },
         },
         '/multipart': {
             post: {
@@ -97,8 +100,8 @@ const specBodyTests = {
                 tags: ['FormData'],
                 consumes: ['multipart/form-data'],
                 parameters: [{ name: 'file-upload', in: 'formData', type: 'file' }],
-                responses: { '200': {} }
-            }
+                responses: { '200': {} },
+            },
         },
         '/urlencoded': {
             post: {
@@ -106,16 +109,16 @@ const specBodyTests = {
                 tags: ['FormData'],
                 consumes: ['application/x-www-form-urlencoded'],
                 parameters: [{ name: 'grantType', in: 'formData', type: 'string' }],
-                responses: { '200': {} }
-            }
+                responses: { '200': {} },
+            },
         },
         '/body-no-schema': {
             post: {
                 tags: ['ResponseType'],
                 operationId: 'postBodyNoSchema',
                 requestBody: { content: { 'application/json': {} } },
-                responses: { '204': {} }
-            }
+                responses: { '204': {} },
+            },
         },
     },
     components: {
@@ -124,21 +127,20 @@ const specBodyTests = {
                 type: 'object',
                 properties: {
                     id: { type: 'string', readOnly: true },
-                    data: { type: 'string' }
-                }
-            }
-        }
-    }
+                    data: { type: 'string' },
+                },
+            },
+        },
+    },
 };
 
 describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
-
     const createTestEnvironment = (spec: object) => {
         const project = new Project({ useInMemoryFileSystem: true });
         const config: GeneratorConfig = {
             input: '',
             output: '/out',
-            options: { dateType: 'Date', enumStyle: 'enum' }
+            options: { dateType: 'Date', enumStyle: 'enum' },
         };
 
         const baseComponents = (spec as any).components || {};
@@ -151,9 +153,9 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
                 ...extComponents,
                 schemas: {
                     ...(baseComponents.schemas || {}),
-                    ...(extComponents.schemas || {})
-                }
-            }
+                    ...(extComponents.schemas || {}),
+                },
+            },
         };
 
         const parser = new SwaggerParser(fullSpec as any, config);
@@ -170,13 +172,13 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
             isReadonly: true,
             scope: Scope.Private,
             type: 'string',
-            initializer: "''"
+            initializer: "''",
         });
         serviceClass.addMethod({
             name: 'createContextWithClientId',
             scope: Scope.Private,
             returnType: 'any',
-            statements: 'return {};'
+            statements: 'return {};',
         });
 
         return { methodGen, serviceClass, parser };
@@ -186,7 +188,9 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
         const { methodGen, serviceClass } = createTestEnvironment(specBodyTests);
         const op: PathInfo = {
             ...specBodyTests.paths['/xml-endpoint'].post,
-            method: 'POST', path: '/xml-endpoint', methodName: 'postXml'
+            method: 'POST',
+            path: '/xml-endpoint',
+            methodName: 'postXml',
         } as any;
 
         methodGen.addServiceMethod(serviceClass, op);
@@ -212,7 +216,9 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
 
         const body = serviceClass.getMethodOrThrow('postEncoded').getBodyText()!;
 
-        expect(body).toContain('const multipartConfig = {"profile":{"contentType":"application/json"},"avatar":{"contentType":"image/png"}};');
+        expect(body).toContain(
+            'const multipartConfig = {"profile":{"contentType":"application/json"},"avatar":{"contentType":"image/png"}};',
+        );
         expect(body).toContain('const multipartResult = MultipartBuilder.serialize(body, multipartConfig);');
         expect(body).toContain('if (multipartResult.headers) {');
         expect(body).toContain('requestOptions = { ...requestOptions, headers: newHeaders };');
@@ -232,7 +238,9 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
         const body = serviceClass.getMethodOrThrow('postUrlEncoded').getBodyText()!;
 
         // Update: ParameterSerializer calls and iteration
-        expect(body).toContain('const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(body, {"tags":{"style":"spaceDelimited","explode":false}});');
+        expect(body).toContain(
+            'const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(body, {"tags":{"style":"spaceDelimited","explode":false}});',
+        );
         expect(body).toContain('let formBody = new HttpParams({ encoder: new ApiParameterCodec() });');
         expect(body).toContain('urlParamEntries.forEach(entry => formBody = formBody.append(entry.key, entry.value));');
 
@@ -243,15 +251,17 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
     it('should use *Request type for body parameter if model has readonly/writeonly properties', () => {
         const { methodGen, serviceClass } = createTestEnvironment(specBodyTests);
         const op: PathInfo = {
-            method: 'POST', path: '/readonly-test', methodName: 'postWithReadOnly',
+            method: 'POST',
+            path: '/readonly-test',
+            methodName: 'postWithReadOnly',
             requestBody: {
                 content: {
                     'application/json': {
-                        schema: { $ref: '#/components/schemas/ReadOnlyModel' }
-                    }
-                }
+                        schema: { $ref: '#/components/schemas/ReadOnlyModel' },
+                    },
+                },
             },
-            responses: { '200': {} }
+            responses: { '200': {} },
         };
 
         methodGen.addServiceMethod(serviceClass, op);
@@ -265,15 +275,17 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
     it('should return standard type in Observable response even if request used *Request', () => {
         const { methodGen, serviceClass } = createTestEnvironment(specBodyTests);
         const op: PathInfo = {
-            method: 'POST', path: '/readonly-test', methodName: 'postWithReadOnly',
+            method: 'POST',
+            path: '/readonly-test',
+            methodName: 'postWithReadOnly',
             requestBody: {
-                content: { 'application/json': { schema: { $ref: '#/components/schemas/ReadOnlyModel' } } }
+                content: { 'application/json': { schema: { $ref: '#/components/schemas/ReadOnlyModel' } } },
             },
             responses: {
                 '200': {
-                    content: { 'application/json': { schema: { $ref: '#/components/schemas/ReadOnlyModel' } } }
-                }
-            }
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/ReadOnlyModel' } } },
+                },
+            },
         };
 
         methodGen.addServiceMethod(serviceClass, op);
@@ -291,9 +303,7 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
         methodGen.addServiceMethod(serviceClass, op);
 
         const body = serviceClass.getMethodOrThrow('postUrlencodedNoParams').getBodyText()!;
-        expect(body).toContain(
-            "const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(body, {});",
-        );
+        expect(body).toContain('const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(body, {});');
         expect(body).toContain('let formBody = new HttpParams({ encoder: new ApiParameterCodec() });');
         // Expect generic call
         expect(body).toContain('return this.http.post<any>(url, formBody, requestOptions as any);');
@@ -302,9 +312,11 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
     it('should generate HttpParams for legacy formData', () => {
         const { methodGen, serviceClass } = createTestEnvironment(specBodyTests);
         const op: PathInfo = {
-            method: 'POST', path: '/urlencoded', methodName: 'postLegacy',
+            method: 'POST',
+            path: '/urlencoded',
+            methodName: 'postLegacy',
             parameters: specBodyTests.paths['/urlencoded'].post.parameters,
-            consumes: specBodyTests.paths['/urlencoded'].post.consumes
+            consumes: specBodyTests.paths['/urlencoded'].post.consumes,
         } as any;
 
         methodGen.addServiceMethod(serviceClass, op);

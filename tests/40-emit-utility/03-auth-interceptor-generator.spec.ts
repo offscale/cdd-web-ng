@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { SwaggerParser } from '@src/core/parser.js';
 import { createTestProject } from '../shared/helpers.js';
 import { emptySpec, securitySpec } from '../shared/specs.js';
-import { GeneratorConfig } from "@src/core/types/index.js";
-import { AuthInterceptorGenerator } from "@src/generators/angular/utils/auth-interceptor.generator.js";
+import { GeneratorConfig } from '@src/core/types/index.js';
+import { AuthInterceptorGenerator } from '@src/generators/angular/utils/auth-interceptor.generator.js';
 
 describe('Emitter: AuthInterceptorGenerator', () => {
     const runGenerator = (spec: object) => {
@@ -31,8 +31,12 @@ describe('Emitter: AuthInterceptorGenerator', () => {
 
         // Check schema applicator definitions
         // Note: 'ApiKeyQuery' should be in there
-        expect(body).toContain("'ApiKeyHeader': (req) => this.apiKey ? req.clone({ headers: req.headers.set('X-API-KEY', this.apiKey) }) : null");
-        expect(body).toContain("'ApiKeyQuery': (req) => this.apiKey ? req.clone({ params: req.params.set('api_key_query', this.apiKey) }) : null");
+        expect(body).toContain(
+            "'ApiKeyHeader': (req) => this.apiKey ? req.clone({ headers: req.headers.set('X-API-KEY', this.apiKey) }) : null",
+        );
+        expect(body).toContain(
+            "'ApiKeyQuery': (req) => this.apiKey ? req.clone({ params: req.params.set('api_key_query', this.apiKey) }) : null",
+        );
 
         // Check Bearer
         expect(body).toContain("'BearerAuth': (req) => {");
@@ -71,10 +75,10 @@ describe('Emitter: AuthInterceptorGenerator', () => {
                 securitySchemes: {
                     OIDC: {
                         type: 'openIdConnect',
-                        openIdConnectUrl: 'https://example.com/.well-known/openid-configuration'
-                    }
-                }
-            }
+                        openIdConnectUrl: 'https://example.com/.well-known/openid-configuration',
+                    },
+                },
+            },
         });
         const body = project
             .getSourceFileOrThrow('/out/auth/auth.interceptor.ts')
@@ -92,9 +96,9 @@ describe('Emitter: AuthInterceptorGenerator', () => {
                 securitySchemes: {
                     BasicAuth: { type: 'http', scheme: 'basic' },
                     DigestAuth: { type: 'http', scheme: 'digest' },
-                    HobaAuth: { type: 'http', scheme: 'HOBA' }
-                }
-            }
+                    HobaAuth: { type: 'http', scheme: 'HOBA' },
+                },
+            },
         });
 
         const body = project
@@ -111,11 +115,11 @@ describe('Emitter: AuthInterceptorGenerator', () => {
 
         // Digest -> "Digest ${token}"
         expect(body).toContain("'DigestAuth':");
-        expect(body).toContain("`Digest ${token}`");
+        expect(body).toContain('`Digest ${token}`');
 
         // Custom/Other (HOBA) -> "Hoba ${token}" (PascalCase)
         expect(body).toContain("'HobaAuth':");
-        expect(body).toContain("`Hoba ${token}`");
+        expect(body).toContain('`Hoba ${token}`');
     });
 
     it('should handle apiKey in cookie correctly', () => {
@@ -132,14 +136,13 @@ describe('Emitter: AuthInterceptorGenerator', () => {
         const file = project.getSourceFileOrThrow('/out/auth/auth.interceptor.ts');
         expect(file.getImportDeclaration('../utils/http-params-builder')).toBeDefined();
 
-        const body = file
-            .getClassOrThrow('AuthInterceptor')!
-            .getMethodOrThrow('intercept')!
-            .getBodyText()!;
+        const body = file.getClassOrThrow('AuthInterceptor')!.getMethodOrThrow('intercept')!.getBodyText()!;
 
         expect(body).toContain("'CookieAuth': (req) => {");
-        expect(body).toContain("if (!this.cookieAuth) return null;");
-        expect(body).toContain("HttpParamsBuilder.serializeCookieParam('session_id', this.cookieAuth, 'form', true, false)");
+        expect(body).toContain('if (!this.cookieAuth) return null;');
+        expect(body).toContain(
+            "HttpParamsBuilder.serializeCookieParam('session_id', this.cookieAuth, 'form', true, false)",
+        );
         expect(body).toContain("req.clone({ headers: req.headers.set('Cookie', newCookie) })");
     });
 
@@ -148,12 +151,13 @@ describe('Emitter: AuthInterceptorGenerator', () => {
             ...emptySpec,
             components: {
                 securitySchemes: {
-                    MyCert: { type: 'mutualTLS', name: 'MyCert' }
+                    MyCert: { type: 'mutualTLS', name: 'MyCert' },
                 },
             },
         };
         const { project, tokenNames } = runGenerator(specWithMtls);
-        const body = project.getSourceFileOrThrow('/out/auth/auth.interceptor.ts')
+        const body = project
+            .getSourceFileOrThrow('/out/auth/auth.interceptor.ts')
             .getClassOrThrow('AuthInterceptor')!
             .getMethodOrThrow('intercept')!
             .getBodyText()!;
@@ -161,12 +165,15 @@ describe('Emitter: AuthInterceptorGenerator', () => {
         expect(tokenNames).toContain('httpsAgentConfig');
         expect(body).toContain('HTTPS_AGENT_CONTEXT_TOKEN');
         // Adjusted expectation for new implementation
-        expect(body).toContain("'MyCert': (req) => this.mtlsConfig ? req.clone({ context: req.context.set(HTTPS_AGENT_CONTEXT_TOKEN, this.mtlsConfig) }) : req");
+        expect(body).toContain(
+            "'MyCert': (req) => this.mtlsConfig ? req.clone({ context: req.context.set(HTTPS_AGENT_CONTEXT_TOKEN, this.mtlsConfig) }) : req",
+        );
     });
 
     it('should check context requirements before iterating', () => {
         const { project } = runGenerator(securitySpec);
-        const body = project.getSourceFileOrThrow('/out/auth/auth.interceptor.ts')
+        const body = project
+            .getSourceFileOrThrow('/out/auth/auth.interceptor.ts')
             .getClassOrThrow('AuthInterceptor')!
             .getMethodOrThrow('intercept')!
             .getBodyText()!;

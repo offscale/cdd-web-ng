@@ -6,6 +6,7 @@ import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig, Resource, SwaggerDefinition } from '@src/core/types/index.js';
 import { FormModelBuilder } from '@src/analysis/form-model.builder.js';
 import { FormComponentGenerator } from '@src/generators/angular/admin/form-component.generator.js';
+
 import { branchCoverageSpec } from '../fixtures/coverage.fixture.js';
 
 describe('Generators (Angular): FormComponentGenerator', () => {
@@ -23,7 +24,8 @@ describe('Generators (Angular): FormComponentGenerator', () => {
         // We need to simulate the behavior of discovery:
         // 1. Denormalize 'required' fields from parent to child schemas
         // 2. Resolve references so the builder sees the real schema content
-        const formProps = resourceOverrides.formProperties ||
+        const formProps =
+            resourceOverrides.formProperties ||
             Object.entries(mainSchema?.properties || {}).map(([name, schema]) => {
                 let s = schema as SwaggerDefinition;
 
@@ -50,7 +52,7 @@ describe('Generators (Angular): FormComponentGenerator', () => {
             operations: [],
             formProperties: formProps as any[],
             listProperties: [],
-            ...resourceOverrides
+            ...resourceOverrides,
         };
 
         const generator = new FormComponentGenerator(project, parser);
@@ -82,11 +84,11 @@ describe('Generators (Angular): FormComponentGenerator', () => {
                             required: ['name', 'age'],
                             properties: {
                                 name: { type: 'string' },
-                                age: { type: 'integer' }
-                            }
-                        }
-                    }
-                }
+                                age: { type: 'integer' },
+                            },
+                        },
+                    },
+                },
             };
             const { sourceFile } = run(spec);
             const classText = sourceFile.getClass('TestFormComponent')?.getText()!;
@@ -106,12 +108,12 @@ describe('Generators (Angular): FormComponentGenerator', () => {
                             properties: {
                                 settings: {
                                     type: 'object',
-                                    additionalProperties: { type: 'boolean' }
-                                }
-                            }
-                        }
-                    }
-                }
+                                    additionalProperties: { type: 'boolean' },
+                                },
+                            },
+                        },
+                    },
+                },
             };
             const { sourceFile } = run(spec);
             const classText = sourceFile.getClass('TestFormComponent')?.getText()!;
@@ -124,7 +126,7 @@ describe('Generators (Angular): FormComponentGenerator', () => {
 
             // Has Patch Logic for Maps
             expect(classText).toContain("if (entity.settings && typeof entity.settings === 'object')");
-            expect(classText).toContain("this.settingsMap.push(this.createSettingsEntry({ key, value }));");
+            expect(classText).toContain('this.settingsMap.push(this.createSettingsEntry({ key, value }));');
 
             // Has Payload logic for Maps
             // FIXED: Now using `payload` variable due to readOnly stripping hygiene
@@ -142,11 +144,11 @@ describe('Generators (Angular): FormComponentGenerator', () => {
                             type: 'object',
                             required: ['role'],
                             properties: {
-                                role: { type: 'string', default: 'user' }
-                            }
-                        }
-                    }
-                }
+                                role: { type: 'string', default: 'user' },
+                            },
+                        },
+                    },
+                },
             };
 
             const { sourceFile } = run(spec);
@@ -164,11 +166,11 @@ describe('Generators (Angular): FormComponentGenerator', () => {
                         Test: {
                             type: 'object',
                             properties: {
-                                id: { type: 'string', readOnly: true }
-                            }
-                        }
-                    }
-                }
+                                id: { type: 'string', readOnly: true },
+                            },
+                        },
+                    },
+                },
             };
             const { sourceFile } = run(spec);
             const classText = sourceFile.getClass('TestFormComponent')?.getText()!;
@@ -188,20 +190,22 @@ describe('Generators (Angular): FormComponentGenerator', () => {
                             properties: {
                                 value: {
                                     discriminator: { propertyName: 'type' },
-                                    oneOf: [{ type: 'string' }, { type: 'number' }]
-                                }
-                            }
-                        }
-                    }
+                                    oneOf: [{ type: 'string' }, { type: 'number' }],
+                                },
+                            },
+                        },
+                    },
                 },
             };
             const { sourceFile } = run(spec, {
                 name: 'poly',
                 modelName: 'Poly',
-                formProperties: [{
-                    name: 'value',
-                    schema: spec.components.schemas.Poly.properties.value as SwaggerDefinition
-                }]
+                formProperties: [
+                    {
+                        name: 'value',
+                        schema: spec.components.schemas.Poly.properties.value as SwaggerDefinition,
+                    },
+                ],
             });
             const classText = sourceFile.getClass('PolyFormComponent')!.getText();
 
@@ -222,11 +226,11 @@ describe('Generators (Angular): FormComponentGenerator', () => {
                             type: 'object',
                             properties: {
                                 polymorphicProp: {
-                                    $ref: '#/components/schemas/PolyReadonly'
-                                }
-                            }
-                        }
-                    }
+                                    $ref: '#/components/schemas/PolyReadonly',
+                                },
+                            },
+                        },
+                    },
                 },
             };
 
@@ -252,16 +256,16 @@ describe('Generators (Angular): FormComponentGenerator', () => {
                             type: 'object',
                             properties: {
                                 hasPhone: { type: 'boolean' },
-                                phoneNumber: { type: 'string' }
+                                phoneNumber: { type: 'string' },
                             },
                             dependentSchemas: {
                                 hasPhone: {
-                                    required: ['phoneNumber']
-                                }
-                            }
-                        }
-                    }
-                }
+                                    required: ['phoneNumber'],
+                                },
+                            },
+                        },
+                    },
+                },
             };
 
             const { sourceFile } = run(spec, { modelName: 'Test' });
@@ -270,7 +274,9 @@ describe('Generators (Angular): FormComponentGenerator', () => {
             // Expect dependent schema effect block in constructor (which is where effects live)
             expect(classText).toContain('effect(() => {');
             expect(classText).toContain("const hasPhoneValue = this.form.get('hasPhone')?.value;");
-            expect(classText).toContain("if (hasPhoneValue !== null && hasPhoneValue !== undefined && hasPhoneValue !== '')");
+            expect(classText).toContain(
+                "if (hasPhoneValue !== null && hasPhoneValue !== undefined && hasPhoneValue !== '')",
+            );
             expect(classText).toContain("this.form.get('phoneNumber')?.addValidators(Validators.required);");
             expect(classText).toContain("this.form.get('phoneNumber')?.removeValidators(Validators.required);");
         });
@@ -287,16 +293,16 @@ describe('Generators (Angular): FormComponentGenerator', () => {
                         type: 'object',
                         properties: {
                             // 'multipleOf' triggers CustomValidators
-                            value: { type: 'number', multipleOf: 10 }
-                        }
-                    }
-                }
-            }
+                            value: { type: 'number', multipleOf: 10 },
+                        },
+                    },
+                },
+            },
         };
 
         const { sourceFile } = run(spec, {
             name: 'withUnsupported',
-            modelName: 'WithUnsupported'
+            modelName: 'WithUnsupported',
         });
 
         const importDecls = sourceFile.getImportDeclarations().map(d => d.getModuleSpecifierValue());

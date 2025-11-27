@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from '@src/core/types/index.js';
-import * as resourceDiscovery from "@src/generators/angular/admin/resource-discovery.js";
-import { discoverAdminResources } from "@src/generators/angular/admin/resource-discovery.js";
+import * as resourceDiscovery from '@src/generators/angular/admin/resource-discovery.js';
+import { discoverAdminResources } from '@src/generators/angular/admin/resource-discovery.js';
 
 import { branchCoverageSpec, coverageSpec, finalCoveragePushSpec } from '../fixtures/coverage.fixture.js';
 
@@ -79,9 +79,9 @@ describe('Admin: discoverAdminResources', () => {
             paths: {},
             components: {
                 schemas: {
-                    ...branchCoverageSpec.components.schemas
-                }
-            }
+                    ...branchCoverageSpec.components.schemas,
+                },
+            },
         };
         const parser = createParser(spec);
         const polySchema = parser.getDefinition('PolyReadonly')!;
@@ -89,7 +89,10 @@ describe('Admin: discoverAdminResources', () => {
         // but we are testing the property aggregation logic via the helper if exported,
         // or via the public discover function.
         // Here we rely on `resourceDiscovery` exporting `getFormProperties` for testability based on previous prompts
-        const props = resourceDiscovery.getFormProperties([{ requestBody: { content: { 'application/json': { schema: polySchema } } } } as any], parser);
+        const props = resourceDiscovery.getFormProperties(
+            [{ requestBody: { content: { 'application/json': { schema: polySchema } } } } as any],
+            parser,
+        );
         const propNames = props.map((p: any) => p.name);
 
         // Ideally 'petType' is found. 'name' is in the subclass (Cat) and is NOT merged into the top level
@@ -104,23 +107,25 @@ describe('Admin: discoverAdminResources', () => {
             paths: {},
             components: {
                 schemas: {
-                    ...branchCoverageSpec.components.schemas
-                }
-            }
+                    ...branchCoverageSpec.components.schemas,
+                },
+            },
         };
         const parser = createParser(spec);
         const schemaWithInline = parser.getDefinition('InlineSchemaProperty')!;
 
-        const fakeOps = [{
-            method: 'GET',
-            responses: {
-                '200': {
-                    content: {
-                        'application/json': { schema: schemaWithInline.properties!.inline }
-                    }
-                }
-            }
-        }] as any;
+        const fakeOps = [
+            {
+                method: 'GET',
+                responses: {
+                    '200': {
+                        content: {
+                            'application/json': { schema: schemaWithInline.properties!.inline },
+                        },
+                    },
+                },
+            },
+        ] as any;
 
         const modelName = resourceDiscovery.getModelName('inline', fakeOps);
         expect(modelName).toBe('Inline');
@@ -135,10 +140,10 @@ describe('Admin: discoverAdminResources', () => {
                     query: {
                         tags: ['Search'],
                         requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
-                        responses: { '200': { description: 'ok' } }
-                    }
-                }
-            }
+                        responses: { '200': { description: 'ok' } },
+                    },
+                },
+            },
         };
         const parser = createParser(spec);
         const resources = discoverAdminResources(parser);
@@ -159,10 +164,10 @@ describe('Admin: discoverAdminResources', () => {
                     query: {
                         tags: ['Items'],
                         parameters: [{ name: 'id', in: 'path' }],
-                        responses: { '200': { description: 'ok' } }
-                    }
-                }
-            }
+                        responses: { '200': { description: 'ok' } },
+                    },
+                },
+            },
         };
         const parser = createParser(spec);
         const resources = discoverAdminResources(parser);
@@ -188,18 +193,18 @@ describe('Admin: discoverAdminResources', () => {
                         responses: {
                             '200': {
                                 content: {
-                                    'application/json': { schema: { $ref: '#/components/schemas/QueryResult' } }
-                                }
-                            }
-                        }
-                    }
-                }
+                                    'application/json': { schema: { $ref: '#/components/schemas/QueryResult' } },
+                                },
+                            },
+                        },
+                    },
+                },
             },
             components: {
                 schemas: {
-                    QueryResult: { type: 'object', properties: { id: { type: 'string' } } }
-                }
-            }
+                    QueryResult: { type: 'object', properties: { id: { type: 'string' } } },
+                },
+            },
         };
         const parser = createParser(spec);
         const resources = discoverAdminResources(parser);

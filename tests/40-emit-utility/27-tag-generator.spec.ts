@@ -6,7 +6,7 @@ import { Project } from 'ts-morph';
 
 import { SwaggerParser } from '@src/core/parser.js';
 import { TagGenerator } from '@src/generators/shared/tag.generator.js';
-import { GeneratorConfig, SwaggerSpec } from "@src/core/types/index.js";
+import { GeneratorConfig, SwaggerSpec } from '@src/core/types/index.js';
 
 import { createTestProject } from '../shared/helpers.js';
 
@@ -22,19 +22,18 @@ const tagsSpec: SwaggerSpec = {
             kind: 'resource',
             externalDocs: {
                 description: 'Find out more',
-                url: 'http://swagger.io'
-            }
+                url: 'http://swagger.io',
+            },
         } as any,
         {
             name: 'Store',
             description: 'Access to Petstore orders',
-            parent: 'Pet'
-        } as any
-    ]
+            parent: 'Pet',
+        } as any,
+    ],
 };
 
 describe('Emitter: TagGenerator', () => {
-
     const runGenerator = (spec: SwaggerSpec) => {
         const project = createTestProject();
         const config: GeneratorConfig = { output: '/out', options: {} } as any;
@@ -78,7 +77,7 @@ describe('Emitter: TagGenerator', () => {
         const emptySpec: SwaggerSpec = {
             openapi: '3.0.0',
             info: { title: 'NoTags', version: '1.0' },
-            paths: {}
+            paths: {},
         };
         const project = runGenerator(emptySpec);
         const sourceFile = project.getSourceFileOrThrow('/out/tags.ts');
@@ -90,7 +89,7 @@ describe('Emitter: TagGenerator', () => {
             openapi: '3.0.0',
             info: { title: 'EmptyTags', version: '1.0' },
             paths: {},
-            tags: []
+            tags: [],
         };
         const project = runGenerator(emptyArraySpec);
         const sourceFile = project.getSourceFileOrThrow('/out/tags.ts');

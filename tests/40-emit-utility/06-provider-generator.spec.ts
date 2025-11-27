@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from "@src/core/types/index.js";
+import { GeneratorConfig } from '@src/core/types/index.js';
 import { ProviderGenerator } from '@src/generators/angular/utils/provider.generator.js';
 import { TokenGenerator } from '@src/generators/angular/utils/token.generator.js';
 import { BaseInterceptorGenerator } from '@src/generators/angular/utils/base-interceptor.generator.js';
@@ -19,7 +19,7 @@ describe('Emitter: ProviderGenerator', () => {
             output: '/out',
             // `clientName` is deliberately omitted from the base to test fallback logic
             options: { generateServices: true, dateType: 'string', enumStyle: 'enum' },
-            ...config
+            ...config,
         };
 
         const parser = new SwaggerParser(spec as any, fullConfig);
@@ -82,7 +82,7 @@ describe('Emitter: ProviderGenerator', () => {
     it('should add providers for ONLY API key when spec contains only that', () => {
         const apiKeySpec = {
             ...emptySpec,
-            components: { securitySchemes: { ApiKeyAuth: { type: 'apiKey', in: 'header', name: 'X-API-KEY' } } }
+            components: { securitySchemes: { ApiKeyAuth: { type: 'apiKey', in: 'header', name: 'X-API-KEY' } } },
         };
         const fileContent = runGenerator(apiKeySpec, { clientName: 'Test' });
         expect(fileContent).toContain('apiKey?: string');
@@ -95,7 +95,7 @@ describe('Emitter: ProviderGenerator', () => {
     it('should add providers for ONLY Bearer token when spec contains only that', () => {
         const bearerSpec = {
             ...emptySpec,
-            components: { securitySchemes: { BearerAuth: { type: 'http', scheme: 'bearer' } } }
+            components: { securitySchemes: { BearerAuth: { type: 'http', scheme: 'bearer' } } },
         };
         const fileContent = runGenerator(bearerSpec, { clientName: 'Test' });
         expect(fileContent).not.toContain('apiKey?: string');
@@ -108,12 +108,14 @@ describe('Emitter: ProviderGenerator', () => {
     it('should add providers for mutualTLS', () => {
         const mtlsSpec = {
             ...emptySpec,
-            components: { securitySchemes: { MTLS: { type: 'mutualTLS' } } }
+            components: { securitySchemes: { MTLS: { type: 'mutualTLS' } } },
         };
         const fileContent = runGenerator(mtlsSpec, { clientName: 'Test' });
         expect(fileContent).toContain('httpsAgentConfig?: any');
         expect(fileContent).toContain('if (config.httpsAgentConfig)');
-        expect(fileContent).toContain('providers.push({ provide: HTTPS_AGENT_CONFIG_TOKEN, useValue: config.httpsAgentConfig });');
+        expect(fileContent).toContain(
+            'providers.push({ provide: HTTPS_AGENT_CONFIG_TOKEN, useValue: config.httpsAgentConfig });',
+        );
     });
 
     it('should add DateInterceptor if dateType is "Date"', () => {

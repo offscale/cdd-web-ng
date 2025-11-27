@@ -1,9 +1,10 @@
 // tests/00-core/06-input-validation.spec.ts
 
 import { describe, expect, it } from 'vitest';
+
 import { SpecValidationError, validateSpec } from '@src/core/validator.js';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from "@src/core/types/index.js";
+import { GeneratorConfig } from '@src/core/types/index.js';
 
 describe('Core: Input Spec Validation', () => {
     const validInfo = { title: 'Valid API', version: '1.0.0' };
@@ -14,7 +15,7 @@ describe('Core: Input Spec Validation', () => {
             const spec: any = {
                 swagger: '2.0',
                 info: validInfo,
-                paths: {}
+                paths: {},
             };
             expect(() => validateSpec(spec)).not.toThrow();
         });
@@ -23,7 +24,7 @@ describe('Core: Input Spec Validation', () => {
             const spec: any = {
                 openapi: '3.0.1',
                 info: validInfo,
-                paths: {}
+                paths: {},
             };
             expect(() => validateSpec(spec)).not.toThrow();
         });
@@ -32,7 +33,7 @@ describe('Core: Input Spec Validation', () => {
             const spec: any = {
                 openapi: '3.1.0',
                 info: validInfo,
-                components: { schemas: {} }
+                components: { schemas: {} },
             };
             expect(() => validateSpec(spec)).not.toThrow();
         });
@@ -41,7 +42,7 @@ describe('Core: Input Spec Validation', () => {
             const spec: any = {
                 openapi: '3.1.0',
                 info: validInfo,
-                webhooks: {}
+                webhooks: {},
             };
             expect(() => validateSpec(spec)).not.toThrow();
         });
@@ -83,7 +84,9 @@ describe('Core: Input Spec Validation', () => {
 
         it('should throw if OpenAPI 3.x has no paths, components, or webhooks', () => {
             const spec: any = { openapi: '3.0.0', info: validInfo }; // Completely empty structure
-            expect(() => validateSpec(spec)).toThrow(/must contain at least one of: 'paths', 'components', or 'webhooks'/);
+            expect(() => validateSpec(spec)).toThrow(
+                /must contain at least one of: 'paths', 'components', or 'webhooks'/,
+            );
         });
     });
 
@@ -96,10 +99,10 @@ describe('Core: Input Spec Validation', () => {
                     license: {
                         name: 'Apache 2.0',
                         url: 'https://apache.org',
-                        identifier: 'Apache-2.0'
-                    }
+                        identifier: 'Apache-2.0',
+                    },
                 },
-                paths: {}
+                paths: {},
             };
             expect(() => validateSpec(spec)).toThrow(/mutually exclusive/);
         });
@@ -111,10 +114,10 @@ describe('Core: Input Spec Validation', () => {
                     ...validInfo,
                     license: {
                         name: 'MIT',
-                        url: 'https://opensource.org/licenses/MIT'
-                    }
+                        url: 'https://opensource.org/licenses/MIT',
+                    },
                 },
-                paths: {}
+                paths: {},
             };
             expect(() => validateSpec(spec)).not.toThrow();
         });
@@ -126,10 +129,10 @@ describe('Core: Input Spec Validation', () => {
                     ...validInfo,
                     license: {
                         name: 'MIT',
-                        identifier: 'MIT'
-                    }
+                        identifier: 'MIT',
+                    },
                 },
-                paths: {}
+                paths: {},
             };
             expect(() => validateSpec(spec)).not.toThrow();
         });
@@ -140,10 +143,10 @@ describe('Core: Input Spec Validation', () => {
                 info: {
                     ...validInfo,
                     license: {
-                        name: 'Proprietary'
-                    }
+                        name: 'Proprietary',
+                    },
                 },
-                paths: {}
+                paths: {},
             };
             expect(() => validateSpec(spec)).not.toThrow();
         });
@@ -159,7 +162,7 @@ describe('Core: Input Spec Validation', () => {
             const spec: any = { openapi: '3.0.0', info: validInfo, paths: {} };
             const config: GeneratorConfig = {
                 ...validConfig,
-                validateInput: (s) => s.info.title !== 'Forbidden Title'
+                validateInput: s => s.info.title !== 'Forbidden Title',
             };
 
             // Should pass
@@ -179,15 +182,15 @@ describe('Core: Input Spec Validation', () => {
                 paths: {},
                 components: {
                     schemas: {
-                        'User': {},
+                        User: {},
                         'User.Profile': {},
-                        'user_id': {},
-                        'User-Type': {}
+                        user_id: {},
+                        'User-Type': {},
                     },
                     parameters: {
-                        'param1': {}
-                    }
-                }
+                        param1: {},
+                    },
+                },
             };
             expect(() => validateSpec(spec)).not.toThrow();
         });
@@ -199,9 +202,9 @@ describe('Core: Input Spec Validation', () => {
                 paths: {},
                 components: {
                     schemas: {
-                        'User Name': {}
-                    }
-                }
+                        'User Name': {},
+                    },
+                },
             };
             expect(() => validateSpec(spec)).toThrow(/Invalid component key "User Name" in "components.schemas"/);
         });
@@ -213,9 +216,9 @@ describe('Core: Input Spec Validation', () => {
                 paths: {},
                 components: {
                     parameters: {
-                        '$limit': {}
-                    }
-                }
+                        $limit: {},
+                    },
+                },
             };
             expect(() => validateSpec(spec)).toThrow(/Invalid component key "\$limit" in "components.parameters"/);
         });
@@ -227,9 +230,9 @@ describe('Core: Input Spec Validation', () => {
                 paths: {},
                 components: {
                     securitySchemes: {
-                        '@auth': { type: 'http', scheme: 'basic' }
-                    }
-                }
+                        '@auth': { type: 'http', scheme: 'basic' },
+                    },
+                },
             };
             expect(() => validateSpec(spec)).toThrow(/Invalid component key "@auth" in "components.securitySchemes"/);
         });
@@ -242,8 +245,8 @@ describe('Core: Input Spec Validation', () => {
                 info: validInfo,
                 paths: {
                     '/pets/{id}': {},
-                    '/pets/{name}': {}
-                }
+                    '/pets/{name}': {},
+                },
             };
             expect(() => validateSpec(spec)).toThrow(/Ambiguous path definition detected/);
         });
@@ -254,8 +257,8 @@ describe('Core: Input Spec Validation', () => {
                 info: validInfo,
                 paths: {
                     '/pets/{id}/info': {},
-                    '/pets/{id}/details': {}
-                }
+                    '/pets/{id}/details': {},
+                },
             };
             expect(() => validateSpec(spec)).not.toThrow();
         });
@@ -266,8 +269,8 @@ describe('Core: Input Spec Validation', () => {
                 info: validInfo,
                 paths: {
                     '/pets/mine': {},
-                    '/pets/{id}': {}
-                }
+                    '/pets/{id}': {},
+                },
             };
             expect(() => validateSpec(spec)).not.toThrow();
         });
@@ -278,8 +281,8 @@ describe('Core: Input Spec Validation', () => {
                 info: validInfo,
                 paths: {
                     '/api/{version}/upload': {},
-                    '/api/{v}/upload': {}
-                }
+                    '/api/{v}/upload': {},
+                },
             };
             expect(() => validateSpec(spec)).toThrow(/Ambiguous path definition detected/);
         });
@@ -290,8 +293,8 @@ describe('Core: Input Spec Validation', () => {
                 info: validInfo,
                 paths: {
                     '/api/{version}': {},
-                    '/api/{v}': {}
-                }
+                    '/api/{v}': {},
+                },
             };
             expect(() => validateSpec(spec)).toThrow(/Ambiguous path definition detected/);
         });
@@ -307,11 +310,11 @@ describe('Core: Input Spec Validation', () => {
                         get: {
                             parameters: [
                                 { name: 'q', in: 'query' },
-                                { name: 'filter', in: 'querystring' }
-                            ]
-                        }
-                    }
-                }
+                                { name: 'filter', in: 'querystring' },
+                            ],
+                        },
+                    },
+                },
             };
             expect(() => validateSpec(spec)).toThrow(/contains both 'query' and 'querystring' parameters/);
         });
@@ -324,12 +327,10 @@ describe('Core: Input Spec Validation', () => {
                     '/search': {
                         parameters: [{ name: 'q', in: 'query' }],
                         get: {
-                            parameters: [
-                                { name: 'filter', in: 'querystring' }
-                            ]
-                        }
-                    }
-                }
+                            parameters: [{ name: 'filter', in: 'querystring' }],
+                        },
+                    },
+                },
             };
             expect(() => validateSpec(spec)).toThrow(/contains both 'query' and 'querystring' parameters/);
         });
@@ -346,12 +347,12 @@ describe('Core: Input Spec Validation', () => {
                                     name: 'id',
                                     in: 'query',
                                     example: '123',
-                                    examples: { 'default': { value: '123' } }
-                                }
-                            ]
-                        }
-                    }
-                }
+                                    examples: { default: { value: '123' } },
+                                },
+                            ],
+                        },
+                    },
+                },
             };
             expect(() => validateSpec(spec)).toThrow(/contains both 'example' and 'examples'/);
         });
@@ -367,12 +368,14 @@ describe('Core: Input Spec Validation', () => {
                             name: 'id',
                             in: 'query',
                             example: '1',
-                            examples: { 'a': { value: '1' } }
-                        }
-                    }
-                }
+                            examples: { a: { value: '1' } },
+                        },
+                    },
+                },
             };
-            expect(() => validateSpec(spec)).toThrow(/Component parameter 'MyParam' contains both 'example' and 'examples'/);
+            expect(() => validateSpec(spec)).toThrow(
+                /Component parameter 'MyParam' contains both 'example' and 'examples'/,
+            );
         });
 
         it('should throw if parameter has both "schema" and "content"', () => {
@@ -387,12 +390,12 @@ describe('Core: Input Spec Validation', () => {
                                     name: 'id',
                                     in: 'query',
                                     schema: { type: 'string' },
-                                    content: { 'application/json': { schema: { type: 'string' } } }
-                                }
-                            ]
-                        }
-                    }
-                }
+                                    content: { 'application/json': { schema: { type: 'string' } } },
+                                },
+                            ],
+                        },
+                    },
+                },
             };
             expect(() => validateSpec(spec)).toThrow(/contains both 'schema' and 'content'/);
         });
@@ -408,12 +411,14 @@ describe('Core: Input Spec Validation', () => {
                             name: 'id',
                             in: 'query',
                             schema: { type: 'string' },
-                            content: { 'application/json': { schema: { type: 'string' } } }
-                        }
-                    }
-                }
+                            content: { 'application/json': { schema: { type: 'string' } } },
+                        },
+                    },
+                },
             };
-            expect(() => validateSpec(spec)).toThrow(/Component parameter 'MyParam' contains both 'schema' and 'content'/);
+            expect(() => validateSpec(spec)).toThrow(
+                /Component parameter 'MyParam' contains both 'schema' and 'content'/,
+            );
         });
 
         it('should throw if parameter content map has multiple entries (OAS 3.2)', () => {
@@ -423,17 +428,19 @@ describe('Core: Input Spec Validation', () => {
                 paths: {
                     '/test': {
                         get: {
-                            parameters: [{
-                                name: 'id',
-                                in: 'query',
-                                content: {
-                                    'application/json': { schema: { type: 'string' } },
-                                    'text/plain': { schema: { type: 'string' } }
-                                }
-                            }]
-                        }
-                    }
-                }
+                            parameters: [
+                                {
+                                    name: 'id',
+                                    in: 'query',
+                                    content: {
+                                        'application/json': { schema: { type: 'string' } },
+                                        'text/plain': { schema: { type: 'string' } },
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                },
             };
             expect(() => validateSpec(spec)).toThrow(/has an invalid 'content' map. It MUST contain exactly one entry/);
         });
@@ -446,11 +453,12 @@ describe('Core: Input Spec Validation', () => {
                 components: {
                     parameters: {
                         MultiContent: {
-                            name: 'id', in: 'query',
-                            content: { 'a/b': {}, 'c/d': {} }
-                        }
-                    }
-                }
+                            name: 'id',
+                            in: 'query',
+                            content: { 'a/b': {}, 'c/d': {} },
+                        },
+                    },
+                },
             };
             expect(() => validateSpec(spec)).toThrow(/has an invalid 'content' map. It MUST contain exactly one entry/);
         });
@@ -462,14 +470,17 @@ describe('Core: Input Spec Validation', () => {
                 paths: {
                     '/test': {
                         get: {
-                            parameters: [{
-                                name: 'id', in: 'query',
-                                style: 'form',
-                                allowEmptyValue: true
-                            }]
-                        }
-                    }
-                }
+                            parameters: [
+                                {
+                                    name: 'id',
+                                    in: 'query',
+                                    style: 'form',
+                                    allowEmptyValue: true,
+                                },
+                            ],
+                        },
+                    },
+                },
             };
             expect(() => validateSpec(spec)).toThrow(/defines 'allowEmptyValue' alongside 'style'. This is forbidden/);
         });
@@ -481,13 +492,16 @@ describe('Core: Input Spec Validation', () => {
                 paths: {
                     '/test': {
                         get: {
-                            parameters: [{
-                                name: 'id', in: 'header',
-                                allowEmptyValue: true
-                            }]
-                        }
-                    }
-                }
+                            parameters: [
+                                {
+                                    name: 'id',
+                                    in: 'header',
+                                    allowEmptyValue: true,
+                                },
+                            ],
+                        },
+                    },
+                },
             };
             expect(() => validateSpec(spec)).toThrow(/defines 'allowEmptyValue' but location is not 'query'/);
         });
@@ -499,10 +513,10 @@ describe('Core: Input Spec Validation', () => {
                 paths: {
                     '/test': {
                         get: {
-                            parameters: [{ name: 'id', in: 'query', example: '1' }]
-                        }
-                    }
-                }
+                            parameters: [{ name: 'id', in: 'query', example: '1' }],
+                        },
+                    },
+                },
             };
             expect(() => validateSpec(spec)).not.toThrow();
         });
@@ -514,10 +528,10 @@ describe('Core: Input Spec Validation', () => {
                 paths: {
                     '/test': {
                         get: {
-                            parameters: [{ name: 'id', in: 'query', examples: { a: { value: '1' } } }]
-                        }
-                    }
-                }
+                            parameters: [{ name: 'id', in: 'query', examples: { a: { value: '1' } } }],
+                        },
+                    },
+                },
             };
             expect(() => validateSpec(spec)).not.toThrow();
         });
@@ -529,10 +543,10 @@ describe('Core: Input Spec Validation', () => {
                 paths: {
                     '/test': {
                         get: {
-                            parameters: [{ name: 'id', in: 'query', schema: { type: 'string' } }]
-                        }
-                    }
-                }
+                            parameters: [{ name: 'id', in: 'query', schema: { type: 'string' } }],
+                        },
+                    },
+                },
             };
             expect(() => validateSpec(spec)).not.toThrow();
         });
@@ -548,12 +562,12 @@ describe('Core: Input Spec Validation', () => {
                                 {
                                     name: 'id',
                                     in: 'query',
-                                    content: { 'application/json': { schema: { type: 'string' } } }
-                                }
-                            ]
-                        }
-                    }
-                }
+                                    content: { 'application/json': { schema: { type: 'string' } } },
+                                },
+                            ],
+                        },
+                    },
+                },
             };
             expect(() => validateSpec(spec)).not.toThrow();
         });
@@ -565,7 +579,7 @@ describe('Core: Input Spec Validation', () => {
                 openapi: '3.1.0',
                 info: validInfo,
                 paths: {},
-                jsonSchemaDialect: 'https://spec.openapis.org/oas/3.1/dialect/base'
+                jsonSchemaDialect: 'https://spec.openapis.org/oas/3.1/dialect/base',
             };
             expect(() => validateSpec(spec)).not.toThrow();
         });
@@ -575,7 +589,7 @@ describe('Core: Input Spec Validation', () => {
                 openapi: '3.1.0',
                 info: validInfo,
                 paths: {},
-                jsonSchemaDialect: 'urn:ietf:params:xml:ns:yang:1'
+                jsonSchemaDialect: 'urn:ietf:params:xml:ns:yang:1',
             };
             expect(() => validateSpec(spec)).not.toThrow();
         });
@@ -585,7 +599,7 @@ describe('Core: Input Spec Validation', () => {
                 openapi: '3.1.0',
                 info: validInfo,
                 paths: {},
-                jsonSchemaDialect: 'not-a-uri'
+                jsonSchemaDialect: 'not-a-uri',
             };
             expect(() => validateSpec(spec)).toThrow(/must be a valid URI/);
         });
@@ -595,7 +609,7 @@ describe('Core: Input Spec Validation', () => {
                 openapi: '3.1.0',
                 info: validInfo,
                 paths: {},
-                jsonSchemaDialect: 123
+                jsonSchemaDialect: 123,
             };
             expect(() => validateSpec(spec)).toThrow(/must be a string/);
         });

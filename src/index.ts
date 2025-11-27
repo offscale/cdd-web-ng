@@ -3,8 +3,8 @@
 import * as fs from 'node:fs';
 import { ModuleKind, Project, ScriptTarget } from 'ts-morph';
 
-import { GeneratorConfig, SwaggerSpec } from "@src/core/types/index.js";
-import { isUrl } from "@src/core/utils/index.js";
+import { GeneratorConfig, SwaggerSpec } from '@src/core/types/index.js';
+import { isUrl } from '@src/core/utils/index.js';
 
 import { SwaggerParser } from './core/parser.js';
 import { AngularClientGenerator } from './generators/angular/angular-client.generator.js';
@@ -16,16 +16,16 @@ import { IClientGenerator } from './core/generator.js';
 export type TestGeneratorConfig = {
     /** The pre-parsed OpenAPI specification object. */
     spec: object;
-}
+};
 
 function getGeneratorFactory(framework: string): IClientGenerator {
     switch (framework) {
         case 'angular':
             return new AngularClientGenerator();
         case 'react':
-            throw new Error("React generation is not yet implemented.");
+            throw new Error('React generation is not yet implemented.');
         case 'vue':
-            throw new Error("Vue generation is not yet implemented.");
+            throw new Error('Vue generation is not yet implemented.');
         default:
             // Default to Angular for backward compatibility if undefined, though config defaults handle this
             return new AngularClientGenerator();
@@ -42,26 +42,30 @@ function getGeneratorFactory(framework: string): IClientGenerator {
 export async function generateFromConfig(
     config: GeneratorConfig,
     project?: Project,
-    testConfig?: TestGeneratorConfig
+    testConfig?: TestGeneratorConfig,
 ): Promise<void> {
     const isTestEnv = !!testConfig;
 
-    const activeProject = project || new Project({
-        compilerOptions: {
-            declaration: true,
-            target: ScriptTarget.ES2022,
-            module: ModuleKind.ESNext,
-            strict: true,
-            ...config.compilerOptions,
-        },
-    });
+    const activeProject =
+        project ||
+        new Project({
+            compilerOptions: {
+                declaration: true,
+                target: ScriptTarget.ES2022,
+                module: ModuleKind.ESNext,
+                strict: true,
+                ...config.compilerOptions,
+            },
+        });
 
     if (!isTestEnv && !fs.existsSync(config.output)) {
         fs.mkdirSync(config.output, { recursive: true });
     }
 
     if (!isTestEnv) {
-        console.log(`📡 Processing OpenAPI specification from ${isUrl(config.input) ? "URL" : "file"}: ${config.input}`);
+        console.log(
+            `📡 Processing OpenAPI specification from ${isUrl(config.input) ? 'URL' : 'file'}: ${config.input}`,
+        );
     }
 
     try {
@@ -84,10 +88,9 @@ export async function generateFromConfig(
         if (!isTestEnv) {
             await activeProject.save();
         }
-
     } catch (error) {
         if (!isTestEnv) {
-            console.error("❌ Generation failed:", error instanceof Error ? error.message : error);
+            console.error('❌ Generation failed:', error instanceof Error ? error.message : error);
         }
         throw error;
     }

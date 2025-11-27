@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { discoverAdminResources } from '@src/generators/angular/admin/resource-discovery.js';
 import { SwaggerParser } from '@src/core/parser.js';
-import { FormProperty, GeneratorConfig, Resource, ResourceOperation } from "@src/core/types/index.js";
+import { FormProperty, GeneratorConfig, Resource, ResourceOperation } from '@src/core/types/index.js';
 
 import { branchCoverageSpec } from '../shared/specs.js';
 
@@ -21,7 +21,11 @@ describe('Admin: resource-discovery (Coverage)', () => {
                 '/items-201': {
                     post: {
                         tags: ['Items201'],
-                        responses: { '201': { content: { 'application/json': { schema: { $ref: '#/components/schemas/Item' } } } } },
+                        responses: {
+                            '201': {
+                                content: { 'application/json': { schema: { $ref: '#/components/schemas/Item' } } },
+                            },
+                        },
                     },
                 },
             },
@@ -66,13 +70,14 @@ describe('Admin: resource-discovery (Coverage)', () => {
             info: { title: 'Test', version: '1.0' },
             paths: {
                 '/items': {
-                    post: { // collection path, no ID suffix
+                    post: {
+                        // collection path, no ID suffix
                         tags: ['Items'],
                         operationId: 'uploadItems', // has 'upload' keyword
-                        responses: { '200': {} }
-                    }
-                }
-            }
+                        responses: { '200': {} },
+                    },
+                },
+            },
         };
         const resources = runDiscovery(spec);
         const resource = resources.find((r: Resource) => r.name === 'items');
@@ -86,22 +91,25 @@ describe('Admin: resource-discovery (Coverage)', () => {
             info: { title: 'Test', version: '1.0' },
             paths: {
                 '/items': {
-                    get: { // No `parameters` key at all
+                    get: {
+                        // No `parameters` key at all
                         tags: ['Items'],
                         responses: {
-                            '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/Item' } } } }
+                            '200': {
+                                content: { 'application/json': { schema: { $ref: '#/components/schemas/Item' } } },
+                            },
                         },
-                    }
-                }
+                    },
+                },
             },
             components: {
                 schemas: {
                     Item: {
                         type: 'object',
-                        properties: { name: { type: 'string' } } // no 'required' key
-                    }
-                }
-            }
+                        properties: { name: { type: 'string' } }, // no 'required' key
+                    },
+                },
+            },
         };
         const resources = runDiscovery(spec);
         const resource = resources.find((r: Resource) => r.name === 'items');
@@ -123,15 +131,15 @@ describe('Admin: resource-discovery (Coverage)', () => {
                                     'application/json': {
                                         schema: {
                                             type: 'object',
-                                            properties: { id: { type: 'string' } }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+                                            properties: { id: { type: 'string' } },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
         };
         const resources = runDiscovery(spec);
         const resource = resources.find((r: Resource) => r.name === 'items');
@@ -157,7 +165,9 @@ describe('Admin: resource-discovery (Coverage)', () => {
     it('should not classify custom actions like "addItem" as a standard "create"', () => {
         const resources = runDiscovery(branchCoverageSpec);
         const resource = resources.find((r): boolean => r.name === 'widgets')!;
-        const addOp = resource.operations.find((op: ResourceOperation): boolean => op.operationId === 'addItemToWidget')!;
+        const addOp = resource.operations.find(
+            (op: ResourceOperation): boolean => op.operationId === 'addItemToWidget',
+        )!;
         expect(addOp.action).toBe('addItemToWidget');
     });
 
@@ -174,10 +184,10 @@ describe('Admin: resource-discovery (Coverage)', () => {
                                 'application/json': {
                                     schema: {
                                         type: 'object',
-                                        properties: { name: { type: 'string' } }
-                                    }
-                                }
-                            }
+                                        properties: { name: { type: 'string' } },
+                                    },
+                                },
+                            },
                         },
                         responses: { '201': { description: 'Created' } },
                     },
@@ -200,11 +210,11 @@ describe('Admin: resource-discovery (Coverage)', () => {
                         consumes: ['multipart/form-data'],
                         parameters: [
                             { name: 'file', in: 'formData', type: 'file' },
-                            { name: 'metadata', in: 'formData', type: 'string' }
-                        ]
-                    }
-                }
-            }
+                            { name: 'metadata', in: 'formData', type: 'string' },
+                        ],
+                    },
+                },
+            },
         };
         const resources = runDiscovery(spec);
         const resource = resources.find((r: Resource) => r.name === 'formData');
@@ -221,10 +231,12 @@ describe('Admin: resource-discovery (Coverage)', () => {
                 '/bad-ref': {
                     get: {
                         tags: ['BadRef'],
-                        responses: { '200': { content: { 'application/json': { schema: { $ref: '#/non/existent' } } } } }
-                    }
-                }
-            }
+                        responses: {
+                            '200': { content: { 'application/json': { schema: { $ref: '#/non/existent' } } } },
+                        },
+                    },
+                },
+            },
         };
         const resources = runDiscovery(spec);
         const resource = resources.find((r: Resource) => r.name === 'badRef');
@@ -253,15 +265,15 @@ describe('Admin: resource-discovery (Coverage)', () => {
                                     'application/json': {
                                         schema: {
                                             type: 'object',
-                                            properties: { bad: { $ref: '#/non/existent' } }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+                                            properties: { bad: { $ref: '#/non/existent' } },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
         };
         const resources = runDiscovery(spec);
         const resource = resources.find((r: Resource) => r.name === 'badPropRef')!;
@@ -272,7 +284,7 @@ describe('Admin: resource-discovery (Coverage)', () => {
         const specWithUntagged = {
             openapi: '3.0.0',
             info: { title: 'Test', version: '1.0' },
-            paths: { '/some-resource': { get: { operationId: 'getSome' } } }
+            paths: { '/some-resource': { get: { operationId: 'getSome' } } },
         };
         const resources = runDiscovery(specWithUntagged);
         const resource = resources.find((r: Resource) => r.name === 'someResource');
@@ -288,19 +300,21 @@ describe('Admin: resource-discovery (Coverage)', () => {
                 '/items/custom-collection': {
                     // No path parameter -> Collection Action
                     post: {
-                        tags: ['Items'], operationId: 'customCol',
-                        responses: { '200': {} }
-                    }
+                        tags: ['Items'],
+                        operationId: 'customCol',
+                        responses: { '200': {} },
+                    },
                 },
                 '/items/{id}/custom-item': {
                     // Path parameter present -> Item Action
                     post: {
-                        tags: ['Items'], operationId: 'customItem',
+                        tags: ['Items'],
+                        operationId: 'customItem',
                         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-                        responses: { '200': {} }
-                    }
-                }
-            }
+                        responses: { '200': {} },
+                    },
+                },
+            },
         };
         const resources = runDiscovery(spec);
         const resource = resources.find(r => r.name === 'items');
@@ -329,15 +343,15 @@ describe('Admin: resource-discovery (Coverage)', () => {
                                     'application/json': {
                                         schema: {
                                             type: 'object',
-                                            properties: { id: { type: 'string' }, data: { type: 'object' } }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+                                            properties: { id: { type: 'string' }, data: { type: 'object' } },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
         };
         const resources = runDiscovery(specWithObjectProp);
         const resource = resources.find((r: Resource) => r.name === 'configs');

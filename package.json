@@ -1,65 +1,87 @@
 {
-  "name": "cdd-web-ng",
-  "version": "0.0.1",
-  "description": "OpenAPI ↔ Angular (TypeScript, HTML)",
-  "keywords": [
-    "openapi",
-    "cdd",
-    "angular",
-    "codegen",
-    "parser",
-    "emitter",
-    "compiler"
-  ],
-  "homepage": "https://github.com/offscale/cdd-web-ng#readme",
-  "bugs": {
-    "url": "https://github.com/offscale/cdd-web-ng/issues"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/offscale/cdd-web-ng.git"
-  },
-  "license": "MIT",
-  "author": "Samuel Marks <807580+SamuelMarks@users.noreply.github.com>",
-  "type": "module",
-  "bin": {
-    "cdd_web_ng": "./dist/cli.js"
-  },
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
-  "scripts": {
-    "check:types": "type-coverage --project ./tsconfig.json --detail",
-    "clean": "rm -rf dist docs coverage .vitest-cache node_modules/.vite",
-    "build": "tsc -p tsconfig.build.json",
-    "docs": "typedoc",
-    "prepublishOnly": "npm run build",
-    "start": "node dist/cli.js",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
-  },
-  "dependencies": {
-    "commander": "^14",
-    "js-yaml": "^4.1.0",
-    "ts-morph": "^27.0"
-  },
-  "devDependencies": {
-    "@angular/common": "^20.3.12",
-    "@angular/compiler": "^20.3.12",
-    "@types/js-yaml": "^4.0.9",
-    "@types/node": "^24",
-    "@types/swagger-schema-official": "^2.0.25",
-    "@vitest/coverage-istanbul": "^4.0.3",
-    "glob": "^11.0",
-    "swagger-schema-official": "^2.0.0-bab6bed",
-    "type-coverage": "^2.29.7",
-    "typedoc": "^0.28.14",
-    "typescript": "^5.9",
-    "vitest": "^4.0"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  }
+    "name": "cdd-web-ng",
+    "version": "0.0.1",
+    "description": "OpenAPI ↔ Angular (TypeScript, HTML)",
+    "keywords": [
+        "openapi",
+        "cdd",
+        "angular",
+        "codegen",
+        "parser",
+        "emitter",
+        "compiler"
+    ],
+    "homepage": "https://github.com/offscale/cdd-web-ng#readme",
+    "bugs": {
+        "url": "https://github.com/offscale/cdd-web-ng/issues"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/offscale/cdd-web-ng.git"
+    },
+    "license": "MIT",
+    "author": "Samuel Marks <807580+SamuelMarks@users.noreply.github.com>",
+    "type": "module",
+    "bin": {
+        "cdd-web-ng": "./dist/cli.js"
+    },
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "files": [
+        "dist",
+        "package.json",
+        "README.md"
+    ],
+    "lint-staged": {
+        "*.{ts,tsx}": [
+            "eslint --fix",
+            "prettier --write"
+        ],
+        "*.{json,md,yml}": [
+            "prettier --write"
+        ]
+    },
+    "scripts": {
+        "check:types": "type-coverage --project ./tsconfig.json --detail",
+        "clean": "rm -rf dist docs coverage .vitest-cache node_modules/.vite",
+        "build": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json && chmod +x dist/cli.js",
+        "docs": "typedoc",
+        "prepublishOnly": "npm run build",
+        "start": "node dist/cli.js",
+        "test": "vitest run",
+        "test:coverage": "vitest run --coverage",
+        "prepare": "husky install"
+    },
+    "dependencies": {
+        "commander": "^14",
+        "js-yaml": "^4.1.0",
+        "ts-morph": "^27.0"
+    },
+    "devDependencies": {
+        "@angular/common": "^20.3.12",
+        "@angular/compiler": "^20.3.12",
+        "@types/js-yaml": "^4.0.9",
+        "@types/node": "^24",
+        "@types/swagger-schema-official": "^2.0.25",
+        "@typescript-eslint/eslint-plugin": "^8.48.0",
+        "@typescript-eslint/parser": "^8.48.0",
+        "@vitest/coverage-istanbul": "^4.0.3",
+        "eslint": "^9.39.1",
+        "eslint-config-prettier": "^10.1.8",
+        "eslint-plugin-import": "^2.32.0",
+        "eslint-plugin-prettier": "^5.5.4",
+        "eslint-plugin-unicorn": "^62.0.0",
+        "glob": "^11.0",
+        "husky": "^8.0.0",
+        "prettier": "^3.6.2",
+        "swagger-schema-official": "^2.0.0-bab6bed",
+        "tsc-alias": "^1.8.16",
+        "type-coverage": "^2.29.7",
+        "typedoc": "^0.28.14",
+        "typescript": "^5.9",
+        "vitest": "^4.0"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    }
 }

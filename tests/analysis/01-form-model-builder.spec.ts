@@ -6,7 +6,6 @@ import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig, Resource } from '@src/core/types/index.js';
 
 describe('Analysis: FormModelBuilder', () => {
-
     const setup = (spec: any, resourceName = 'TestResource') => {
         const config: GeneratorConfig = { input: '', output: '', options: {} };
         const parser = new SwaggerParser(spec, config);
@@ -20,9 +19,9 @@ describe('Analysis: FormModelBuilder', () => {
             operations: [],
             formProperties: Object.entries(mainSchema.properties || {}).map(([name, schema]) => ({
                 name,
-                schema: schema as any
+                schema: schema as any,
             })),
-            listProperties: []
+            listProperties: [],
         };
 
         return { builder, resource, parser };
@@ -59,12 +58,12 @@ describe('Analysis: FormModelBuilder', () => {
                         properties: {
                             meta: {
                                 type: 'object',
-                                additionalProperties: { type: 'string' }
-                            }
-                        }
-                    }
-                }
-            }
+                                additionalProperties: { type: 'string' },
+                            },
+                        },
+                    },
+                },
+            },
         };
         const { builder, resource } = setup(spec);
         const result = builder.build(resource);
@@ -90,13 +89,13 @@ describe('Analysis: FormModelBuilder', () => {
                             prefixedMap: {
                                 type: 'object',
                                 patternProperties: {
-                                    '^X-': { type: 'integer' }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+                                    '^X-': { type: 'integer' },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
         };
         const { builder, resource } = setup(spec);
         const result = builder.build(resource);
@@ -119,16 +118,16 @@ describe('Analysis: FormModelBuilder', () => {
                         properties: {
                             creditCard: { type: 'string' },
                             cvv: { type: 'string' },
-                            billingAddress: { type: 'string' }
+                            billingAddress: { type: 'string' },
                         },
                         dependentSchemas: {
                             creditCard: {
-                                required: ['cvv', 'billingAddress']
-                            }
-                        }
-                    }
-                }
-            }
+                                required: ['cvv', 'billingAddress'],
+                            },
+                        },
+                    },
+                },
+            },
         };
 
         const { builder, resource } = setup(spec);
@@ -173,14 +172,14 @@ describe('Analysis: FormModelBuilder', () => {
                         type: 'object',
                         properties: {
                             value: {
-                                description: "Polymorphic primitive value",
+                                description: 'Polymorphic primitive value',
                                 oneOf: [{ type: 'string' }, { type: 'number' }],
-                                discriminator: { propertyName: 'type' }
-                            }
-                        }
-                    }
-                }
-            }
+                                discriminator: { propertyName: 'type' },
+                            },
+                        },
+                    },
+                },
+            },
         };
         const { builder, resource } = setup(spec);
         const result = builder.build(resource);
@@ -212,30 +211,30 @@ describe('Analysis: FormModelBuilder', () => {
                                     // Case 4: $ref where discriminator property is missing (will be skipped via stricter property check)
                                     { $ref: '#/components/schemas/MissingDiscriminatorProp' },
                                     // Valid item that should be processed
-                                    { $ref: '#/components/schemas/ValidSub' }
-                                ]
-                            }
-                        }
+                                    { $ref: '#/components/schemas/ValidSub' },
+                                ],
+                            },
+                        },
                     },
                     EmptySchema: {
-                        type: 'object'
+                        type: 'object',
                         // No properties
                     },
                     MissingDiscriminatorProp: {
                         type: 'object',
                         properties: {
-                            anotherProp: { type: 'string' }
-                        }
+                            anotherProp: { type: 'string' },
+                        },
                     },
                     ValidSub: {
                         type: 'object',
                         properties: {
                             type: { type: 'string', enum: ['valid'] },
-                            name: { type: 'string' }
-                        }
-                    }
-                }
-            }
+                            name: { type: 'string' },
+                        },
+                    },
+                },
+            },
         };
 
         const { builder, resource } = setup(spec);
@@ -262,31 +261,31 @@ describe('Analysis: FormModelBuilder', () => {
                             poly: {
                                 discriminator: {
                                     propertyName: 'type',
-                                    defaultMapping: '#/components/schemas/DefaultSub'
+                                    defaultMapping: '#/components/schemas/DefaultSub',
                                 },
                                 oneOf: [
                                     { $ref: '#/components/schemas/DefaultSub' },
-                                    { $ref: '#/components/schemas/OtherSub' }
-                                ]
-                            }
-                        }
+                                    { $ref: '#/components/schemas/OtherSub' },
+                                ],
+                            },
+                        },
                     },
                     DefaultSub: {
                         type: 'object',
                         properties: {
                             type: { type: 'string', enum: ['default'] },
-                            propA: { type: 'string' }
-                        }
+                            propA: { type: 'string' },
+                        },
                     },
                     OtherSub: {
                         type: 'object',
                         properties: {
                             type: { type: 'string', enum: ['other'] },
-                            propB: { type: 'string' }
-                        }
-                    }
-                }
-            }
+                            propB: { type: 'string' },
+                        },
+                    },
+                },
+            },
         };
 
         const { builder, resource } = setup(spec);
@@ -309,32 +308,29 @@ describe('Analysis: FormModelBuilder', () => {
                         properties: {
                             type: { type: 'string' }, // No enum defined here!
                             payload: {
-                                oneOf: [
-                                    { $ref: '#/components/schemas/Car' },
-                                    { $ref: '#/components/schemas/Plane' }
-                                ],
-                                discriminator: { propertyName: 'type' }
-                            }
-                        }
+                                oneOf: [{ $ref: '#/components/schemas/Car' }, { $ref: '#/components/schemas/Plane' }],
+                                discriminator: { propertyName: 'type' },
+                            },
+                        },
                     },
                     Car: {
                         type: 'object',
                         // Car does implicitly map 'type' = 'Car' via component name
                         properties: {
                             type: { type: 'string' },
-                            wheels: { type: 'number' }
-                        }
+                            wheels: { type: 'number' },
+                        },
                     },
                     Plane: {
                         type: 'object',
                         // Plane does implicitly map 'type' = 'Plane'
                         properties: {
                             type: { type: 'string' },
-                            wings: { type: 'number' }
-                        }
-                    }
-                }
-            }
+                            wings: { type: 'number' },
+                        },
+                    },
+                },
+            },
         };
 
         const { builder } = setup(spec, 'Transport'); // uses same setup util but will overwrite resource manually below since we need deep prop
@@ -345,11 +341,13 @@ describe('Analysis: FormModelBuilder', () => {
             modelName: 'Transport',
             isEditable: true,
             operations: [],
-            formProperties: [{
-                name: 'payload',
-                schema: spec.components.schemas.Transport.properties.payload as any
-            }],
-            listProperties: []
+            formProperties: [
+                {
+                    name: 'payload',
+                    schema: spec.components.schemas.Transport.properties.payload as any,
+                },
+            ],
+            listProperties: [],
         };
 
         const result = builder.build(resource);

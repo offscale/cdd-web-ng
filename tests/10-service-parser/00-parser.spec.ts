@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { groupPathsByController } from "@src/core/utils/index.js";
+
+import { groupPathsByController } from '@src/core/utils/index.js';
 import { SwaggerParser } from '@src/core/parser.js';
 
 describe('Service Parser: groupPathsByController', () => {
@@ -10,7 +11,7 @@ describe('Service Parser: groupPathsByController', () => {
         const spec = {
             openapi: '3.0.0',
             info,
-            paths: { '/untagged/resource': { get: { operationId: 'getUntagged' } } }
+            paths: { '/untagged/resource': { get: { operationId: 'getUntagged' } } },
         };
         const groups = groupPathsByController(createParser(spec));
         expect(groups).toHaveProperty('Untagged');
@@ -21,7 +22,7 @@ describe('Service Parser: groupPathsByController', () => {
         const spec = {
             openapi: '3.0.0',
             info,
-            paths: { '/': { get: { operationId: 'getRoot' } } }
+            paths: { '/': { get: { operationId: 'getRoot' } } },
         };
         const groups = groupPathsByController(createParser(spec));
         expect(groups).toHaveProperty('Default');

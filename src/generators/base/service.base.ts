@@ -2,7 +2,7 @@ import { Project, SourceFile } from 'ts-morph';
 import * as path from 'node:path';
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig, PathInfo } from '@src/core/types/index.js';
-import { camelCase } from "@src/core/utils/index.js";
+import { camelCase } from '@src/core/utils/index.js';
 import { SERVICE_GENERATOR_HEADER_COMMENT } from '@src/core/constants.js';
 
 function toTsIdentifier(name: string): string {
@@ -18,9 +18,8 @@ export abstract class AbstractServiceGenerator {
     constructor(
         protected parser: SwaggerParser,
         protected project: Project,
-        protected config: GeneratorConfig
-    ) {
-    }
+        protected config: GeneratorConfig,
+    ) {}
 
     /**
      * Main entry point. Loops through grouped paths and creates service files.
@@ -39,7 +38,7 @@ export abstract class AbstractServiceGenerator {
         const fileName = this.getFileName(cleanControllerName);
         const filePath = path.join(outputDir, fileName);
 
-        const sourceFile = this.project.createSourceFile(filePath, "", { overwrite: true });
+        const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
         sourceFile.addStatements(SERVICE_GENERATOR_HEADER_COMMENT);
 
         // 1. Abstraction: Generate Imports
@@ -71,5 +70,9 @@ export abstract class AbstractServiceGenerator {
     protected abstract generateImports(sourceFile: SourceFile, operations: PathInfo[]): void;
 
     /** Implementation specific content (Class vs Function, Methods) */
-    protected abstract generateServiceContent(sourceFile: SourceFile, controllerName: string, operations: PathInfo[]): void;
+    protected abstract generateServiceContent(
+        sourceFile: SourceFile,
+        controllerName: string,
+        operations: PathInfo[],
+    ): void;
 }

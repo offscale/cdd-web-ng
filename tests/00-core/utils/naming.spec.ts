@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { MethodDeclaration } from 'ts-morph';
 
 import * as naming from '@src/core/utils/naming.js';
@@ -22,7 +23,11 @@ describe('Core Utils: Naming', () => {
             const mockMethods = [{ getName: () => 'foo' }, { getName: () => 'bar' }] as MethodDeclaration[];
             expect(naming.hasDuplicateFunctionNames(mockMethods)).toBe(false);
 
-            const mockDuplicateMethods = [{ getName: () => 'foo' }, { getName: () => 'bar' }, { getName: () => 'foo' }] as MethodDeclaration[];
+            const mockDuplicateMethods = [
+                { getName: () => 'foo' },
+                { getName: () => 'bar' },
+                { getName: () => 'foo' },
+            ] as MethodDeclaration[];
             expect(naming.hasDuplicateFunctionNames(mockDuplicateMethods)).toBe(true);
         });
 

@@ -16,14 +16,16 @@ describe('Admin: CustomValidatorsGenerator', () => {
         const validatorClass = sourceFile.getClassOrThrow('CustomValidators');
 
         const methods = validatorClass.getStaticMethods().map(m => m.getName());
-        expect(methods).toEqual(expect.arrayContaining([
-            'exclusiveMinimum',
-            'exclusiveMaximum',
-            'multipleOf',
-            'uniqueItems',
-            'constValidator',
-            'notValidator'
-        ]));
+        expect(methods).toEqual(
+            expect.arrayContaining([
+                'exclusiveMinimum',
+                'exclusiveMaximum',
+                'multipleOf',
+                'uniqueItems',
+                'constValidator',
+                'notValidator',
+            ]),
+        );
 
         // Check a method body for correctness
         const constValidatorMethod = validatorClass.getStaticMethodOrThrow('constValidator');

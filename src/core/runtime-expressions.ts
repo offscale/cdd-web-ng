@@ -42,9 +42,10 @@ export function evaluateJsonPointer(data: any, pointer: string): any {
 
     if (!cleanPointer.startsWith('/')) return undefined;
 
-    const tokens = cleanPointer.split('/').slice(1).map(token =>
-        token.replace(/~1/g, '/').replace(/~0/g, '~')
-    );
+    const tokens = cleanPointer
+        .split('/')
+        .slice(1)
+        .map(token => token.replace(/~1/g, '/').replace(/~0/g, '~'));
 
     let current = data;
     for (const token of tokens) {

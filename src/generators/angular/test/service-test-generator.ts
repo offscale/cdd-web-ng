@@ -10,7 +10,7 @@ import {
     getTypeScriptType,
     isDataTypeInterface,
     pascalCase,
-} from "@src/core/utils/index.js";
+} from '@src/core/utils/index.js';
 
 import { MockDataGenerator } from './mock-data.generator.js';
 
@@ -111,7 +111,9 @@ export class ServiceTestGenerator {
                 const name = camelCase(p.name);
                 const type = getTypeScriptType(p.schema, this.config, knownTypes);
                 // Check if the parameter type is a generated model interface
-                const modelName = isDataTypeInterface(type.replace(/\[\]| \| null/g, '')) ? type.replace(/\[\]| \| null/g, '') : undefined;
+                const modelName = isDataTypeInterface(type.replace(/\[\]| \| null/g, ''))
+                    ? type.replace(/\[\]| \| null/g, '')
+                    : undefined;
                 let value: string;
 
                 if (modelName) {
@@ -127,10 +129,10 @@ export class ServiceTestGenerator {
             // Prepare mock request body
             const bodyParam = op.requestBody?.content?.['application/json']
                 ? {
-                    name: isPrimitiveBody ? 'body' : (bodyModel ? camelCase(bodyModel) : 'body'),
-                    model: bodyModel,
-                    isPrimitive: isPrimitiveBody
-                }
+                      name: isPrimitiveBody ? 'body' : bodyModel ? camelCase(bodyModel) : 'body',
+                      model: bodyModel,
+                      isPrimitive: isPrimitiveBody,
+                  }
                 : null;
 
             const allArgs = [...params.map(p => p.name), ...(bodyParam ? [bodyParam.name] : [])];
@@ -138,7 +140,9 @@ export class ServiceTestGenerator {
             const declareParams = (): string[] => {
                 const lines: string[] = [];
                 if (bodyParam?.model) {
-                    lines.push(`      const ${bodyParam.name}: ${bodyParam.model} = ${this.mockDataGenerator.generate(bodyParam.model)};`);
+                    lines.push(
+                        `      const ${bodyParam.name}: ${bodyParam.model} = ${this.mockDataGenerator.generate(bodyParam.model)};`,
+                    );
                 } else if (bodyParam?.isPrimitive) {
                     lines.push(`      const ${bodyParam.name} = 'test-body';`);
                 } else if (bodyParam) {
@@ -172,9 +176,9 @@ export class ServiceTestGenerator {
             } else if (responseType === 'string') {
                 mockResponseValue = "'test-string'";
             } else if (responseType === 'number') {
-                mockResponseValue = "123";
+                mockResponseValue = '123';
             } else if (responseType === 'boolean') {
-                mockResponseValue = "true";
+                mockResponseValue = 'true';
             }
 
             tests.push(`      const mockResponse${responseModel ? `: ${responseType}` : ''} = ${mockResponseValue};`);
@@ -318,11 +322,11 @@ export class ServiceTestGenerator {
             { moduleSpecifier: '@angular/core/testing', namedImports: ['TestBed', 'fail'] },
             {
                 moduleSpecifier: '@angular/common/http/testing',
-                namedImports: ['HttpClientTestingModule', 'HttpTestingController']
+                namedImports: ['HttpClientTestingModule', 'HttpTestingController'],
             },
             {
                 moduleSpecifier: `./${camelCase(serviceName.replace(/Service$/, ''))}.service`,
-                namedImports: [serviceName]
+                namedImports: [serviceName],
             },
         ]);
         // Only add the models import if there are models to import.
@@ -349,11 +353,13 @@ export class ServiceTestGenerator {
         responseModel?: string;
         responseType: string;
         bodyModel?: string;
-        isPrimitiveBody: boolean
+        isPrimitiveBody: boolean;
     } {
         const knownTypes = this.parser.schemas.map(s => s.name);
         const successResponseSchema = op.responses?.['200']?.content?.['application/json']?.schema;
-        const responseType = successResponseSchema ? getTypeScriptType(successResponseSchema, this.config, knownTypes) : 'any';
+        const responseType = successResponseSchema
+            ? getTypeScriptType(successResponseSchema, this.config, knownTypes)
+            : 'any';
         const responseModelType = responseType.replace(/\[\]| \| null/g, '');
         const responseModel = isDataTypeInterface(responseModelType) ? responseModelType : undefined;
 
@@ -363,7 +369,10 @@ export class ServiceTestGenerator {
 
         const bodyModelType = bodyType.replace(/\[\]| \| null/g, '');
         const bodyModel = isDataTypeInterface(bodyModelType) ? bodyModelType : undefined;
-        const isPrimitiveBody = !!resolvedBodySchema && !resolvedBodySchema.properties && ['string', 'number', 'boolean'].includes(resolvedBodySchema.type as string);
+        const isPrimitiveBody =
+            !!resolvedBodySchema &&
+            !resolvedBodySchema.properties &&
+            ['string', 'number', 'boolean'].includes(resolvedBodySchema.type as string);
 
         return {
             responseType,

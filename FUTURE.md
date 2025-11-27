@@ -1,5 +1,4 @@
-Future
-======
+# Future
 
 This project could go in multiple directions.
 

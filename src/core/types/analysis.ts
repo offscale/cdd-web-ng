@@ -5,8 +5,8 @@ import {
     RequestBody,
     ServerObject,
     SwaggerDefinition,
-    SwaggerResponse
-} from "./openapi.js";
+    SwaggerResponse,
+} from './openapi.js';
 
 // ===================================================================================
 // Derived Types for Admin UI Generation & Parsing

@@ -1,5 +1,5 @@
-import { ModuleKind, ScriptTarget } from "ts-morph";
-import { SwaggerSpec } from "./openapi.js";
+import { ModuleKind, ScriptTarget } from 'ts-morph';
+import { SwaggerSpec } from './openapi.js';
 
 /** Options that customize the output of the generated code. */
 export interface GeneratorConfigOptions {
@@ -37,7 +37,7 @@ export interface GeneratorConfigOptions {
      */
     platform?: 'browser' | 'node';
     /** A callback to provide a custom method name for an operation. */
-    customizeMethodName?: ((operationId: string) => string);
+    customizeMethodName?: (operationId: string) => string;
 }
 
 /** The main configuration object for the entire generation process. */

@@ -1,9 +1,9 @@
-import { FormProperty, Resource, SwaggerDefinition } from "@src/core/types/index.js";
+import { FormProperty, Resource, SwaggerDefinition } from '@src/core/types/index.js';
 import { SwaggerParser } from '@src/core/parser.js';
-import { camelCase, getTypeScriptType, pascalCase, singular } from "@src/core/utils/index.js";
-import { analyzeValidationRules } from "./validation.analyzer.js";
+import { camelCase, getTypeScriptType, pascalCase, singular } from '@src/core/utils/index.js';
+import { analyzeValidationRules } from './validation.analyzer.js';
 
-import { FormAnalysisResult, FormControlModel, PolymorphicPropertyConfig } from "./form-types.js";
+import { FormAnalysisResult, FormControlModel, PolymorphicPropertyConfig } from './form-types.js';
 
 export class FormModelBuilder {
     private parser: SwaggerParser;
@@ -16,7 +16,7 @@ export class FormModelBuilder {
         hasMaps: false,
         isPolymorphic: false,
         polymorphicProperties: [],
-        dependencyRules: []
+        dependencyRules: [],
     };
 
     constructor(parser: SwaggerParser) {
@@ -54,11 +54,7 @@ export class FormModelBuilder {
         }*/
 
         // 3. Build Top Level Controls & Interfaces
-        this.result.topLevelControls = this.analyzeControls(
-            resource.formProperties,
-            formInterfaceName,
-            true
-        );
+        this.result.topLevelControls = this.analyzeControls(resource.formProperties, formInterfaceName, true);
 
         // 4. Global Flags
         this.result.hasFileUploads = resource.formProperties.some(p => p.schema.format === 'binary');
@@ -79,7 +75,7 @@ export class FormModelBuilder {
                     this.result.dependencyRules.push({
                         triggerField: triggerProp,
                         targetField: reqProp,
-                        type: 'required'
+                        type: 'required',
                     });
                 });
             }
@@ -100,7 +96,7 @@ export class FormModelBuilder {
     private analyzeControls(
         properties: FormProperty[],
         interfaceName: string,
-        isTopLevel: boolean
+        isTopLevel: boolean,
     ): FormControlModel[] {
         const controls: FormControlModel[] = [];
         const interfaceProps: { name: string }[] = [];
@@ -109,7 +105,11 @@ export class FormModelBuilder {
             const schema = prop.schema;
             const validationRules = analyzeValidationRules(schema);
 
-            if (validationRules.some(r => ['exclusiveMinimum', 'exclusiveMaximum', 'multipleOf', 'uniqueItems', 'not'].includes(r.type))) {
+            if (
+                validationRules.some(r =>
+                    ['exclusiveMinimum', 'exclusiveMaximum', 'multipleOf', 'uniqueItems', 'not'].includes(r.type),
+                )
+            ) {
                 this.result.usesCustomValidators = true;
             }
 
@@ -124,7 +124,7 @@ export class FormModelBuilder {
                 const nestedControls = this.analyzeControls(
                     Object.entries(schema.properties).map(([k, v]) => ({ name: k, schema: v })),
                     nestedInterfaceName,
-                    false
+                    false,
                 );
 
                 controlModel = {
@@ -136,11 +136,15 @@ export class FormModelBuilder {
                     controlType: 'group',
                     nestedFormInterface: nestedInterfaceName,
                     nestedControls,
-                    schema
+                    schema,
                 };
             }
             // 2b. Map / Dictionary (additionalProperties OR patternProperties)
-            else if (schema.type === 'object' && !schema.properties && (schema.additionalProperties || schema.unevaluatedProperties || schema.patternProperties)) {
+            else if (
+                schema.type === 'object' &&
+                !schema.properties &&
+                (schema.additionalProperties || schema.unevaluatedProperties || schema.patternProperties)
+            ) {
                 this.result.hasMaps = true;
 
                 // extract the schema for map values
@@ -156,9 +160,10 @@ export class FormModelBuilder {
                 }
 
                 if (Object.keys(rawValueSchema).length === 0) {
-                    rawValueSchema = (typeof schema.additionalProperties === 'object' ? schema.additionalProperties : undefined)
-                        || (typeof schema.unevaluatedProperties === 'object' ? schema.unevaluatedProperties : undefined)
-                        || {};
+                    rawValueSchema =
+                        (typeof schema.additionalProperties === 'object' ? schema.additionalProperties : undefined) ||
+                        (typeof schema.unevaluatedProperties === 'object' ? schema.unevaluatedProperties : undefined) ||
+                        {};
                 }
 
                 const valuePropName = 'value';
@@ -167,7 +172,7 @@ export class FormModelBuilder {
                 const valueControls = this.analyzeControls(
                     [{ name: valuePropName, schema: rawValueSchema as SwaggerDefinition }],
                     `${valueInterfacePrefix}Form`,
-                    false
+                    false,
                 );
 
                 const valueControl = valueControls[0]!;
@@ -183,7 +188,7 @@ export class FormModelBuilder {
                     mapValueControl: valueControl,
                     schema,
                     ...(valueControl.nestedFormInterface && { nestedFormInterface: valueControl.nestedFormInterface }),
-                    ...(keyPattern && { keyPattern }) // Attach the pattern for renderer usage
+                    ...(keyPattern && { keyPattern }), // Attach the pattern for renderer usage
                 };
             }
             // 2c. Form Array
@@ -197,7 +202,7 @@ export class FormModelBuilder {
                     const nestedItemControls = this.analyzeControls(
                         Object.entries(itemSchema.properties).map(([k, v]) => ({ name: k, schema: v })),
                         arrayItemInterfaceName,
-                        false
+                        false,
                     );
 
                     controlModel = {
@@ -209,7 +214,7 @@ export class FormModelBuilder {
                         controlType: 'array',
                         nestedFormInterface: arrayItemInterfaceName,
                         nestedControls: nestedItemControls,
-                        schema
+                        schema,
                     };
                 } else {
                     const itemTsType = this.getFormControlTypeString(itemSchema);
@@ -221,7 +226,7 @@ export class FormModelBuilder {
                         defaultValue,
                         validationRules,
                         controlType: 'array',
-                        schema
+                        schema,
                     };
                 }
             }
@@ -236,7 +241,7 @@ export class FormModelBuilder {
                     defaultValue,
                     validationRules,
                     controlType: 'control',
-                    schema
+                    schema,
                 };
             }
 
@@ -246,7 +251,7 @@ export class FormModelBuilder {
         this.result.interfaces.push({
             name: interfaceName,
             properties: interfaceProps,
-            isTopLevel
+            isTopLevel,
         });
 
         return controls;
@@ -261,7 +266,7 @@ export class FormModelBuilder {
         const config: PolymorphicPropertyConfig = {
             propertyName: dPropName,
             discriminatorOptions: options.map(o => o.name),
-            options: []
+            options: [],
         };
 
         const explicitMapping = prop.schema.discriminator?.mapping || {};
@@ -326,7 +331,7 @@ export class FormModelBuilder {
                 discriminatorValue: typeName,
                 modelName: refName,
                 subFormName: camelCase(typeName),
-                controls: subControls
+                controls: subControls,
             });
         }
 

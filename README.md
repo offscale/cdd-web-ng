@@ -1,5 +1,4 @@
-cdd-web-ng
-==========
+# cdd-web-ng
 
 [![License](https://img.shields.io/badge/license-MIT-blue)](https://opensource.org/licenses/MIT)
 [![Tests and coverage](https://github.com/offscale/cdd-web-ng/actions/workflows/tests_and_coverage.yml/badge.svg)](https://github.com/offscale/cdd-web-ng/actions/workflows/tests_and_coverage.yml)
@@ -94,7 +93,7 @@ graph TD
     subgraph Generation_Outputs [3. Generation Layer]
         Code_Generators("`<b>Code Generators</b><br/>(Angular, Shared, etc.)`")
     end
-    
+
     Generated_Codebase(["`<b>Generated Codebase</b><br/>(Services, Components, Models)`"])
 
     %% --- Future Reverse Flow (Bottom Up) ---
@@ -109,25 +108,25 @@ graph TD
     end
 
     Existing_Codebase(["`<b>Existing Codebase</b><br/>(Services, Decorators)`"])
-    
+
     %% --- Future Spec Generation (Loop Back) ---
     subgraph Spec_Generation ["Future: Spec Generation"]
         Spec_Generator("`<b>Spec Generator</b><br/>Emits OpenAPI 3.x YAML/JSON`")
     end
-    
+
     %% --- CONNECTIONS ---
-    
+
     %% Forward Flow (Top-Down)
     OpenAPI_Spec --> Spec_Parser --> Parsed_Object --> Spec_Analyzer --> IR --> Code_Generators --> Generated_Codebase
 
     %% Reverse Flow (Future, Bottom-Up)
     Existing_Codebase -- FUTURE --> Code_Scanner --> Code_AST --> Code_Analyzer -- FUTURE --> IR
-    
+
     %% Spec Generation from IR (Future, Loop Back)
     IR -- FUTURE --> Spec_Generator -.-> OpenAPI_Spec
 
     %% --- STYLING ---
-    
+
     %% Subgraph Styles
     style Core_Forward fill:#4285f4,stroke:#20344b,color:#ffffff
     style Analysis_Forward fill:#34a853,stroke:#20344b,color:#ffffff
@@ -168,7 +167,7 @@ core parsing to the generated UI, works as expected.
 - **Unit Tests** (`00-core` to `50-emit-admin`) for core utilities, individual analyzers, and generator components.
 - **End-to-End Tests** (`60-e2e`) that run the entire generation process on complex, in-memory OpenAPI specs and
   validate the output.
-- **Generated Code Tests** (`70-generated-code`) that validate the *test files* we generate.
+- **Generated Code Tests** (`70-generated-code`) that validate the _test files_ we generate.
 - A dedicated **`90-final-coverage`** suite with `branch-coverage.spec.ts` ensures even the smallest logical branches
   are tested.
 
@@ -195,9 +194,9 @@ cdd_web_ng from_openapi --input <path-or-url-to-spec> --output <output-directory
 ### Options
 
 | Option                   | Alias | Description                                                               | Default       |
-|--------------------------|-------|---------------------------------------------------------------------------|---------------|
+| ------------------------ | ----- | ------------------------------------------------------------------------- | ------------- |
 | `--config <path>`        | `-c`  | Path to a configuration JS file.                                          | `undefined`   |
-| `--input <path>`         | `-i`  | Path or URL to the OpenAPI spec (overrides config).                       | *Required*    |
+| `--input <path>`         | `-i`  | Path or URL to the OpenAPI spec (overrides config).                       | _Required_    |
 | `--output <path>`        | `-o`  | Output directory for generated files (overrides config).                  | `./generated` |
 | `--framework <name>`     |       | Target framework. Currently supports `angular`.                           | `angular`     |
 | `--admin`                |       | Generate a complete Angular Material admin UI for CRUD operations.        | `false`       |

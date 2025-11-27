@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { SwaggerDefinition, SwaggerSpec } from "@src/core/types/index.js";
+
+import { SwaggerDefinition, SwaggerSpec } from '@src/core/types/index.js';
 
 describe('Core: Types & Interfaces Coverage', () => {
-
     it('should support SPDX identifier in LicenseObject', () => {
         const spec: SwaggerSpec = {
             openapi: '3.1.0',
@@ -11,10 +11,10 @@ describe('Core: Types & Interfaces Coverage', () => {
                 version: '1.0.0',
                 license: {
                     name: 'Apache 2.0',
-                    identifier: 'Apache-2.0'
-                }
+                    identifier: 'Apache-2.0',
+                },
             },
-            paths: {}
+            paths: {},
         };
 
         expect(spec.info.license?.identifier).toBe('Apache-2.0');
@@ -26,7 +26,7 @@ describe('Core: Types & Interfaces Coverage', () => {
             info: { title: 'T', version: '1' },
             externalDocs: { url: 'http://doc' },
             tags: [{ name: 'Tag', summary: 'Summarized Tag' }],
-            paths: {}
+            paths: {},
         };
 
         expect(spec.externalDocs?.url).toBe('http://doc');
@@ -37,7 +37,7 @@ describe('Core: Types & Interfaces Coverage', () => {
         const param = {
             name: 'test',
             in: 'query',
-            allowEmptyValue: true
+            allowEmptyValue: true,
         };
         expect(param.allowEmptyValue).toBe(true);
     });
@@ -46,7 +46,7 @@ describe('Core: Types & Interfaces Coverage', () => {
         const schema: SwaggerDefinition = {
             type: 'number',
             exclusiveMinimum: 10,
-            exclusiveMaximum: 20
+            exclusiveMaximum: 20,
         };
         expect(schema.exclusiveMinimum).toBe(10);
         expect(schema.exclusiveMaximum).toBe(20);
@@ -58,7 +58,7 @@ describe('Core: Types & Interfaces Coverage', () => {
             minimum: 10,
             exclusiveMinimum: true,
             maximum: 20,
-            exclusiveMaximum: true
+            exclusiveMaximum: true,
         };
         expect(schema.exclusiveMinimum).toBe(true);
         expect(schema.exclusiveMaximum).toBe(true);
@@ -71,13 +71,13 @@ describe('Core: Types & Interfaces Coverage', () => {
             paths: {},
             components: {
                 webhooks: {
-                    'myWebhook': {
+                    myWebhook: {
                         post: {
-                            responses: { '200': { description: 'ok' } }
-                        }
-                    }
-                }
-            }
+                            responses: { '200': { description: 'ok' } },
+                        },
+                    },
+                },
+            },
         };
         expect(spec.components?.webhooks?.['myWebhook']).toBeDefined();
     });

@@ -1,46 +1,45 @@
-import * as path from "node:path";
-import { Project, Scope } from "ts-morph";
-import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../../core/constants.js";
+import * as path from 'node:path';
+import { Project, Scope } from 'ts-morph';
+import { UTILITY_GENERATOR_HEADER_COMMENT } from '@src/core/constants.js';
 
 export class LinkSetParserGenerator {
-    constructor(private project: Project) {
-    }
+    constructor(private project: Project) {}
 
     public generate(outputDir: string): void {
-        const utilsDir = path.join(outputDir, "utils");
-        const filePath = path.join(utilsDir, "linkset-parser.ts");
+        const utilsDir = path.join(outputDir, 'utils');
+        const filePath = path.join(utilsDir, 'linkset-parser.ts');
 
-        const sourceFile = this.project.createSourceFile(filePath, "", { overwrite: true });
+        const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
         sourceFile.addInterface({
-            name: "LinkSetContext",
+            name: 'LinkSetContext',
             isExported: true,
             properties: [
-                { name: "href", type: "string" },
+                { name: 'href', type: 'string' },
                 {
-                    name: "attributes",
-                    type: "Record<string, string | boolean>",
-                    hasQuestionToken: true
-                }
+                    name: 'attributes',
+                    type: 'Record<string, string | boolean>',
+                    hasQuestionToken: true,
+                },
             ],
-            docs: ["Represents a single link within a LinkSet."]
+            docs: ['Represents a single link within a LinkSet.'],
         });
 
         const classDeclaration = sourceFile.addClass({
-            name: "LinkSetParser",
+            name: 'LinkSetParser',
             isExported: true,
-            docs: ["Utility to parse RFC 9264 LinkSets (HTTP Link Header or application/linkset content)."],
+            docs: ['Utility to parse RFC 9264 LinkSets (HTTP Link Header or application/linkset content).'],
         });
 
         classDeclaration.addMethod({
-            name: "parseHeader",
+            name: 'parseHeader',
             isStatic: true,
             scope: Scope.Public,
-            parameters: [{ name: "headerValue", type: "string | null" }],
-            returnType: "LinkSetContext[]",
-            docs: ["Parses an HTTP Link header value into structured link objects."],
+            parameters: [{ name: 'headerValue', type: 'string | null' }],
+            returnType: 'LinkSetContext[]',
+            docs: ['Parses an HTTP Link header value into structured link objects.'],
             statements: `
         if (!headerValue) return [];
 
@@ -78,16 +77,16 @@ export class LinkSetParserGenerator {
             links.push({ href, attributes });
         }
 
-        return links;`
+        return links;`,
         });
 
         classDeclaration.addMethod({
-            name: "parseJson",
+            name: 'parseJson',
             isStatic: true,
             scope: Scope.Public,
-            parameters: [{ name: "json", type: "any" }],
-            returnType: "LinkSetContext[]",
-            docs: ["Parses application/linkset+json content."],
+            parameters: [{ name: 'json', type: 'any' }],
+            returnType: 'LinkSetContext[]',
+            docs: ['Parses application/linkset+json content.'],
             statements: `
         if (!json || typeof json !== 'object') return [];
         if (Array.isArray(json)) {
@@ -101,7 +100,7 @@ export class LinkSetParserGenerator {
         if (json.linkset && Array.isArray(json.linkset)) {
             return this.parseJson(json.linkset);
         }
-        return [];`
+        return [];`,
         });
 
         sourceFile.formatText();

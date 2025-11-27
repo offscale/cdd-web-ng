@@ -1,61 +1,62 @@
-import * as path from "node:path";
-import { Project, Scope } from "ts-morph";
-import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../core/constants.js";
+import * as path from 'node:path';
+import { Project, Scope } from 'ts-morph';
+import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../core/constants.js';
 
 export class ContentDecoderGenerator {
-    constructor(private project: Project) {
-    }
+    constructor(private project: Project) {}
 
     public generate(outputDir: string): void {
-        const utilsDir = path.join(outputDir, "utils");
-        const filePath = path.join(utilsDir, "content-decoder.ts");
+        const utilsDir = path.join(outputDir, 'utils');
+        const filePath = path.join(utilsDir, 'content-decoder.ts');
 
-        const sourceFile = this.project.createSourceFile(filePath, "", { overwrite: true });
+        const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
         // Add XmlParser import for XML decoding support
         sourceFile.addImportDeclaration({
-            moduleSpecifier: "./xml-parser",
-            namedImports: ["XmlParser"]
+            moduleSpecifier: './xml-parser',
+            namedImports: ['XmlParser'],
         });
 
         sourceFile.addInterface({
-            name: "ContentDecoderConfig",
+            name: 'ContentDecoderConfig',
             isExported: true,
             properties: [
                 {
-                    name: "decode",
+                    name: 'decode',
                     type: "'json' | 'xml' | boolean",
                     hasQuestionToken: true,
-                    docs: ["If set, parse the string value. 'xml' uses XmlParser, 'json' or true uses JSON.parse."]
+                    docs: ["If set, parse the string value. 'xml' uses XmlParser, 'json' or true uses JSON.parse."],
                 },
                 {
-                    name: "xmlConfig",
-                    type: "any",
+                    name: 'xmlConfig',
+                    type: 'any',
                     hasQuestionToken: true,
-                    docs: ["Configuration for XmlParser when decode is 'xml'."]
+                    docs: ["Configuration for XmlParser when decode is 'xml'."],
                 },
-                { name: "properties", type: "Record<string, ContentDecoderConfig>", hasQuestionToken: true },
-                { name: "items", type: "ContentDecoderConfig", hasQuestionToken: true }
-            ]
+                { name: 'properties', type: 'Record<string, ContentDecoderConfig>', hasQuestionToken: true },
+                { name: 'items', type: 'ContentDecoderConfig', hasQuestionToken: true },
+            ],
         });
 
         const classDeclaration = sourceFile.addClass({
-            name: "ContentDecoder",
+            name: 'ContentDecoder',
             isExported: true,
-            docs: ["Utility to auto-decode encoded content strings (e.g. JSON or XML embedded in string) based on OAS 3.1 contentSchema."],
+            docs: [
+                'Utility to auto-decode encoded content strings (e.g. JSON or XML embedded in string) based on OAS 3.1 contentSchema.',
+            ],
         });
 
         classDeclaration.addMethod({
-            name: "decode",
+            name: 'decode',
             isStatic: true,
             scope: Scope.Public,
             parameters: [
-                { name: "data", type: "any" },
-                { name: "config", type: "ContentDecoderConfig", hasQuestionToken: true }
+                { name: 'data', type: 'any' },
+                { name: 'config', type: 'ContentDecoderConfig', hasQuestionToken: true },
             ],
-            returnType: "any",
+            returnType: 'any',
             statements: `
         if (data === null || data === undefined || !config) {
             return data;
@@ -102,7 +103,7 @@ export class ContentDecoderGenerator {
             }
         }
 
-        return data;`
+        return data;`,
         });
 
         sourceFile.formatText();

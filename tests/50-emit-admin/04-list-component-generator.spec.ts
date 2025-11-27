@@ -44,12 +44,16 @@ describe('Generators (Angular): ListComponentGenerator', () => {
         });
 
         it('should generate methods and html for custom actions', () => {
-            const listClass = project.getSourceFileOrThrow('/admin/servers/servers-list/servers-list.component.ts').getClassOrThrow('ServersListComponent');
+            const listClass = project
+                .getSourceFileOrThrow('/admin/servers/servers-list/servers-list.component.ts')
+                .getClassOrThrow('ServersListComponent');
             expect(listClass.getMethod('rebootAllServers')).toBeDefined();
             expect(listClass.getMethod('startServer')).toBeDefined();
             expect(listClass.getMethod('rebootServerItem')).toBeDefined();
 
-            const html = project.getFileSystem().readFileSync('/admin/servers/servers-list/servers-list.component.html');
+            const html = project
+                .getFileSystem()
+                .readFileSync('/admin/servers/servers-list/servers-list.component.html');
             expect(html).toContain('(click)="rebootAllServers()"');
             expect(html).toContain('(click)="startServer(row[idProperty])"');
             expect(html).toContain('rebootServerItem(row[idProperty])');
@@ -62,7 +66,9 @@ describe('Generators (Angular): ListComponentGenerator', () => {
         });
 
         it('should fall back to the first property if no "id" is present', () => {
-            const listClass = project.getSourceFileOrThrow('/admin/events/events-list/events-list.component.ts').getClassOrThrow('EventsListComponent');
+            const listClass = project
+                .getSourceFileOrThrow('/admin/events/events-list/events-list.component.ts')
+                .getClassOrThrow('EventsListComponent');
             const idProp = listClass.getProperty('idProperty')!.getInitializer()!.getText();
             expect(idProp).toBe(`'eventId'`);
         });
@@ -70,10 +76,31 @@ describe('Generators (Angular): ListComponentGenerator', () => {
         it('internal action kind logic should have a fallback', () => {
             const getActionKind = (action: string): ListActionKind => {
                 const lowerAction = action.toLowerCase();
-                if (lowerAction.includes('delete') || lowerAction.includes('remove') || lowerAction.includes('cancel') || lowerAction.includes('block')) return 'destructive';
+                if (
+                    lowerAction.includes('delete') ||
+                    lowerAction.includes('remove') ||
+                    lowerAction.includes('cancel') ||
+                    lowerAction.includes('block')
+                )
+                    return 'destructive';
                 if (lowerAction.includes('add') || lowerAction.includes('create')) return 'constructive';
-                if (lowerAction.includes('edit') || lowerAction.includes('update') || lowerAction.includes('approve') || lowerAction.includes('check')) return 'state-change';
-                if (lowerAction.includes('start') || lowerAction.includes('play') || lowerAction.includes('stop') || lowerAction.includes('pause') || lowerAction.includes('reboot') || lowerAction.includes('refresh') || lowerAction.includes('sync')) return 'state-change';
+                if (
+                    lowerAction.includes('edit') ||
+                    lowerAction.includes('update') ||
+                    lowerAction.includes('approve') ||
+                    lowerAction.includes('check')
+                )
+                    return 'state-change';
+                if (
+                    lowerAction.includes('start') ||
+                    lowerAction.includes('play') ||
+                    lowerAction.includes('stop') ||
+                    lowerAction.includes('pause') ||
+                    lowerAction.includes('reboot') ||
+                    lowerAction.includes('refresh') ||
+                    lowerAction.includes('sync')
+                )
+                    return 'state-change';
                 return 'default';
             };
 
@@ -93,7 +120,9 @@ describe('Generators (Angular): ListComponentGenerator', () => {
             const generator = new ListComponentGenerator(project);
             generator.generate(resource, '/admin');
             const listClass = project
-                .getSourceFileOrThrow('/admin/readOnlyResource/readOnlyResource-list/readOnlyResource-list.component.ts')
+                .getSourceFileOrThrow(
+                    '/admin/readOnlyResource/readOnlyResource-list/readOnlyResource-list.component.ts',
+                )
                 .getClassOrThrow('ReadOnlyResourceListComponent');
             expect(listClass.getProperty('idProperty')?.getInitializer()?.getText()).toBe(`'id'`);
         });
@@ -116,7 +145,9 @@ describe('Generators (Angular): ListComponentGenerator', () => {
         });
 
         it('should correctly map various action names to icons via abstract kinds', () => {
-            const html = localProject.getFileSystem().readFileSync('/admin/iconTests/iconTests-list/iconTests-list.component.html');
+            const html = localProject
+                .getFileSystem()
+                .readFileSync('/admin/iconTests/iconTests-list/iconTests-list.component.html');
 
             // 'addItem', 'createItem' -> constructive -> 'add'
             expect(html).toContain('<mat-icon>add</mat-icon>');
@@ -133,20 +164,30 @@ describe('Generators (Angular): ListComponentGenerator', () => {
             // 'pauseProcess' -> 'pause'
             expect(html).toContain('<mat-icon>pause</mat-icon>');
 
-            const startButtonHtml = html.match(/<button[^>]+?\(click\)="startItem\([^)]+\)"[^>]+?>([\s\S]+?)<\/button>/);
+            const startButtonHtml = html.match(
+                /<button[^>]+?\(click\)="startItem\([^)]+\)"[^>]+?>([\s\S]+?)<\/button>/,
+            );
             expect(startButtonHtml?.[1]).toContain('<mat-icon>play_arrow</mat-icon>');
         });
 
         it('should generate an "id" column when a resource has no properties at all', () => {
-            const listClass = localProject.getSourceFileOrThrow('/admin/noPropsResource/noPropsResource-list/noPropsResource-list.component.ts').getClassOrThrow('NoPropsResourceListComponent');
+            const listClass = localProject
+                .getSourceFileOrThrow('/admin/noPropsResource/noPropsResource-list/noPropsResource-list.component.ts')
+                .getClassOrThrow('NoPropsResourceListComponent');
             const idProp = listClass.getPropertyOrThrow('idProperty').getInitializer()!.getText();
             expect(idProp).toBe(`'id'`);
-            const html = localProject.getFileSystem().readFileSync('/admin/noPropsResource/noPropsResource-list/noPropsResource-list.component.html');
+            const html = localProject
+                .getFileSystem()
+                .readFileSync('/admin/noPropsResource/noPropsResource-list/noPropsResource-list.component.html');
             expect(html).toContain('<ng-container matColumnDef="id">');
         });
 
         it('should generate a column for idProperty fallback when no other properties are listable', () => {
-            const html = localProject.getFileSystem().readFileSync('/admin/noListablePropsResource/noListablePropsResource-list/noListablePropsResource-list.component.html');
+            const html = localProject
+                .getFileSystem()
+                .readFileSync(
+                    '/admin/noListablePropsResource/noListablePropsResource-list/noListablePropsResource-list.component.html',
+                );
             expect(html).toContain('<ng-container matColumnDef="config">');
             expect(html).not.toContain('<ng-container matColumnDef="id">');
         });

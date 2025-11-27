@@ -3,7 +3,7 @@ import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
 import { LinkGenerator } from '@src/generators/shared/link.generator.js';
 import { createTestProject } from '../shared/helpers.js';
-import { GeneratorConfig, SwaggerSpec } from "@src/core/types/index.js";
+import { GeneratorConfig, SwaggerSpec } from '@src/core/types/index.js';
 import ts from 'typescript';
 
 const linksSpec: SwaggerSpec = {
@@ -17,21 +17,21 @@ const linksSpec: SwaggerSpec = {
                     '200': {
                         description: 'User details',
                         links: {
-                            'GetUserAddress': {
+                            GetUserAddress: {
                                 operationId: 'getUserAddress',
                                 parameters: { userId: '$response.body#/id' },
-                                description: 'The address of this user'
-                            }
-                        }
-                    }
-                }
-            }
+                                description: 'The address of this user',
+                            },
+                        },
+                    },
+                },
+            },
         },
         '/users/{id}/address': {
-            get: { operationId: 'getUserAddress', responses: { '200': { description: 'ok' } } }
-        }
+            get: { operationId: 'getUserAddress', responses: { '200': { description: 'ok' } } },
+        },
     },
-    components: { schemas: {} }
+    components: { schemas: {} },
 };
 
 const refLinksSpec: SwaggerSpec = {
@@ -45,22 +45,22 @@ const refLinksSpec: SwaggerSpec = {
                     '200': {
                         description: 'Order',
                         links: {
-                            'CancelOrder': { $ref: '#/components/links/CancelOrderLink' }
-                        }
-                    }
-                }
-            }
-        }
+                            CancelOrder: { $ref: '#/components/links/CancelOrderLink' },
+                        },
+                    },
+                },
+            },
+        },
     },
     components: {
         links: {
-            'CancelOrderLink': {
+            CancelOrderLink: {
                 operationId: 'cancelOrder',
-                parameters: { orderId: '$request.path.id' }
-            }
+                parameters: { orderId: '$request.path.id' },
+            },
         },
-        schemas: {}
-    }
+        schemas: {},
+    },
 };
 
 // Spec to cover all fields (operationRef, requestBody, server) and missing fields logic
@@ -75,19 +75,19 @@ const complexLinkSpec: SwaggerSpec = {
                     '200': {
                         description: 'ok',
                         links: {
-                            'DeepLink': {
+                            DeepLink: {
                                 operationRef: '#/paths/~1other/get',
                                 requestBody: '$request.body',
-                                server: { url: 'https://other.com' }
+                                server: { url: 'https://other.com' },
                                 // Description and parameters intentionally omitted to hit false branches
-                            }
-                        }
-                    }
-                }
-            }
-        }
+                            },
+                        },
+                    },
+                },
+            },
+        },
     },
-    components: {}
+    components: {},
 };
 
 // Spec with broken references to test graceful failure
@@ -100,9 +100,9 @@ const brokenRefsSpec: SwaggerSpec = {
                 operationId: 'getBadResponse',
                 responses: {
                     // Response ref does not exist
-                    '200': { $ref: '#/components/responses/MissingResponse' }
-                }
-            }
+                    '200': { $ref: '#/components/responses/MissingResponse' },
+                },
+            },
         },
         '/bad-link': {
             get: {
@@ -112,14 +112,14 @@ const brokenRefsSpec: SwaggerSpec = {
                         description: 'ok',
                         links: {
                             // Link ref does not exist
-                            'BrokenLink': { $ref: '#/components/links/MissingLink' }
-                        }
-                    }
-                }
-            }
-        }
+                            BrokenLink: { $ref: '#/components/links/MissingLink' },
+                        },
+                    },
+                },
+            },
+        },
     },
-    components: {}
+    components: {},
 };
 
 // Spec missing operationId or responses
@@ -130,20 +130,19 @@ const sparseSpec: SwaggerSpec = {
         '/no-id': {
             get: {
                 // Missing operationId
-                responses: { '200': { description: 'ok' } }
-            }
+                responses: { '200': { description: 'ok' } },
+            },
         },
         // Missing responses (technically invalid OAS but parser handles it)
         '/no-responses': {
             get: {
-                operationId: 'actionNoResp'
-            } as any
-        }
-    }
+                operationId: 'actionNoResp',
+            } as any,
+        },
+    },
 };
 
 describe('Emitter: LinkGenerator', () => {
-
     const runGenerator = (spec: SwaggerSpec) => {
         const project = createTestProject();
         const config: GeneratorConfig = { output: '/out', options: {} } as any;
@@ -218,8 +217,7 @@ describe('Emitter: LinkGenerator', () => {
 
     it('should handle unresolvable references gracefully', () => {
         // Suppress warning expectation in test output
-        vi.spyOn(console, 'warn').mockImplementation(() => {
-        });
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
         const project = runGenerator(brokenRefsSpec);
         const { API_LINKS } = compileGeneratedFile(project);
 
@@ -232,7 +230,7 @@ describe('Emitter: LinkGenerator', () => {
         const spec: SwaggerSpec = {
             openapi: '3.0.0',
             info: { title: 'Empty', version: '1' },
-            paths: {}
+            paths: {},
         };
         const project = runGenerator(spec);
         const sourceFile = project.getSourceFileOrThrow('/out/links.ts');

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { Project, Scope } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig, PathInfo } from "@src/core/types/index.js";
-import { ServiceMethodGenerator } from "@src/generators/angular/service/service-method.generator.js";
-import { TypeGenerator } from "@src/generators/shared/type.generator.js";
-import { ParameterSerializerGenerator } from "@src/generators/shared/parameter-serializer.generator.js";
+import { GeneratorConfig, PathInfo } from '@src/core/types/index.js';
+import { ServiceMethodGenerator } from '@src/generators/angular/service/service-method.generator.js';
+import { TypeGenerator } from '@src/generators/shared/type.generator.js';
+import { ParameterSerializerGenerator } from '@src/generators/shared/parameter-serializer.generator.js';
 
 const encodedContentSpec = {
     openapi: '3.1.0',
@@ -15,15 +15,15 @@ const encodedContentSpec = {
             InnerObject: {
                 type: 'object',
                 properties: {
-                    id: { type: 'number' }
-                }
+                    id: { type: 'number' },
+                },
             },
             InnerXml: {
                 type: 'object',
                 xml: { name: 'Inner' },
-                properties: { value: { type: 'string' } }
-            }
-        }
+                properties: { value: { type: 'string' } },
+            },
+        },
     },
     paths: {
         '/blob-data': {
@@ -41,15 +41,15 @@ const encodedContentSpec = {
                                         meta: {
                                             type: 'string',
                                             contentMediaType: 'application/json',
-                                            contentSchema: { $ref: '#/components/schemas/InnerObject' }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+                                            contentSchema: { $ref: '#/components/schemas/InnerObject' },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
         },
         '/xml-embedded': {
             get: {
@@ -64,15 +64,15 @@ const encodedContentSpec = {
                                         xmlContainer: {
                                             type: 'string',
                                             contentMediaType: 'application/xml',
-                                            contentSchema: { $ref: '#/components/schemas/InnerXml' }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+                                            contentSchema: { $ref: '#/components/schemas/InnerXml' },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
         },
         '/json-param': {
             get: {
@@ -84,23 +84,22 @@ const encodedContentSpec = {
                         schema: {
                             type: 'string',
                             // Implicitly triggers JSON serialization for this string parameter
-                            contentMediaType: 'application/json'
-                        }
-                    }
+                            contentMediaType: 'application/json',
+                        },
+                    },
                 ],
-                responses: { '200': {} }
-            }
-        }
-    }
+                responses: { '200': {} },
+            },
+        },
+    },
 };
 
 describe('Emitter: ServiceMethodGenerator (Auto Decoding & Encoding)', () => {
-
     const createTestEnv = () => {
         const config: GeneratorConfig = {
             input: '',
             output: '/out',
-            options: { enumStyle: 'enum', framework: 'angular' }
+            options: { enumStyle: 'enum', framework: 'angular' },
         };
         const project = new Project({ useInMemoryFileSystem: true });
         const parser = new SwaggerParser(encodedContentSpec as any, config);
@@ -117,13 +116,13 @@ describe('Emitter: ServiceMethodGenerator (Auto Decoding & Encoding)', () => {
             scope: Scope.Private,
             isReadonly: true,
             type: 'string',
-            initializer: "''"
+            initializer: "''",
         });
         serviceClass.addMethod({
             name: 'createContextWithClientId',
             scope: Scope.Private,
             returnType: 'any',
-            statements: 'return {};'
+            statements: 'return {};',
         });
 
         return { methodGen, serviceClass, project };
@@ -135,7 +134,7 @@ describe('Emitter: ServiceMethodGenerator (Auto Decoding & Encoding)', () => {
             method: 'GET',
             path: '/blob-data',
             methodName: 'getBlobData',
-            responses: encodedContentSpec.paths['/blob-data'].get.responses
+            responses: encodedContentSpec.paths['/blob-data'].get.responses,
         };
 
         methodGen.addServiceMethod(serviceClass, op);
@@ -158,7 +157,7 @@ describe('Emitter: ServiceMethodGenerator (Auto Decoding & Encoding)', () => {
             method: 'GET',
             path: '/blob-data',
             methodName: 'getBlobData',
-            responses: encodedContentSpec.paths['/blob-data'].get.responses
+            responses: encodedContentSpec.paths['/blob-data'].get.responses,
         };
 
         methodGen.addServiceMethod(serviceClass, op);
@@ -179,7 +178,7 @@ describe('Emitter: ServiceMethodGenerator (Auto Decoding & Encoding)', () => {
             method: 'GET',
             path: '/xml-embedded',
             methodName: 'getXmlEmbedded',
-            responses: encodedContentSpec.paths['/xml-embedded'].get.responses
+            responses: encodedContentSpec.paths['/xml-embedded'].get.responses,
         };
 
         methodGen.addServiceMethod(serviceClass, op);
@@ -202,7 +201,7 @@ describe('Emitter: ServiceMethodGenerator (Auto Decoding & Encoding)', () => {
             // Force method name, although parser does this usually
             methodName: 'getWithJsonParam',
             parameters: encodedContentSpec.paths['/json-param'].get.parameters as any,
-            responses: encodedContentSpec.paths['/json-param'].get.responses
+            responses: encodedContentSpec.paths['/json-param'].get.responses,
         };
 
         methodGen.addServiceMethod(serviceClass, op);

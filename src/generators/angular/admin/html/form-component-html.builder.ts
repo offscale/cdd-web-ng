@@ -1,9 +1,9 @@
-import { Resource } from "@src/core/types/index.js";
-import { FormAnalysisResult } from "@src/analysis/form-types.js";
-import { pascalCase } from "@src/core/utils/index.js";
+import { Resource } from '@src/core/types/index.js';
+import { FormAnalysisResult } from '@src/analysis/form-types.js';
+import { pascalCase } from '@src/core/utils/index.js';
 
 import { HtmlElementBuilder as _ } from '../html-element.builder.js';
-import { buildFormControl } from "./form-controls-html.builder.js";
+import { buildFormControl } from './form-controls-html.builder.js';
 
 export function generateFormComponentHtml(resource: Resource, analysis: FormAnalysisResult): string {
     const root = _.create('div').addClass('admin-form-container');
@@ -26,7 +26,6 @@ export function generateFormComponentHtml(resource: Resource, analysis: FormAnal
 
     // Handle polymorphism using the pre-analyzed model
     if (analysis.isPolymorphic) {
-
         for (const poly of analysis.polymorphicProperties) {
             // 1. Render the selector control
             const discriminatorControl = analysis.topLevelControls.find(c => c.name === poly.propertyName);
@@ -59,8 +58,16 @@ export function generateFormComponentHtml(resource: Resource, analysis: FormAnal
     }
 
     const actionsContainer = _.create('div').addClass('admin-form-actions');
-    const cancelButton = _.create('button').setAttribute('mat-stroked-button', '').setAttribute('type', 'button').setAttribute('(click)', 'onCancel()').setTextContent('Cancel');
-    const saveButton = _.create('button').setAttribute('mat-flat-button', '').setAttribute('color', 'primary').setAttribute('type', 'submit').setAttribute('[disabled]', 'form.invalid || form.pristine');
+    const cancelButton = _.create('button')
+        .setAttribute('mat-stroked-button', '')
+        .setAttribute('type', 'button')
+        .setAttribute('(click)', 'onCancel()')
+        .setTextContent('Cancel');
+    const saveButton = _.create('button')
+        .setAttribute('mat-flat-button', '')
+        .setAttribute('color', 'primary')
+        .setAttribute('type', 'submit')
+        .setAttribute('[disabled]', 'form.invalid || form.pristine');
 
     const saveButtonContent = `\n@if (isEditMode()) { \n  <span>Save Changes</span>\n} @else { \n  <span>Create ${resource.modelName}</span>\n}\n`;
     saveButton.setInnerHtml(saveButtonContent);

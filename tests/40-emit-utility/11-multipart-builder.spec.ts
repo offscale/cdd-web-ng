@@ -13,7 +13,7 @@ function getMultipartBuilder() {
 
     const jsCode = ts.transpile(codeWithoutExports, {
         target: ts.ScriptTarget.ESNext,
-        module: ts.ModuleKind.CommonJS
+        module: ts.ModuleKind.CommonJS,
     });
 
     const moduleScope = { exports: {} as any };
@@ -88,7 +88,7 @@ describe('Utility: MultipartBuilder', () => {
             const body = { file: 'content' };
             // Legacy input style: Record<string, Config>
             const encoding = {
-                file: { headers: { 'X-Custom': '123' } }
+                file: { headers: { 'X-Custom': '123' } },
             };
             const result = MultipartBuilder.serialize(body, encoding);
 
@@ -101,7 +101,7 @@ describe('Utility: MultipartBuilder', () => {
             const file = new File(['data'], 'test.txt', { type: 'text/plain' });
             const body = { doc: file };
             const encoding = {
-                doc: { headers: { 'X-File': 'true' } }
+                doc: { headers: { 'X-File': 'true' } },
             };
             const result = MultipartBuilder.serialize(body, encoding);
             const blob = result.content as any;
@@ -120,10 +120,7 @@ describe('Utility: MultipartBuilder', () => {
         it('should serialize Array body as multipart/mixed', () => {
             const body = ['item1', { id: 2 }];
             const config = {
-                prefixEncoding: [
-                    { contentType: 'text/plain' },
-                    { contentType: 'application/json' }
-                ]
+                prefixEncoding: [{ contentType: 'text/plain' }, { contentType: 'application/json' }],
             };
 
             const result = MultipartBuilder.serialize(body, config);
@@ -150,7 +147,7 @@ describe('Utility: MultipartBuilder', () => {
         it('should support itemEncoding basic fallback', () => {
             const body = [1, 2, 3];
             const config = {
-                itemEncoding: { contentType: 'application/custom' }
+                itemEncoding: { contentType: 'application/custom' },
             };
 
             const result = MultipartBuilder.serialize(body, config);
@@ -167,7 +164,7 @@ describe('Utility: MultipartBuilder', () => {
             const body = ['prefix', 'rest1', 'rest2'];
             const config = {
                 prefixEncoding: [{ contentType: 'text/prefix' }],
-                itemEncoding: { contentType: 'text/rest' }
+                itemEncoding: { contentType: 'text/rest' },
             };
 
             const result = MultipartBuilder.serialize(body, config);

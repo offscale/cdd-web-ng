@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from "@src/core/types/index.js";
-import { ServiceMethodGenerator } from "@src/generators/angular/service/service-method.generator.js";
+import { GeneratorConfig } from '@src/core/types/index.js';
+import { ServiceMethodGenerator } from '@src/generators/angular/service/service-method.generator.js';
 import { ExtensionTokensGenerator } from '@src/generators/angular/utils/extension-tokens.generator.js';
 
 const extensionsSpec = {
@@ -14,10 +14,10 @@ const extensionsSpec = {
                 operationId: 'getCachedData',
                 'x-cache-ttl': 300,
                 'x-important': true,
-                responses: { '200': {} }
-            }
-        }
-    }
+                responses: { '200': {} },
+            },
+        },
+    },
 };
 
 describe('Generated Code: Extensions Runtime Support', () => {
@@ -40,9 +40,8 @@ describe('Generated Code: Extensions Runtime Support', () => {
         const cls = sourceFile.addClass({ name: 'TestService' });
         cls.addMethod({
             name: 'createContextWithClientId',
-            scope: undefined,
             returnType: 'any',
-            statements: 'return {};'
+            statements: 'return {};',
         });
 
         methodGen.addServiceMethod(cls, op);

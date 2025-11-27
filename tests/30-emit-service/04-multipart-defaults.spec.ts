@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { Project, Scope } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from "@src/core/types/index.js";
-import { TypeGenerator } from "@src/generators/shared/type.generator.js";
-import { ServiceMethodGenerator } from "@src/generators/angular/service/service-method.generator.js";
+import { GeneratorConfig } from '@src/core/types/index.js';
+import { TypeGenerator } from '@src/generators/shared/type.generator.js';
+import { ServiceMethodGenerator } from '@src/generators/angular/service/service-method.generator.js';
 
 describe('Emitter: ServiceMethodGenerator (Multipart Defaults)', () => {
-
     const createTestEnv = () => {
         const spec = {
             openapi: '3.0.0',
@@ -23,17 +22,17 @@ describe('Emitter: ServiceMethodGenerator (Multipart Defaults)', () => {
                                         properties: {
                                             id: { type: 'string' },
                                             metadata: { type: 'object', properties: { key: { type: 'string' } } },
-                                            tags: { type: 'array', items: { type: 'string' } }
-                                        }
-                                    }
-                                }
-                            }
+                                            tags: { type: 'array', items: { type: 'string' } },
+                                        },
+                                    },
+                                },
+                            },
                         },
-                        responses: { '200': {} }
-                    }
-                }
+                        responses: { '200': {} },
+                    },
+                },
             },
-            components: {}
+            components: {},
         };
         const config: GeneratorConfig = { input: '', output: '/out', options: { dateType: 'Date', enumStyle: 'enum' } };
 
@@ -87,13 +86,13 @@ describe('Emitter: ServiceMethodGenerator (Multipart Defaults)', () => {
                             type: 'object',
                             properties: {
                                 file: { type: 'string', format: 'binary' }, // raw binary
-                                secret: { type: 'string', contentEncoding: 'base64' } // encoded text part
-                            }
-                        }
-                    }
-                }
+                                secret: { type: 'string', contentEncoding: 'base64' }, // encoded text part
+                            },
+                        },
+                    },
+                },
             },
-            responses: { '200': {} }
+            responses: { '200': {} },
         };
 
         methodGen.addServiceMethod(serviceClass, op);
@@ -117,12 +116,12 @@ describe('Emitter: ServiceMethodGenerator (Multipart Defaults)', () => {
                     'multipart/byteranges': {
                         schema: {
                             type: 'array',
-                            items: { type: 'object' }
-                        }
-                    }
-                }
+                            items: { type: 'object' },
+                        },
+                    },
+                },
             },
-            responses: { '200': {} }
+            responses: { '200': {} },
         };
 
         methodGen.addServiceMethod(serviceClass, op);

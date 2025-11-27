@@ -6,15 +6,17 @@ import { createTestProject } from '../shared/helpers.js';
 import ts from 'typescript';
 
 describe('Emitter: ServerUrlGenerator', () => {
-
     const runGenerator = (servers: any[]) => {
         const project = createTestProject();
-        const parser = new SwaggerParser({
-            openapi: '3.2.0',
-            info: { title: 'Test', version: '1.0' },
-            paths: {},
-            servers
-        } as any, { options: {} } as any);
+        const parser = new SwaggerParser(
+            {
+                openapi: '3.2.0',
+                info: { title: 'Test', version: '1.0' },
+                paths: {},
+                servers,
+            } as any,
+            { options: {} } as any,
+        );
 
         new ServerUrlGenerator(parser, project).generate('/out');
         return project;
@@ -25,14 +27,17 @@ describe('Emitter: ServerUrlGenerator', () => {
         const startText = sourceFile.getText();
         const jsCode = ts.transpile(startText.replace(/export /g, ''), {
             target: ts.ScriptTarget.ESNext,
-            module: ts.ModuleKind.CommonJS
+            module: ts.ModuleKind.CommonJS,
         });
         const moduleScope = { API_SERVERS: [], getServerUrl: null as any };
-        new Function('scope', `
+        new Function(
+            'scope',
+            `
             ${jsCode} 
             scope.API_SERVERS = API_SERVERS; 
             scope.getServerUrl = getServerUrl; 
-        `)(moduleScope);
+        `,
+        )(moduleScope);
         return moduleScope;
     };
 
@@ -45,7 +50,7 @@ describe('Emitter: ServerUrlGenerator', () => {
 
     it('should generate API_SERVERS constant checking OAS 3.2 name property', () => {
         const project = runGenerator([
-            { url: 'https://api.example.com', name: 'production', description: 'Production' }
+            { url: 'https://api.example.com', name: 'production', description: 'Production' },
         ]);
         const text = project.getSourceFileOrThrow('/out/utils/server-url.ts').getText();
         expect(text).toContain('export const API_SERVERS: ServerConfiguration[] = [');
@@ -58,8 +63,8 @@ describe('Emitter: ServerUrlGenerator', () => {
         const project = runGenerator([
             {
                 url: 'https://{env}.example.com/v1',
-                variables: { env: { default: 'dev' } }
-            }
+                variables: { env: { default: 'dev' } },
+            },
         ]);
 
         const { getServerUrl } = compileHelper(project);
@@ -81,9 +86,9 @@ describe('Emitter: ServerUrlGenerator', () => {
             {
                 url: 'https://{region}.api.com',
                 variables: {
-                    region: { default: 'us', enum: ['us', 'eu', 'asia'] }
-                }
-            }
+                    region: { default: 'us', enum: ['us', 'eu', 'asia'] },
+                },
+            },
         ]);
 
         const { getServerUrl } = compileHelper(project);
@@ -93,14 +98,14 @@ describe('Emitter: ServerUrlGenerator', () => {
         expect(getServerUrl(0, { region: 'eu' })).toBe('https://eu.api.com/');
         // Invalid
         expect(() => getServerUrl(0, { region: 'mars' })).toThrow(
-            'Value "mars" for variable "region" is not in the allowed enum: us, eu, asia'
+            'Value "mars" for variable "region" is not in the allowed enum: us, eu, asia',
         );
     });
 
     it('should generate logic to look up server by name (OAS 3.2)', () => {
         const project = runGenerator([
             { url: 'https://dev.api.com', name: 'dev', description: 'Development' },
-            { url: 'https://prod.api.com', name: 'prod', description: 'Production' }
+            { url: 'https://prod.api.com', name: 'prod', description: 'Production' },
         ]);
 
         const { getServerUrl } = compileHelper(project);
@@ -113,7 +118,7 @@ describe('Emitter: ServerUrlGenerator', () => {
     it('should generate logic to look up server by description (Legacy fallback)', () => {
         const project = runGenerator([
             { url: 'https://dev.api.com', description: 'Development' },
-            { url: 'https://prod.api.com', description: 'Production' }
+            { url: 'https://prod.api.com', description: 'Production' },
         ]);
 
         const { getServerUrl } = compileHelper(project);
@@ -137,9 +142,9 @@ describe('Emitter: ServerUrlGenerator', () => {
                     protocol: { default: 'https' },
                     host: { default: 'localhost' },
                     port: { default: '8080' },
-                    base: { default: 'api' }
-                }
-            }
+                    base: { default: 'api' },
+                },
+            },
         ]);
         const { getServerUrl } = compileHelper(project);
 

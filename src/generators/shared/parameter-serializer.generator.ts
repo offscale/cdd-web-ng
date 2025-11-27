@@ -1,37 +1,36 @@
-import * as path from "node:path";
-import { Project, Scope } from "ts-morph";
-import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../core/constants.js";
+import * as path from 'node:path';
+import { Project, Scope } from 'ts-morph';
+import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../core/constants.js';
 
 export class ParameterSerializerGenerator {
-    constructor(private project: Project) {
-    }
+    constructor(private project: Project) {}
 
     public generate(outputDir: string): void {
-        const utilsDir = path.join(outputDir, "utils");
+        const utilsDir = path.join(outputDir, 'utils');
         // Ensure directory exists
         if (!this.project.getFileSystem().directoryExists(utilsDir)) {
             this.project.getFileSystem().mkdirSync(utilsDir);
         }
-        const filePath = path.join(utilsDir, "parameter-serializer.ts");
+        const filePath = path.join(utilsDir, 'parameter-serializer.ts');
 
-        const sourceFile = this.project.createSourceFile(filePath, "", { overwrite: true });
+        const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
         const classDeclaration = sourceFile.addClass({
-            name: "ParameterSerializer",
+            name: 'ParameterSerializer',
             isExported: true,
-            docs: ["Utility to serialize parameters (Path, Query, Header, Cookie) according to OpenAPI rules."],
+            docs: ['Utility to serialize parameters (Path, Query, Header, Cookie) according to OpenAPI rules.'],
         });
 
         // --- Helper: Encode Reserved ---
         classDeclaration.addMethod({
-            name: "encodeReserved",
+            name: 'encodeReserved',
             isStatic: true,
             scope: Scope.Private,
-            parameters: [{ name: "value", type: "string" }],
-            returnType: "string",
-            docs: ["RFC 3986 encoding but preserves reserved characters."],
+            parameters: [{ name: 'value', type: 'string' }],
+            returnType: 'string',
+            docs: ['RFC 3986 encoding but preserves reserved characters.'],
             statements: `
         return encodeURIComponent(value)
             .replace(/%3A/gi, ':')
@@ -51,23 +50,23 @@ export class ParameterSerializerGenerator {
             .replace(/%2B/gi, '+')
             .replace(/%2C/gi, ',')
             .replace(/%3B/gi, ';')
-            .replace(/%3D/gi, '=');`
+            .replace(/%3D/gi, '=');`,
         });
 
         // --- Path Parameters ---
         classDeclaration.addMethod({
-            name: "serializePathParam",
+            name: 'serializePathParam',
             isStatic: true,
             scope: Scope.Public,
             parameters: [
-                { name: "key", type: "string" },
-                { name: "value", type: "any" },
-                { name: "style", type: "string", initializer: "'simple'" },
-                { name: "explode", type: "boolean", initializer: "false" },
-                { name: "allowReserved", type: "boolean", initializer: "false" },
-                { name: "serialization", type: "'json' | undefined", hasQuestionToken: true }
+                { name: 'key', type: 'string' },
+                { name: 'value', type: 'any' },
+                { name: 'style', type: 'string', initializer: "'simple'" },
+                { name: 'explode', type: 'boolean', initializer: 'false' },
+                { name: 'allowReserved', type: 'boolean', initializer: 'false' },
+                { name: 'serialization', type: "'json' | undefined", hasQuestionToken: true },
             ],
-            returnType: "string",
+            returnType: 'string',
             statements: `
         if (value === null || value === undefined) return '';
         if (serialization === 'json' && typeof value !== 'string') value = JSON.stringify(value);
@@ -119,25 +118,25 @@ export class ParameterSerializerGenerator {
             return prefix + \`\${encode(key)}=\${encode(String(value))}\`;
         }
 
-        return encode(String(value));`
+        return encode(String(value));`,
         });
 
         // --- Query Parameters (Returns {key, value}[] for framework adaptation) ---
         sourceFile.addTypeAlias({
-            name: "SerializedQueryParam",
+            name: 'SerializedQueryParam',
             isExported: true,
-            type: "{ key: string; value: string }",
+            type: '{ key: string; value: string }',
         });
 
         classDeclaration.addMethod({
-            name: "serializeQueryParam",
+            name: 'serializeQueryParam',
             isStatic: true,
             scope: Scope.Public,
             parameters: [
-                { name: "config", type: "any" },
-                { name: "value", type: "any" }
+                { name: 'config', type: 'any' },
+                { name: 'value', type: 'any' },
             ],
-            returnType: "SerializedQueryParam[]",
+            returnType: 'SerializedQueryParam[]',
             statements: `
         const name = config.name;
         const result: SerializedQueryParam[] = [];
@@ -198,20 +197,20 @@ export class ParameterSerializerGenerator {
         }
 
         result.push({ key: encode(name), value: encode(String(value)) });
-        return result;`
+        return result;`,
         });
 
         // --- Header Parameters ---
         classDeclaration.addMethod({
-            name: "serializeHeaderParam",
+            name: 'serializeHeaderParam',
             isStatic: true,
             scope: Scope.Public,
             parameters: [
-                { name: "value", type: "any" },
-                { name: "explode", type: "boolean", initializer: "false" },
-                { name: "serialization", type: "'json' | undefined", hasQuestionToken: true }
+                { name: 'value', type: 'any' },
+                { name: 'explode', type: 'boolean', initializer: 'false' },
+                { name: 'serialization', type: "'json' | undefined", hasQuestionToken: true },
             ],
-            returnType: "string",
+            returnType: 'string',
             statements: `
         if (value === null || value === undefined) return '';
         if (serialization === 'json') return JSON.stringify(value);
@@ -224,23 +223,23 @@ export class ParameterSerializerGenerator {
             }
             return Object.entries(value).map(([k, v]) => \`\${k},\${v}\`).join(',');
         }
-        return String(value);`
+        return String(value);`,
         });
 
         // --- Cookie Parameters ---
         classDeclaration.addMethod({
-            name: "serializeCookieParam",
+            name: 'serializeCookieParam',
             isStatic: true,
             scope: Scope.Public,
             parameters: [
-                { name: "key", type: "string" },
-                { name: "value", type: "any" },
-                { name: "style", type: "string", initializer: "'form'" },
-                { name: "explode", type: "boolean", initializer: "true" },
-                { name: "allowReserved", type: "boolean", initializer: "false" },
-                { name: "serialization", type: "'json' | undefined", hasQuestionToken: true }
+                { name: 'key', type: 'string' },
+                { name: 'value', type: 'any' },
+                { name: 'style', type: 'string', initializer: "'form'" },
+                { name: 'explode', type: 'boolean', initializer: 'true' },
+                { name: 'allowReserved', type: 'boolean', initializer: 'false' },
+                { name: 'serialization', type: "'json' | undefined", hasQuestionToken: true },
             ],
-            returnType: "string",
+            returnType: 'string',
             statements: `
         if (value === null || value === undefined) return '';
         if (serialization === 'json') return \`\${key}=\${encodeURIComponent(JSON.stringify(value))}\`;
@@ -265,38 +264,38 @@ export class ParameterSerializerGenerator {
             return \`\${key}=\${flat}\`;
         }
         
-        return \`\${key}=\${encode(String(value))}\`;`
+        return \`\${key}=\${encode(String(value))}\`;`,
         });
 
         // --- Raw Querystring ---
         classDeclaration.addMethod({
-            name: "serializeRawQuerystring",
+            name: 'serializeRawQuerystring',
             isStatic: true,
             scope: Scope.Public,
             parameters: [
-                { name: "value", type: "any" },
-                { name: "serialization", type: "'json' | undefined", hasQuestionToken: true }
+                { name: 'value', type: 'any' },
+                { name: 'serialization', type: "'json' | undefined", hasQuestionToken: true },
             ],
-            returnType: "string",
+            returnType: 'string',
             statements: `
         if (value === null || value === undefined) return '';
         if (serialization === 'json') return encodeURIComponent(JSON.stringify(value));
         if (typeof value === 'object') {
             return Object.entries(value).map(([k, v]) => \`\${k}=\${v}\`).join('&');
         }
-        return String(value);`
+        return String(value);`,
         });
 
         // --- URL Encoded Body Helper ---
         classDeclaration.addMethod({
-            name: "serializeUrlEncodedBody",
+            name: 'serializeUrlEncodedBody',
             isStatic: true,
             scope: Scope.Public,
             parameters: [
-                { name: "body", type: "any" },
-                { name: "encodings", type: "Record<string, any>", initializer: "{}" }
+                { name: 'body', type: 'any' },
+                { name: 'encodings', type: 'Record<string, any>', initializer: '{}' },
             ],
-            returnType: "SerializedQueryParam[]",
+            returnType: 'SerializedQueryParam[]',
             statements: `
             const result: SerializedQueryParam[] = [];
             if (!body || typeof body !== 'object') return result;
@@ -308,7 +307,7 @@ export class ParameterSerializerGenerator {
                 const serialized = this.serializeQueryParam(paramConfig, value);
                 result.push(...serialized);
             });
-            return result;`
+            return result;`,
         });
 
         sourceFile.formatText();

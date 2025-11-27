@@ -4,7 +4,7 @@ import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from '@src/core/types/index.js';
 import { ServiceMethodAnalyzer } from '@src/analysis/service-method-analyzer.js';
 import { branchCoverageSpec, coverageSpec, finalCoveragePushSpec } from '../fixtures/coverage.fixture.js';
-import { ServiceTestGenerator } from "@src/generators/angular/test/service-test-generator.js";
+import { ServiceTestGenerator } from '@src/generators/angular/test/service-test-generator.js';
 import { camelCase } from '@src/core/utils/index.js';
 
 /**
@@ -29,7 +29,7 @@ describe('Generated Code: Service Test Generators', () => {
             output: '',
             options: {
                 dateType: 'string',
-                enumStyle: 'enum'
+                enumStyle: 'enum',
             },
         };
     });
@@ -43,7 +43,7 @@ describe('Generated Code: Service Test Generators', () => {
             info: { title: 'Test Gen', version: '1.0' },
             paths: {
                 '/dummy': { get: { responses: { '204': { description: 'ok' } } } },
-                ...specPart.paths
+                ...specPart.paths,
             },
             components: specPart.components || {},
         };
@@ -54,11 +54,9 @@ describe('Generated Code: Service Test Generators', () => {
     };
 
     describe('ServiceTestGenerator', () => {
-
         it('should generate a basic service test file', () => {
             const { parser, testGen } = setupTestGen(coverageSpec);
-            const userOps = parser.operations
-                .filter(op => op.tags?.includes('Users'));
+            const userOps = parser.operations.filter(op => op.tags?.includes('Users'));
 
             setOperationMethodNames(userOps);
 
@@ -71,8 +69,8 @@ describe('Generated Code: Service Test Generators', () => {
             expect(classText).toContain('import { TestBed, fail } from "@angular/core/testing";');
             expect(classText).toContain("describe('UsersService'");
             expect(classText).toContain("it('should be created'");
-            expect(classText).toContain("service.getUsers(");
-            expect(classText).toContain("expect(response).toEqual(mockResponse)");
+            expect(classText).toContain('service.getUsers(');
+            expect(classText).toContain('expect(response).toEqual(mockResponse)');
         });
 
         it('should handle primitive request/response types and param refs', () => {
@@ -125,14 +123,14 @@ describe('Generated Code: Service Test Generators', () => {
                     '/return-string': {
                         get: {
                             operationId: 'returnString',
-                            responses: { '200': { content: { 'application/json': { schema: { type: 'string' } } } } }
-                        }
+                            responses: { '200': { content: { 'application/json': { schema: { type: 'string' } } } } },
+                        },
                     },
                     '/return-bool': {
                         get: {
                             operationId: 'returnBool',
-                            responses: { '200': { content: { 'application/json': { schema: { type: 'boolean' } } } } }
-                        }
+                            responses: { '200': { content: { 'application/json': { schema: { type: 'boolean' } } } } },
+                        },
                     },
                     '/return-model-array': {
                         get: {
@@ -141,12 +139,15 @@ describe('Generated Code: Service Test Generators', () => {
                                 '200': {
                                     content: {
                                         'application/json': {
-                                            schema: { type: 'array', items: { $ref: '#/components/schemas/TestModel' } }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                                            schema: {
+                                                type: 'array',
+                                                items: { $ref: '#/components/schemas/TestModel' },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
                     },
                     '/post-generic-object': {
                         post: {
@@ -154,19 +155,19 @@ describe('Generated Code: Service Test Generators', () => {
                             requestBody: {
                                 content: {
                                     'application/json': {
-                                        schema: { type: 'object', properties: { arbitrary: { type: 'string' } } }
-                                    }
-                                }
+                                        schema: { type: 'object', properties: { arbitrary: { type: 'string' } } },
+                                    },
+                                },
                             },
-                            responses: { '200': {} }
-                        }
-                    }
+                            responses: { '200': {} },
+                        },
+                    },
                 },
                 components: {
                     schemas: {
-                        TestModel: { type: 'object', properties: { id: { type: 'integer' } } }
-                    }
-                }
+                        TestModel: { type: 'object', properties: { id: { type: 'integer' } } },
+                    },
+                },
             };
 
             const { parser, testGen } = setupTestGen(edgeCaseSpec);
@@ -181,11 +182,11 @@ describe('Generated Code: Service Test Generators', () => {
             expect(text).toContain("const mockResponse = 'test-string';");
 
             // Boolean response
-            expect(text).toContain("const mockResponse = true;");
+            expect(text).toContain('const mockResponse = true;');
 
             // Array Model response: explicit array type validation
             // Matches `if (responseType.endsWith('[]'))`
-            expect(text).toContain("const mockResponse: TestModel[] = [");
+            expect(text).toContain('const mockResponse: TestModel[] = [');
 
             // Generic Object Body: schema is object but no interface generated -> unknown model
             // Matches `} else if (bodyParam) {` fallback for non-primitive, non-model bodies
@@ -216,13 +217,13 @@ describe('Generated Code: Service Test Generators', () => {
                                     in: 'path',
                                     required: true,
                                     schema: { type: 'string' },
-                                    example: 'user-123'
-                                }
+                                    example: 'user-123',
+                                },
                             ],
-                            responses: { '200': {} }
-                        }
-                    }
-                }
+                            responses: { '200': {} },
+                        },
+                    },
+                },
             };
 
             const { parser, testGen } = setupTestGen(exampleSpec);
@@ -252,14 +253,14 @@ describe('Generated Code: Service Test Generators', () => {
                                     schema: { type: 'string' },
                                     examples: {
                                         active: { value: 'active-status' },
-                                        inactive: { value: 'inactive-status' }
-                                    }
-                                }
+                                        inactive: { value: 'inactive-status' },
+                                    },
+                                },
                             ],
-                            responses: { '200': {} }
-                        }
-                    }
-                }
+                            responses: { '200': {} },
+                        },
+                    },
+                },
             };
 
             const { parser, testGen } = setupTestGen(examplesSpec);
@@ -291,15 +292,15 @@ describe('Generated Code: Service Test Generators', () => {
                                         valid: {
                                             summary: 'A valid filter',
                                             dataValue: 'active_filter',
-                                            serializedValue: 'ignore_me'
-                                        }
-                                    }
-                                }
+                                            serializedValue: 'ignore_me',
+                                        },
+                                    },
+                                },
                             ],
-                            responses: { '200': {} }
-                        }
-                    }
-                }
+                            responses: { '200': {} },
+                        },
+                    },
+                },
             };
 
             const { parser, testGen } = setupTestGen(oas32Spec);

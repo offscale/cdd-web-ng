@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+
 import { Project } from 'ts-morph';
-import { TypeGenerator } from "@src/generators/shared/type.generator.js";
+
+import { TypeGenerator } from '@src/generators/shared/type.generator.js';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from "@src/core/types/index.js";
+import { GeneratorConfig } from '@src/core/types/index.js';
 
 const typeGenSpec = {
     openapi: '3.0.0',
@@ -14,16 +16,16 @@ const typeGenSpec = {
                 type: 'object',
                 description: 'A simple model.',
                 properties: {
-                    name: { type: 'string', description: 'The name.' }
-                }
+                    name: { type: 'string', description: 'The name.' },
+                },
             },
             SplitModel: {
                 type: 'object',
                 properties: {
                     id: { type: 'string', readOnly: true, description: 'Auto-generated ID' },
                     data: { type: 'string' },
-                    secret: { type: 'string', writeOnly: true, description: 'Write-only secret' }
-                }
+                    secret: { type: 'string', writeOnly: true, description: 'Write-only secret' },
+                },
             },
             Documented: {
                 type: 'object',
@@ -34,59 +36,58 @@ const typeGenSpec = {
                         type: 'string',
                         example: 'test-value',
                         default: 'default-val',
-                        deprecated: true
-                    }
-                }
+                        deprecated: true,
+                    },
+                },
             },
             ExampleObj: {
                 type: 'object',
                 properties: { id: { type: 'integer' } },
-                example: { id: 123, meta: 'test' }
+                example: { id: 123, meta: 'test' },
             },
             WithMultipleExamples: {
                 type: 'object',
                 properties: { count: { type: 'integer' } },
                 examples: [
                     { count: 1, desc: 'One' },
-                    { count: 2, desc: 'Two' }
-                ]
+                    { count: 2, desc: 'Two' },
+                ],
             },
             WithPatternProps: {
                 type: 'object',
                 patternProperties: {
                     '^[a-z]+$': { type: 'string' },
-                    '^[0-9]+$': { type: 'number' }
-                }
+                    '^[0-9]+$': { type: 'number' },
+                },
             },
             // additionalProperties test
             WithPatternsAndAdditional: {
                 type: 'object',
                 patternProperties: { '^S_': { type: 'string' } },
-                additionalProperties: { type: 'boolean' }
+                additionalProperties: { type: 'boolean' },
             },
             // OAS 3.1 unevaluatedProperties tests
             UnevaluatedTrue: {
                 type: 'object',
                 properties: { name: { type: 'string' } },
-                unevaluatedProperties: true
+                unevaluatedProperties: true,
             },
             UnevaluatedType: {
                 type: 'object',
                 properties: { name: { type: 'string' } },
-                unevaluatedProperties: { type: 'number' }
+                unevaluatedProperties: { type: 'number' },
             },
             UnevaluatedFalse: {
                 type: 'object',
                 properties: { name: { type: 'string' } },
                 additionalProperties: false,
-                unevaluatedProperties: false
-            }
-        }
-    }
+                unevaluatedProperties: false,
+            },
+        },
+    },
 };
 
 describe('Emitter: TypeGenerator', () => {
-
     const createEnvironment = () => {
         const project = new Project({ useInMemoryFileSystem: true });
         const config: GeneratorConfig = { input: '', output: '/out', options: { enumStyle: 'enum' } };

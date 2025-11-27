@@ -19,7 +19,7 @@ describe('Emitter: InfoGenerator', () => {
         const fileContent = sourceFile.getText();
         const jsCode = ts.transpile(fileContent, {
             target: ts.ScriptTarget.ES5,
-            module: ts.ModuleKind.CommonJS
+            module: ts.ModuleKind.CommonJS,
         });
         const moduleHelper = { exports: {} as any };
         new Function('exports', jsCode)(moduleHelper.exports);
@@ -32,9 +32,9 @@ describe('Emitter: InfoGenerator', () => {
             info: {
                 title: 'My Test API',
                 version: '2.0.0-beta',
-                description: 'A description of the API'
+                description: 'A description of the API',
             },
-            paths: {}
+            paths: {},
         };
         const project = runGenerator(spec);
         const { API_INFO } = compileGeneratedFile(project);
@@ -50,9 +50,9 @@ describe('Emitter: InfoGenerator', () => {
             info: {
                 title: 'Summary API',
                 version: '1.0',
-                summary: 'A short summary of the API.'
+                summary: 'A short summary of the API.',
             },
-            paths: {}
+            paths: {},
         };
         const project = runGenerator(spec);
 
@@ -76,15 +76,15 @@ describe('Emitter: InfoGenerator', () => {
                 contact: {
                     name: 'Support',
                     email: 'support@example.com',
-                    url: 'https://example.com/support'
+                    url: 'https://example.com/support',
                 },
                 license: {
                     name: 'Apache 2.0',
-                    identifier: 'Apache-2.0'
+                    identifier: 'Apache-2.0',
                 },
-                termsOfService: 'https://example.com/terms'
+                termsOfService: 'https://example.com/terms',
             },
-            paths: {}
+            paths: {},
         };
         const project = runGenerator(spec);
         const { API_INFO } = compileGeneratedFile(project);
@@ -92,11 +92,11 @@ describe('Emitter: InfoGenerator', () => {
         expect(API_INFO.contact).toEqual({
             name: 'Support',
             email: 'support@example.com',
-            url: 'https://example.com/support'
+            url: 'https://example.com/support',
         });
         expect(API_INFO.license).toEqual({
             name: 'Apache 2.0',
-            identifier: 'Apache-2.0'
+            identifier: 'Apache-2.0',
         });
         expect(API_INFO.termsOfService).toBe('https://example.com/terms');
     });
@@ -107,9 +107,9 @@ describe('Emitter: InfoGenerator', () => {
             info: { title: 'Tagged API', version: '1.0' },
             tags: [
                 { name: 'Admin', description: 'Administrative operations', summary: 'Admin Stuff' },
-                { name: 'Users', externalDocs: { url: 'https://users.doc', description: 'User Guide' } }
+                { name: 'Users', externalDocs: { url: 'https://users.doc', description: 'User Guide' } },
             ],
-            paths: {}
+            paths: {},
         };
         const project = runGenerator(spec);
         const { API_TAGS } = compileGeneratedFile(project);
@@ -118,7 +118,7 @@ describe('Emitter: InfoGenerator', () => {
         expect(API_TAGS[0]).toEqual({
             name: 'Admin',
             description: 'Administrative operations',
-            summary: 'Admin Stuff'
+            summary: 'Admin Stuff',
         });
         expect(API_TAGS[1].externalDocs.url).toBe('https://users.doc');
     });
@@ -129,9 +129,9 @@ describe('Emitter: InfoGenerator', () => {
             info: { title: 'Docs API', version: '1.0' },
             externalDocs: {
                 description: 'Full Documentation',
-                url: 'https://api.docs.com'
+                url: 'https://api.docs.com',
             },
-            paths: {}
+            paths: {},
         };
         const project = runGenerator(spec);
         const { API_EXTERNAL_DOCS } = compileGeneratedFile(project);
@@ -144,7 +144,7 @@ describe('Emitter: InfoGenerator', () => {
         const spec = {
             swagger: '2.0',
             info: { title: 'Minimal API', version: '1.0' },
-            paths: {}
+            paths: {},
         };
         const project = runGenerator(spec);
         const { API_INFO, API_TAGS, API_EXTERNAL_DOCS } = compileGeneratedFile(project);

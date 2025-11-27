@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig, InfoObject, ServerObject, TagObject } from "@src/core/types/index.js";
-import { extractPaths } from "@src/core/utils/index.js";
+import { GeneratorConfig, InfoObject, ServerObject, TagObject } from '@src/core/types/index.js';
+import { extractPaths } from '@src/core/utils/index.js';
 
 /**
  * Tests for the Specification Extensions (`x-*`) feature support.
@@ -17,20 +18,20 @@ describe('Core: Specification Extensions', () => {
             title: 'Extensible API',
             version: '1.0.0',
             'x-logo': { url: 'https://example.com/logo.png' },
-            'x-internal-id': 12345
+            'x-internal-id': 12345,
         },
         tags: [
             {
                 name: 'User',
                 description: 'Operations',
-                'x-display-order': 1
-            }
+                'x-display-order': 1,
+            },
         ],
         servers: [
             {
                 url: 'https://api.example.com',
-                'x-environment': 'production'
-            }
+                'x-environment': 'production',
+            },
         ],
         paths: {
             '/users': {
@@ -42,17 +43,17 @@ describe('Core: Specification Extensions', () => {
                             name: 'limit',
                             in: 'query',
                             schema: { type: 'integer' },
-                            'x-custom-validation': 'max-100'
-                        }
+                            'x-custom-validation': 'max-100',
+                        },
                     ],
                     responses: {
                         '200': {
                             description: 'ok',
-                            'x-response-meta': { cached: true }
-                        }
-                    }
-                }
-            }
+                            'x-response-meta': { cached: true },
+                        },
+                    },
+                },
+            },
         },
         components: {
             securitySchemes: {
@@ -60,10 +61,10 @@ describe('Core: Specification Extensions', () => {
                     type: 'apiKey',
                     in: 'header',
                     name: 'X-API',
-                    'x-provider-name': 'FastAuth'
-                }
-            }
-        }
+                    'x-provider-name': 'FastAuth',
+                },
+            },
+        },
     };
 
     it('should allow accessing x- properties on InfoObject types', () => {
@@ -101,7 +102,7 @@ describe('Core: Specification Extensions', () => {
 
     it('should propagate operation x- properties to PathInfo via extractPaths', () => {
         const pathInfoList = extractPaths(specWithExtensions.paths as any);
-        const op = pathInfoList.find(p => p.path === ('/users') && p.method === 'GET');
+        const op = pathInfoList.find(p => p.path === '/users' && p.method === 'GET');
 
         expect(op).toBeDefined();
         expect(op!['x-query-complexity']).toBe('medium');
@@ -109,7 +110,7 @@ describe('Core: Specification Extensions', () => {
 
     it('should propagate parameter x- properties via extractPaths', () => {
         const pathInfoList = extractPaths(specWithExtensions.paths as any);
-        const op = pathInfoList.find(p => p.path === ('/users') && p.method === 'GET');
+        const op = pathInfoList.find(p => p.path === '/users' && p.method === 'GET');
         const param = op!.parameters!.find(p => p.name === 'limit');
 
         expect(param).toBeDefined();

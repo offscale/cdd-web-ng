@@ -1,28 +1,27 @@
-import * as path from "node:path";
+import * as path from 'node:path';
 import {
     JSDocStructure,
     JSDocTagStructure,
     OptionalKind,
     Project,
     PropertySignatureStructure,
-    SourceFile
-} from "ts-morph";
-import { GeneratorConfig, HeaderObject, PathItem, SwaggerDefinition } from "@src/core/types/index.js";
-import { SwaggerParser } from "@src/core/parser.js";
-import { extractPaths, getTypeScriptType, pascalCase, sanitizeComment } from "@src/core/utils/index.js";
+    SourceFile,
+} from 'ts-morph';
+import { GeneratorConfig, HeaderObject, PathItem, SwaggerDefinition } from '@src/core/types/index.js';
+import { SwaggerParser } from '@src/core/parser.js';
+import { extractPaths, getTypeScriptType, pascalCase, sanitizeComment } from '@src/core/utils/index.js';
 
 export class TypeGenerator {
     constructor(
         private parser: SwaggerParser,
         private project: Project,
-        private config: GeneratorConfig
-    ) {
-    }
+        private config: GeneratorConfig,
+    ) {}
 
     public generate(outputDir: string): void {
-        const modelsDir = path.join(outputDir, "models");
-        const filePath = path.join(modelsDir, "index.ts");
-        const sourceFile = this.project.createSourceFile(filePath, "", { overwrite: true });
+        const modelsDir = path.join(outputDir, 'models');
+        const filePath = path.join(modelsDir, 'index.ts');
+        const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
         const definitions = this.parser.schemas;
 
@@ -71,7 +70,9 @@ export class TypeGenerator {
                                 const content = operation.requestBody.content || {};
                                 const jsonContent = content['application/json'] || content['*/*'];
                                 if (jsonContent && jsonContent.schema) {
-                                    const opIdBase = op.operationId ? pascalCase(op.operationId) : pascalCase(op.method + op.path);
+                                    const opIdBase = op.operationId
+                                        ? pascalCase(op.operationId)
+                                        : pascalCase(op.method + op.path);
                                     const modelName = `${opIdBase}${pascalCase(callbackName)}Request`;
                                     processDefinition(modelName, jsonContent.schema as SwaggerDefinition);
                                 }
@@ -87,20 +88,24 @@ export class TypeGenerator {
         Object.entries(links).forEach(([linkName, linkObj]) => {
             if (linkObj.parameters) {
                 const paramsName = `${pascalCase(linkName)}LinkParameters`;
-                const properties: OptionalKind<PropertySignatureStructure>[] = Object.keys(linkObj.parameters).map(key => ({
-                    name: key,
-                    type: 'string | any',
-                    docs: [`Value or expression for parameter '${key}'`]
-                }));
+                const properties: OptionalKind<PropertySignatureStructure>[] = Object.keys(linkObj.parameters).map(
+                    key => ({
+                        name: key,
+                        type: 'string | any',
+                        docs: [`Value or expression for parameter '${key}'`],
+                    }),
+                );
 
                 sourceFile.addInterface({
                     name: paramsName,
                     isExported: true,
                     properties: properties,
-                    docs: [{
-                        description: `Parameters for the '${linkName}' link.`,
-                        tags: [{ tagName: 'see', text: 'linkObject' }]
-                    }]
+                    docs: [
+                        {
+                            description: `Parameters for the '${linkName}' link.`,
+                            tags: [{ tagName: 'see', text: 'linkObject' }],
+                        },
+                    ],
                 });
             }
         });
@@ -135,14 +140,21 @@ export class TypeGenerator {
                                 schema = { type: resolvedHeader.type, format: resolvedHeader.format } as any;
                             }
 
-                            const type = getTypeScriptType(schema, this.config, this.parser.schemas.map(s => s.name));
-                            const safeName = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(headerName) ? headerName : `'${headerName}'`;
+                            const type = getTypeScriptType(
+                                schema,
+                                this.config,
+                                this.parser.schemas.map(s => s.name),
+                            );
+                            const safeName = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(headerName)
+                                ? headerName
+                                : `'${headerName}'`;
 
                             // Updated logic: Build JSDoc structure explicitly
                             const jsDocs: OptionalKind<JSDocStructure>[] = [];
                             if (resolvedHeader.description || resolvedHeader.deprecated) {
                                 const doc: OptionalKind<JSDocStructure> = {};
-                                if (resolvedHeader.description) doc.description = sanitizeComment(resolvedHeader.description);
+                                if (resolvedHeader.description)
+                                    doc.description = sanitizeComment(resolvedHeader.description);
                                 if (resolvedHeader.deprecated) doc.tags = [{ tagName: 'deprecated' }];
                                 jsDocs.push(doc);
                             }
@@ -151,7 +163,7 @@ export class TypeGenerator {
                                 name: safeName,
                                 type: type,
                                 hasQuestionToken: !resolvedHeader.required,
-                                docs: jsDocs
+                                docs: jsDocs,
                             });
                         }
 
@@ -160,7 +172,9 @@ export class TypeGenerator {
                                 name: interfaceName,
                                 isExported: true,
                                 properties: properties,
-                                docs: [`Response headers for operation '${op.operationId || op.method + ' ' + op.path}' with status ${code}.`]
+                                docs: [
+                                    `Response headers for operation '${op.operationId || op.method + ' ' + op.path}' with status ${code}.`,
+                                ],
                             });
                         }
                     }
@@ -187,7 +201,7 @@ export class TypeGenerator {
                 name: pascalCase(name),
                 isExported: true,
                 type: 'any',
-                docs: this.buildJSDoc(def)
+                docs: this.buildJSDoc(def),
             });
             return;
         }
@@ -198,8 +212,8 @@ export class TypeGenerator {
             sourceFile.addTypeAlias({
                 name: pascalCase(name),
                 isExported: true,
-                type: values.map(v => typeof v === 'string' ? `'${v}'` : v).join(' | '),
-                docs: this.buildJSDoc(def)
+                type: values.map(v => (typeof v === 'string' ? `'${v}'` : v)).join(' | '),
+                docs: this.buildJSDoc(def),
             });
         } else {
             sourceFile.addEnum({
@@ -211,18 +225,22 @@ export class TypeGenerator {
                     const safeKey = /^[0-9]/.test(key) ? `_${key}` : key;
                     return { name: safeKey, value: v as string };
                 }),
-                docs: this.buildJSDoc(def)
+                docs: this.buildJSDoc(def),
             });
         }
     }
 
     private generateTypeAlias(sourceFile: SourceFile, name: string, def: SwaggerDefinition): void {
-        const type = getTypeScriptType(def, this.config, this.parser.schemas.map(s => s.name));
+        const type = getTypeScriptType(
+            def,
+            this.config,
+            this.parser.schemas.map(s => s.name),
+        );
         sourceFile.addTypeAlias({
             name: pascalCase(name),
             isExported: true,
             type: type,
-            docs: this.buildJSDoc(def)
+            docs: this.buildJSDoc(def),
         });
     }
 
@@ -233,7 +251,7 @@ export class TypeGenerator {
             name: modelName,
             isExported: true,
             properties: responseProps,
-            docs: this.buildJSDoc(def)
+            docs: this.buildJSDoc(def),
         });
         this.applyComposition(interfaceDecl, def, { excludeWriteOnly: true });
         this.applyIndexSignature(interfaceDecl, def);
@@ -246,18 +264,22 @@ export class TypeGenerator {
                 properties: requestProps,
                 docs: this.buildJSDoc({
                     ...def,
-                    description: `Model for sending ${modelName} data (excludes read-only fields).`
-                })
+                    description: `Model for sending ${modelName} data (excludes read-only fields).`,
+                }),
             });
             this.applyComposition(requestDecl, def, { excludeReadOnly: true });
             this.applyIndexSignature(requestDecl, def);
         }
     }
 
-    private applyComposition(interfaceDecl: any, def: SwaggerDefinition, options: {
-        excludeReadOnly?: boolean,
-        excludeWriteOnly?: boolean
-    }): void {
+    private applyComposition(
+        interfaceDecl: any,
+        def: SwaggerDefinition,
+        options: {
+            excludeReadOnly?: boolean;
+            excludeWriteOnly?: boolean;
+        },
+    ): void {
         if (def.allOf) {
             const extendsTypes: string[] = [];
             def.allOf.forEach(sub => {
@@ -283,22 +305,38 @@ export class TypeGenerator {
         const returnTypes: string[] = [];
 
         if (def.additionalProperties) {
-            const valueType = def.additionalProperties === true
-                ? 'any'
-                : getTypeScriptType(def.additionalProperties as SwaggerDefinition, this.config, this.parser.schemas.map(s => s.name));
+            const valueType =
+                def.additionalProperties === true
+                    ? 'any'
+                    : getTypeScriptType(
+                          def.additionalProperties as SwaggerDefinition,
+                          this.config,
+                          this.parser.schemas.map(s => s.name),
+                      );
             returnTypes.push(valueType);
         }
 
         if (def.unevaluatedProperties) {
-            const valueType = def.unevaluatedProperties === true
-                ? 'any'
-                : getTypeScriptType(def.unevaluatedProperties as SwaggerDefinition, this.config, this.parser.schemas.map(s => s.name));
+            const valueType =
+                def.unevaluatedProperties === true
+                    ? 'any'
+                    : getTypeScriptType(
+                          def.unevaluatedProperties as SwaggerDefinition,
+                          this.config,
+                          this.parser.schemas.map(s => s.name),
+                      );
             returnTypes.push(valueType);
         }
 
         if (def.patternProperties) {
             Object.values(def.patternProperties).forEach(p => {
-                returnTypes.push(getTypeScriptType(p, this.config, this.parser.schemas.map(s => s.name)));
+                returnTypes.push(
+                    getTypeScriptType(
+                        p,
+                        this.config,
+                        this.parser.schemas.map(s => s.name),
+                    ),
+                );
             });
         }
 
@@ -309,22 +347,29 @@ export class TypeGenerator {
             interfaceDecl.addIndexSignature({
                 keyName: 'key',
                 keyType: 'string',
-                returnType
+                returnType,
             });
         }
     }
 
-    private getInterfaceProperties(def: SwaggerDefinition, options: {
-        excludeReadOnly?: boolean,
-        excludeWriteOnly?: boolean
-    }): OptionalKind<PropertySignatureStructure>[] {
+    private getInterfaceProperties(
+        def: SwaggerDefinition,
+        options: {
+            excludeReadOnly?: boolean;
+            excludeWriteOnly?: boolean;
+        },
+    ): OptionalKind<PropertySignatureStructure>[] {
         const props: OptionalKind<PropertySignatureStructure>[] = [];
         if (def.properties) {
             Object.entries(def.properties).forEach(([propName, propDef]) => {
                 if (options.excludeReadOnly && propDef.readOnly) return;
                 if (options.excludeWriteOnly && propDef.writeOnly) return;
 
-                const type = getTypeScriptType(propDef, this.config, this.parser.schemas.map(s => s.name));
+                const type = getTypeScriptType(
+                    propDef,
+                    this.config,
+                    this.parser.schemas.map(s => s.name),
+                );
                 const isRequired = def.required?.includes(propName);
                 const safeName = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(propName) ? propName : `'${propName}'`;
 
@@ -333,7 +378,7 @@ export class TypeGenerator {
                     type: type,
                     hasQuestionToken: !isRequired,
                     docs: this.buildJSDoc(propDef),
-                    ...(options.excludeWriteOnly && !!propDef.readOnly && { isReadonly: true })
+                    ...(options.excludeWriteOnly && !!propDef.readOnly && { isReadonly: true }),
                 });
             });
         }

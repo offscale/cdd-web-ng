@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+
 import { Project } from 'ts-morph';
-import { TypeGenerator } from "@src/generators/shared/type.generator.js";
+
+import { TypeGenerator } from '@src/generators/shared/type.generator.js';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from "@src/core/types/index.js";
+import { GeneratorConfig } from '@src/core/types/index.js';
 
 const callbackSpec = {
     openapi: '3.0.0',
@@ -14,9 +16,9 @@ const callbackSpec = {
                 requestBody: {
                     content: {
                         'application/json': {
-                            schema: { type: 'object', properties: { callbackUrl: { type: 'string' } } }
-                        }
-                    }
+                            schema: { type: 'object', properties: { callbackUrl: { type: 'string' } } },
+                        },
+                    },
                 },
                 callbacks: {
                     onData: {
@@ -29,19 +31,19 @@ const callbackSpec = {
                                                 type: 'object',
                                                 properties: {
                                                     timestamp: { type: 'string', format: 'date-time' },
-                                                    data: { type: 'string' }
-                                                }
-                                            }
-                                        }
-                                    }
+                                                    data: { type: 'string' },
+                                                },
+                                            },
+                                        },
+                                    },
                                 },
-                                responses: { '200': { description: 'OK' } }
-                            }
-                        }
-                    }
+                                responses: { '200': { description: 'OK' } },
+                            },
+                        },
+                    },
                 },
-                responses: { '201': { description: 'Subscription created' } }
-            }
+                responses: { '201': { description: 'Subscription created' } },
+            },
         },
         '/complex-callback': {
             post: {
@@ -53,18 +55,18 @@ const callbackSpec = {
                                 requestBody: {
                                     content: {
                                         'application/json': {
-                                            schema: { $ref: '#/components/schemas/ComplexPayload' }
-                                        }
-                                    }
+                                            schema: { $ref: '#/components/schemas/ComplexPayload' },
+                                        },
+                                    },
                                 },
-                                responses: { '200': {} }
-                            }
-                        }
-                    }
+                                responses: { '200': {} },
+                            },
+                        },
+                    },
                 },
-                responses: { '200': {} }
-            }
-        }
+                responses: { '200': {} },
+            },
+        },
     },
     components: {
         schemas: {
@@ -72,11 +74,11 @@ const callbackSpec = {
                 type: 'object',
                 properties: {
                     id: { type: 'integer' },
-                    status: { type: 'string' }
-                }
-            }
-        }
-    }
+                    status: { type: 'string' },
+                },
+            },
+        },
+    },
 };
 
 describe('Emitter: TypeGenerator (Callbacks)', () => {

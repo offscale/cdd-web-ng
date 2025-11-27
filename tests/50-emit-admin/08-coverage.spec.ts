@@ -4,9 +4,9 @@ import { Project } from 'ts-morph';
 
 import { discoverAdminResources } from '@src/generators/angular/admin/resource-discovery.js';
 import { SwaggerParser } from '@src/core/parser.js';
-import { Resource } from "@src/core/types/index.js";
-import { ListComponentGenerator } from "@src/generators/angular/admin/list-component.generator.js";
-import { FormComponentGenerator } from "@src/generators/angular/admin/form-component.generator.js";
+import { Resource } from '@src/core/types/index.js';
+import { ListComponentGenerator } from '@src/generators/angular/admin/list-component.generator.js';
+import { FormComponentGenerator } from '@src/generators/angular/admin/form-component.generator.js';
 
 import { coverageSpecPart2 } from '../shared/specs.js';
 import { createTestProject } from '../shared/helpers.js';
@@ -26,28 +26,36 @@ const formGenCoverageSpec = {
                 tags: ['UpdateOnly'],
                 operationId: 'updateTheThing',
                 parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-                requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/UpdateOnly' } } } },
+                requestBody: {
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/UpdateOnly' } } },
+                },
                 responses: { '200': {} },
             },
             get: {
                 tags: ['UpdateOnly'],
                 operationId: 'getTheThing',
                 parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-                responses: { '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/UpdateOnly' } } } } },
+                responses: {
+                    '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/UpdateOnly' } } } },
+                },
             },
         },
         '/poly-mixed': {
             post: {
                 tags: ['PolyMixed'],
                 operationId: 'createPolyMixed',
-                requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/PolyMixed' } } } },
+                requestBody: {
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/PolyMixed' } } },
+                },
                 responses: { '201': {} },
             },
         },
         '/no-submit/{id}': {
             get: {
                 tags: ['NoSubmit'],
-                responses: { '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/NoSubmit' } } } } }
+                responses: {
+                    '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/NoSubmit' } } } },
+                },
             },
             delete: { tags: ['NoSubmit'], parameters: [{ name: 'id', in: 'path' }], responses: { '204': {} } }, // isEditable = true if we add custom action
         },
@@ -56,25 +64,29 @@ const formGenCoverageSpec = {
                 tags: ['NoSubmit'],
                 operationId: 'customAction',
                 parameters: [{ name: 'id', in: 'path' }],
-                responses: { '200': {} }
-            }
+                responses: { '200': {} },
+            },
         },
         '/simple-form/{id}': {
             get: {
                 tags: ['SimpleForm'],
-                responses: { '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/Simple' } } } } }
+                responses: {
+                    '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/Simple' } } } },
+                },
             },
             put: {
                 tags: ['SimpleForm'],
                 parameters: [{ name: 'id', in: 'path' }],
                 requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/Simple' } } } },
-                responses: { '200': {} }
+                responses: { '200': {} },
             },
         },
         '/poly-primitive-only': {
             post: {
                 tags: ['PolyPrimitiveOnly'],
-                requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/PolyPrimitiveOnly' } } } },
+                requestBody: {
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/PolyPrimitiveOnly' } } },
+                },
                 responses: { '201': {} },
             },
         },
@@ -112,7 +124,6 @@ const formGenCoverageSpec = {
 };
 
 describe('Admin Generators (Coverage)', () => {
-
     it('resource-discovery should use fallback action name when no operationId is present', () => {
         const parser = new SwaggerParser(coverageSpecPart2 as any, { options: {} } as any);
         const resources = discoverAdminResources(parser);
@@ -143,7 +154,8 @@ describe('Admin Generators (Coverage)', () => {
             if (lowerAction.includes('add') || lowerAction.includes('create')) return 'add';
             if (lowerAction.includes('start') || lowerAction.includes('play')) return 'play_arrow';
             if (lowerAction.includes('stop') || lowerAction.includes('pause')) return 'pause';
-            if (lowerAction.includes('reboot') || lowerAction.includes('refresh') || lowerAction.includes('sync')) return 'refresh';
+            if (lowerAction.includes('reboot') || lowerAction.includes('refresh') || lowerAction.includes('sync'))
+                return 'refresh';
             if (lowerAction.includes('approve') || lowerAction.includes('check')) return 'check';
             if (lowerAction.includes('cancel') || lowerAction.includes('block')) return 'block';
             return 'play_arrow';
@@ -160,8 +172,8 @@ describe('Admin Generators (Coverage)', () => {
             openapi: '3.0.0',
             info: { title: 'Test', version: '1.0' },
             paths: {
-                '/reports': { get: { tags: ['Reports'], responses: { '200': { description: 'ok' } } } }
-            }
+                '/reports': { get: { tags: ['Reports'], responses: { '200': { description: 'ok' } } } },
+            },
         };
         const project = createTestProject();
         const parser = new SwaggerParser(spec as any, { options: { admin: true } } as any);
@@ -170,7 +182,9 @@ describe('Admin Generators (Coverage)', () => {
 
         generator.generate(resource, '/admin');
 
-        const listClass = project.getSourceFileOrThrow('/admin/reports/reports-list/reports-list.component.ts').getClassOrThrow('ReportsListComponent');
+        const listClass = project
+            .getSourceFileOrThrow('/admin/reports/reports-list/reports-list.component.ts')
+            .getClassOrThrow('ReportsListComponent');
         const displayedColumns = listClass.getProperty('displayedColumns')?.getInitializer()?.getText() as string;
 
         // This ensures the `if (hasActions)` branch is correctly NOT taken.
@@ -188,28 +202,30 @@ describe('Admin Generators (Coverage)', () => {
                         responses: {
                             '200': {
                                 content: {
-                                    'application/json': { schema: { $ref: '#/components/schemas/DiagnosticInfo' } }
-                                }
-                            }
-                        }
-                    }
-                }
+                                    'application/json': { schema: { $ref: '#/components/schemas/DiagnosticInfo' } },
+                                },
+                            },
+                        },
+                    },
+                },
             },
             components: {
                 schemas: {
                     DiagnosticInfo: {
                         type: 'object',
-                        properties: { event_id: { type: 'string' }, message: { type: 'string' } }
-                    }
-                }
-            }
+                        properties: { event_id: { type: 'string' }, message: { type: 'string' } },
+                    },
+                },
+            },
         };
         const project = createTestProject();
         const parser = new SwaggerParser(spec as any, { options: { admin: true } } as any);
         const resource = discoverAdminResources(parser).find((r: Resource) => r.name === 'diagnostics')!;
         const generator = new ListComponentGenerator(project);
         generator.generate(resource, '/admin');
-        const listClass = project.getSourceFileOrThrow('/admin/diagnostics/diagnostics-list/diagnostics-list.component.ts').getClassOrThrow('DiagnosticsListComponent');
+        const listClass = project
+            .getSourceFileOrThrow('/admin/diagnostics/diagnostics-list/diagnostics-list.component.ts')
+            .getClassOrThrow('DiagnosticsListComponent');
         const displayedColumns = listClass.getProperty('displayedColumns')?.getInitializer()?.getText() as string;
         expect(displayedColumns).not.toContain('actions');
         const idProperty = listClass.getProperty('idProperty')?.getInitializer()?.getText() as string;
@@ -235,17 +251,23 @@ describe('Admin: FormComponentGenerator (Coverage)', () => {
     });
 
     it('should generate update-only logic in onSubmit when no create op exists', () => {
-        const formClass = project.getSourceFileOrThrow('/admin/updateOnly/updateOnly-form/updateOnly-form.component.ts').getClassOrThrow('UpdateOnlyFormComponent');
+        const formClass = project
+            .getSourceFileOrThrow('/admin/updateOnly/updateOnly-form/updateOnly-form.component.ts')
+            .getClassOrThrow('UpdateOnlyFormComponent');
         const submitMethod = formClass.getMethod('onSubmit');
         const body = submitMethod!.getBodyText() ?? '';
 
-        expect(body).toContain(`if (!this.isEditMode()) { console.error('Form is not in edit mode, but no create operation is available.'); return; }`);
+        expect(body).toContain(
+            `if (!this.isEditMode()) { console.error('Form is not in edit mode, but no create operation is available.'); return; }`,
+        );
         expect(body).toContain('const action$ = this.updateOnlyService.updateTheThing(this.id()!, finalPayload);');
         expect(body).not.toContain('const action$ = this.isEditMode()');
     });
 
     it('should handle polymorphic schemas with mixed primitive and object types', () => {
-        const formClass = project.getSourceFileOrThrow('/admin/polyMixed/polyMixed-form/polyMixed-form.component.ts').getClassOrThrow('PolyMixedFormComponent');
+        const formClass = project
+            .getSourceFileOrThrow('/admin/polyMixed/polyMixed-form/polyMixed-form.component.ts')
+            .getClassOrThrow('PolyMixedFormComponent');
 
         const patchMethod = formClass.getMethod('patchForm');
         expect(patchMethod).toBeDefined();
@@ -259,13 +281,17 @@ describe('Admin: FormComponentGenerator (Coverage)', () => {
     });
 
     it('should not generate onSubmit for editable resource with no create/update ops', () => {
-        const formClass = project.getSourceFileOrThrow('/admin/noSubmit/noSubmit-form/noSubmit-form.component.ts').getClassOrThrow('NoSubmitFormComponent');
+        const formClass = project
+            .getSourceFileOrThrow('/admin/noSubmit/noSubmit-form/noSubmit-form.component.ts')
+            .getClassOrThrow('NoSubmitFormComponent');
         const submitMethod = formClass.getMethod('onSubmit');
         expect(submitMethod).toBeUndefined(); // Hits the early return
     });
 
     it('should not generate patchForm for simple forms', () => {
-        const formClass = project.getSourceFileOrThrow('/admin/simpleForm/simpleForm-form/simpleForm-form.component.ts').getClassOrThrow('SimpleFormComponent');
+        const formClass = project
+            .getSourceFileOrThrow('/admin/simpleForm/simpleForm-form/simpleForm-form.component.ts')
+            .getClassOrThrow('SimpleFormComponent');
         const patchMethod = formClass.getMethod('patchForm');
         expect(patchMethod).toBeUndefined(); // Hits the early return
 
@@ -275,7 +301,9 @@ describe('Admin: FormComponentGenerator (Coverage)', () => {
     });
 
     it('should generate an empty update method body for polymorphism with only primitives', () => {
-        const formClass = project.getSourceFileOrThrow('/admin/polyPrimitiveOnly/polyPrimitiveOnly-form/polyPrimitiveOnly-form.component.ts').getClassOrThrow('PolyPrimitiveOnlyFormComponent');
+        const formClass = project
+            .getSourceFileOrThrow('/admin/polyPrimitiveOnly/polyPrimitiveOnly-form/polyPrimitiveOnly-form.component.ts')
+            .getClassOrThrow('PolyPrimitiveOnlyFormComponent');
         const updateMethod = formClass.getMethod('updateFormForType');
         expect(updateMethod).toBeDefined();
         // The method body is an empty block statement `{}`, which getBodyText() returns with spaces.
@@ -283,7 +311,9 @@ describe('Admin: FormComponentGenerator (Coverage)', () => {
     });
 
     it('should strip readOnly properties in getPayload', () => {
-        const formClass = project.getSourceFileOrThrow('/admin/updateOnly/updateOnly-form/updateOnly-form.component.ts').getClassOrThrow('UpdateOnlyFormComponent');
+        const formClass = project
+            .getSourceFileOrThrow('/admin/updateOnly/updateOnly-form/updateOnly-form.component.ts')
+            .getClassOrThrow('UpdateOnlyFormComponent');
         const payloadMethod = formClass.getMethodOrThrow('getPayload');
         const body = payloadMethod.getBodyText() ?? '';
 

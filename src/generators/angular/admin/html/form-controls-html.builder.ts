@@ -1,8 +1,8 @@
-import { FormControlModel } from "@src/analysis/form-types.js";
-import { SwaggerDefinition } from "@src/core/types/index.js";
-import { camelCase, pascalCase, singular } from "@src/core/utils/index.js";
+import { FormControlModel } from '@src/analysis/form-types.js';
+import { SwaggerDefinition } from '@src/core/types/index.js';
+import { camelCase, pascalCase, singular } from '@src/core/utils/index.js';
 
-import { HtmlElementBuilder, HtmlElementBuilder as _ } from "../html-element.builder.js";
+import { HtmlElementBuilder, HtmlElementBuilder as _ } from '../html-element.builder.js';
 
 /**
  * Generates an array of <mat-error> HtmlElementBuilder instances based on the
@@ -16,49 +16,109 @@ export function buildErrorMessages(control: FormControlModel): HtmlElementBuilde
     for (const rule of control.validationRules) {
         switch (rule.type) {
             case 'required':
-                errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${control.name}')?.hasError('required')) { This field is required. }`));
+                errors.push(
+                    _.create('mat-error').setInnerHtml(
+                        `@if (form.get('${control.name}')?.hasError('required')) { This field is required. }`,
+                    ),
+                );
                 break;
             case 'minLength':
-                errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${control.name}')?.hasError('minlength')) { Must be at least ${rule.value} characters long. }`));
+                errors.push(
+                    _.create('mat-error').setInnerHtml(
+                        `@if (form.get('${control.name}')?.hasError('minlength')) { Must be at least ${rule.value} characters long. }`,
+                    ),
+                );
                 break;
             case 'maxLength':
-                errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${control.name}')?.hasError('maxlength')) { Cannot exceed ${rule.value} characters. }`));
+                errors.push(
+                    _.create('mat-error').setInnerHtml(
+                        `@if (form.get('${control.name}')?.hasError('maxlength')) { Cannot exceed ${rule.value} characters. }`,
+                    ),
+                );
                 break;
             case 'min':
-                errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${control.name}')?.hasError('min')) { Value must be at least ${rule.value}. }`));
+                errors.push(
+                    _.create('mat-error').setInnerHtml(
+                        `@if (form.get('${control.name}')?.hasError('min')) { Value must be at least ${rule.value}. }`,
+                    ),
+                );
                 break;
             case 'max':
-                errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${control.name}')?.hasError('max')) { Value cannot exceed ${rule.value}. }`));
+                errors.push(
+                    _.create('mat-error').setInnerHtml(
+                        `@if (form.get('${control.name}')?.hasError('max')) { Value cannot exceed ${rule.value}. }`,
+                    ),
+                );
                 break;
             case 'exclusiveMinimum':
-                errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${control.name}')?.hasError('exclusiveMinimum')) { Value must be greater than ${rule.value}. }`));
+                errors.push(
+                    _.create('mat-error').setInnerHtml(
+                        `@if (form.get('${control.name}')?.hasError('exclusiveMinimum')) { Value must be greater than ${rule.value}. }`,
+                    ),
+                );
                 break;
             case 'exclusiveMaximum':
-                errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${control.name}')?.hasError('exclusiveMaximum')) { Value must be less than ${rule.value}. }`));
+                errors.push(
+                    _.create('mat-error').setInnerHtml(
+                        `@if (form.get('${control.name}')?.hasError('exclusiveMaximum')) { Value must be less than ${rule.value}. }`,
+                    ),
+                );
                 break;
             case 'pattern':
-                errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${control.name}')?.hasError('pattern')) { Invalid format. }`));
+                errors.push(
+                    _.create('mat-error').setInnerHtml(
+                        `@if (form.get('${control.name}')?.hasError('pattern')) { Invalid format. }`,
+                    ),
+                );
                 break;
             case 'email':
-                errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${control.name}')?.hasError('email')) { Please enter a valid email address. }`));
+                errors.push(
+                    _.create('mat-error').setInnerHtml(
+                        `@if (form.get('${control.name}')?.hasError('email')) { Please enter a valid email address. }`,
+                    ),
+                );
                 break;
             case 'multipleOf':
-                errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${control.name}')?.hasError('multipleOf')) { Value must be a multiple of ${rule.value}. }`));
+                errors.push(
+                    _.create('mat-error').setInnerHtml(
+                        `@if (form.get('${control.name}')?.hasError('multipleOf')) { Value must be a multiple of ${rule.value}. }`,
+                    ),
+                );
                 break;
             case 'uniqueItems':
-                errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${control.name}')?.hasError('uniqueItems')) { All items must be unique. }`));
+                errors.push(
+                    _.create('mat-error').setInnerHtml(
+                        `@if (form.get('${control.name}')?.hasError('uniqueItems')) { All items must be unique. }`,
+                    ),
+                );
                 break;
             case 'minItems':
-                errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${control.name}')?.hasError('minlength')) { Must contain at least ${rule.value} items. }`));
+                errors.push(
+                    _.create('mat-error').setInnerHtml(
+                        `@if (form.get('${control.name}')?.hasError('minlength')) { Must contain at least ${rule.value} items. }`,
+                    ),
+                );
                 break;
             case 'maxItems':
-                errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${control.name}')?.hasError('maxlength')) { Cannot contain more than ${rule.value} items. }`));
+                errors.push(
+                    _.create('mat-error').setInnerHtml(
+                        `@if (form.get('${control.name}')?.hasError('maxlength')) { Cannot contain more than ${rule.value} items. }`,
+                    ),
+                );
                 break;
             case 'const':
-                errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${control.name}')?.hasError('const')) { Value must be {{ form.get('${control.name}')?.errors?.['const'].required }}. }`));
+                errors.push(
+                    _.create('mat-error').setInnerHtml(
+                        `@if (form.get('${control.name}')?.hasError('const')) { Value must be {{ form.get('${control.name}')?.errors?.['const'].required }}. }`,
+                    ),
+                );
                 break;
             case 'not':
-                errors.push(_.create('mat-error').setInnerHtml(`@if (form.get('${control.name}')?.hasError('not')) { Value matches a restricted format. }`));
+                errors.push(
+                    _.create('mat-error').setInnerHtml(
+                        `@if (form.get('${control.name}')?.hasError('not')) { Value matches a restricted format. }`,
+                    ),
+                );
                 break;
         }
     }
@@ -76,16 +136,25 @@ export function buildFormControl(control: FormControlModel): HtmlElementBuilder 
 
     switch (control.schema.type) {
         case 'string':
-            if (control.schema.format === 'date' || control.schema.format === 'date-time') return createDatepicker(control, labelText);
+            if (control.schema.format === 'date' || control.schema.format === 'date-time')
+                return createDatepicker(control, labelText);
             if (control.schema.format === 'binary') return createFile(control, labelText);
             if (control.schema.format === 'textarea') return createTextarea(control, labelText);
-            if (control.schema.enum) return control.schema.enum.length > 4 ? createSelect(control, labelText, `${camelCase(control.name)}Options`, false) : createRadio(control, labelText, `${camelCase(control.name)}Options`);
+            if (control.schema.enum)
+                return control.schema.enum.length > 4
+                    ? createSelect(control, labelText, `${camelCase(control.name)}Options`, false)
+                    : createRadio(control, labelText, `${camelCase(control.name)}Options`);
             return createInput(control, labelText, 'text');
         case 'boolean':
             return createToggle(control, labelText);
         case 'integer':
         case 'number':
-            if (control.schema.minimum !== undefined && control.schema.maximum !== undefined && !control.schema.exclusiveMinimum && !control.schema.exclusiveMaximum) {
+            if (
+                control.schema.minimum !== undefined &&
+                control.schema.maximum !== undefined &&
+                !control.schema.exclusiveMinimum &&
+                !control.schema.exclusiveMaximum
+            ) {
                 return createSlider(control, labelText, control.schema.minimum, control.schema.maximum);
             }
             return createInput(control, labelText, 'number');
@@ -123,17 +192,30 @@ function createDatepicker(control: FormControlModel, label: string): HtmlElement
     const pickerId = `picker_${control.name}`;
     const field = _.create('mat-form-field');
     field.appendChild(_.create('mat-label').setTextContent(label));
-    field.appendChild(_.create('input').setAttribute('matInput', '').setAttribute(`[matDatepicker]`, pickerId).setAttribute('formControlName', control.name).selfClosing());
+    field.appendChild(
+        _.create('input')
+            .setAttribute('matInput', '')
+            .setAttribute(`[matDatepicker]`, pickerId)
+            .setAttribute('formControlName', control.name)
+            .selfClosing(),
+    );
     field.appendChild(_.create('mat-datepicker-toggle').setAttribute('matSuffix', '').setAttribute('[for]', pickerId));
     field.appendChild(_.create('mat-datepicker').setAttribute(`#${pickerId}`, ''));
     return field;
 }
 
-function createSelect(control: FormControlModel, label: string, optionsName: string, isMultiple: boolean): HtmlElementBuilder {
+function createSelect(
+    control: FormControlModel,
+    label: string,
+    optionsName: string,
+    isMultiple: boolean,
+): HtmlElementBuilder {
     const field = _.create('mat-form-field');
     const select = _.create('mat-select').setAttribute('formControlName', control.name);
     if (isMultiple) select.setAttribute('multiple', '');
-    select.setInnerHtml(`@for (option of ${optionsName}; track option) {\n  <mat-option [value]="option">{{option}}</mat-option>\n}`);
+    select.setInnerHtml(
+        `@for (option of ${optionsName}; track option) {\n  <mat-option [value]="option">{{option}}</mat-option>\n}`,
+    );
     field.appendChild(_.create('mat-label').setTextContent(label));
     field.appendChild(select);
     return field;
@@ -143,16 +225,35 @@ function createFile(control: FormControlModel, label: string): HtmlElementBuilde
     const inputId = `fileInput_${control.name}`;
     const container = _.create('div').addClass('admin-file-input');
     container.appendChild(_.create('span').addClass('mat-body-1').setTextContent(label));
-    container.appendChild(_.create('input').setAttribute('type', 'file').setAttribute(`#${inputId}`, '').setAttribute('(change)', `onFileSelected($event, '${control.name}')`).setAttribute('style', 'display: none;').selfClosing());
-    container.appendChild(_.create('button').setAttribute('mat-stroked-button', '').setAttribute('type', 'button').setAttribute('(click)', `${inputId}.click()`).setTextContent('Choose File'));
-    container.appendChild(_.create('span').addClass('file-name').setTextContent(`{{ form.get('${control.name}')?.value?.name || 'No file selected' }}`));
+    container.appendChild(
+        _.create('input')
+            .setAttribute('type', 'file')
+            .setAttribute(`#${inputId}`, '')
+            .setAttribute('(change)', `onFileSelected($event, '${control.name}')`)
+            .setAttribute('style', 'display: none;')
+            .selfClosing(),
+    );
+    container.appendChild(
+        _.create('button')
+            .setAttribute('mat-stroked-button', '')
+            .setAttribute('type', 'button')
+            .setAttribute('(click)', `${inputId}.click()`)
+            .setTextContent('Choose File'),
+    );
+    container.appendChild(
+        _.create('span')
+            .addClass('file-name')
+            .setTextContent(`{{ form.get('${control.name}')?.value?.name || 'No file selected' }}`),
+    );
     return container;
 }
 
 function createRadio(control: FormControlModel, label: string, optionsName: string): HtmlElementBuilder {
     const group = _.create('div').addClass('admin-radio-group');
     const radioGroup = _.create('mat-radio-group').setAttribute('formControlName', control.name);
-    radioGroup.setInnerHtml(`@for (option of ${optionsName}; track option) { <mat-radio-button [value]="option">{{option}}</mat-radio-button> }`);
+    radioGroup.setInnerHtml(
+        `@for (option of ${optionsName}; track option) { <mat-radio-button [value]="option">{{option}}</mat-radio-button> }`,
+    );
     group.appendChild(_.create('label').addClass('mat-label').setTextContent(label));
     group.appendChild(radioGroup);
     return group;
@@ -171,14 +272,25 @@ function createToggle(control: FormControlModel, label: string): HtmlElementBuil
 function createSlider(control: FormControlModel, label: string, min: any, max: any): HtmlElementBuilder {
     const container = _.create('div').addClass('admin-slider-container');
     container.appendChild(_.create('label').addClass('mat-label').setTextContent(label));
-    container.appendChild(_.create('mat-slider').setAttribute('min', String(min)).setAttribute('max', String(max)).setAttribute('discrete', '').setAttribute('showTickMarks', '').setAttribute('formControlName', control.name));
+    container.appendChild(
+        _.create('mat-slider')
+            .setAttribute('min', String(min))
+            .setAttribute('max', String(max))
+            .setAttribute('discrete', '')
+            .setAttribute('showTickMarks', '')
+            .setAttribute('formControlName', control.name),
+    );
     return container;
 }
 
 function createChips(control: FormControlModel, label: string): HtmlElementBuilder {
     const field = _.create('mat-form-field');
-    const chipGrid = _.create('mat-chip-grid').setAttribute('formControlName', control.name).setAttribute(`#chipGrid_${control.name}`, '');
-    chipGrid.setInnerHtml(`@for (item of form.get('${control.name}')?.value; track item) {\n  <mat-chip-row>{{item}}</mat-chip-row>\n}`);
+    const chipGrid = _.create('mat-chip-grid')
+        .setAttribute('formControlName', control.name)
+        .setAttribute(`#chipGrid_${control.name}`, '');
+    chipGrid.setInnerHtml(
+        `@for (item of form.get('${control.name}')?.value; track item) {\n  <mat-chip-row>{{item}}</mat-chip-row>\n}`,
+    );
     field.appendChild(_.create('mat-label').setTextContent(label));
     field.appendChild(chipGrid);
     buildErrorMessages(control).forEach(error => field.appendChild(error));
@@ -208,7 +320,10 @@ function createFormArray(control: FormControlModel, label: string): HtmlElementB
     const container = _.create('div').addClass('admin-form-array');
     container.appendChild(_.create('h3').setTextContent(label));
     const arrayContainer = _.create('div').setAttribute('formArrayName', control.name);
-    const itemContainer = _.create('div').setAttribute('@for', `item of ${camelCase(control.name)}Array.controls; track $index; let i = $index;`);
+    const itemContainer = _.create('div').setAttribute(
+        '@for',
+        `item of ${camelCase(control.name)}Array.controls; track $index; let i = $index;`,
+    );
     itemContainer.setAttribute('[formGroupName]', 'i');
 
     if (control.nestedControls) {
@@ -218,10 +333,22 @@ function createFormArray(control: FormControlModel, label: string): HtmlElementB
         }
     }
 
-    itemContainer.appendChild(_.create('button').setAttribute('mat-icon-button', '').setAttribute('color', 'warn').setAttribute('(click)', `remove${pascalCase(singular(control.name))}(i)`).appendChild(_.create('mat-icon').setTextContent('delete')));
+    itemContainer.appendChild(
+        _.create('button')
+            .setAttribute('mat-icon-button', '')
+            .setAttribute('color', 'warn')
+            .setAttribute('(click)', `remove${pascalCase(singular(control.name))}(i)`)
+            .appendChild(_.create('mat-icon').setTextContent('delete')),
+    );
     arrayContainer.appendChild(itemContainer);
     container.appendChild(arrayContainer);
-    container.appendChild(_.create('button').setAttribute('mat-stroked-button', '').setAttribute('type', 'button').setAttribute('(click)', `add${pascalCase(singular(control.name))}()`).setTextContent(`Add ${pascalCase(singular(control.name))}`));
+    container.appendChild(
+        _.create('button')
+            .setAttribute('mat-stroked-button', '')
+            .setAttribute('type', 'button')
+            .setAttribute('(click)', `add${pascalCase(singular(control.name))}()`)
+            .setTextContent(`Add ${pascalCase(singular(control.name))}`),
+    );
     return container;
 }
 
@@ -235,7 +362,10 @@ function createMapEditor(control: FormControlModel, label: string): HtmlElementB
     // The control name for the list getter (e.g. 'metadataMap') needs to be derived
     const mapGetter = `${camelCase(control.name)}Map`;
 
-    const loopContainer = _.create('div').setAttribute('@for', `pair of ${mapGetter}.controls; track $index; let i = $index;`);
+    const loopContainer = _.create('div').setAttribute(
+        '@for',
+        `pair of ${mapGetter}.controls; track $index; let i = $index;`,
+    );
     loopContainer.setAttribute('[formGroupName]', 'i').addClass('map-pair-row');
 
     // Key Input (Always string for now)
@@ -257,13 +387,25 @@ function createMapEditor(control: FormControlModel, label: string): HtmlElementB
     }
 
     // Remove Button
-    loopContainer.appendChild(_.create('button').setAttribute('mat-icon-button', '').setAttribute('color', 'warn').setAttribute('(click)', `remove${pascalCase(control.name)}Entry(i)`).appendChild(_.create('mat-icon').setTextContent('delete')));
+    loopContainer.appendChild(
+        _.create('button')
+            .setAttribute('mat-icon-button', '')
+            .setAttribute('color', 'warn')
+            .setAttribute('(click)', `remove${pascalCase(control.name)}Entry(i)`)
+            .appendChild(_.create('mat-icon').setTextContent('delete')),
+    );
 
     arrayContainer.appendChild(loopContainer);
     container.appendChild(arrayContainer);
 
     // Add Button
-    container.appendChild(_.create('button').setAttribute('mat-stroked-button', '').setAttribute('type', 'button').setAttribute('(click)', `add${pascalCase(control.name)}Entry()`).setTextContent(`Add Entry`));
+    container.appendChild(
+        _.create('button')
+            .setAttribute('mat-stroked-button', '')
+            .setAttribute('type', 'button')
+            .setAttribute('(click)', `add${pascalCase(control.name)}Entry()`)
+            .setTextContent(`Add Entry`),
+    );
 
     return container;
 }

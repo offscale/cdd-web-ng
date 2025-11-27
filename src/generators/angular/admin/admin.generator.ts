@@ -19,9 +19,8 @@ export class AdminGenerator {
 
     constructor(
         private parser: SwaggerParser,
-        private project: Project
-    ) {
-    }
+        private project: Project,
+    ) {}
 
     /**
      * Executes the admin generation process.

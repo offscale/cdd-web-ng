@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { Project, Scope } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from "@src/core/types/index.js";
-import { ServiceMethodGenerator } from "@src/generators/angular/service/service-method.generator.js";
-import { TypeGenerator } from "@src/generators/shared/type.generator.js";
+import { GeneratorConfig } from '@src/core/types/index.js';
+import { ServiceMethodGenerator } from '@src/generators/angular/service/service-method.generator.js';
+import { TypeGenerator } from '@src/generators/shared/type.generator.js';
 
 const xmlResponseSpec = {
     openapi: '3.0.0',
@@ -20,27 +20,26 @@ const xmlResponseSpec = {
                                     type: 'object',
                                     properties: {
                                         id: { type: 'integer', xml: { attribute: true } },
-                                        label: { type: 'string' }
+                                        label: { type: 'string' },
                                     },
-                                    xml: { name: 'DataRoot' }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+                                    xml: { name: 'DataRoot' },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
     },
-    components: {}
+    components: {},
 };
 
 describe('Emitter: ServiceMethodGenerator (XML Response Parsing)', () => {
-
     const createTestEnv = () => {
         const config: GeneratorConfig = {
             input: '',
             output: '/out',
-            options: { enumStyle: 'enum', framework: 'angular' }
+            options: { enumStyle: 'enum', framework: 'angular' },
         };
         const project = new Project({ useInMemoryFileSystem: true });
         const parser = new SwaggerParser(xmlResponseSpec as any, config);
@@ -56,13 +55,13 @@ describe('Emitter: ServiceMethodGenerator (XML Response Parsing)', () => {
             scope: Scope.Private,
             isReadonly: true,
             type: 'string',
-            initializer: "''"
+            initializer: "''",
         });
         serviceClass.addMethod({
             name: 'createContextWithClientId',
             scope: Scope.Private,
             returnType: 'any',
-            statements: 'return {};'
+            statements: 'return {};',
         });
 
         return { methodGen, serviceClass };
@@ -74,7 +73,7 @@ describe('Emitter: ServiceMethodGenerator (XML Response Parsing)', () => {
             method: 'GET',
             path: '/xml-data',
             methodName: 'getXmlData',
-            responses: xmlResponseSpec.paths['/xml-data'].get.responses
+            responses: xmlResponseSpec.paths['/xml-data'].get.responses,
         };
 
         methodGen.addServiceMethod(serviceClass, op);

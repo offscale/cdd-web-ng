@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { generateFromConfig } from '@src/index.js';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from "@src/core/types/index.js";
+import { GeneratorConfig } from '@src/core/types/index.js';
 import { coverageSpec, emptySpec } from '../shared/specs.js';
 import { createTestProject, runGeneratorWithConfig } from '../shared/helpers.js';
 
@@ -39,9 +39,11 @@ describe('E2E: Core Orchestrator Flow', () => {
         const config: GeneratorConfig = {
             input: '',
             output: '/generated',
-            options: { framework: 'react' as any } // Type cast for testing invalid runtime option
+            options: { framework: 'react' as any }, // Type cast for testing invalid runtime option
         };
 
-        await expect(generateFromConfig(config, project, { spec: emptySpec })).rejects.toThrow("React generation is not yet implemented.");
+        await expect(generateFromConfig(config, project, { spec: emptySpec })).rejects.toThrow(
+            'React generation is not yet implemented.',
+        );
     });
 });

@@ -1,69 +1,71 @@
-import { Project } from "ts-morph";
-import * as path from "node:path";
+import { Project } from 'ts-morph';
+import * as path from 'node:path';
 import { GeneratorConfig } from '@src/core/types/index.js';
-import {
-    MAIN_INDEX_GENERATOR_HEADER_COMMENT,
-    SERVICE_INDEX_GENERATOR_HEADER_COMMENT
-} from "../../../core/constants.js";
-import { SwaggerParser } from "@src/core/parser.js";
+import { MAIN_INDEX_GENERATOR_HEADER_COMMENT, SERVICE_INDEX_GENERATOR_HEADER_COMMENT } from '@src/core/constants.js';
+import { SwaggerParser } from '@src/core/parser.js';
 
 export class MainIndexGenerator {
-    constructor(private project: Project, private config: GeneratorConfig, private parser: SwaggerParser) {
-    }
+    constructor(
+        private project: Project,
+        private config: GeneratorConfig,
+        private parser: SwaggerParser,
+    ) {}
 
     public generateMainIndex(outputRoot: string): void {
-        const indexPath = path.join(outputRoot, "index.ts");
-        const sourceFile = this.project.createSourceFile(indexPath, "", { overwrite: true });
+        const indexPath = path.join(outputRoot, 'index.ts');
+        const sourceFile = this.project.createSourceFile(indexPath, '', { overwrite: true });
 
         sourceFile.insertText(0, MAIN_INDEX_GENERATOR_HEADER_COMMENT);
 
-        sourceFile.addExportDeclaration({ moduleSpecifier: "./models" });
-        sourceFile.addExportDeclaration({ moduleSpecifier: "./info" });
+        sourceFile.addExportDeclaration({ moduleSpecifier: './models' });
+        sourceFile.addExportDeclaration({ moduleSpecifier: './info' });
 
         if (this.config.options.generateServices !== false) {
             sourceFile.addExportDeclarations([
-                { moduleSpecifier: "./services" },
-                { moduleSpecifier: "./tokens" },
-                { moduleSpecifier: "./providers" },
-                { moduleSpecifier: "./utils/file-download" },
-                { moduleSpecifier: "./utils/response-header.service" },
+                { moduleSpecifier: './services' },
+                { moduleSpecifier: './tokens' },
+                { moduleSpecifier: './providers' },
+                { moduleSpecifier: './utils/file-download' },
+                { moduleSpecifier: './utils/response-header.service' },
             ]);
 
-            const hasResponseHeaders = this.parser.operations.some(op =>
-                op.responses && Object.values(op.responses).some(r => r.headers && Object.keys(r.headers).length > 0)
+            const hasResponseHeaders = this.parser.operations.some(
+                op =>
+                    op.responses &&
+                    Object.values(op.responses).some(r => r.headers && Object.keys(r.headers).length > 0),
             );
             if (hasResponseHeaders) {
-                sourceFile.addExportDeclaration({ moduleSpecifier: "./response-headers" });
+                sourceFile.addExportDeclaration({ moduleSpecifier: './response-headers' });
             }
 
             if (this.parser.servers.length > 0) {
-                sourceFile.addExportDeclaration({ moduleSpecifier: "./utils/server-url" });
+                sourceFile.addExportDeclaration({ moduleSpecifier: './utils/server-url' });
             }
 
             const hasLinks = this.parser.links && Object.keys(this.parser.links).length > 0;
-            const hasOpLinks = this.parser.operations.some(op =>
-                op.responses && Object.values(op.responses).some(r => r.links && Object.keys(r.links).length > 0)
+            const hasOpLinks = this.parser.operations.some(
+                op => op.responses && Object.values(op.responses).some(r => r.links && Object.keys(r.links).length > 0),
             );
 
             if (hasLinks || hasOpLinks) {
-                sourceFile.addExportDeclaration({ moduleSpecifier: "./links" });
-                sourceFile.addExportDeclaration({ moduleSpecifier: "./utils/link.service" });
+                sourceFile.addExportDeclaration({ moduleSpecifier: './links' });
+                sourceFile.addExportDeclaration({ moduleSpecifier: './utils/link.service' });
             }
 
-            if (this.config.options.dateType === "Date") {
-                sourceFile.addExportDeclaration({ moduleSpecifier: "./utils/date-transformer" });
+            if (this.config.options.dateType === 'Date') {
+                sourceFile.addExportDeclaration({ moduleSpecifier: './utils/date-transformer' });
             }
 
             if (Object.keys(this.parser.getSecuritySchemes()).length > 0) {
-                sourceFile.addExportDeclaration({ moduleSpecifier: "./auth/auth.tokens" });
+                sourceFile.addExportDeclaration({ moduleSpecifier: './auth/auth.tokens' });
             }
 
             // Export XmlParser/XmlBuilder
-            sourceFile.addExportDeclaration({ moduleSpecifier: "./utils/xml-builder" });
-            sourceFile.addExportDeclaration({ moduleSpecifier: "./utils/xml-parser" });
+            sourceFile.addExportDeclaration({ moduleSpecifier: './utils/xml-builder' });
+            sourceFile.addExportDeclaration({ moduleSpecifier: './utils/xml-parser' });
             // Export ContentDecoder/Encoder
-            sourceFile.addExportDeclaration({ moduleSpecifier: "./utils/content-decoder" });
-            sourceFile.addExportDeclaration({ moduleSpecifier: "./utils/content-encoder" });
+            sourceFile.addExportDeclaration({ moduleSpecifier: './utils/content-decoder' });
+            sourceFile.addExportDeclaration({ moduleSpecifier: './utils/content-encoder' });
         }
 
         sourceFile.formatText();
@@ -71,11 +73,10 @@ export class MainIndexGenerator {
 }
 
 export class ServiceIndexGenerator {
-    constructor(private project: Project) {
-    }
+    constructor(private project: Project) {}
 
     public generateIndex(outputRoot: string): void {
-        const servicesDir = path.join(outputRoot, "services");
+        const servicesDir = path.join(outputRoot, 'services');
         // Use path.resolve for robust comparison of directory paths
         const absServicesDir = path.resolve(servicesDir);
 
@@ -86,8 +87,8 @@ export class ServiceIndexGenerator {
 
         if (serviceFiles.length === 0) return;
 
-        const indexPath = path.join(servicesDir, "index.ts");
-        const sourceFile = this.project.createSourceFile(indexPath, "", { overwrite: true });
+        const indexPath = path.join(servicesDir, 'index.ts');
+        const sourceFile = this.project.createSourceFile(indexPath, '', { overwrite: true });
 
         sourceFile.insertText(0, SERVICE_INDEX_GENERATOR_HEADER_COMMENT);
 

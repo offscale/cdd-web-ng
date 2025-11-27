@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { ReferenceResolver } from '@src/core/parser/reference-resolver.js';
-import { SwaggerSpec } from "@src/core/types/index.js";
+import { SwaggerSpec } from '@src/core/types/index.js';
 
 describe('Core: ReferenceResolver', () => {
     let cache: Map<string, SwaggerSpec>;
@@ -21,8 +22,8 @@ describe('Core: ReferenceResolver', () => {
         it('should index standard $id and anchors', () => {
             const spec = {
                 schemas: {
-                    User: { $id: 'http://example.com/user', $anchor: 'local', $dynamicAnchor: 'dyn' }
-                }
+                    User: { $id: 'http://example.com/user', $anchor: 'local', $dynamicAnchor: 'dyn' },
+                },
             };
             ReferenceResolver.indexSchemaIds(spec, rootUri, cache);
             expect(cache.has('http://example.com/user')).toBe(true);
@@ -44,8 +45,7 @@ describe('Core: ReferenceResolver', () => {
         });
 
         it('should return undefined and warn when traversal fails on missing property', () => {
-            const spy = vi.spyOn(console, 'warn').mockImplementation(() => {
-            });
+            const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
             cache.set(rootUri, { nested: {} } as any);
             const res = resolver.resolveReference('#/nested/missing');
             expect(res).toBeUndefined();
@@ -53,8 +53,7 @@ describe('Core: ReferenceResolver', () => {
         });
 
         it('should warn if property access fails during traversal', () => {
-            const spy = vi.spyOn(console, 'warn').mockImplementation(() => {
-            });
+            const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
             cache.set(rootUri, { a: { b: 1 } } as any);
             // 'c' doesn't exist on { b: 1 }
             const res = resolver.resolveReference('#/a/c');
@@ -63,8 +62,7 @@ describe('Core: ReferenceResolver', () => {
         });
 
         it('should return undefined and warn when traversal fails on null intermediate', () => {
-            const spy = vi.spyOn(console, 'warn').mockImplementation(() => {
-            });
+            const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
             cache.set(rootUri, { nested: null } as any);
             const res = resolver.resolveReference('#/nested/child');
             expect(res).toBeUndefined();
@@ -78,16 +76,14 @@ describe('Core: ReferenceResolver', () => {
         });
 
         it('should return undefined if external file missing from cache', () => {
-            const spy = vi.spyOn(console, 'warn').mockImplementation(() => {
-            });
+            const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
             const res = resolver.resolveReference('http://missing.com/doc.json');
             expect(res).toBeUndefined();
             expect(spy).toHaveBeenCalledWith(expect.stringContaining('Unresolved external file reference'));
         });
 
         it('should NOT warn on invalid reference type input (not string)', () => {
-            const spy = vi.spyOn(console, 'warn').mockImplementation(() => {
-            });
+            const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
             const res = resolver.resolveReference(123 as any);
             expect(res).toBeUndefined();
             expect(spy).not.toHaveBeenCalled();
@@ -99,7 +95,7 @@ describe('Core: ReferenceResolver', () => {
             const obj = {
                 a: { $ref: '#/a' },
                 b: [{ $dynamicRef: '#/b' }],
-                c: 'not-a-ref'
+                c: 'not-a-ref',
             };
             const refs = ReferenceResolver.findRefs(obj);
             expect(refs).toContain('#/a');
@@ -114,7 +110,7 @@ describe('Core: ReferenceResolver', () => {
             const refObj = {
                 $ref: '#/defs/Target',
                 description: 'Overridden',
-                summary: 'Summary'
+                summary: 'Summary',
             };
             const res: any = resolver.resolve(refObj);
             expect(res.type).toBe('string');
@@ -141,15 +137,15 @@ describe('Core: ReferenceResolver', () => {
                 $dynamicAnchor: 'meta',
                 type: 'object',
                 properties: {
-                    data: { $dynamicRef: '#item' }
+                    data: { $dynamicRef: '#item' },
                 },
                 $defs: {
                     defaultItem: {
                         $dynamicAnchor: 'item',
                         type: 'string',
-                        description: 'default string'
-                    }
-                }
+                        description: 'default string',
+                    },
+                },
             };
 
             // 2. Specific usage (defines override 'item')
@@ -160,9 +156,9 @@ describe('Core: ReferenceResolver', () => {
                     overrideItem: {
                         $dynamicAnchor: 'item',
                         type: 'number',
-                        description: 'override number'
-                    }
-                }
+                        description: 'override number',
+                    },
+                },
             };
 
             // Pre-seed cache (mimic loader)
@@ -184,14 +180,14 @@ describe('Core: ReferenceResolver', () => {
             const genericSchema = {
                 $id: 'http://base/generic',
                 properties: {
-                    data: { $dynamicRef: '#item' }
+                    data: { $dynamicRef: '#item' },
                 },
                 $defs: {
                     defaultItem: {
                         $dynamicAnchor: 'item',
-                        type: 'string'
-                    }
-                }
+                        type: 'string',
+                    },
+                },
             };
             cache.set('http://base/generic', genericSchema as any);
             ReferenceResolver.indexSchemaIds(genericSchema, 'http://base/generic', cache);

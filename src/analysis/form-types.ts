@@ -1,6 +1,6 @@
 // src/analysis/form-types.ts
 
-import { SwaggerDefinition } from "@src/core/types/index.js";
+import { SwaggerDefinition } from '@src/core/types/index.js';
 import { ValidationRule } from './validation-types.js';
 
 export type ControlType = 'control' | 'group' | 'array' | 'map';

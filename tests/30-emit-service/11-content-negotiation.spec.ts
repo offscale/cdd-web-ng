@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { Project, Scope } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from "@src/core/types/index.js";
-import { ServiceMethodGenerator } from "@src/generators/angular/service/service-method.generator.js";
-import { TypeGenerator } from "@src/generators/shared/type.generator.js";
-import { XmlBuilderGenerator } from "@src/generators/shared/xml-builder.generator.js";
+import { GeneratorConfig } from '@src/core/types/index.js';
+import { ServiceMethodGenerator } from '@src/generators/angular/service/service-method.generator.js';
+import { TypeGenerator } from '@src/generators/shared/type.generator.js';
+import { XmlBuilderGenerator } from '@src/generators/shared/xml-builder.generator.js';
 
 const negotiationSpec = {
     openapi: '3.0.0',
@@ -19,8 +19,8 @@ const negotiationSpec = {
                             'application/json': {
                                 schema: {
                                     type: 'object',
-                                    properties: { id: { type: 'number' } }
-                                }
+                                    properties: { id: { type: 'number' } },
+                                },
                             },
                             'application/xml': {
                                 schema: {
@@ -28,26 +28,25 @@ const negotiationSpec = {
                                     xml: { name: 'Data' },
                                     properties: {
                                         id: { type: 'number', xml: { attribute: true } },
-                                        val: { type: 'string' }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+                                        val: { type: 'string' },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
     },
-    components: {}
+    components: {},
 };
 
 describe('Emitter: ServiceMethodGenerator (Content Negotiation)', () => {
-
     const createTestEnv = () => {
         const config: GeneratorConfig = {
             input: '',
             output: '/out',
-            options: { enumStyle: 'enum', framework: 'angular' }
+            options: { enumStyle: 'enum', framework: 'angular' },
         };
         const project = new Project({ useInMemoryFileSystem: true });
         const parser = new SwaggerParser(negotiationSpec as any, config);
@@ -64,7 +63,7 @@ describe('Emitter: ServiceMethodGenerator (Content Negotiation)', () => {
             name: 'createContextWithClientId',
             scope: Scope.Private,
             returnType: 'any',
-            statements: 'return {};'
+            statements: 'return {};',
         });
 
         return { methodGen, serviceClass, parser };
@@ -114,6 +113,6 @@ describe('Emitter: ServiceMethodGenerator (Content Negotiation)', () => {
 
         // Logic should attempt to parse XML
         expect(body).toContain("if (acceptHeader?.includes('application/xml')) {");
-        expect(body).toContain("return XmlParser.parse(response,");
+        expect(body).toContain('return XmlParser.parse(response,');
     });
 });

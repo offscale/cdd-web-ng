@@ -7,7 +7,6 @@ import { DateTransformerGenerator } from '@src/generators/angular/utils/date-tra
 import { FileDownloadGenerator } from '@src/generators/angular/utils/file-download.generator.js';
 
 describe('Emitter: Miscellaneous Utility Generators', () => {
-
     it('AuthHelperGenerator should generate a complete service', () => {
         const project = new Project({ useInMemoryFileSystem: true });
         new AuthHelperGenerator(project).generate('/out');
@@ -38,6 +37,8 @@ describe('Emitter: Miscellaneous Utility Generators', () => {
 
         expect(fileContent).toContain('export function downloadFile(blob: Blob, filename: string): void');
         expect(fileContent).toContain('export function downloadFileOperator<T extends Blob | HttpResponse<Blob>>');
-        expect(fileContent).toContain('export function extractFilenameFromContentDisposition(contentDisposition: string | null): string | null');
+        expect(fileContent).toContain(
+            'export function extractFilenameFromContentDisposition(contentDisposition: string | null): string | null',
+        );
     });
 });

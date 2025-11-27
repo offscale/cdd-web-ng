@@ -1,10 +1,10 @@
-import * as path from "node:path";
+import * as path from 'node:path';
 
-import { Project, VariableDeclarationKind } from "ts-morph";
+import { Project, VariableDeclarationKind } from 'ts-morph';
 
-import { pascalCase } from "@src/core/utils/index.js";
+import { pascalCase } from '@src/core/utils/index.js';
 
-import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../core/constants.js";
+import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../core/constants.js';
 import { SwaggerParser } from '@src/core/parser.js';
 
 /**
@@ -14,19 +14,21 @@ import { SwaggerParser } from '@src/core/parser.js';
 export class DiscriminatorGenerator {
     constructor(
         private readonly parser: SwaggerParser,
-        private readonly project: Project
-    ) {
-    }
+        private readonly project: Project,
+    ) {}
 
     public generate(outputDir: string): void {
-        const filePath = path.join(outputDir, "discriminators.ts");
-        const sourceFile = this.project.createSourceFile(filePath, "", { overwrite: true });
+        const filePath = path.join(outputDir, 'discriminators.ts');
+        const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
-        const registry: Record<string, {
-            propertyName: string,
-            mapping?: Record<string, string>,
-            defaultMapping?: string
-        }> = {};
+        const registry: Record<
+            string,
+            {
+                propertyName: string;
+                mapping?: Record<string, string>;
+                defaultMapping?: string;
+            }
+        > = {};
         let count = 0;
 
         this.parser.schemas.forEach(entry => {
@@ -38,7 +40,7 @@ export class DiscriminatorGenerator {
                 return;
             }
 
-            let propertyName = "";
+            let propertyName = '';
             let mapping: Record<string, string> | undefined = undefined;
             let defaultMapping: string | undefined = undefined;
 
@@ -76,17 +78,19 @@ export class DiscriminatorGenerator {
             sourceFile.addVariableStatement({
                 isExported: true,
                 declarationKind: VariableDeclarationKind.Const,
-                declarations: [{
-                    name: "API_DISCRIMINATORS",
-                    initializer: JSON.stringify(registry, null, 2)
-                }],
+                declarations: [
+                    {
+                        name: 'API_DISCRIMINATORS',
+                        initializer: JSON.stringify(registry, null, 2),
+                    },
+                ],
                 docs: [
-                    "Registry of Polymorphic Discriminators.",
-                    "Keys are parent model names. Values contain the property name to check and an optional mapping of values to child model names."
-                ]
+                    'Registry of Polymorphic Discriminators.',
+                    'Keys are parent model names. Values contain the property name to check and an optional mapping of values to child model names.',
+                ],
             });
         } else {
-            sourceFile.addStatements("export {};");
+            sourceFile.addStatements('export {};');
         }
 
         sourceFile.formatText();
@@ -104,7 +108,7 @@ export class DiscriminatorGenerator {
         const parts = ref.split('/');
         let candidate = parts[parts.length - 1];
         candidate = candidate.split('?')[0].split('#')[0];
-        candidate = candidate.replace(/\.[^/.]+$/, "");
+        candidate = candidate.replace(/\.[^/.]+$/, '');
         return pascalCase(candidate);
     }
 }

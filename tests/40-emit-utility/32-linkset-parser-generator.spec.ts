@@ -13,7 +13,7 @@ function getLinkSetParser() {
 
     const jsCode = ts.transpile(code, {
         target: ts.ScriptTarget.ESNext,
-        module: ts.ModuleKind.CommonJS
+        module: ts.ModuleKind.CommonJS,
     });
 
     const moduleScope = { exports: {} as any };
@@ -67,8 +67,8 @@ describe('Utility: LinkSetParser', () => {
     describe('parseJson (application/linkset+json)', () => {
         it('should parse a JSON array of link objects (RFC 9264)', () => {
             const json = [
-                { "href": "/next", "rel": "next" },
-                { "href": "/prev", "rel": "prev", "title": "Previous" }
+                { href: '/next', rel: 'next' },
+                { href: '/prev', rel: 'prev', title: 'Previous' },
             ];
             const result = LinkSetParser.parseJson(json);
             expect(result).toHaveLength(2);
@@ -78,7 +78,7 @@ describe('Utility: LinkSetParser', () => {
         });
 
         it('should handle wrapped linkset property', () => {
-            const json = { linkset: [{ "href": "/a", "rel": "a" }] };
+            const json = { linkset: [{ href: '/a', rel: 'a' }] };
             const result = LinkSetParser.parseJson(json);
             expect(result).toHaveLength(1);
             expect(result[0].href).toBe('/a');

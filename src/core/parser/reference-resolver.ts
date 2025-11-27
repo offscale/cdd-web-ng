@@ -1,4 +1,4 @@
-import { SwaggerDefinition, SwaggerSpec } from "../types/index.js";
+import { SwaggerDefinition, SwaggerSpec } from '../types/index.js';
 
 interface RefObject {
     $ref: string;
@@ -16,9 +16,14 @@ const isRefObject = (obj: unknown): obj is RefObject =>
     typeof obj === 'object' && obj !== null && '$ref' in obj && typeof (obj as { $ref: unknown }).$ref === 'string';
 
 const isDynamicRefObject = (obj: unknown): obj is DynamicRefObject =>
-    typeof obj === 'object' && obj !== null && '$dynamicRef' in obj && typeof (obj as {
-        $dynamicRef: unknown
-    }).$dynamicRef === 'string';
+    typeof obj === 'object' &&
+    obj !== null &&
+    '$dynamicRef' in obj &&
+    typeof (
+        obj as {
+            $dynamicRef: unknown;
+        }
+    ).$dynamicRef === 'string';
 
 /**
  * Resolves OpenAPI references ($ref and $dynamicRef) including context-aware resolution for OAS 3.1.
@@ -26,9 +31,8 @@ const isDynamicRefObject = (obj: unknown): obj is DynamicRefObject =>
 export class ReferenceResolver {
     constructor(
         private specCache: Map<string, SwaggerSpec>,
-        private entryDocumentUri: string
-    ) {
-    }
+        private entryDocumentUri: string,
+    ) {}
 
     /**
      * Indexes any `$id`, `$anchor`, and `$dynamicAnchor` properties within a spec object
@@ -50,7 +54,8 @@ export class ReferenceResolver {
                     if (!cache.has(nextBase)) {
                         cache.set(nextBase, obj as SwaggerSpec);
                     }
-                } catch (e) { /* Ignore invalid $id */
+                } catch (e) {
+                    /* Ignore invalid $id */
                 }
             }
 
@@ -107,9 +112,17 @@ export class ReferenceResolver {
      * @param obj The object to resolve (or null).
      * @param resolutionStack The stack of URIs traversed so far (for context-aware $dynamicRef resolution).
      */
-    public resolve<T>(obj: T | { $ref: string } | {
-        $dynamicRef: string
-    } | null | undefined, resolutionStack: string[] = []): T | undefined {
+    public resolve<T>(
+        obj:
+            | T
+            | { $ref: string }
+            | {
+                  $dynamicRef: string;
+              }
+            | null
+            | undefined,
+        resolutionStack: string[] = [],
+    ): T | undefined {
         if (obj === null || obj === undefined) return undefined;
 
         let resolved: T | undefined;
@@ -147,7 +160,7 @@ export class ReferenceResolver {
     public resolveReference<T = SwaggerDefinition>(
         ref: string,
         currentDocUri: string = this.entryDocumentUri,
-        resolutionStack: string[] = []
+        resolutionStack: string[] = [],
     ): T | undefined {
         if (typeof ref !== 'string') {
             return undefined;
@@ -155,7 +168,9 @@ export class ReferenceResolver {
 
         const [filePath, jsonPointer] = ref.split('#', 2);
         const currentDocSpec = this.specCache.get(currentDocUri);
-        const logicalBaseUri = currentDocSpec?.$self ? new URL(currentDocSpec.$self, currentDocUri).href : currentDocUri;
+        const logicalBaseUri = currentDocSpec?.$self
+            ? new URL(currentDocSpec.$self, currentDocUri).href
+            : currentDocUri;
         const targetUri = filePath ? new URL(filePath, logicalBaseUri).href : logicalBaseUri;
 
         // 1. Dynamic Anchor Resolution (OAS 3.1)
@@ -191,10 +206,16 @@ export class ReferenceResolver {
             const pointerParts = jsonPointer.split('/').filter(p => p !== '');
             for (const part of pointerParts) {
                 const decodedPart = part.replace(/~1/g, '/').replace(/~0/g, '~');
-                if (typeof result === 'object' && result !== null && Object.prototype.hasOwnProperty.call(result, decodedPart)) {
+                if (
+                    typeof result === 'object' &&
+                    result !== null &&
+                    Object.prototype.hasOwnProperty.call(result, decodedPart)
+                ) {
                     result = result[decodedPart];
                 } else {
-                    console.warn(`[Parser] Failed to resolve reference part "${decodedPart}" in path "${ref}" within file ${targetUri}`);
+                    console.warn(
+                        `[Parser] Failed to resolve reference part "${decodedPart}" in path "${ref}" within file ${targetUri}`,
+                    );
                     return undefined;
                 }
             }

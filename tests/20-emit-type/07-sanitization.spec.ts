@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+
 import { Project } from 'ts-morph';
-import { TypeGenerator } from "@src/generators/shared/type.generator.js";
+
+import { TypeGenerator } from '@src/generators/shared/type.generator.js';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig, SwaggerSpec } from "@src/core/types/index.js";
+import { GeneratorConfig, SwaggerSpec } from '@src/core/types/index.js';
 
 describe('Emitter: TypeGenerator (Sanitization)', () => {
     const runGenerator = (spec: SwaggerSpec) => {
@@ -24,11 +26,11 @@ describe('Emitter: TypeGenerator (Sanitization)', () => {
                         type: 'object',
                         description: 'Contains */ termination and <script>alert(1)</script>',
                         properties: {
-                            prop: { type: 'string', description: 'Also <script>bad</script>' }
-                        }
-                    }
-                }
-            }
+                            prop: { type: 'string', description: 'Also <script>bad</script>' },
+                        },
+                    },
+                },
+            },
         };
 
         const sourceFile = runGenerator(spec as any);
@@ -54,10 +56,10 @@ describe('Emitter: TypeGenerator (Sanitization)', () => {
                 schemas: {
                     Doc: {
                         type: 'string',
-                        externalDocs: { url: 'http://link', description: '<iframe src="x"></iframe>' }
-                    }
-                }
-            }
+                        externalDocs: { url: 'http://link', description: '<iframe src="x"></iframe>' },
+                    },
+                },
+            },
         };
 
         const sourceFile = runGenerator(spec as any);

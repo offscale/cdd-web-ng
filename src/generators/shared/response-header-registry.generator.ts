@@ -1,8 +1,8 @@
-import * as path from "node:path";
-import { Project, VariableDeclarationKind } from "ts-morph";
-import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../core/constants.js";
+import * as path from 'node:path';
+import { Project, VariableDeclarationKind } from 'ts-morph';
+import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../core/constants.js';
 import { SwaggerParser } from '@src/core/parser.js';
-import { HeaderObject, PathInfo, SwaggerDefinition } from "@src/core/types/index.js";
+import { HeaderObject, PathInfo, SwaggerDefinition } from '@src/core/types/index.js';
 
 /**
  * Generates the `response-headers.ts` file.
@@ -11,13 +11,12 @@ import { HeaderObject, PathInfo, SwaggerDefinition } from "@src/core/types/index
 export class ResponseHeaderRegistryGenerator {
     constructor(
         private readonly parser: SwaggerParser,
-        private readonly project: Project
-    ) {
-    }
+        private readonly project: Project,
+    ) {}
 
     public generate(outputDir: string): void {
-        const filePath = path.join(outputDir, "response-headers.ts");
-        const sourceFile = this.project.createSourceFile(filePath, "", { overwrite: true });
+        const filePath = path.join(outputDir, 'response-headers.ts');
+        const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
         const registry: Record<string, Record<string, Record<string, string>>> = {};
         const headerConfigMap: Record<string, any> = {};
@@ -72,11 +71,13 @@ export class ResponseHeaderRegistryGenerator {
             sourceFile.addVariableStatement({
                 isExported: true,
                 declarationKind: VariableDeclarationKind.Const,
-                declarations: [{
-                    name: "API_RESPONSE_HEADERS",
-                    initializer: JSON.stringify(registry, null, 2)
-                }],
-                docs: ["Registry of Response Headers defined in the API."]
+                declarations: [
+                    {
+                        name: 'API_RESPONSE_HEADERS',
+                        initializer: JSON.stringify(registry, null, 2),
+                    },
+                ],
+                docs: ['Registry of Response Headers defined in the API.'],
             });
 
             // If we have any XML configs, export them.
@@ -84,29 +85,30 @@ export class ResponseHeaderRegistryGenerator {
             sourceFile.addVariableStatement({
                 isExported: true,
                 declarationKind: VariableDeclarationKind.Const,
-                declarations: [{
-                    name: "API_HEADER_XML_CONFIGS",
-                    initializer: Object.keys(headerConfigMap).length > 0
-                        ? JSON.stringify(headerConfigMap, null, 2)
-                        : "{}"
-                }],
-                docs: ["Registry of XML Configurations for Response Headers."]
+                declarations: [
+                    {
+                        name: 'API_HEADER_XML_CONFIGS',
+                        initializer:
+                            Object.keys(headerConfigMap).length > 0 ? JSON.stringify(headerConfigMap, null, 2) : '{}',
+                    },
+                ],
+                docs: ['Registry of XML Configurations for Response Headers.'],
             });
         } else {
-            sourceFile.addStatements("export {};");
+            sourceFile.addStatements('export {};');
         }
 
         sourceFile.formatText();
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
     }
 
-    private getHeaderTypeInfo(header: HeaderObject): { typeHint: string, xmlConfig?: any } {
+    private getHeaderTypeInfo(header: HeaderObject): { typeHint: string; xmlConfig?: any } {
         if (header.content) {
             const contentType = Object.keys(header.content)[0];
             if (contentType && (contentType.includes('json') || contentType === 'application/linkset+json')) {
                 return { typeHint: 'json' };
             }
-            if (contentType && (contentType === 'application/linkset')) {
+            if (contentType && contentType === 'application/linkset') {
                 return { typeHint: 'linkset' };
             }
             if (contentType && contentType.includes('xml')) {
@@ -131,7 +133,10 @@ export class ResponseHeaderRegistryGenerator {
         if (resolvedSchema.type === 'object') return { typeHint: 'json' };
 
         // Check for Date type if configured
-        if (resolvedSchema.type === 'string' && (resolvedSchema.format === 'date' || resolvedSchema.format === 'date-time')) {
+        if (
+            resolvedSchema.type === 'string' &&
+            (resolvedSchema.format === 'date' || resolvedSchema.format === 'date-time')
+        ) {
             if (this.parser.config.options.dateType === 'Date') {
                 return { typeHint: 'date' };
             }

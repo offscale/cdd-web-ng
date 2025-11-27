@@ -1,15 +1,18 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
+
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+
 import * as yaml from 'js-yaml';
 
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig, SwaggerSpec } from "@src/core/types/index.js";
+import { GeneratorConfig, SwaggerSpec } from '@src/core/types/index.js';
 import { JSON_SCHEMA_2020_12_DIALECT, OAS_3_1_DIALECT } from '@src/core/constants.js';
-import { parserCoverageSpec } from '../shared/specs.js';
 import * as validator from '@src/core/validator.js';
 
-vi.mock('fs', async (importOriginal) => {
+import { parserCoverageSpec } from '../shared/specs.js';
+
+vi.mock('fs', async importOriginal => {
     const actual = await importOriginal<typeof fs>();
     return { ...actual, existsSync: vi.fn(), readFileSync: vi.fn() };
 });
@@ -19,7 +22,7 @@ vi.mock('@src/core/validator.js');
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 vi.mock('node:url', () => ({
-    pathToFileURL: (p: string) => ({ href: `file://${p.replace(/\\/g, '/')}` })
+    pathToFileURL: (p: string) => ({ href: `file://${p.replace(/\\/g, '/')}` }),
 }));
 
 describe('Core: SwaggerParser', () => {
@@ -41,11 +44,9 @@ describe('Core: SwaggerParser', () => {
             output: './out',
             options: {},
         };
-        consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
-        });
+        consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
         // Default behavior for most tests: bypass validation logic
-        (validator.validateSpec as Mock).mockImplementation(() => {
-        });
+        (validator.validateSpec as Mock).mockImplementation(() => {});
     });
 
     afterEach(() => {
@@ -62,7 +63,7 @@ describe('Core: SwaggerParser', () => {
 
         it('should create parser from local JSON file', async () => {
             (fs.existsSync as Mock).mockReturnValue(true);
-            (fs.readFileSync as Mock).mockReturnValue(JSON.stringify({ openapi: "3.0.0", info: validInfo, paths: {} }));
+            (fs.readFileSync as Mock).mockReturnValue(JSON.stringify({ openapi: '3.0.0', info: validInfo, paths: {} }));
             const parser = await SwaggerParser.create('spec.json', config);
             expect(parser.getSpec().openapi).toBe('3.0.0');
         });
@@ -87,13 +88,15 @@ describe('Core: SwaggerParser', () => {
         it('should throw if local file does not exist', async () => {
             (fs.existsSync as Mock).mockReturnValue(false);
             const expectedPath = path.resolve(process.cwd(), 'nonexistent.json');
-            await expect(SwaggerParser.create('nonexistent.json', config)).rejects.toThrow(`Input file not found at ${expectedPath}`);
+            await expect(SwaggerParser.create('nonexistent.json', config)).rejects.toThrow(
+                `Input file not found at ${expectedPath}`,
+            );
         });
 
         it('should create parser from URL', async () => {
             mockFetch.mockResolvedValue({
                 ok: true,
-                text: () => Promise.resolve(JSON.stringify({ openapi: "3.0.2", info: validInfo, paths: {} }))
+                text: () => Promise.resolve(JSON.stringify({ openapi: '3.0.2', info: validInfo, paths: {} })),
             });
             const parser = await SwaggerParser.create('http://test.com/spec.json', config);
             expect(parser.getSpec().openapi).toBe('3.0.2');
@@ -101,7 +104,9 @@ describe('Core: SwaggerParser', () => {
 
         it('should throw if URL fetch fails', async () => {
             mockFetch.mockResolvedValue({ ok: false, statusText: 'Not Found' });
-            await expect(SwaggerParser.create('http://test.com/fail.json', config)).rejects.toThrow('Failed to fetch spec from http://test.com/fail.json: Not Found');
+            await expect(SwaggerParser.create('http://test.com/fail.json', config)).rejects.toThrow(
+                'Failed to fetch spec from http://test.com/fail.json: Not Found',
+            );
         });
 
         it('should throw on invalid JSON', async () => {
@@ -126,7 +131,9 @@ describe('Core: SwaggerParser', () => {
                 throw 'a string error';
             });
             const fullPath = `file://${path.resolve(process.cwd(), 'spec.json').replace(/\\/g, '/')}`;
-            await expect(SwaggerParser.create('spec.json', config)).rejects.toThrow(`Failed to parse content from ${fullPath}. Error: a string error`);
+            await expect(SwaggerParser.create('spec.json', config)).rejects.toThrow(
+                `Failed to parse content from ${fullPath}. Error: a string error`,
+            );
         });
 
         it('should correctly initialize when spec has no $self property', () => {
@@ -143,7 +150,7 @@ describe('Core: SwaggerParser', () => {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
-                servers: [{ url: 'v1/api' }, { url: '/root/api' }]
+                servers: [{ url: 'v1/api' }, { url: '/root/api' }],
             } as any;
 
             // Parser treated as loaded from https://example.com/docs/openapi.json
@@ -159,7 +166,7 @@ describe('Core: SwaggerParser', () => {
                 $self: 'https://cdn.spec.com/latest/spec.yaml',
                 info: validInfo,
                 paths: {},
-                servers: [{ url: './v1' }]
+                servers: [{ url: './v1' }],
             } as any;
 
             const parser = new SwaggerParser(spec, config, undefined, 'file://local/download.json');
@@ -175,7 +182,7 @@ describe('Core: SwaggerParser', () => {
                 $self: '../canon/spec.yaml',
                 info: validInfo,
                 paths: {},
-                servers: [{ url: './api' }]
+                servers: [{ url: './api' }],
             } as any;
 
             const parser = new SwaggerParser(spec, config, undefined, 'https://example.com/v2/draft/doc.json');
@@ -190,7 +197,7 @@ describe('Core: SwaggerParser', () => {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
-                servers: [{ url: '{scheme}://api.com' }]
+                servers: [{ url: '{scheme}://api.com' }],
             } as any;
 
             const parser = new SwaggerParser(spec, config, undefined, 'https://example.com');
@@ -203,7 +210,7 @@ describe('Core: SwaggerParser', () => {
                 info: validInfo,
                 paths: {},
                 // Relative path containing a variable
-                servers: [{ url: 'api/{version}' }]
+                servers: [{ url: 'api/{version}' }],
             } as any;
 
             const parser = new SwaggerParser(spec, config, undefined, 'https://example.com/spec.json');
@@ -216,7 +223,9 @@ describe('Core: SwaggerParser', () => {
 
     describe('Reference Resolution (`resolve()` and `resolveReference()`)', () => {
         const spec = {
-            openapi: '3.1.0', info: validInfo, paths: {},
+            openapi: '3.1.0',
+            info: validInfo,
+            paths: {},
             components: {
                 schemas: {
                     User: { type: 'string' },
@@ -228,9 +237,9 @@ describe('Core: SwaggerParser', () => {
                     // For recursive dynamic test
                     A_Dynamic: { $dynamicRef: '#/components/schemas/B_Dynamic' },
                     B_Dynamic: { $dynamicRef: '#/components/schemas/C_Dynamic' },
-                    C_Dynamic: { type: 'number' }
-                }
-            }
+                    C_Dynamic: { type: 'number' },
+                },
+            },
         };
         let parser: SwaggerParser;
 
@@ -257,13 +266,19 @@ describe('Core: SwaggerParser', () => {
         it('should warn and return undefined for invalid reference paths', () => {
             const result = parser.resolve({ $ref: '#/components/schemas/NonExistent' });
             expect(result).toBeUndefined();
-            expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('Failed to resolve reference part "NonExistent"'));
+            expect(console.warn).toHaveBeenCalledWith(
+                expect.stringContaining('Failed to resolve reference part "NonExistent"'),
+            );
         });
 
         it('should return undefined if an intermediate part of the ref path is null', () => {
             const result = parser.resolve({ $ref: '#/components/schemas/Broken/property' });
             expect(result).toBeUndefined();
-            expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('Failed to resolve reference part "property" in path "#/components/schemas/Broken/property"'));
+            expect(console.warn).toHaveBeenCalledWith(
+                expect.stringContaining(
+                    'Failed to resolve reference part "property" in path "#/components/schemas/Broken/property"',
+                ),
+            );
         });
 
         it('should return undefined for a null/undefined object', () => {
@@ -291,27 +306,45 @@ describe('Core: SwaggerParser', () => {
             const mainSpecContent = JSON.stringify({
                 openapi: '3.0.0',
                 info: validInfo,
-                paths: { '/user': { get: { responses: { '200': { content: { 'application/json': { schema: { $ref: './schemas.json#/components/schemas/User' } } } } } } } }
+                paths: {
+                    '/user': {
+                        get: {
+                            responses: {
+                                '200': {
+                                    content: {
+                                        'application/json': {
+                                            schema: { $ref: './schemas.json#/components/schemas/User' },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
             });
             const schemasSpecContent = JSON.stringify({
-                openapi: '3.0.0', info: validInfo, paths: {}, components: {
+                openapi: '3.0.0',
+                info: validInfo,
+                paths: {},
+                components: {
                     schemas: {
-                        User: { type: 'object', properties: { name: { type: 'string' } } }
-                    }
-                }
+                        User: { type: 'object', properties: { name: { type: 'string' } } },
+                    },
+                },
             });
 
             (fs.existsSync as Mock).mockReturnValue(true);
-            (fs.readFileSync as Mock)
-                .mockImplementation((p: string) => {
-                    const normalizedPath = p.replace(/\\/g, '/');
-                    if (normalizedPath.endsWith('/main.json')) return mainSpecContent;
-                    if (normalizedPath.endsWith('/schemas.json')) return schemasSpecContent;
-                    return '';
-                });
+            (fs.readFileSync as Mock).mockImplementation((p: string) => {
+                const normalizedPath = p.replace(/\\/g, '/');
+                if (normalizedPath.endsWith('/main.json')) return mainSpecContent;
+                if (normalizedPath.endsWith('/schemas.json')) return schemasSpecContent;
+                return '';
+            });
 
             const parser = await SwaggerParser.create('main.json', config);
-            const userSchema = parser.resolveReference('#/paths/~1user/get/responses/200/content/application~1json/schema');
+            const userSchema = parser.resolveReference(
+                '#/paths/~1user/get/responses/200/content/application~1json/schema',
+            );
 
             expect(userSchema).toEqual({ type: 'object', properties: { name: { type: 'string' } } });
             expect((fs.readFileSync as Mock).mock.calls.length).toBeGreaterThanOrEqual(2);
@@ -322,13 +355,27 @@ describe('Core: SwaggerParser', () => {
                 openapi: '3.0.0',
                 $self: 'https://api.example.com/specs/v1/',
                 info: validInfo,
-                paths: { '/user': { get: { responses: { '200': { content: { 'application/json': { schema: { $ref: 'schemas.json#/components/schemas/User' } } } } } } } }
+                paths: {
+                    '/user': {
+                        get: {
+                            responses: {
+                                '200': {
+                                    content: {
+                                        'application/json': {
+                                            schema: { $ref: 'schemas.json#/components/schemas/User' },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
             });
             const schemasSpecContent = JSON.stringify({
                 openapi: '3.0.0',
                 info: validInfo,
                 paths: {},
-                components: { schemas: { User: { type: 'string' } } }
+                components: { schemas: { User: { type: 'string' } } },
             });
 
             mockFetch
@@ -336,7 +383,9 @@ describe('Core: SwaggerParser', () => {
                 .mockResolvedValueOnce({ ok: true, text: () => Promise.resolve(schemasSpecContent) });
 
             const parser = await SwaggerParser.create('http://some.other.domain/main.json', config);
-            const userSchema = parser.resolveReference('#/paths/~1user/get/responses/200/content/application~1json/schema');
+            const userSchema = parser.resolveReference(
+                '#/paths/~1user/get/responses/200/content/application~1json/schema',
+            );
 
             expect(userSchema).toEqual({ type: 'string' });
             expect(mockFetch).toHaveBeenCalledWith('https://api.example.com/specs/v1/schemas.json');
@@ -347,19 +396,19 @@ describe('Core: SwaggerParser', () => {
                 openapi: '3.0.0',
                 info: validInfo,
                 paths: {},
-                components: { schemas: { Entry: { $ref: './schemas.json#/components/schemas/User' } } }
+                components: { schemas: { Entry: { $ref: './schemas.json#/components/schemas/User' } } },
             };
             const schemasSpec = {
                 openapi: '3.0.0',
                 info: validInfo,
                 paths: {},
-                components: { schemas: { User: { allOf: [{ $ref: './base.json#/components/schemas/Base' }] } } }
+                components: { schemas: { User: { allOf: [{ $ref: './base.json#/components/schemas/Base' }] } } },
             };
             const baseSpec = {
                 openapi: '3.0.0',
                 info: validInfo,
                 paths: {},
-                components: { schemas: { Base: { type: 'object', properties: { id: { type: 'string' } } } } }
+                components: { schemas: { Base: { type: 'object', properties: { id: { type: 'string' } } } } },
             };
 
             (fs.existsSync as Mock).mockReturnValue(true);
@@ -380,10 +429,14 @@ describe('Core: SwaggerParser', () => {
 
     describe('Polymorphism Logic', () => {
         it('getPolymorphicSchemaOptions should return empty array for non-polymorphic schema', () => {
-            const parser = new SwaggerParser({
-                openapi: '3.0.0', ...validInfo,
-                paths: {}
-            } as any, { options: {} } as GeneratorConfig);
+            const parser = new SwaggerParser(
+                {
+                    openapi: '3.0.0',
+                    ...validInfo,
+                    paths: {},
+                } as any,
+                { options: {} } as GeneratorConfig,
+            );
             expect(parser.getPolymorphicSchemaOptions({ type: 'object' })).toEqual([]);
             expect(parser.getPolymorphicSchemaOptions({ discriminator: { propertyName: 'type' } })).toEqual([]);
         });
@@ -408,11 +461,11 @@ describe('Core: SwaggerParser', () => {
                             oneOf: [],
                             discriminator: {
                                 propertyName: 'type',
-                                mapping: { 'bad': '#/non/existent' }
-                            }
-                        }
-                    }
-                }
+                                mapping: { bad: '#/non/existent' },
+                            },
+                        },
+                    },
+                },
             };
             const parser = new SwaggerParser(specWithBadMapping as any, { options: {} } as GeneratorConfig);
             const schema = parser.getDefinition('BadMap');
@@ -450,19 +503,21 @@ describe('Core: SwaggerParser', () => {
 
         it('should handle $dynamicRef in oneOf for getPolymorphicSchemaOptions', () => {
             const spec = {
-                openapi: '3.1.0', info: validInfo, paths: {},
+                openapi: '3.1.0',
+                info: validInfo,
+                paths: {},
                 components: {
                     schemas: {
                         Poly: {
                             oneOf: [{ $dynamicRef: '#/components/schemas/Sub' }],
-                            discriminator: { propertyName: 'type' }
+                            discriminator: { propertyName: 'type' },
                         },
                         Sub: {
                             type: 'object',
-                            properties: { type: { type: 'string', enum: ['sub-type'] } }
-                        }
-                    }
-                }
+                            properties: { type: { type: 'string', enum: ['sub-type'] } },
+                        },
+                    },
+                },
             };
             const parser = new SwaggerParser(spec as any, config);
             const polySchema = parser.getDefinition('Poly')!;
@@ -479,7 +534,7 @@ describe('Core: SwaggerParser', () => {
                 openapi: '3.1.0',
                 info: validInfo,
                 paths: {},
-                jsonSchemaDialect: OAS_3_1_DIALECT
+                jsonSchemaDialect: OAS_3_1_DIALECT,
             } as any;
             const parser = new SwaggerParser(spec, config);
             expect(parser.getJsonSchemaDialect()).toBe(OAS_3_1_DIALECT);
@@ -496,7 +551,7 @@ describe('Core: SwaggerParser', () => {
                 ...validInfo,
                 openapi: '3.1.0',
                 jsonSchemaDialect: 'https://spec.openapis.org/oas/3.0/dialect',
-                paths: {}
+                paths: {},
             };
             new SwaggerParser(spec as any, { options: {} } as GeneratorConfig);
             expect(consoleWarnSpy).not.toHaveBeenCalled();
@@ -508,13 +563,13 @@ describe('Core: SwaggerParser', () => {
                 info: validInfo,
                 paths: {},
                 webhooks: {
-                    'newPet': {
+                    newPet: {
                         post: {
                             requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
-                            responses: { '200': { description: 'ok' } }
-                        }
-                    }
-                }
+                            responses: { '200': { description: 'ok' } },
+                        },
+                    },
+                },
             };
             const parser = new SwaggerParser(spec, config);
             const webhooks = parser.webhooks;
@@ -531,9 +586,13 @@ describe('Core: SwaggerParser', () => {
                 components: {
                     schemas: {
                         Target: REF_TARGET,
-                        WithOverride: { $ref: '#/components/schemas/Target', description: 'Overridden', summary: 'New' }
-                    }
-                }
+                        WithOverride: {
+                            $ref: '#/components/schemas/Target',
+                            description: 'Overridden',
+                            summary: 'New',
+                        },
+                    },
+                },
             };
             const parser = new SwaggerParser(specWithOverrides as any, { options: {} } as GeneratorConfig);
             const resolved = parser.resolve<any>(specWithOverrides.components.schemas.WithOverride);
@@ -559,23 +618,33 @@ describe('Core: SwaggerParser', () => {
                 swagger: '2.0',
                 info: validInfo,
                 paths: {},
-                securityDefinitions: { ApiKey: { type: 'apiKey' } }
+                securityDefinitions: { ApiKey: { type: 'apiKey' } },
             };
             const parser = new SwaggerParser(spec as any, config);
             expect(parser.getSecuritySchemes()).toHaveProperty('ApiKey');
         });
 
         it('should validate spec versions correctly', () => {
-            expect(new SwaggerParser({
-                openapi: '3.1.0',
-                info: validInfo,
-                paths: {}
-            } as any, config).isValidSpec()).toBe(true);
-            expect(new SwaggerParser({
-                swagger: '2.0',
-                info: validInfo,
-                paths: {}
-            } as any, config).isValidSpec()).toBe(true);
+            expect(
+                new SwaggerParser(
+                    {
+                        openapi: '3.1.0',
+                        info: validInfo,
+                        paths: {},
+                    } as any,
+                    config,
+                ).isValidSpec(),
+            ).toBe(true);
+            expect(
+                new SwaggerParser(
+                    {
+                        swagger: '2.0',
+                        info: validInfo,
+                        paths: {},
+                    } as any,
+                    config,
+                ).isValidSpec(),
+            ).toBe(true);
         });
 
         it('should get spec version for Swagger 2.0', () => {
@@ -588,7 +657,7 @@ describe('Core: SwaggerParser', () => {
                 openapi: '3.0.0',
                 info: validInfo,
                 paths: {},
-                components: { securitySchemes: { Bearer: { type: 'http' } } }
+                components: { securitySchemes: { Bearer: { type: 'http' } } },
             };
             const parser = new SwaggerParser(spec as any, config);
             expect(parser.getSecuritySchemes()).toHaveProperty('Bearer');
@@ -596,15 +665,17 @@ describe('Core: SwaggerParser', () => {
 
         it('should parse inline LinkObjects from components', () => {
             const specWithInlineLink = {
-                openapi: '3.0.0', info: validInfo, paths: {},
+                openapi: '3.0.0',
+                info: validInfo,
+                paths: {},
                 components: {
                     links: {
                         MyLink: {
                             operationId: 'myOperation',
-                            description: 'An inline link'
-                        }
-                    }
-                }
+                            description: 'An inline link',
+                        },
+                    },
+                },
             };
             const parser = new SwaggerParser(specWithInlineLink as any, config);
             const links = parser.getLinks();
@@ -613,7 +684,8 @@ describe('Core: SwaggerParser', () => {
         });
 
         it('should return null for getSpecVersion on a spec without a version field', () => {
-            (validator.validateSpec as Mock).mockImplementation(() => { /* Bypass for this test */
+            (validator.validateSpec as Mock).mockImplementation(() => {
+                /* Bypass for this test */
             });
             const invalidSpec = { info: validInfo, paths: {} };
             const parser = new SwaggerParser(invalidSpec as any, config);

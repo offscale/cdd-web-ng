@@ -1,13 +1,14 @@
 import { beforeAll, describe, expect, it } from 'vitest';
+
 import { MockDataGenerator } from '@src/generators/angular/test/mock-data.generator.js';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from "@src/core/types/index.js";
+import { GeneratorConfig } from '@src/core/types/index.js';
 
 // Minimal mock config required by SwaggerParser
 const mockConfig: GeneratorConfig = {
     input: '',
     output: '',
-    options: {} as any
+    options: {} as any,
 };
 
 // A comprehensive in-memory spec to test various schema scenarios
@@ -29,24 +30,24 @@ const dummySpec = {
                 properties: {
                     id: { type: 'string', format: 'uuid' },
                     name: { type: 'string', example: 'John Doe' },
-                    age: { type: 'integer' }
-                }
+                    age: { type: 'integer' },
+                },
             },
 
             // 3. Arrays
             StringArray: {
                 type: 'array',
-                items: { type: 'string' }
+                items: { type: 'string' },
             },
             ObjectArray: {
                 type: 'array',
-                items: { $ref: '#/components/schemas/User' }
+                items: { $ref: '#/components/schemas/User' },
             },
 
             // 4. Enums
             StatusEnum: {
                 type: 'string',
-                enum: ['active', 'inactive', 'pending']
+                enum: ['active', 'inactive', 'pending'],
             },
 
             // 5. Composition (allOf)
@@ -56,21 +57,21 @@ const dummySpec = {
                     {
                         type: 'object',
                         properties: {
-                            permissions: { type: 'array', items: { type: 'string' } }
-                        }
-                    }
-                ]
+                            permissions: { type: 'array', items: { type: 'string' } },
+                        },
+                    },
+                ],
             },
 
             // 6. Polymorphism (oneOf) - Generator should pick first
             Pet: {
                 oneOf: [
                     { type: 'object', properties: { bark: { type: 'boolean' } } },
-                    { type: 'object', properties: { meow: { type: 'boolean' } } }
-                ]
-            }
-        }
-    }
+                    { type: 'object', properties: { meow: { type: 'boolean' } } },
+                ],
+            },
+        },
+    },
 };
 
 describe('MockDataGenerator', () => {

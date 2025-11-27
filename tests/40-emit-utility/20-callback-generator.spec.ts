@@ -3,7 +3,7 @@ import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
 import { CallbackGenerator } from '@src/generators/shared/callback.generator.js';
 import { createTestProject } from '../shared/helpers.js';
-import { GeneratorConfig, SwaggerDefinition, SwaggerSpec } from "@src/core/types/index.js";
+import { GeneratorConfig, SwaggerDefinition, SwaggerSpec } from '@src/core/types/index.js';
 import ts from 'typescript';
 
 const mockSpec: SwaggerSpec = {
@@ -15,25 +15,25 @@ const mockSpec: SwaggerSpec = {
                 operationId: 'subscribe',
                 responses: { '200': { description: 'ok' } },
                 callbacks: {
-                    'onDataUpdate': {
+                    onDataUpdate: {
                         '{$request.query.callbackUrl}': {
                             post: {
                                 requestBody: {
                                     content: {
                                         'application/json': {
-                                            schema: { type: 'object', properties: { timestamp: { type: 'string' } } }
-                                        }
-                                    }
+                                            schema: { type: 'object', properties: { timestamp: { type: 'string' } } },
+                                        },
+                                    },
                                 },
-                                responses: { '200': { description: 'acknowledged' } }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+                                responses: { '200': { description: 'acknowledged' } },
+                            },
+                        },
+                    },
+                },
+            },
+        },
     },
-    components: { schemas: {} }
+    components: { schemas: {} },
 };
 
 const refCallbackSpec: SwaggerSpec = {
@@ -43,31 +43,32 @@ const refCallbackSpec: SwaggerSpec = {
         '/hook': {
             post: {
                 callbacks: {
-                    'myWebhook': { $ref: '#/components/callbacks/MyCallback' },
+                    myWebhook: { $ref: '#/components/callbacks/MyCallback' },
                     // This invalid one hits the 'resolved' check failure branch
-                    'brokenWebhook': { $ref: '#/components/callbacks/BrokenCallback' }
+                    brokenWebhook: { $ref: '#/components/callbacks/BrokenCallback' },
                 },
-                responses: {}
-            }
-        }
+                responses: {},
+            },
+        },
     },
     components: {
         callbacks: {
-            'MyCallback': {
+            MyCallback: {
                 'http://target.com': {
                     post: {
-                        requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/EventPayload' } } } },
-                        responses: { '200': {} }
-                    }
-                }
-            }
+                        requestBody: {
+                            content: { 'application/json': { schema: { $ref: '#/components/schemas/EventPayload' } } },
+                        },
+                        responses: { '200': {} },
+                    },
+                },
+            },
         },
-        schemas: { EventPayload: { type: 'object', properties: { id: { type: 'string' } } } }
-    }
+        schemas: { EventPayload: { type: 'object', properties: { id: { type: 'string' } } } },
+    },
 };
 
 describe('Emitter: CallbackGenerator', () => {
-
     const runGenerator = (spec: SwaggerSpec) => {
         const project = createTestProject();
         const config: GeneratorConfig = { output: '/out', options: { dateType: 'string', enumStyle: 'enum' } } as any;
@@ -75,7 +76,7 @@ describe('Emitter: CallbackGenerator', () => {
         if (spec.components?.schemas?.EventPayload) {
             parser.schemas.push({
                 name: 'EventPayload',
-                definition: spec.components.schemas.EventPayload as SwaggerDefinition
+                definition: spec.components.schemas.EventPayload as SwaggerDefinition,
             });
         }
         new CallbackGenerator(parser, project).generate('/out');

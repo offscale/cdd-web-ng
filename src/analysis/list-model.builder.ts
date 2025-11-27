@@ -1,10 +1,9 @@
-import { Resource } from "@src/core/types/index.js";
-import { pascalCase } from "@src/core/utils/index.js";
+import { Resource } from '@src/core/types/index.js';
+import { pascalCase } from '@src/core/utils/index.js';
 
-import { ListAction, ListActionKind, ListColumn, ListViewModel } from "./list-types.js";
+import { ListAction, ListActionKind, ListColumn, ListViewModel } from './list-types.js';
 
 export class ListModelBuilder {
-
     public build(resource: Resource): ListViewModel {
         const idProperty = this.getIdProperty(resource);
         const customActions = this.getCustomActions(resource);
@@ -53,7 +52,7 @@ export class ListModelBuilder {
             hasDelete,
             customActions,
             hasActionsColumn,
-            listOperationName: listOp.methodName!
+            listOperationName: listOp.methodName!,
         };
     }
 
@@ -74,26 +73,41 @@ export class ListModelBuilder {
             kind: this.getActionKind(op.action),
             isCollectionAction: !!op.isCustomCollectionAction,
             requiresId: !!op.isCustomItemAction,
-            operation: op
+            operation: op,
         }));
     }
 
     private getActionKind(action: string): ListActionKind {
         const lowerAction = action.toLowerCase();
-        if (lowerAction.includes('delete') || lowerAction.includes('remove') || lowerAction.includes('cancel') || lowerAction.includes('block')) {
+        if (
+            lowerAction.includes('delete') ||
+            lowerAction.includes('remove') ||
+            lowerAction.includes('cancel') ||
+            lowerAction.includes('block')
+        ) {
             return 'destructive';
         }
         if (lowerAction.includes('add') || lowerAction.includes('create')) {
             return 'constructive';
         }
-        if (lowerAction.includes('edit') || lowerAction.includes('update') || lowerAction.includes('approve') || lowerAction.includes('check')) {
+        if (
+            lowerAction.includes('edit') ||
+            lowerAction.includes('update') ||
+            lowerAction.includes('approve') ||
+            lowerAction.includes('check')
+        ) {
             return 'state-change';
         }
         if (lowerAction.includes('reboot') || lowerAction.includes('refresh') || lowerAction.includes('sync')) {
             return 'state-change';
         }
         // 'start', 'play', 'stop', 'pause' are more specific than generic state change
-        if (lowerAction.includes('start') || lowerAction.includes('play') || lowerAction.includes('stop') || lowerAction.includes('pause')) {
+        if (
+            lowerAction.includes('start') ||
+            lowerAction.includes('play') ||
+            lowerAction.includes('stop') ||
+            lowerAction.includes('pause')
+        ) {
             return 'default';
         }
 

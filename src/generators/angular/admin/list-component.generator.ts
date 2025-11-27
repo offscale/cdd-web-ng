@@ -1,9 +1,9 @@
 import { ClassDeclaration, Project, Scope } from 'ts-morph';
 
 import { Resource } from '@src/core/types/index.js';
-import { camelCase, pascalCase } from "@src/core/utils/index.js";
-import { ListModelBuilder } from "@src/analysis/list-model.builder.js";
-import { ListActionKind, ListViewModel } from "@src/analysis/list-types.js";
+import { camelCase, pascalCase } from '@src/core/utils/index.js';
+import { ListModelBuilder } from '@src/analysis/list-model.builder.js';
+import { ListActionKind, ListViewModel } from '@src/analysis/list-types.js';
 
 import { generateListComponentHtml } from './html/list-component-html.builder.js';
 import { generateListComponentScss } from './html/list-component-scss.builder.js';
@@ -20,8 +20,7 @@ export class ListComponentGenerator {
      * Initializes a new instance of the ListComponentGenerator.
      * @param project The ts-morph project instance for AST manipulation.
      */
-    constructor(private readonly project: Project) {
-    }
+    constructor(private readonly project: Project) {}
 
     /**
      * Maps an abstract action kind to a specific Angular Material icon name.
@@ -34,7 +33,8 @@ export class ListComponentGenerator {
         // Specific overrides take precedence over general kind
         if (lowerAction.includes('start') || lowerAction.includes('play')) return 'play_arrow';
         if (lowerAction.includes('stop') || lowerAction.includes('pause')) return 'pause';
-        if (lowerAction.includes('reboot') || lowerAction.includes('refresh') || lowerAction.includes('sync')) return 'refresh';
+        if (lowerAction.includes('reboot') || lowerAction.includes('refresh') || lowerAction.includes('sync'))
+            return 'refresh';
         if (lowerAction.includes('approve') || lowerAction.includes('check')) return 'check';
         if (lowerAction.includes('cancel') || lowerAction.includes('block')) return 'block';
         if (lowerAction.includes('edit') || lowerAction.includes('update')) return 'edit';
@@ -82,7 +82,9 @@ export class ListComponentGenerator {
      */
     private emitListComponentTs(model: ListViewModel, resource: Resource, outDir: string): void {
         const componentName = `${pascalCase(model.resourceName)}ListComponent`;
-        const sourceFile = this.project.createSourceFile(`${outDir}/${model.resourceName}-list.component.ts`, '', { overwrite: true });
+        const sourceFile = this.project.createSourceFile(`${outDir}/${model.resourceName}-list.component.ts`, '', {
+            overwrite: true,
+        });
 
         sourceFile.addStatements([
             `import { Component, ViewChild, AfterViewInit, effect, inject, signal, ChangeDetectionStrategy, DestroyRef } from '@angular/core';`,
@@ -92,8 +94,8 @@ export class ListComponentGenerator {
             `import { Router, ActivatedRoute } from '@angular/router';`,
             `import { MatSnackBar } from '@angular/material/snack-bar';`,
             `import { of, catchError, startWith, switchMap } from 'rxjs';`,
-            `import { ${model.serviceName} } from '../../../../services/${camelCase(model.resourceName)}.service';`,
-            `import { ${model.modelName} } from '../../../../models';`,
+            `import { ${model.serviceName} } from '@src/../services/${camelCase(model.resourceName)}.service';`,
+            `import { ${model.modelName} } from '@src/../models';`,
             ...commonStandaloneImports.map(a => `import { ${a[0]} } from "${a[1]}";`),
         ]);
 
@@ -101,17 +103,21 @@ export class ListComponentGenerator {
             name: componentName,
             isExported: true,
             implements: ['AfterViewInit'],
-            decorators: [{
-                name: 'Component',
-                arguments: [`{
+            decorators: [
+                {
+                    name: 'Component',
+                    arguments: [
+                        `{
                     selector: 'app-${model.resourceName}-list',
                     standalone: true,
                     imports: [ ${commonStandaloneImports.map(a => a[0]).join(',\n')} ],
                     templateUrl: './${model.resourceName}-list.component.html',
                     styleUrl: './${model.resourceName}-list.component.scss',
                     changeDetection: ChangeDetectionStrategy.OnPush
-                }`]
-            }],
+                }`,
+                    ],
+                },
+            ],
         });
 
         this.addProperties(componentClass, model);
@@ -137,17 +143,17 @@ export class ListComponentGenerator {
                 name: `${camelCase(model.serviceName)}`,
                 isReadonly: true,
                 type: model.serviceName,
-                initializer: `inject(${model.serviceName})`
+                initializer: `inject(${model.serviceName})`,
             },
             { name: 'destroyRef', scope: Scope.Private, isReadonly: true, initializer: 'inject(DestroyRef)' },
             {
                 name: `paginator!: MatPaginator`,
-                decorators: [{ name: 'ViewChild', arguments: ['MatPaginator'] }]
+                decorators: [{ name: 'ViewChild', arguments: ['MatPaginator'] }],
             },
             {
                 name: 'dataSource',
                 type: `MatTableDataSource<${model.modelName}>`,
-                initializer: `new MatTableDataSource<${model.modelName}>()`
+                initializer: `new MatTableDataSource<${model.modelName}>()`,
             },
             { name: 'totalItems', initializer: 'signal(0)' },
             { name: 'isViewInitialized', scope: Scope.Private, initializer: 'signal(false)' },
@@ -163,39 +169,54 @@ export class ListComponentGenerator {
     private addConstructorAndDataLoadingEffect(componentClass: ClassDeclaration, model: ListViewModel): void {
         const constructor = componentClass.addConstructor();
         constructor.setBodyText(writer => {
-            writer.writeLine('effect(() => {').indent(() => {
-                writer.writeLine(`if (!this.isViewInitialized()) { return; }`);
-                writer.writeLine('this.paginator.page.pipe(').indent(() => {
-                    writer.writeLine(`startWith({} as PageEvent),`);
-                    writer.writeLine(`switchMap((pageEvent: PageEvent) => {`);
+            writer
+                .writeLine('effect(() => {')
+                .indent(() => {
+                    writer.writeLine(`if (!this.isViewInitialized()) { return; }`);
+                    writer
+                        .writeLine('this.paginator.page.pipe(')
+                        .indent(() => {
+                            writer.writeLine(`startWith({} as PageEvent),`);
+                            writer.writeLine(`switchMap((pageEvent: PageEvent) => {`);
+                            writer.indent(() => {
+                                writer.writeLine(`const page = pageEvent.pageIndex ?? this.paginator.pageIndex;`);
+                                writer.writeLine(`const limit = pageEvent.pageSize ?? this.paginator.pageSize;`);
+                                writer.writeLine(`const query = { _page: page + 1, _limit: limit };`);
+                                writer
+                                    .writeLine(
+                                        `return this.${camelCase(model.serviceName)}.${model.listOperationName}(query, 'response').pipe(`,
+                                    )
+                                    .indent(() => {
+                                        writer.writeLine(`catchError(() => of(null))`);
+                                    })
+                                    .write(');');
+                            });
+                            writer.writeLine('}),');
+                            writer.writeLine('takeUntilDestroyed(this.destroyRef)');
+                        })
+                        .write(').subscribe(response => {');
                     writer.indent(() => {
-                        writer.writeLine(`const page = pageEvent.pageIndex ?? this.paginator.pageIndex;`);
-                        writer.writeLine(`const limit = pageEvent.pageSize ?? this.paginator.pageSize;`);
-                        writer.writeLine(`const query = { _page: page + 1, _limit: limit };`);
-                        writer.writeLine(`return this.${camelCase(model.serviceName)}.${model.listOperationName}(query, 'response').pipe(`).indent(() => {
-                            writer.writeLine(`catchError(() => of(null))`);
-                        }).write(');');
+                        writer.writeLine(`if (response === null) {`);
+                        writer.indent(() => {
+                            writer.writeLine(`this.dataSource.data = [];`);
+                            writer.writeLine(`this.totalItems.set(0);`);
+                            writer.writeLine(
+                                `this.snackBar.open('Error fetching data', 'Close', { duration: 5000, panelClass: 'error-snackbar' });`,
+                            );
+                        });
+                        writer.writeLine(`} else {`);
+                        writer.indent(() => {
+                            writer.writeLine(`this.dataSource.data = response.body ?? [];`);
+                            writer.writeLine(`const totalCount = response.headers.get('X-Total-Count');`);
+                            writer.writeLine(
+                                `this.totalItems.set(totalCount ? +totalCount : response.body?.length ?? 0);`,
+                            );
+                        });
+                        writer.writeLine('}');
                     });
-                    writer.writeLine('}),');
-                    writer.writeLine('takeUntilDestroyed(this.destroyRef)');
-                }).write(').subscribe(response => {');
-                writer.indent(() => {
-                    writer.writeLine(`if (response === null) {`);
-                    writer.indent(() => {
-                        writer.writeLine(`this.dataSource.data = [];`);
-                        writer.writeLine(`this.totalItems.set(0);`);
-                        writer.writeLine(`this.snackBar.open('Error fetching data', 'Close', { duration: 5000, panelClass: 'error-snackbar' });`);
-                    });
-                    writer.writeLine(`} else {`);
-                    writer.indent(() => {
-                        writer.writeLine(`this.dataSource.data = response.body ?? [];`);
-                        writer.writeLine(`const totalCount = response.headers.get('X-Total-Count');`);
-                        writer.writeLine(`this.totalItems.set(totalCount ? +totalCount : response.body?.length ?? 0);`);
-                    });
-                    writer.writeLine('}');
-                });
-                writer.write('});');
-            }).write('});');
+                    writer.write('});');
+                })
+                .write('});');
         });
     }
 
@@ -206,10 +227,7 @@ export class ListComponentGenerator {
     private addLifecycleAndUtilityMethods(componentClass: ClassDeclaration): void {
         componentClass.addMethod({
             name: 'ngAfterViewInit',
-            statements: [
-                'this.dataSource.paginator = this.paginator;',
-                'this.isViewInitialized.set(true);'
-            ]
+            statements: ['this.dataSource.paginator = this.paginator;', 'this.isViewInitialized.set(true);'],
         });
         componentClass.addMethod({
             name: 'refresh',
@@ -228,14 +246,14 @@ export class ListComponentGenerator {
         if (model.hasCreate) {
             componentClass.addMethod({
                 name: 'onCreate',
-                statements: `this.router.navigate(['new'], { relativeTo: this.route });`
+                statements: `this.router.navigate(['new'], { relativeTo: this.route });`,
             });
         }
         if (model.hasEdit) {
             componentClass.addMethod({
                 name: 'onEdit',
                 parameters: [{ name: 'id', type: 'string' }],
-                statements: `this.router.navigate([id], { relativeTo: this.route });`
+                statements: `this.router.navigate([id], { relativeTo: this.route });`,
             });
         }
         if (model.hasDelete) {
@@ -252,8 +270,8 @@ export class ListComponentGenerator {
                         `    this.snackBar.open('Item deleted successfully!', 'Close', { duration: 3000 });`,
                         `    this.refresh();`,
                         `  });`,
-                        `}`
-                    ]
+                        `}`,
+                    ],
                 });
             }
         }
@@ -286,7 +304,7 @@ export class ListComponentGenerator {
             componentClass.addMethod({
                 name: action.name,
                 parameters: params,
-                statements: body
+                statements: body,
             });
         });
     }

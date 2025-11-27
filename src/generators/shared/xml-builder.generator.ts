@@ -1,72 +1,71 @@
-import * as path from "node:path";
-import { Project, Scope } from "ts-morph";
-import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../core/constants.js";
+import * as path from 'node:path';
+import { Project, Scope } from 'ts-morph';
+import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../core/constants.js';
 
 export class XmlBuilderGenerator {
-    constructor(private project: Project) {
-    }
+    constructor(private project: Project) {}
 
     public generate(outputDir: string): void {
-        const utilsDir = path.join(outputDir, "utils");
-        const filePath = path.join(utilsDir, "xml-builder.ts");
+        const utilsDir = path.join(outputDir, 'utils');
+        const filePath = path.join(utilsDir, 'xml-builder.ts');
 
-        const sourceFile = this.project.createSourceFile(filePath, "", { overwrite: true });
+        const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
         sourceFile.addInterface({
-            name: "XmlPropertyConfig",
+            name: 'XmlPropertyConfig',
             isExported: true,
             properties: [
-                { name: "name", type: "string", hasQuestionToken: true },
-                { name: "prefix", type: "string", hasQuestionToken: true },
-                { name: "namespace", type: "string", hasQuestionToken: true },
-                { name: "attribute", type: "boolean", hasQuestionToken: true },
-                { name: "wrapped", type: "boolean", hasQuestionToken: true },
+                { name: 'name', type: 'string', hasQuestionToken: true },
+                { name: 'prefix', type: 'string', hasQuestionToken: true },
+                { name: 'namespace', type: 'string', hasQuestionToken: true },
+                { name: 'attribute', type: 'boolean', hasQuestionToken: true },
+                { name: 'wrapped', type: 'boolean', hasQuestionToken: true },
                 {
-                    name: "nodeType",
+                    name: 'nodeType',
                     type: "'element' | 'attribute' | 'text' | 'cdata' | 'none' | string",
-                    hasQuestionToken: true
+                    hasQuestionToken: true,
                 },
-                { name: "properties", type: "Record<string, XmlPropertyConfig>", hasQuestionToken: true },
-                { name: "items", type: "XmlPropertyConfig", hasQuestionToken: true }
-            ]
+                { name: 'properties', type: 'Record<string, XmlPropertyConfig>', hasQuestionToken: true },
+                { name: 'items', type: 'XmlPropertyConfig', hasQuestionToken: true },
+            ],
         });
 
         const classDeclaration = sourceFile.addClass({
-            name: "XmlBuilder",
+            name: 'XmlBuilder',
             isExported: true,
-            docs: ["Utility to serialize objects to XML based on OpenAPI metadata."],
+            docs: ['Utility to serialize objects to XML based on OpenAPI metadata.'],
         });
 
         classDeclaration.addMethod({
-            name: "serialize",
+            name: 'serialize',
             isStatic: true,
             scope: Scope.Public,
             parameters: [
-                { name: "data", type: "any" },
-                { name: "rootTag", type: "string" },
-                { name: "config", type: "XmlPropertyConfig", hasQuestionToken: true }
+                { name: 'data', type: 'any' },
+                { name: 'rootTag', type: 'string' },
+                { name: 'config', type: 'XmlPropertyConfig', hasQuestionToken: true },
             ],
-            returnType: "string",
-            docs: ["Serializes a data object into an XML string."],
+            returnType: 'string',
+            docs: ['Serializes a data object into an XML string.'],
             statements: `
     if (data === undefined) return ''; 
     // Null is passed through to be handled as xsi:nil="true" if it is an element
     return this.buildElement(rootTag, data, config || {}); 
-            `
+            `,
         });
 
         classDeclaration.addMethod({
-            name: "buildElement",
+            name: 'buildElement',
             isStatic: true,
             scope: Scope.Private,
             parameters: [
-                { name: "tagName", type: "string" },
-                { name: "data", type: "any" },
-                { name: "config", type: "XmlPropertyConfig" }
+                { name: 'tagName', type: 'string' },
+                { name: 'data', type: 'any' },
+                { name: 'config', type: 'XmlPropertyConfig' },
             ],
-            returnType: "string",
+            returnType: 'string',
             statements: `
     // 1. Resolve Name and Prefix
     let name = config.name || tagName; 
@@ -177,25 +176,25 @@ export class XmlBuilderGenerator {
     } 
 
     return \`<\${name}\${primAttrs}>\${this.escapeText(rawValue)}</\${name}>\`; 
-            `
+            `,
         });
 
         classDeclaration.addMethod({
-            name: "escapeText",
+            name: 'escapeText',
             isStatic: true,
             scope: Scope.Private,
-            parameters: [{ name: "unsafe", type: "string" }],
-            returnType: "string",
-            statements: `return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");`
+            parameters: [{ name: 'unsafe', type: 'string' }],
+            returnType: 'string',
+            statements: `return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");`,
         });
 
         classDeclaration.addMethod({
-            name: "escapeAttribute",
+            name: 'escapeAttribute',
             isStatic: true,
             scope: Scope.Private,
-            parameters: [{ name: "unsafe", type: "string" }],
-            returnType: "string",
-            statements: `return this.escapeText(unsafe).replace(/"/g, "&quot;").replace(/'/g, "&apos;");`
+            parameters: [{ name: 'unsafe', type: 'string' }],
+            returnType: 'string',
+            statements: `return this.escapeText(unsafe).replace(/"/g, "&quot;").replace(/'/g, "&apos;");`,
         });
 
         sourceFile.formatText();

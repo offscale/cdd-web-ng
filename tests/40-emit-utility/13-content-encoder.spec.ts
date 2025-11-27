@@ -13,7 +13,7 @@ function getContentEncoder() {
 
     const jsCode = ts.transpile(code, {
         target: ts.ScriptTarget.ESNext,
-        module: ts.ModuleKind.CommonJS
+        module: ts.ModuleKind.CommonJS,
     });
 
     const moduleScope = { exports: {} as any };
@@ -37,8 +37,8 @@ describe('Utility: ContentEncoder', () => {
         const data = { id: 1, meta: { version: 1.0 } };
         const config = {
             properties: {
-                meta: { encode: true }
-            }
+                meta: { encode: true },
+            },
         };
         const result = ContentEncoder.encode(data, config);
 
@@ -50,14 +50,15 @@ describe('Utility: ContentEncoder', () => {
     it('should handle arrays with nested encoding', () => {
         const data = [
             { id: 1, raw: { x: 1 } },
-            { id: 2, raw: { x: 2 } }
+            { id: 2, raw: { x: 2 } },
         ];
         const config = {
-            items: { // config applies to array items
+            items: {
+                // config applies to array items
                 properties: {
-                    raw: { encode: true }
-                }
-            }
+                    raw: { encode: true },
+                },
+            },
         };
 
         // Input to encode is the array itself, so we need a wrapper config if top-level is array

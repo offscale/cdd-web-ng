@@ -1,4 +1,4 @@
-import { info } from "./common.js";
+import { info } from './common.js';
 
 export const adminFormSpec = {
     openapi: '3.0.0',
@@ -10,9 +10,9 @@ export const adminFormSpec = {
                 tags: ['Widgets'],
                 operationId: 'postWidgets',
                 requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/Widget' } } } },
-                responses: {}
-            }
-        }
+                responses: {},
+            },
+        },
     },
     components: {
         schemas: {
@@ -38,7 +38,7 @@ export const adminFormSpec = {
                     tags: { type: 'array', items: { type: 'string' } },
                     config: {
                         type: 'object',
-                        properties: { key: { type: 'string' }, readOnlyKey: { type: 'string', readOnly: true } }
+                        properties: { key: { type: 'string' }, readOnlyKey: { type: 'string', readOnly: true } },
                     },
                     items: {
                         type: 'array',
@@ -47,9 +47,9 @@ export const adminFormSpec = {
                             properties: {
                                 name: { type: 'string' },
                                 value: { type: 'number' },
-                                readOnlyVal: { type: 'string', readOnly: true }
-                            }
-                        }
+                                readOnlyVal: { type: 'string', readOnly: true },
+                            },
+                        },
                     },
                     primitiveArray: { type: 'array', items: { type: 'number' } },
                     arrayNoItems: { type: 'array' },
@@ -61,33 +61,34 @@ export const adminFormSpec = {
                     arrayObject: { type: 'array', items: { type: 'object' } },
                     unknownType: { type: 'file' },
                     boundedNumber: { type: 'number', maximum: 100, pattern: '^[0-9]+$' },
-                    boundedArray: { type: 'array', items: { type: 'string' }, minItems: 2 }
-                }
-            }
-        }
-    }
+                    boundedArray: { type: 'array', items: { type: 'string' }, minItems: 2 },
+                },
+            },
+        },
+    },
 };
 
 export const listComponentSpec = {
-    openapi: '3.0.0', info,
+    openapi: '3.0.0',
+    info,
     paths: {
         '/icon-tests': {
             get: { tags: ['IconTests'], responses: { '200': { description: 'ok' } } },
-            post: { tags: ['IconTests'], operationId: 'createItem', responses: {} }
+            post: { tags: ['IconTests'], operationId: 'createItem', responses: {} },
         },
         '/icon-tests/{id}': {
             put: {
                 tags: ['IconTests'],
                 operationId: 'updateItem',
                 parameters: [{ name: 'id', in: 'path' }],
-                responses: {}
+                responses: {},
             },
             delete: {
                 tags: ['IconTests'],
                 operationId: 'deleteItem',
                 parameters: [{ name: 'id', in: 'path' }],
-                responses: {}
-            }
+                responses: {},
+            },
         },
         '/icon-tests/add': { post: { tags: ['IconTests'], operationId: 'addItem', responses: {} } },
         '/icon-tests/{id}/remove': {
@@ -95,24 +96,24 @@ export const listComponentSpec = {
                 tags: ['IconTests'],
                 operationId: 'removeItem',
                 parameters: [{ name: 'id', in: 'path' }],
-                responses: {}
-            }
+                responses: {},
+            },
         },
         '/icon-tests/{id}/start': {
             post: {
                 tags: ['IconTests'],
                 operationId: 'startItem',
                 parameters: [{ name: 'id', in: 'path' }],
-                responses: {}
-            }
+                responses: {},
+            },
         },
         '/icon-tests/{id}/pause': {
             post: {
                 tags: ['IconTests'],
                 operationId: 'pauseProcess',
                 parameters: [{ name: 'id', in: 'path' }],
-                responses: {}
-            }
+                responses: {},
+            },
         },
         '/icon-tests/sync-all': { post: { tags: ['IconTests'], operationId: 'syncAll', responses: {} } },
         '/icon-tests/{id}/approve': {
@@ -120,30 +121,36 @@ export const listComponentSpec = {
                 tags: ['IconTests'],
                 operationId: 'approveItem',
                 parameters: [{ name: 'id', in: 'path' }],
-                responses: {}
-            }
+                responses: {},
+            },
         },
         '/icon-tests/{id}/block': {
             post: {
                 tags: ['IconTests'],
                 operationId: 'blockUser',
                 parameters: [{ name: 'id', in: 'path' }],
-                responses: {}
-            }
+                responses: {},
+            },
         },
         '/no-list': { post: { tags: ['NoListResource'], responses: { '200': {} } } },
         '/no-props': {
             get: {
                 tags: ['NoPropsResource'],
-                responses: { '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/NoProps' } } } } }
-            }
+                responses: {
+                    '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/NoProps' } } } },
+                },
+            },
         },
         '/no-listable-props': {
             get: {
                 tags: ['NoListablePropsResource'],
-                responses: { '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/NoListableProps' } } } } }
-            }
-        }
+                responses: {
+                    '200': {
+                        content: { 'application/json': { schema: { $ref: '#/components/schemas/NoListableProps' } } },
+                    },
+                },
+            },
+        },
     },
     components: {
         schemas: {
@@ -151,6 +158,6 @@ export const listComponentSpec = {
             NoProps: { type: 'object', properties: {} },
             NoListableProps: { type: 'object', properties: { config: { type: 'object' } } },
             NoListResource: { type: 'object' },
-        }
-    }
+        },
+    },
 };

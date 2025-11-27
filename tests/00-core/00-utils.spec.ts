@@ -16,7 +16,6 @@ import * as utils from '@src/core/utils/index.js';
  * - tests/00-core/utils/spec-extractor.spec.ts
  */
 describe('Core: Utils Public API (Index)', () => {
-
     describe('Module Exports', () => {
         it('should export String utilities', () => {
             expect(utils.camelCase).toBeDefined();

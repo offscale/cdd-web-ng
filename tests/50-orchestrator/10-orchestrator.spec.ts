@@ -6,27 +6,26 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { AngularClientGenerator } from '@src/generators/angular/angular-client.generator.js';
-import { GeneratorConfig, SwaggerSpec } from "@src/core/types/index.js";
+import { GeneratorConfig, SwaggerSpec } from '@src/core/types/index.js';
 import { SwaggerParser } from '@src/core/parser.js';
 
 // Mock the sub-generators to focus on orchestration wiring
 vi.mock('@src/service/emit/type/type.generator.js', () => {
     return {
         TypeGenerator: class {
-            constructor(_p: any, _prj: any, _c: any) {
-            }
+            constructor(_p: any, _prj: any, _c: any) {}
 
-            generate(_out: string) { /* no-op */
+            generate(_out: string) {
+                /* no-op */
             }
-        }
+        },
     };
 });
 
 vi.mock('@src/generators/angular/service/service.generator.js', () => {
     return {
         ServiceGenerator: class {
-            constructor(_p: any, _prj: any, _c: any) {
-            }
+            constructor(_p: any, _prj: any, _c: any) {}
 
             // UPDATED MOCK: The contract is now generate(outputDir, group)
             generate(_out: string, _groups: any) {
@@ -37,7 +36,7 @@ vi.mock('@src/generators/angular/service/service.generator.js', () => {
                 }
                 fs.writeFileSync(path.join(_out, 'services/user.service.spec.ts'), '// Mock Spec');
             }
-        }
+        },
     };
 });
 
@@ -49,28 +48,26 @@ const fullSpec: SwaggerSpec = {
             get: {
                 tags: ['User'],
                 responses: { '200': { description: 'ok' } },
-                callbacks: { 'onUser': { '{$request.query}': { post: { responses: { '200': {} } } } } }
-            }
-        }
+                callbacks: { onUser: { '{$request.query}': { post: { responses: { '200': {} } } } } },
+            },
+        },
     },
     tags: [
         { name: 'User', description: 'User management' },
-        { name: 'Admin', description: 'Admin access' }
+        { name: 'Admin', description: 'Admin access' },
     ],
     components: {
         securitySchemes: {
-            'ApiKey': { type: 'apiKey', name: 'x-api-key', in: 'header' }
+            ApiKey: { type: 'apiKey', name: 'x-api-key', in: 'header' },
         },
         schemas: {
-            'User': { type: 'object', properties: { name: { type: 'string' } } }
-        }
+            User: { type: 'object', properties: { name: { type: 'string' } } },
+        },
     },
-    servers: [
-        { url: 'https://api.test.com' }
-    ],
+    servers: [{ url: 'https://api.test.com' }],
     webhooks: {
-        'userCreated': { post: { responses: { '200': {} } } }
-    }
+        userCreated: { post: { responses: { '200': {} } } },
+    },
 };
 
 describe('Generators: AngularClientGenerator (Orchestrator)', () => {
@@ -93,7 +90,7 @@ describe('Generators: AngularClientGenerator (Orchestrator)', () => {
             input: '',
             output: testOutputDir,
             clientName: 'TestClient',
-            options: { dateType: 'string', enumStyle: 'enum', generateServices: true }
+            options: { dateType: 'string', enumStyle: 'enum', generateServices: true },
         } as any;
 
         // We must ensure project writes to disk since fs read calls happen later

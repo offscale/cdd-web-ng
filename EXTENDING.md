@@ -1,5 +1,4 @@
-Guide to Extending the Code Generator
-=====================================
+# Guide to Extending the Code Generator
 
 This document provides detailed instructions on how to extend the `cdd-web-ng` generator to support new frameworks (
 like [React](https://react.dev) and [Vue](https://vuejs.org)) and integrate different HTTP clients (
@@ -26,7 +25,7 @@ graph LR
 
     subgraph Gen [Layer 3: Generation]
         Base(<strong>Generator Engine</strong>)
-        
+
         %% The Fork
         subgraph Targets [Targets]
             direction TB
@@ -40,7 +39,7 @@ graph LR
     Input --> Parser
     Parser --> IR
     IR --> Base
-    
+
     Base -- "Existing" --> T_Ang
     Base -- "Extension 1" --> T_React
     Base -. "Extension N" .-> T_Other
@@ -68,58 +67,58 @@ graph LR
 
 2. **Analysis / IR Layer (`src/analysis`)**: This is the "brain" of the generator. It analyzes the parsed specification
    and converts it into a highly abstracted **Intermediate Representation (IR)**.
-    * `ServiceMethodModel`: Describes *what* an API call looks like (inputs, outputs, serialization rules) without
-      specifying *how* to call it.
-    * `FormAnalysisResult`: Describes a form's structure (groups, arrays, validation rules) without coupling to Angular
+    - `ServiceMethodModel`: Describes _what_ an API call looks like (inputs, outputs, serialization rules) without
+      specifying _how_ to call it.
+    - `FormAnalysisResult`: Describes a form's structure (groups, arrays, validation rules) without coupling to Angular
       Forms or React Hook Form.
-    * `ListViewModel`: Describes a data table structure.
-    * **Key Takeaway**: This layer decouples the "What" from the "How". It is reusable across *all* target frameworks.
+    - `ListViewModel`: Describes a data table structure.
+    - **Key Takeaway**: This layer decouples the "What" from the "How". It is reusable across _all_ target frameworks.
 
-   *Visualizing how the Form IR is translated:*
+    _Visualizing how the Form IR is translated:_
 
-   ```mermaid
-   graph TD
-   %% --- TOP ---
-   FormIR(<strong>FormAnalysisResult</strong><br/>Agnostic Schema Definition)
+    ```mermaid
+    graph TD
+    %% --- TOP ---
+    FormIR(<strong>FormAnalysisResult</strong><br/>Agnostic Schema Definition)
 
-   %% --- MIDDLE: GENERATORS ---
-   subgraph Strategies [Generation Strategies]
-       direction LR
-       
-       ReactStrategy(<strong>React Generator</strong><br/>e.g. React Hook Form)
-       AngStrategy(<strong>Angular Generator</strong><br/>e.g. Reactive Forms)
-       OtherStrategy(<strong>...</strong><br/>e.g. Vue / Svelte)
-   end
+    %% --- MIDDLE: GENERATORS ---
+    subgraph Strategies [Generation Strategies]
+        direction LR
 
-   %% --- BOTTOM: OUTPUT ---
-   subgraph Result [Final Code]
-       direction LR
-       
-       R_Comp(<strong>React Component</strong>)
-       A_Comp(<strong>Angular Component</strong>)
-       O_Comp(<strong>...</strong>)
-   end
+        ReactStrategy(<strong>React Generator</strong><br/>e.g. React Hook Form)
+        AngStrategy(<strong>Angular Generator</strong><br/>e.g. Reactive Forms)
+        OtherStrategy(<strong>...</strong><br/>e.g. Vue / Svelte)
+    end
 
-   %% --- EDGES ---
-   FormIR --> ReactStrategy
-   FormIR --> AngStrategy
-   FormIR -.-> OtherStrategy
+    %% --- BOTTOM: OUTPUT ---
+    subgraph Result [Final Code]
+        direction LR
 
-   ReactStrategy --> R_Comp
-   AngStrategy --> A_Comp
-   OtherStrategy -.-> O_Comp
+        R_Comp(<strong>React Component</strong>)
+        A_Comp(<strong>Angular Component</strong>)
+        O_Comp(<strong>...</strong>)
+    end
 
-   %% --- STYLING ---
-   classDef analysis fill:#34a853,color:#ffffff,stroke:#20344b,stroke-width:0px
-   classDef gen fill:#4285f4,color:#ffffff,stroke:#20344b,stroke-width:0px
-   classDef output fill:#ffffff,color:#20344b,stroke:#20344b,stroke-width:2px
-   classDef future fill:#ffffff,stroke:#20344b,color:#20344b,stroke-width:2px,stroke-dasharray: 5 5
+    %% --- EDGES ---
+    FormIR --> ReactStrategy
+    FormIR --> AngStrategy
+    FormIR -.-> OtherStrategy
 
-   class FormIR analysis
-   class ReactStrategy,AngStrategy gen
-   class R_Comp,A_Comp output
-   class OtherStrategy,O_Comp future
-   ```
+    ReactStrategy --> R_Comp
+    AngStrategy --> A_Comp
+    OtherStrategy -.-> O_Comp
+
+    %% --- STYLING ---
+    classDef analysis fill:#34a853,color:#ffffff,stroke:#20344b,stroke-width:0px
+    classDef gen fill:#4285f4,color:#ffffff,stroke:#20344b,stroke-width:0px
+    classDef output fill:#ffffff,color:#20344b,stroke:#20344b,stroke-width:2px
+    classDef future fill:#ffffff,stroke:#20344b,color:#20344b,stroke-width:2px,stroke-dasharray: 5 5
+
+    class FormIR analysis
+    class ReactStrategy,AngStrategy gen
+    class R_Comp,A_Comp output
+    class OtherStrategy,O_Comp future
+    ```
 
 3. **Generation Layer (`src/generators`)**: Consumes the IR and emits framework-specific strings (TypeScript, HTML,
    CSS). All framework-specific logic (Angular Services, React Hooks, Vue Composables) lives exclusively here.
@@ -168,8 +167,12 @@ import { ParameterSerializerGenerator } from '../shared/parameter-serializer.gen
 import { ReactAxiosGenerator } from './service/axios-service.generator.js';
 
 export class ReactClientGenerator extends AbstractClientGenerator {
-    public async generate(project: Project, parser: SwaggerParser, config: GeneratorConfig, outputDir: string): Promise<void> {
-
+    public async generate(
+        project: Project,
+        parser: SwaggerParser,
+        config: GeneratorConfig,
+        outputDir: string,
+    ): Promise<void> {
         // Step 1: Generate Models (Reusable!)
         // The TypeGenerator creates pure TypeScript interfaces found in /models
         new TypeGenerator(parser, project, config).generate(outputDir);
@@ -210,7 +213,6 @@ import { AbstractServiceGenerator } from '../../base/service.base.js';
 import { ServiceMethodAnalyzer } from '@src/analysis/service-method-analyzer.js';
 
 export class ReactAxiosGenerator extends AbstractServiceGenerator {
-
     // Define the file naming convention (e.g., useUserApi.ts)
     protected getFileName(controllerName: string): string {
         return `use${controllerName}Api.ts`;
@@ -220,16 +222,16 @@ export class ReactAxiosGenerator extends AbstractServiceGenerator {
     protected generateImports(sourceFile: SourceFile, operations: PathInfo[]): void {
         sourceFile.addImportDeclaration({
             moduleSpecifier: 'react',
-            namedImports: ['useCallback']
+            namedImports: ['useCallback'],
         });
         sourceFile.addImportDeclaration({
             moduleSpecifier: 'axios',
-            defaultImport: 'axios'
+            defaultImport: 'axios',
         });
         // Import the shared serializer!
         sourceFile.addImportDeclaration({
             moduleSpecifier: '../utils/parameter-serializer',
-            namedImports: ['ParameterSerializer']
+            namedImports: ['ParameterSerializer'],
         });
     }
 
@@ -240,7 +242,7 @@ export class ReactAxiosGenerator extends AbstractServiceGenerator {
         const hook = sourceFile.addFunction({
             name: hookName,
             isExported: true,
-            statements: [] // Body
+            statements: [], // Body
         });
 
         // Use the Analyzer to interpret the spec!
@@ -303,13 +305,13 @@ graph TD
     %% --- THE IMPLEMENTATIONS ---
     subgraph Endpoint [Implementation Output]
         direction LR
-        
+
         Impl_Ang("<strong>Angular HttpClient</strong>")
-        
+
         Impl_Axios("<strong>Axios</strong><br/>(Promise based)")
-        
+
         Impl_Fetch("<strong>Fetch API</strong><br/>(Native)")
-        
+
         Impl_Other("<strong>...</strong><br/>(e.g. Ky / SuperAgent)")
     end
 
@@ -323,7 +325,7 @@ graph TD
     GenReact --> Impl_Axios
     GenReact --> Impl_Fetch
     GenReact -.-> Impl_Other
-    
+
     GenMore -.- Impl_Other
 
     %% ALL depend on the Serializer
@@ -396,5 +398,5 @@ axios.get(url, { params });
 2. **Import `ParameterSerializer`** in your generated service file.
 3. **Map the abstract `ServiceMethodModel` headers/cookies/query** to the specific syntax of your client library using
    the serializer's output.
-    * Example: Map `cookieParams` logic -> `document.cookie = ...` or `axios` interceptor.
-    * Example: Map `headerParams` logic -> `headers: { ... }` object.
+    - Example: Map `cookieParams` logic -> `document.cookie = ...` or `axios` interceptor.
+    - Example: Map `headerParams` logic -> `headers: { ... }` object.

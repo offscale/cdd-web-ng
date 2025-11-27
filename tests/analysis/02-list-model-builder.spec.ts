@@ -3,7 +3,6 @@ import { ListModelBuilder } from '@src/analysis/list-model.builder.js';
 import { Resource, SwaggerDefinition } from '@src/core/types/index.js';
 
 describe('Analysis: ListModelBuilder', () => {
-
     /**
      * Helper function to create a mock Resource object with sensible defaults.
      * @param overrides - Partial properties to override the defaults.
@@ -17,11 +16,9 @@ describe('Analysis: ListModelBuilder', () => {
             operations: [{ action: 'list', methodName: 'listItems' } as any],
             formProperties: [
                 { name: 'id', schema: { type: 'string' } as SwaggerDefinition },
-                { name: 'name', schema: { type: 'string' } as SwaggerDefinition }
+                { name: 'name', schema: { type: 'string' } as SwaggerDefinition },
             ],
-            listProperties: [
-                { name: 'name', schema: { type: 'string' } as SwaggerDefinition }
-            ]
+            listProperties: [{ name: 'name', schema: { type: 'string' } as SwaggerDefinition }],
         };
         return { ...defaultResource, ...overrides };
     };
@@ -32,8 +29,8 @@ describe('Analysis: ListModelBuilder', () => {
             // Explicitly include 'id' in listProperties to test the duplicate check
             listProperties: [
                 { name: 'id', schema: { type: 'string' } as SwaggerDefinition },
-                { name: 'name', schema: { type: 'string' } as SwaggerDefinition }
-            ]
+                { name: 'name', schema: { type: 'string' } as SwaggerDefinition },
+            ],
         });
 
         const viewModel = builder.build(resource);
@@ -49,12 +46,12 @@ describe('Analysis: ListModelBuilder', () => {
     it('should throw an error if the resource has no "list" operation', () => {
         const builder = new ListModelBuilder();
         const resource = createResource({
-            operations: [{ action: 'create', methodName: 'createItem' } as any] // No 'list' operation
+            operations: [{ action: 'create', methodName: 'createItem' } as any], // No 'list' operation
         });
 
         // This covers the error handling path when a list view cannot be generated.
         expect(() => builder.build(resource)).toThrow(
-            `Cannot generate list view for resource '${resource.name}': No 'list' action found.`
+            `Cannot generate list view for resource '${resource.name}': No 'list' action found.`,
         );
     });
 
@@ -64,8 +61,8 @@ describe('Analysis: ListModelBuilder', () => {
             operations: [
                 { action: 'list', methodName: 'listItems' } as any,
                 { action: 'getInfo', methodName: 'getInfo', isCustomCollectionAction: true } as any,
-                { action: 'processItem', methodName: 'processItem', isCustomItemAction: true } as any
-            ]
+                { action: 'processItem', methodName: 'processItem', isCustomItemAction: true } as any,
+            ],
         });
 
         const viewModel = builder.build(resource);

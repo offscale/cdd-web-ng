@@ -4,7 +4,6 @@ import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig, PathInfo } from '@src/core/types/index.js';
 
 describe('Analysis: ServiceMethodAnalyzer', () => {
-
     const setupAnalyzer = (spec: any) => {
         const config: GeneratorConfig = { input: '', output: '', options: {} };
         const parser = new SwaggerParser(spec, config);
@@ -31,13 +30,13 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                         servers: [
                             {
                                 url: 'https://{env}.specific.api.com/v1',
-                                variables: { env: { default: 'prod' } }
-                            }
+                                variables: { env: { default: 'prod' } },
+                            },
                         ],
-                        responses: { '200': { description: 'OK' } }
-                    }
-                }
-            }
+                        responses: { '200': { description: 'OK' } },
+                    },
+                },
+            },
         };
 
         const { analyzer } = setupAnalyzer(spec);
@@ -45,7 +44,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
             ...spec.paths['/test'].get,
             path: '/test',
             method: 'GET',
-            methodName: 'testOp'
+            methodName: 'testOp',
         } as PathInfo;
 
         const model = analyzer.analyze(operation);
@@ -64,10 +63,10 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                         operationId: 'getOld',
                         deprecated: true,
                         summary: 'An old operation.',
-                        responses: { '200': { description: 'OK' } }
-                    }
-                }
-            }
+                        responses: { '200': { description: 'OK' } },
+                    },
+                },
+            },
         };
 
         const { analyzer } = setupAnalyzer(spec);
@@ -75,7 +74,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
             ...spec.paths['/old'].get,
             path: '/old',
             method: 'GET',
-            methodName: 'getOld'
+            methodName: 'getOld',
         } as PathInfo;
         const model = analyzer.analyze(operation);
 
@@ -93,10 +92,10 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                         type: 'object',
                         xml: { name: 'node' },
                         properties: {
-                            child: { $ref: '#/components/schemas/Node' }
-                        }
-                    }
-                }
+                            child: { $ref: '#/components/schemas/Node' },
+                        },
+                    },
+                },
             },
             paths: {
                 '/xml': {
@@ -105,21 +104,21 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                         requestBody: {
                             content: {
                                 'application/xml': {
-                                    schema: { $ref: '#/components/schemas/Node' }
-                                }
-                            }
+                                    schema: { $ref: '#/components/schemas/Node' },
+                                },
+                            },
                         },
-                        responses: { '200': {} }
-                    }
-                }
-            }
+                        responses: { '200': {} },
+                    },
+                },
+            },
         };
         const { analyzer } = setupAnalyzer(spec);
         const operation = {
             ...spec.paths['/xml'].post,
             path: '/xml',
             method: 'POST',
-            methodName: 'postXml'
+            methodName: 'postXml',
         } as PathInfo;
 
         const model = analyzer.analyze(operation);
@@ -146,12 +145,12 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                         parameters: [
                             { name: 'a', in: 'query', content: { 'application/json': {} } }, // Standard
                             { name: 'b', in: 'query', content: { 'application/json; charset=utf-8': {} } }, // JSON compatible subtype
-                            { name: 'c', in: 'query', content: { '*/*': {} } } // Wildcard
+                            { name: 'c', in: 'query', content: { '*/*': {} } }, // Wildcard
                         ],
-                        responses: {}
-                    }
-                }
-            }
+                        responses: {},
+                    },
+                },
+            },
         };
         const { analyzer } = setupAnalyzer(spec);
         const op = { ...spec.paths['/test'].get, method: 'GET', path: '/test', methodName: 'test' } as PathInfo;
@@ -174,17 +173,17 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                 schemas: {
                     Base: {
                         type: 'object',
-                        properties: { id: { type: 'string', xml: { attribute: true } } }
+                        properties: { id: { type: 'string', xml: { attribute: true } } },
                     },
                     Extended: {
                         allOf: [
                             { $ref: '#/components/schemas/Base' },
                             // Add local XML config to ensure it is picked up by getXmlConfig
-                            { type: 'object', properties: { name: { type: 'string', xml: { attribute: true } } } }
+                            { type: 'object', properties: { name: { type: 'string', xml: { attribute: true } } } },
                         ],
-                        xml: { name: 'Extended' }
-                    }
-                }
+                        xml: { name: 'Extended' },
+                    },
+                },
             },
             paths: {
                 '/xml-allof': {
@@ -193,21 +192,21 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                         requestBody: {
                             content: {
                                 'application/xml': {
-                                    schema: { $ref: '#/components/schemas/Extended' }
-                                }
-                            }
+                                    schema: { $ref: '#/components/schemas/Extended' },
+                                },
+                            },
                         },
-                        responses: { '200': {} }
-                    }
-                }
-            }
+                        responses: { '200': {} },
+                    },
+                },
+            },
         };
         const { analyzer } = setupAnalyzer(spec);
         const operation = {
             ...spec.paths['/xml-allof'].post,
             path: '/xml-allof',
             method: 'POST',
-            methodName: 'postXmlAllOf'
+            methodName: 'postXmlAllOf',
         } as PathInfo;
 
         const model = analyzer.analyze(operation);
@@ -229,7 +228,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
             openapi: '3.0.0',
             info: { title: 'Test', version: '1.0' },
             paths: {},
-            components: { schemas: { Broken: { $ref: '#/missing' } } }
+            components: { schemas: { Broken: { $ref: '#/missing' } } },
         };
         const { analyzer } = setupAnalyzer(spec);
         // Using private/internal method via cast to test specific logic
@@ -251,13 +250,13 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                         requestBody: {
                             content: {
                                 'application/json': {
-                                    schema: { type: 'string' }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+                                    schema: { type: 'string' },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
         };
         const { analyzer } = setupAnalyzer(spec);
         const op = { ...spec.paths['/echo'].post, path: '/echo', method: 'POST' } as any;
@@ -279,14 +278,14 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                         requestBody: {
                             content: {
                                 'application/vnd.custom+json': {
-                                    schema: { type: 'integer' }
-                                }
-                            }
+                                    schema: { type: 'integer' },
+                                },
+                            },
                         },
-                        responses: {}
-                    }
-                }
-            }
+                        responses: {},
+                    },
+                },
+            },
         };
         const { analyzer } = setupAnalyzer(spec);
         const op = { ...spec.paths['/post'].post, path: '/post', method: 'POST' } as any;
@@ -310,11 +309,11 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                         xml: { wrapped: true },
                         items: {
                             type: 'string',
-                            xml: { name: 'Item' }
-                        }
-                    }
-                }
-            }
+                            xml: { name: 'Item' },
+                        },
+                    },
+                },
+            },
         };
         const { analyzer } = setupAnalyzer(spec);
         const schema = spec.components.schemas.List;
@@ -340,11 +339,11 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                         xml: {
                             prefix: 'ex',
                             namespace: 'http://example.com',
-                            nodeType: 'element'
-                        }
-                    }
-                }
-            }
+                            nodeType: 'element',
+                        },
+                    },
+                },
+            },
         };
         const { analyzer } = setupAnalyzer(spec);
         const config = (analyzer as any).getXmlConfig(spec.components.schemas.Adv, 5);
@@ -364,9 +363,9 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                     RefWrapper: { $ref: '#/components/schemas/Target' },
                     ArrayWrapper: { type: 'array', items: { type: 'string' } },
                     StandardObject: { type: 'object', properties: { a: { type: 'string' } } },
-                    LegacyWrapped: { type: 'array', items: { type: 'string' }, xml: { wrapped: true } }
-                }
-            }
+                    LegacyWrapped: { type: 'array', items: { type: 'string' }, xml: { wrapped: true } },
+                },
+            },
         };
         const { analyzer } = setupAnalyzer(spec);
 

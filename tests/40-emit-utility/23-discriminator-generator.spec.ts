@@ -6,7 +6,7 @@ import { Project } from 'ts-morph';
 
 import { SwaggerParser } from '@src/core/parser.js';
 import { DiscriminatorGenerator } from '@src/generators/shared/discriminator.generator.js';
-import { GeneratorConfig, SwaggerSpec } from "@src/core/types/index.js";
+import { GeneratorConfig, SwaggerSpec } from '@src/core/types/index.js';
 
 import { createTestProject } from '../shared/helpers.js';
 
@@ -21,30 +21,30 @@ const oas3Spec: SwaggerSpec = {
                 discriminator: {
                     propertyName: 'petType',
                     mapping: {
-                        'cat_obj': '#/components/schemas/Cat',
-                        'dog_obj': '#/components/schemas/Dog'
-                    }
+                        cat_obj: '#/components/schemas/Cat',
+                        dog_obj: '#/components/schemas/Dog',
+                    },
                 },
                 properties: {
                     name: { type: 'string' },
-                    petType: { type: 'string' }
+                    petType: { type: 'string' },
                 },
-                required: ['name', 'petType']
+                required: ['name', 'petType'],
             },
             Cat: {
                 allOf: [
                     { $ref: '#/components/schemas/BasePet' },
-                    { type: 'object', properties: { meow: { type: 'boolean' } } }
-                ]
+                    { type: 'object', properties: { meow: { type: 'boolean' } } },
+                ],
             },
             Dog: {
                 allOf: [
                     { $ref: '#/components/schemas/BasePet' },
-                    { type: 'object', properties: { bark: { type: 'boolean' } } }
-                ]
-            }
-        }
-    }
+                    { type: 'object', properties: { bark: { type: 'boolean' } } },
+                ],
+            },
+        },
+    },
 };
 
 const swagger2Spec: SwaggerSpec = {
@@ -56,19 +56,16 @@ const swagger2Spec: SwaggerSpec = {
             type: 'object',
             discriminator: 'kind',
             properties: {
-                kind: { type: 'string' }
-            }
+                kind: { type: 'string' },
+            },
         },
         Lion: {
-            allOf: [
-                { $ref: '#/definitions/Animal' }
-            ]
-        }
-    }
+            allOf: [{ $ref: '#/definitions/Animal' }],
+        },
+    },
 } as any;
 
 describe('Emitter: DiscriminatorGenerator', () => {
-
     const runGenerator = (spec: SwaggerSpec) => {
         const project = createTestProject();
         const config: GeneratorConfig = { output: '/out', options: {} } as any;
@@ -129,9 +126,9 @@ describe('Emitter: DiscriminatorGenerator', () => {
             paths: {},
             components: {
                 schemas: {
-                    Simple: { type: 'string' }
-                }
-            }
+                    Simple: { type: 'string' },
+                },
+            },
         };
         const project = runGenerator(emptySpec);
         const sourceFile = project.getSourceFileOrThrow('/out/discriminators.ts');
@@ -150,16 +147,16 @@ describe('Emitter: DiscriminatorGenerator', () => {
                         discriminator: {
                             propertyName: 'type',
                             mapping: {
-                                'external': 'https://schemas.example.com/models/ExternalModel'
-                            }
-                        }
+                                external: 'https://schemas.example.com/models/ExternalModel',
+                            },
+                        },
                     },
                     ExternalModel: {
                         type: 'object',
-                        properties: { type: { type: 'string' } }
-                    }
-                }
-            }
+                        properties: { type: { type: 'string' } },
+                    },
+                },
+            },
         };
 
         const project = createTestProject();
@@ -172,7 +169,7 @@ describe('Emitter: DiscriminatorGenerator', () => {
         parser.schemas.push({ name: 'ExternalModel', definition: externalDef });
         parser.schemas.push({ name: 'Context', definition: contextDef });
 
-        vi.spyOn(parser, 'resolveReference').mockImplementation((ref) => {
+        vi.spyOn(parser, 'resolveReference').mockImplementation(ref => {
             if (ref === 'https://schemas.example.com/models/ExternalModel') return externalDef;
             return undefined;
         });
@@ -194,12 +191,12 @@ describe('Emitter: DiscriminatorGenerator', () => {
                         discriminator: {
                             propertyName: 'k',
                             mapping: {
-                                'remote': 'https://remote.org/definitions/weird-name.json'
-                            }
-                        }
-                    }
-                }
-            }
+                                remote: 'https://remote.org/definitions/weird-name.json',
+                            },
+                        },
+                    },
+                },
+            },
         } as any;
 
         const project = runGenerator(fallbackSpec);
@@ -219,16 +216,16 @@ describe('Emitter: DiscriminatorGenerator', () => {
                         type: 'object',
                         discriminator: {
                             propertyName: 'type',
-                            defaultMapping: '#/components/schemas/UnknownPet'
+                            defaultMapping: '#/components/schemas/UnknownPet',
                         },
-                        properties: { type: { type: 'string' } }
+                        properties: { type: { type: 'string' } },
                     },
                     UnknownPet: {
                         type: 'object',
-                        properties: { type: { type: 'string' } }
-                    }
-                }
-            }
+                        properties: { type: { type: 'string' } },
+                    },
+                },
+            },
         };
 
         const project = runGenerator(defaultMapSpec);

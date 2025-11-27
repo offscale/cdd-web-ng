@@ -3,7 +3,7 @@ import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
 import { WebhookGenerator } from '@src/generators/shared/webhook.generator.js';
 import { createTestProject } from '../shared/helpers.js';
-import { GeneratorConfig, SwaggerSpec } from "@src/core/types/index.js";
+import { GeneratorConfig, SwaggerSpec } from '@src/core/types/index.js';
 import ts from 'typescript';
 
 const simpleWebhookSpec: SwaggerSpec = {
@@ -11,23 +11,23 @@ const simpleWebhookSpec: SwaggerSpec = {
     info: { title: 'Webhook Test', version: '1.0' },
     paths: {},
     webhooks: {
-        'newPet': {
+        newPet: {
             post: {
                 requestBody: {
                     content: {
                         'application/json': {
                             schema: {
                                 type: 'object',
-                                properties: { id: { type: 'integer' } }
-                            }
-                        }
-                    }
+                                properties: { id: { type: 'integer' } },
+                            },
+                        },
+                    },
                 },
-                responses: { '200': { description: 'ok' } }
-            }
-        }
+                responses: { '200': { description: 'ok' } },
+            },
+        },
     },
-    components: { schemas: {} }
+    components: { schemas: {} },
 };
 
 const validAndInvalidWebhooksSpec: SwaggerSpec = {
@@ -35,19 +35,19 @@ const validAndInvalidWebhooksSpec: SwaggerSpec = {
     info: { title: 'Mixed Webhook Test', version: '1.0' },
     paths: {},
     webhooks: {
-        'validHook': { $ref: '#/components/pathItems/ValidWebhook' },
-        'invalidHook': { $ref: '#/components/pathItems/MissingWebhook' }
+        validHook: { $ref: '#/components/pathItems/ValidWebhook' },
+        invalidHook: { $ref: '#/components/pathItems/MissingWebhook' },
     },
     components: {
         pathItems: {
             ValidWebhook: {
                 post: {
                     requestBody: { content: { 'application/json': { schema: { type: 'string' } } } },
-                    responses: { '200': {} }
-                }
-            }
-        }
-    }
+                    responses: { '200': {} },
+                },
+            },
+        },
+    },
 };
 
 // New spec to force model imports from webhook payloads (covers conditional import generation)
@@ -56,29 +56,28 @@ const webhookWithModelSpec: SwaggerSpec = {
     info: { title: 'Webhook Model', version: '1.0' },
     paths: {},
     webhooks: {
-        'petCreated': {
+        petCreated: {
             post: {
                 requestBody: {
-                    content: { 'application/json': { schema: { $ref: '#/components/schemas/Pet' } } }
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/Pet' } } },
                 },
-                responses: { '200': {} }
-            }
-        }
+                responses: { '200': {} },
+            },
+        },
     },
     components: {
         schemas: {
-            Pet: { type: 'object', properties: { name: { type: 'string' } } }
-        }
-    }
+            Pet: { type: 'object', properties: { name: { type: 'string' } } },
+        },
+    },
 };
 
 describe('Emitter: WebhookGenerator', () => {
-
     const runGenerator = (spec: SwaggerSpec) => {
         const project = createTestProject();
         const config: GeneratorConfig = {
             output: '/out',
-            options: { dateType: 'string', enumStyle: 'enum', generateServices: true }
+            options: { dateType: 'string', enumStyle: 'enum', generateServices: true },
         } as any;
         const parser = new SwaggerParser(spec, config);
         new WebhookGenerator(parser, project).generate('/out');

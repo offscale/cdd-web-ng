@@ -11,11 +11,11 @@ class MockHttpParams {
     map = new Map<string, string[]>();
     encoder: any;
 
-    constructor(options?: { fromObject?: any, encoder?: any }) {
+    constructor(options?: { fromObject?: any; encoder?: any }) {
         // Mock default encoder behavior: encodeURIComponent
         this.encoder = options?.encoder || {
             encodeKey: (k: string) => encodeURIComponent(k),
-            encodeValue: (v: string) => encodeURIComponent(v)
+            encodeValue: (v: string) => encodeURIComponent(v),
         };
 
         if (options?.fromObject) {
@@ -65,7 +65,7 @@ function getBuilderContext() {
 
     const jsCode = ts.transpile(codeWithoutImports, {
         target: ts.ScriptTarget.ES2020,
-        module: ts.ModuleKind.CommonJS
+        module: ts.ModuleKind.CommonJS,
     });
 
     const exportsMock = {};
@@ -74,7 +74,7 @@ function getBuilderContext() {
 
     return {
         Builder: (exportsMock as any).HttpParamsBuilder,
-        ApiParameterCodec: (exportsMock as any).ApiParameterCodec
+        ApiParameterCodec: (exportsMock as any).ApiParameterCodec,
     };
 }
 
@@ -114,17 +114,21 @@ describe('Utility: HttpParamsBuilder', () => {
         it('should handle JSON serialization with allowReserved=true', () => {
             const params = createParams();
             const val = { id: 'a/b' };
-            const res = Builder.serializeQueryParam(params, {
-                name: 'q',
-                allowReserved: true,
-                serialization: 'json'
-            }, val);
+            const res = Builder.serializeQueryParam(
+                params,
+                {
+                    name: 'q',
+                    allowReserved: true,
+                    serialization: 'json',
+                },
+                val,
+            );
 
             const encoded = res.get('q');
             expect(encoded).toContain('%7B'); // {
             expect(encoded).toContain('%22'); // "
-            expect(encoded).toContain(':');   // : preserved
-            expect(encoded).toContain('/');   // / preserved
+            expect(encoded).toContain(':'); // : preserved
+            expect(encoded).toContain('/'); // / preserved
         });
 
         it('should serialize form style arrays (explode=true)', () => {

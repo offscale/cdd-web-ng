@@ -3,19 +3,23 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from "@src/core/types/index.js";
-import { MockDataGenerator } from "@src/generators/angular/test/mock-data.generator.js";
+import { GeneratorConfig } from '@src/core/types/index.js';
+import { MockDataGenerator } from '@src/generators/angular/test/mock-data.generator.js';
 
 vi.mock('node:fs');
 
 // A single, comprehensive spec to test all branches of the mock data generator.
 const mockDataGenSpec = {
-    openapi: '3.0.0', info: { title: 'Mock Data Gen Spec', version: '1.0' }, paths: {},
+    openapi: '3.0.0',
+    info: { title: 'Mock Data Gen Spec', version: '1.0' },
+    paths: {},
     components: {
         schemas: {
             // Schemas for existing tests
             Base: { type: 'object', properties: { id: { type: 'string' } } },
-            WithBadRef: { allOf: [{ $ref: '#/components/schemas/Base' }, { $ref: '#/components/schemas/NonExistent' }] },
+            WithBadRef: {
+                allOf: [{ $ref: '#/components/schemas/Base' }, { $ref: '#/components/schemas/NonExistent' }],
+            },
             AllOfWithPrimitive: { allOf: [{ type: 'string' }] },
             JustARef: { $ref: '#/components/schemas/Base' },
             RefToNothing: { $ref: '#/components/schemas/NonExistent' },
@@ -58,8 +62,8 @@ const mockDataGenSpec = {
                     myDate: { type: 'string', format: 'date' },
                     myUuid: { type: 'string', format: 'uuid' },
                     myPassword: { type: 'string', format: 'password' },
-                    myBase64: { type: 'string', contentEncoding: 'base64' }
-                }
+                    myBase64: { type: 'string', contentEncoding: 'base64' },
+                },
             },
             StringWithNonStringDefault: { type: 'string', default: 123 },
             BooleanWithDefault: { type: 'boolean', default: false },
@@ -70,11 +74,11 @@ const mockDataGenSpec = {
             UnresolvableRefWrapper: {
                 type: 'object',
                 properties: {
-                    badProp: { $ref: '#/components/schemas/NonExistent' }
-                }
-            }
-        }
-    }
+                    badProp: { $ref: '#/components/schemas/NonExistent' },
+                },
+            },
+        },
+    },
 };
 
 describe('Generated Code: MockDataGenerator (Coverage)', () => {

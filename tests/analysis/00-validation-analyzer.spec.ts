@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { analyzeValidationRules } from '@src/analysis/validation.analyzer.js';
-import { SwaggerDefinition } from "@src/core/types/index.js";
+import { SwaggerDefinition } from '@src/core/types/index.js';
 
 describe('Analysis: validation.analyzer', () => {
-
     it('should return empty array for readOnly properties', () => {
         expect(analyzeValidationRules({ readOnly: true } as SwaggerDefinition)).toEqual([]);
     });
@@ -16,9 +15,10 @@ describe('Analysis: validation.analyzer', () => {
     it('should map all standard validation keywords', () => {
         const schema: SwaggerDefinition = {
             type: 'string',
-            minLength: 1, maxLength: 5,
+            minLength: 1,
+            maxLength: 5,
             pattern: '^[a-z]$',
-            format: 'email'
+            format: 'email',
         };
         const rules = analyzeValidationRules(schema)!;
         expect(rules).toContainEqual({ type: 'minLength', value: 1 });
@@ -28,8 +28,12 @@ describe('Analysis: validation.analyzer', () => {
     });
 
     it('should handle contentEncoding patterns', () => {
-        expect(analyzeValidationRules({ contentEncoding: 'base64' } as any)).toContainEqual(expect.objectContaining({ type: 'pattern' }));
-        expect(analyzeValidationRules({ contentEncoding: 'base64url' } as any)).toContainEqual(expect.objectContaining({ type: 'pattern' }));
+        expect(analyzeValidationRules({ contentEncoding: 'base64' } as any)).toContainEqual(
+            expect.objectContaining({ type: 'pattern' }),
+        );
+        expect(analyzeValidationRules({ contentEncoding: 'base64url' } as any)).toContainEqual(
+            expect.objectContaining({ type: 'pattern' }),
+        );
     });
 
     it('should map numeric constraints (exclusive vs standard)', () => {
@@ -41,7 +45,7 @@ describe('Analysis: validation.analyzer', () => {
             minimum: 5,
             exclusiveMinimum: true,
             maximum: 10,
-            exclusiveMaximum: true
+            exclusiveMaximum: true,
         } as any);
         expect(exclusive30).toContainEqual({ type: 'exclusiveMinimum', value: 5 });
         expect(exclusive30).toContainEqual({ type: 'exclusiveMaximum', value: 10 });
@@ -56,7 +60,7 @@ describe('Analysis: validation.analyzer', () => {
             multipleOf: 2,
             uniqueItems: true,
             minItems: 1,
-            maxItems: 5
+            maxItems: 5,
         };
         const rules = analyzeValidationRules(schema);
         expect(rules).toContainEqual({ type: 'multipleOf', value: 2 });
@@ -80,7 +84,7 @@ describe('Analysis: validation.analyzer', () => {
     it('should map const validator (OAS 3.1)', () => {
         const schema: SwaggerDefinition = {
             type: 'string',
-            const: 'exact-value'
+            const: 'exact-value',
         };
         const rules = analyzeValidationRules(schema);
         expect(rules).toContainEqual({ type: 'const', value: 'exact-value' });
@@ -89,7 +93,7 @@ describe('Analysis: validation.analyzer', () => {
     it('should recursively map not validator schema (OAS 3.x)', () => {
         const schema: SwaggerDefinition = {
             type: 'string',
-            not: { pattern: '^foo' }
+            not: { pattern: '^foo' },
         };
         const rules = analyzeValidationRules(schema);
         const notRule = rules.find(r => r.type === 'not') as any;

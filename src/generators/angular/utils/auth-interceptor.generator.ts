@@ -6,8 +6,10 @@ import { SecurityScheme } from '@src/core/types/index.js';
 import { pascalCase } from '@src/core/utils/index.js';
 
 export class AuthInterceptorGenerator {
-    constructor(private parser: SwaggerParser, private project: Project) {
-    }
+    constructor(
+        private parser: SwaggerParser,
+        private project: Project,
+    ) {}
 
     public generate(outputDir: string): { tokenNames: string[] } | void {
         const securitySchemes = Object.values(this.parser.getSecuritySchemes());
@@ -60,10 +62,14 @@ export class AuthInterceptorGenerator {
             { moduleSpecifier: 'rxjs', namedImports: ['Observable'] },
             { moduleSpecifier: './auth.tokens', namedImports: tokenImports },
             // Helper used for correct cookie serialization logic (OAS 3.2)
-            ...(hasApiKeyCookie ? [{
-                moduleSpecifier: '../utils/http-params-builder',
-                namedImports: ['HttpParamsBuilder']
-            }] : [])
+            ...(hasApiKeyCookie
+                ? [
+                      {
+                          moduleSpecifier: '../utils/http-params-builder',
+                          namedImports: ['HttpParamsBuilder'],
+                      },
+                  ]
+                : []),
         ]);
 
         const interceptorClass = sourceFile.addClass({
@@ -117,9 +123,13 @@ export class AuthInterceptorGenerator {
         Object.entries(uniqueSchemesMap).forEach(([name, scheme]) => {
             if (scheme.type === 'apiKey' && scheme.name) {
                 if (scheme.in === 'header') {
-                    schemeLogicParts.push(`'${name}': (req) => this.apiKey ? req.clone({ headers: req.headers.set('${scheme.name}', this.apiKey) }) : null`);
+                    schemeLogicParts.push(
+                        `'${name}': (req) => this.apiKey ? req.clone({ headers: req.headers.set('${scheme.name}', this.apiKey) }) : null`,
+                    );
                 } else if (scheme.in === 'query') {
-                    schemeLogicParts.push(`'${name}': (req) => this.apiKey ? req.clone({ params: req.params.set('${scheme.name}', this.apiKey) }) : null`);
+                    schemeLogicParts.push(
+                        `'${name}': (req) => this.apiKey ? req.clone({ params: req.params.set('${scheme.name}', this.apiKey) }) : null`,
+                    );
                 } else if (scheme.in === 'cookie') {
                     // Cookie handling: Must serialize correctly (form style, explode true, allowReserved false is standard for simple api keys)
                     // NOTE: Setting Cookie header manually triggers warnings in browsers but is valid for Node/SSR
@@ -143,7 +153,9 @@ export class AuthInterceptorGenerator {
                     return token ? req.clone({ headers: req.headers.set('Authorization', \`${prefix} \${token}\`) }) : null;
                 }`);
             } else if (scheme.type === 'mutualTLS') {
-                schemeLogicParts.push(`'${name}': (req) => this.mtlsConfig ? req.clone({ context: req.context.set(HTTPS_AGENT_CONTEXT_TOKEN, this.mtlsConfig) }) : req`);
+                schemeLogicParts.push(
+                    `'${name}': (req) => this.mtlsConfig ? req.clone({ context: req.context.set(HTTPS_AGENT_CONTEXT_TOKEN, this.mtlsConfig) }) : req`,
+                );
             }
         });
 

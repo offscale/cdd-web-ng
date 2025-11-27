@@ -1,9 +1,9 @@
-import * as path from "node:path";
-import { Project, VariableDeclarationKind } from "ts-morph";
-import { UTILITY_GENERATOR_HEADER_COMMENT } from "../../core/constants.js";
+import * as path from 'node:path';
+import { Project, VariableDeclarationKind } from 'ts-morph';
+import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../core/constants.js';
 import { SwaggerParser } from '@src/core/parser.js';
-import { extractPaths, getRequestBodyType, getResponseType, pascalCase } from "@src/core/utils/index.js";
-import { PathInfo, PathItem } from "@src/core/types/index.js";
+import { extractPaths, getRequestBodyType, getResponseType, pascalCase } from '@src/core/utils/index.js';
+import { PathInfo, PathItem } from '@src/core/types/index.js';
 
 /**
  * Generates the `callbacks.ts` file.
@@ -13,19 +13,24 @@ import { PathInfo, PathItem } from "@src/core/types/index.js";
 export class CallbackGenerator {
     constructor(
         private readonly parser: SwaggerParser,
-        private readonly project: Project
-    ) {
-    }
+        private readonly project: Project,
+    ) {}
 
     public generate(outputDir: string): void {
-        const filePath = path.join(outputDir, "callbacks.ts");
-        const sourceFile = this.project.createSourceFile(filePath, "", { overwrite: true });
+        const filePath = path.join(outputDir, 'callbacks.ts');
+        const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
         // Import models needed for callback payloads
         const requiredModels = new Set<string>();
         const registerModel = (type: string) => {
             // Rudimentary check if it looks like a model (PascalCase)
-            if (type && type !== 'any' && /^[A-Z]/.test(type) && !['Date', 'Blob', 'File'].includes(type) && !type.includes('{')) {
+            if (
+                type &&
+                type !== 'any' &&
+                /^[A-Z]/.test(type) &&
+                !['Date', 'Blob', 'File'].includes(type) &&
+                !type.includes('{')
+            ) {
                 // Strip array [] suffixes
                 const modelName = type.replace(/\[\]/g, '');
                 requiredModels.add(modelName);
@@ -33,11 +38,11 @@ export class CallbackGenerator {
         };
 
         const callbacksFound: {
-            name: string,
-            interfaceName: string,
-            method: string,
-            requestType: string,
-            responseType: string
+            name: string;
+            interfaceName: string;
+            method: string;
+            requestType: string;
+            responseType: string;
         }[] = [];
 
         // Iterate all operations to find callbacks
@@ -52,8 +57,16 @@ export class CallbackGenerator {
                         const subPaths = this.processCallbackPathItem(urlExpression, pathItemObj as PathItem);
 
                         subPaths.forEach(sub => {
-                            const requestType = getRequestBodyType(sub.requestBody, this.parser.config, this.parser.schemas.map(s => s.name));
-                            const responseType = getResponseType(sub.responses?.[Object.keys(sub.responses || {})[0]], this.parser.config, this.parser.schemas.map(s => s.name));
+                            const requestType = getRequestBodyType(
+                                sub.requestBody,
+                                this.parser.config,
+                                this.parser.schemas.map(s => s.name),
+                            );
+                            const responseType = getResponseType(
+                                sub.responses?.[Object.keys(sub.responses || {})[0]],
+                                this.parser.config,
+                                this.parser.schemas.map(s => s.name),
+                            );
 
                             registerModel(requestType);
 
@@ -63,14 +76,14 @@ export class CallbackGenerator {
                                 method: sub.method,
                                 interfaceName,
                                 requestType,
-                                responseType
+                                responseType,
                             });
 
                             sourceFile.addTypeAlias({
                                 isExported: true,
                                 name: interfaceName,
                                 type: requestType,
-                                docs: [`Payload definition for callback '${callbackName}' (${sub.method}).`]
+                                docs: [`Payload definition for callback '${callbackName}' (${sub.method}).`],
                             });
                         });
                     });
@@ -82,26 +95,32 @@ export class CallbackGenerator {
             const modelsImport = Array.from(requiredModels);
             if (modelsImport.length > 0) {
                 sourceFile.addImportDeclaration({
-                    moduleSpecifier: "./models",
-                    namedImports: modelsImport
+                    moduleSpecifier: './models',
+                    namedImports: modelsImport,
                 });
             }
 
             sourceFile.addVariableStatement({
                 isExported: true,
                 declarationKind: VariableDeclarationKind.Const,
-                declarations: [{
-                    name: "API_CALLBACKS",
-                    initializer: JSON.stringify(callbacksFound.map(c => ({
-                        name: c.name,
-                        method: c.method,
-                        interfaceName: c.interfaceName
-                    })), null, 2)
-                }],
-                docs: ["Metadata registry for identified callbacks."]
+                declarations: [
+                    {
+                        name: 'API_CALLBACKS',
+                        initializer: JSON.stringify(
+                            callbacksFound.map(c => ({
+                                name: c.name,
+                                method: c.method,
+                                interfaceName: c.interfaceName,
+                            })),
+                            null,
+                            2,
+                        ),
+                    },
+                ],
+                docs: ['Metadata registry for identified callbacks.'],
             });
         } else {
-            sourceFile.addStatements("export {};");
+            sourceFile.addStatements('export {};');
         }
 
         sourceFile.formatText();

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { Project, Scope } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig, PathInfo } from "@src/core/types/index.js";
-import { TypeGenerator } from "@src/generators/shared/type.generator.js";
-import { ServiceMethodGenerator } from "@src/generators/angular/service/service-method.generator.js";
-import { ParameterSerializerGenerator } from "@src/generators/shared/parameter-serializer.generator.js";
+import { GeneratorConfig, PathInfo } from '@src/core/types/index.js';
+import { TypeGenerator } from '@src/generators/shared/type.generator.js';
+import { ServiceMethodGenerator } from '@src/generators/angular/service/service-method.generator.js';
+import { ParameterSerializerGenerator } from '@src/generators/shared/parameter-serializer.generator.js';
 
 const specParamTests = {
     openapi: '3.0.0',
@@ -16,42 +16,42 @@ const specParamTests = {
                 operationId: 'getXmlParams',
                 parameters: [
                     {
-                        name: 'filter', in: 'query',
+                        name: 'filter',
+                        in: 'query',
                         content: {
                             'application/xml': {
                                 schema: {
                                     type: 'object',
-                                    properties: { active: { type: 'boolean', xml: { attribute: true } } }
-                                }
-                            }
-                        }
+                                    properties: { active: { type: 'boolean', xml: { attribute: true } } },
+                                },
+                            },
+                        },
                     },
                     {
-                        name: 'xmlId', in: 'path',
-                        content: { 'application/xml': { schema: { type: 'string' } } }
-                    }
+                        name: 'xmlId',
+                        in: 'path',
+                        content: { 'application/xml': { schema: { type: 'string' } } },
+                    },
                 ],
-                responses: { '200': {} }
-            }
+                responses: { '200': {} },
+            },
         },
         '/deprecated-endpoint': {
-            get: { operationId: 'getDeprecated', deprecated: true, responses: { '200': {} } }
+            get: { operationId: 'getDeprecated', deprecated: true, responses: { '200': {} } },
         },
         '/deprecated-param': {
             get: {
                 operationId: 'getDeprecatedParam',
-                parameters: [
-                    { name: 'id', in: 'query', deprecated: true, schema: { type: 'string' } }
-                ],
-                responses: { '200': {} }
-            }
+                parameters: [{ name: 'id', in: 'query', deprecated: true, schema: { type: 'string' } }],
+                responses: { '200': {} },
+            },
         },
         '/cookie-test': {
             get: {
                 operationId: 'getWithCookies',
                 parameters: [{ name: 'session_id', in: 'cookie', schema: { type: 'string' } }],
-                responses: { '200': {} }
-            }
+                responses: { '200': {} },
+            },
         },
         '/cookie-strict-defaults': {
             get: {
@@ -62,10 +62,10 @@ const specParamTests = {
                     // Explicit style: simple should default to explode: false
                     { name: 'simple_cookie', in: 'cookie', style: 'simple', schema: { type: 'string' } },
                     // Allow Reserved test
-                    { name: 'reserved_cookie', in: 'cookie', schema: { type: 'string' }, allowReserved: true }
+                    { name: 'reserved_cookie', in: 'cookie', schema: { type: 'string' }, allowReserved: true },
                 ],
-                responses: { '200': {} }
-            }
+                responses: { '200': {} },
+            },
         },
         '/query-string': {
             get: {
@@ -74,45 +74,49 @@ const specParamTests = {
                     {
                         name: 'filter',
                         in: 'querystring',
-                        content: { 'application/json': { schema: { type: 'object' } } }
-                    }
+                        content: { 'application/json': { schema: { type: 'object' } } },
+                    },
                 ],
-                responses: { '200': {} }
-            }
+                responses: { '200': {} },
+            },
         },
         '/search/{filter}': {
             get: {
                 operationId: 'search',
-                parameters: [{
-                    name: 'filter',
-                    in: 'path',
-                    required: true,
-                    content: { 'application/json': { schema: { type: 'object' } } }
-                }],
-                responses: {}
-            }
+                parameters: [
+                    {
+                        name: 'filter',
+                        in: 'path',
+                        required: true,
+                        content: { 'application/json': { schema: { type: 'object' } } },
+                    },
+                ],
+                responses: {},
+            },
         },
         '/info': {
             get: {
                 operationId: 'getInfo',
-                parameters: [{
-                    name: 'X-Meta',
-                    in: 'header',
-                    content: { 'application/json': { schema: { type: 'object' } } }
-                }],
-                responses: {}
-            }
-        }
-    }
+                parameters: [
+                    {
+                        name: 'X-Meta',
+                        in: 'header',
+                        content: { 'application/json': { schema: { type: 'object' } } },
+                    },
+                ],
+                responses: {},
+            },
+        },
+    },
 };
 
 describe('Emitter: ServiceMethodGenerator (Parameters)', () => {
-
     const createTestEnvironment = (spec: object) => {
         const project = new Project({ useInMemoryFileSystem: true });
         const config: GeneratorConfig = {
-            input: '', output: '/out',
-            options: { dateType: 'Date', enumStyle: 'enum', platform: 'browser' }
+            input: '',
+            output: '/out',
+            options: { dateType: 'Date', enumStyle: 'enum', platform: 'browser' },
         };
         const parser = new SwaggerParser(spec as any, config);
         new TypeGenerator(parser, project, config).generate('/out');
@@ -127,13 +131,13 @@ describe('Emitter: ServiceMethodGenerator (Parameters)', () => {
             isReadonly: true,
             scope: Scope.Private,
             type: 'string',
-            initializer: "''"
+            initializer: "''",
         });
         serviceClass.addMethod({
             name: 'createContextWithClientId',
             scope: Scope.Private,
             returnType: 'any',
-            statements: 'return {};'
+            statements: 'return {};',
         });
         return { methodGen, serviceClass };
     };
@@ -143,7 +147,9 @@ describe('Emitter: ServiceMethodGenerator (Parameters)', () => {
         const opKey = '/xml-params/{xmlId}';
         const op: PathInfo = {
             ...specParamTests.paths[opKey].get,
-            method: 'GET', path: opKey, methodName: 'getXmlParams'
+            method: 'GET',
+            path: opKey,
+            methodName: 'getXmlParams',
         } as any;
 
         methodGen.addServiceMethod(serviceClass, op);
@@ -159,7 +165,9 @@ describe('Emitter: ServiceMethodGenerator (Parameters)', () => {
         const { methodGen, serviceClass } = createTestEnvironment(specParamTests);
         const op: PathInfo = {
             ...specParamTests.paths['/deprecated-endpoint'].get,
-            path: '/deprecated-endpoint', method: 'GET', methodName: 'getDeprecated'
+            path: '/deprecated-endpoint',
+            method: 'GET',
+            methodName: 'getDeprecated',
         } as any;
 
         methodGen.addServiceMethod(serviceClass, op);
@@ -172,7 +180,9 @@ describe('Emitter: ServiceMethodGenerator (Parameters)', () => {
         const { methodGen, serviceClass } = createTestEnvironment(specParamTests);
         const op: PathInfo = {
             ...specParamTests.paths['/deprecated-param'].get,
-            path: '/deprecated-param', method: 'GET', methodName: 'getDeprecatedParam'
+            path: '/deprecated-param',
+            method: 'GET',
+            methodName: 'getDeprecatedParam',
         } as any;
 
         methodGen.addServiceMethod(serviceClass, op);
@@ -186,7 +196,9 @@ describe('Emitter: ServiceMethodGenerator (Parameters)', () => {
         const { methodGen, serviceClass } = createTestEnvironment(specParamTests);
         const op: PathInfo = {
             ...specParamTests.paths['/cookie-test'].get,
-            path: '/cookie-test', method: 'GET', methodName: 'getWithCookies'
+            path: '/cookie-test',
+            method: 'GET',
+            methodName: 'getWithCookies',
         } as any;
 
         methodGen.addServiceMethod(serviceClass, op);
@@ -199,27 +211,37 @@ describe('Emitter: ServiceMethodGenerator (Parameters)', () => {
         const { methodGen, serviceClass } = createTestEnvironment(specParamTests);
         const op: PathInfo = {
             ...specParamTests.paths['/cookie-strict-defaults'].get,
-            path: '/cookie-strict-defaults', method: 'GET', methodName: 'getWithCookieDefaults'
+            path: '/cookie-strict-defaults',
+            method: 'GET',
+            methodName: 'getWithCookieDefaults',
         } as any;
 
         methodGen.addServiceMethod(serviceClass, op);
         const body = serviceClass.getMethodOrThrow('getWithCookieDefaults').getBodyText()!;
 
         // Default cookie (implicit style: form) should be explode: true, allowReserved: false (last arg)
-        expect(body).toContain("ParameterSerializer.serializeCookieParam('default_cookie', defaultCookie, 'form', true, false");
+        expect(body).toContain(
+            "ParameterSerializer.serializeCookieParam('default_cookie', defaultCookie, 'form', true, false",
+        );
 
         // Explicit simple style should be explode: false, allowReserved: false
-        expect(body).toContain("ParameterSerializer.serializeCookieParam('simple_cookie', simpleCookie, 'simple', false, false");
+        expect(body).toContain(
+            "ParameterSerializer.serializeCookieParam('simple_cookie', simpleCookie, 'simple', false, false",
+        );
 
         // allowReserved explicitly true matching allowReserved parameter
-        expect(body).toContain("ParameterSerializer.serializeCookieParam('reserved_cookie', reservedCookie, 'form', true, true");
+        expect(body).toContain(
+            "ParameterSerializer.serializeCookieParam('reserved_cookie', reservedCookie, 'form', true, true",
+        );
     });
 
     it('should generate logic for in: "querystring" parameters', () => {
         const { methodGen, serviceClass } = createTestEnvironment(specParamTests);
         const op: PathInfo = {
-            method: 'GET', path: '/query-string', methodName: 'getWithQuerystring',
-            parameters: specParamTests.paths['/query-string'].get.parameters
+            method: 'GET',
+            path: '/query-string',
+            methodName: 'getWithQuerystring',
+            parameters: specParamTests.paths['/query-string'].get.parameters,
         } as any;
 
         methodGen.addServiceMethod(serviceClass, op);
@@ -231,20 +253,26 @@ describe('Emitter: ServiceMethodGenerator (Parameters)', () => {
     it('should generate correct builder call with "json" hint for path params with content', () => {
         const { methodGen, serviceClass } = createTestEnvironment(specParamTests);
         const op: PathInfo = {
-            method: 'GET', path: '/search/{filter}', methodName: 'search',
-            parameters: specParamTests.paths['/search/{filter}'].get.parameters
+            method: 'GET',
+            path: '/search/{filter}',
+            methodName: 'search',
+            parameters: specParamTests.paths['/search/{filter}'].get.parameters,
         } as any;
 
         methodGen.addServiceMethod(serviceClass, op);
         const body = serviceClass.getMethodOrThrow('search').getBodyText()!;
-        expect(body).toContain("ParameterSerializer.serializePathParam('filter', filter, 'simple', false, false, 'json')");
+        expect(body).toContain(
+            "ParameterSerializer.serializePathParam('filter', filter, 'simple', false, false, 'json')",
+        );
     });
 
     it('should generate correct builder call with "json" hint for header params with content', () => {
         const { methodGen, serviceClass } = createTestEnvironment(specParamTests);
         const op: PathInfo = {
-            method: 'GET', path: '/info', methodName: 'getInfo',
-            parameters: specParamTests.paths['/info'].get.parameters
+            method: 'GET',
+            path: '/info',
+            methodName: 'getInfo',
+            parameters: specParamTests.paths['/info'].get.parameters,
         } as any;
 
         methodGen.addServiceMethod(serviceClass, op);

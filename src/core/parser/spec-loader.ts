@@ -19,9 +19,7 @@ export class SpecLoader {
         cache: Map<string, SwaggerSpec>;
         documentUri: string;
     }> {
-        const documentUri = isUrl(inputPath)
-            ? inputPath
-            : pathToFileURL(path.resolve(process.cwd(), inputPath)).href;
+        const documentUri = isUrl(inputPath) ? inputPath : pathToFileURL(path.resolve(process.cwd(), inputPath)).href;
 
         const cache = new Map<string, SwaggerSpec>();
         await this.loadAndCacheSpecRecursive(documentUri, cache, new Set<string>());
@@ -36,7 +34,11 @@ export class SpecLoader {
         return { entrySpec, cache, documentUri };
     }
 
-    private static async loadAndCacheSpecRecursive(uri: string, cache: Map<string, SwaggerSpec>, visited: Set<string>): Promise<void> {
+    private static async loadAndCacheSpecRecursive(
+        uri: string,
+        cache: Map<string, SwaggerSpec>,
+        visited: Set<string>,
+    ): Promise<void> {
         if (visited.has(uri) || cache.has(uri)) return;
         visited.add(uri);
 

@@ -1,6 +1,6 @@
 import { Project, VariableDeclarationKind } from 'ts-morph';
 import { Resource } from '@src/core/types/index.js';
-import { camelCase, pascalCase } from "@src/core/utils/index.js";
+import { camelCase, pascalCase } from '@src/core/utils/index.js';
 import * as path from 'node:path';
 
 /**
@@ -28,15 +28,16 @@ export class RoutingGenerator {
 
         sourceFile.addImportDeclaration({
             moduleSpecifier: '@angular/router',
-            namedImports: ['Routes']
+            namedImports: ['Routes'],
         });
 
-        const routeObjects = resources.map(resource => (
-            `{ 
+        const routeObjects = resources.map(
+            resource =>
+                `{ 
     path: '${resource.name}', 
     loadChildren: () => import('./${resource.name}/${resource.name}.routes').then(m => m.${camelCase(resource.name)}Routes) 
-}`
-        ));
+}`,
+        );
 
         if (resources.length > 0) {
             routeObjects.unshift(`{ path: '', pathMatch: 'full', redirectTo: '${resources[0].name}' }`);
@@ -45,11 +46,13 @@ export class RoutingGenerator {
         sourceFile.addVariableStatement({
             isExported: true,
             declarationKind: VariableDeclarationKind.Const,
-            declarations: [{
-                name: 'adminRoutes',
-                type: 'Routes',
-                initializer: `[\n  ${routeObjects.join(',\n  ')}\n]`
-            }]
+            declarations: [
+                {
+                    name: 'adminRoutes',
+                    type: 'Routes',
+                    initializer: `[\n  ${routeObjects.join(',\n  ')}\n]`,
+                },
+            ],
         });
     }
 
@@ -83,29 +86,34 @@ export class RoutingGenerator {
         if (hasCreate) {
             const componentName = `${pascalCase(resource.modelName)}FormComponent`;
             const componentPath = `./${resource.name}-form/${resource.name}-form.component`;
-            routes.push(`{ path: 'new', loadComponent: () => import('${componentPath}').then(m => m.${componentName}) }`);
+            routes.push(
+                `{ path: 'new', loadComponent: () => import('${componentPath}').then(m => m.${componentName}) }`,
+            );
         }
 
         if (hasEdit) {
             const componentName = `${pascalCase(resource.modelName)}FormComponent`;
             const componentPath = `./${resource.name}-form/${resource.name}-form.component`;
-            routes.push(`{ path: ':id/edit', loadComponent: () => import('${componentPath}').then(m => m.${componentName}) }`);
+            routes.push(
+                `{ path: ':id/edit', loadComponent: () => import('${componentPath}').then(m => m.${componentName}) }`,
+            );
         }
 
         sourceFile.addVariableStatement({
             isExported: true,
             declarationKind: VariableDeclarationKind.Const,
-            declarations: [{
-                name: `${camelCase(resource.name)}Routes`,
-                type: 'Routes',
-                initializer: `[\n  ${routes.join(',\n  ')}\n]`
-            }]
+            declarations: [
+                {
+                    name: `${camelCase(resource.name)}Routes`,
+                    type: 'Routes',
+                    initializer: `[\n  ${routes.join(',\n  ')}\n]`,
+                },
+            ],
         });
     }
 
     /**
      * @param project ts-morph Project used for emitting files.
      */
-    constructor(private readonly project: Project) {
-    }
+    constructor(private readonly project: Project) {}
 }

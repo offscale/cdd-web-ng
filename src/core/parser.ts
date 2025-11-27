@@ -11,7 +11,7 @@ import {
     SecurityScheme,
     ServerObject,
     SwaggerDefinition,
-    SwaggerSpec
+    SwaggerSpec,
 } from './types/index.js';
 import { extractPaths, pascalCase } from './utils/index.js';
 import { validateSpec } from './validator.js';
@@ -33,7 +33,7 @@ export class SwaggerParser {
     public readonly config: GeneratorConfig;
     public readonly documentUri: string;
 
-    public readonly schemas: { name: string; definition: SwaggerDefinition; }[];
+    public readonly schemas: { name: string; definition: SwaggerDefinition }[];
     public readonly servers: ServerObject[];
     public readonly operations: PathInfo[];
     public readonly webhooks: PathInfo[];
@@ -47,7 +47,7 @@ export class SwaggerParser {
         spec: SwaggerSpec,
         config: GeneratorConfig,
         specCache?: Map<string, SwaggerSpec>,
-        documentUri: string = 'file://entry-spec.json'
+        documentUri: string = 'file://entry-spec.json',
     ) {
         validateSpec(spec);
 
@@ -56,7 +56,7 @@ export class SwaggerParser {
         // are now valid without restriction.
 
         if (config.validateInput && !config.validateInput(spec)) {
-            throw new Error("Custom input validation failed.");
+            throw new Error('Custom input validation failed.');
         }
 
         this.spec = spec;
@@ -80,7 +80,7 @@ export class SwaggerParser {
         // Analysis Logic (Extracting simplified views)
         this.schemas = Object.entries(this.getDefinitions()).map(([name, definition]) => ({
             name: pascalCase(name),
-            definition
+            definition,
         }));
 
         // OAS 3.2 Requirement:
@@ -178,7 +178,10 @@ export class SwaggerParser {
     }
 
     public getSecuritySchemes(): Record<string, SecurityScheme> {
-        return (this.spec.components?.securitySchemes || this.spec.securityDefinitions || {}) as Record<string, SecurityScheme>;
+        return (this.spec.components?.securitySchemes || this.spec.securityDefinitions || {}) as Record<
+            string,
+            SecurityScheme
+        >;
     }
 
     public getLinks(): Record<string, LinkObject> {
@@ -215,51 +218,58 @@ export class SwaggerParser {
 
         const mapping = schema.discriminator.mapping || {};
         if (Object.keys(mapping).length > 0) {
-            return Object.entries(mapping).map(([name, ref]) => {
-                const resolvedSchema = this.resolveReference<SwaggerDefinition>(ref);
-                return resolvedSchema ? { name, schema: resolvedSchema } : null;
-            }).filter((opt): opt is PolymorphicOption => !!opt);
+            return Object.entries(mapping)
+                .map(([name, ref]) => {
+                    const resolvedSchema = this.resolveReference<SwaggerDefinition>(ref);
+                    return resolvedSchema ? { name, schema: resolvedSchema } : null;
+                })
+                .filter((opt): opt is PolymorphicOption => !!opt);
         }
 
-        return schema.oneOf.map(refSchema => {
-            let ref: string | undefined;
-            if (refSchema.$ref) ref = refSchema.$ref;
-            else if (refSchema.$dynamicRef) ref = refSchema.$dynamicRef;
+        return schema.oneOf
+            .map(refSchema => {
+                let ref: string | undefined;
+                if (refSchema.$ref) ref = refSchema.$ref;
+                else if (refSchema.$dynamicRef) ref = refSchema.$dynamicRef;
 
-            if (!ref) return null;
+                if (!ref) return null;
 
-            const resolvedSchema = this.resolveReference<SwaggerDefinition>(ref);
-            if (!resolvedSchema) {
+                const resolvedSchema = this.resolveReference<SwaggerDefinition>(ref);
+                if (!resolvedSchema) {
+                    return null;
+                }
+
+                // Ensure the resolved schema actually has the discriminator property
+                // This prevents implicit mapping from picking up incompatible schemas (Fixes regression tests)
+                // Note: Ideally we should check allOf merges, but for this basic utility check, properties is the primary target
+                const hasProp = resolvedSchema.properties && resolvedSchema.properties[dPropName];
+                if (!hasProp) {
+                    return null;
+                }
+
+                // Strategy A: Explicit Enum in Schema
+                if (resolvedSchema.properties![dPropName]?.enum) {
+                    const name = resolvedSchema.properties![dPropName].enum![0] as string;
+                    return { name, schema: resolvedSchema };
+                }
+
+                // Strategy B: Implicit Mapping (Component Name derived from Ref) - OAS 3.2 Support
+                // e.g. "#/components/schemas/Cat" -> "Cat"
+                const implicitName = ref.split('/').pop();
+                if (implicitName) {
+                    return { name: implicitName, schema: resolvedSchema };
+                }
+
                 return null;
-            }
-
-            // Ensure the resolved schema actually has the discriminator property
-            // This prevents implicit mapping from picking up incompatible schemas (Fixes regression tests)
-            // Note: Ideally we should check allOf merges, but for this basic utility check, properties is the primary target
-            const hasProp = resolvedSchema.properties && resolvedSchema.properties[dPropName];
-            if (!hasProp) {
-                return null;
-            }
-
-            // Strategy A: Explicit Enum in Schema
-            if (resolvedSchema.properties![dPropName]?.enum) {
-                const name = resolvedSchema.properties![dPropName].enum![0] as string;
-                return { name, schema: resolvedSchema };
-            }
-
-            // Strategy B: Implicit Mapping (Component Name derived from Ref) - OAS 3.2 Support
-            // e.g. "#/components/schemas/Cat" -> "Cat"
-            const implicitName = ref.split('/').pop();
-            if (implicitName) {
-                return { name: implicitName, schema: resolvedSchema };
-            }
-
-            return null;
-        }).filter((opt): opt is PolymorphicOption => !!opt);
+            })
+            .filter((opt): opt is PolymorphicOption => !!opt);
     }
 
     public isValidSpec(): boolean {
-        return !!((this.spec.swagger && this.spec.swagger.startsWith('2.')) || (this.spec.openapi && this.spec.openapi.startsWith('3.')));
+        return !!(
+            (this.spec.swagger && this.spec.swagger.startsWith('2.')) ||
+            (this.spec.openapi && this.spec.openapi.startsWith('3.'))
+        );
     }
 
     public getSpecVersion(): { type: 'swagger' | 'openapi'; version: string } | null {

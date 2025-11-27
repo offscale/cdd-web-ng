@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createTestProject } from '../shared/helpers.js';
 import ts from 'typescript';
-import { XmlBuilderGenerator } from "@src/generators/shared/xml-builder.generator.js";
+import { XmlBuilderGenerator } from '@src/generators/shared/xml-builder.generator.js';
 
 function getXmlBuilder() {
     const project = createTestProject();
@@ -9,7 +9,7 @@ function getXmlBuilder() {
     const sourceFile = project.getSourceFileOrThrow('/utils/xml-builder.ts');
     const jsCode = ts.transpile(sourceFile.getText(), {
         target: ts.ScriptTarget.ESNext,
-        module: ts.ModuleKind.CommonJS
+        module: ts.ModuleKind.CommonJS,
     });
     const moduleScope = { exports: {} };
     new Function('exports', jsCode)(moduleScope.exports);
@@ -36,8 +36,8 @@ describe('Utility: XmlBuilder', () => {
             const data = { id: 5, val: 'test' };
             const config = {
                 properties: {
-                    id: { attribute: true }
-                }
+                    id: { attribute: true },
+                },
             };
             const xml = XmlBuilder.serialize(data, 'Item', config);
             expect(xml).toBe('<Item id="5"><val>test</val></Item>');
@@ -47,8 +47,8 @@ describe('Utility: XmlBuilder', () => {
             const data = { simple: 'val' };
             const config = {
                 properties: {
-                    simple: { name: 'complex' }
-                }
+                    simple: { name: 'complex' },
+                },
             };
             const xml = XmlBuilder.serialize(data, 'Root', config);
             expect(xml).toBe('<Root><complex>val</complex></Root>');
@@ -60,9 +60,9 @@ describe('Utility: XmlBuilder', () => {
                 properties: {
                     tags: {
                         wrapped: true,
-                        items: { name: 'Tag' }
-                    }
-                }
+                        items: { name: 'Tag' },
+                    },
+                },
             };
             const xml = XmlBuilder.serialize(data, 'Root', config);
             expect(xml).toBe('<Root><tags><Tag>a</Tag><Tag>b</Tag></tags></Root>');
@@ -71,7 +71,7 @@ describe('Utility: XmlBuilder', () => {
         it('should handle unwrapped arrays (default)', () => {
             const data = { tags: ['a', 'b'] };
             const config = {
-                properties: { tags: { wrapped: false } }
+                properties: { tags: { wrapped: false } },
             };
             const xml = XmlBuilder.serialize(data, 'Root', config);
             expect(xml).toBe('<Root><tags>a</tags><tags>b</tags></Root>');
@@ -87,7 +87,7 @@ describe('Utility: XmlBuilder', () => {
         it('should serialize null property as xsi:nil="true" element', () => {
             const data = {
                 valid: 'content',
-                empty: null
+                empty: null,
             };
             // Default is element
             const xml = XmlBuilder.serialize(data, 'Root');
@@ -99,13 +99,13 @@ describe('Utility: XmlBuilder', () => {
         it('should omit null attributes', () => {
             const data = {
                 id: 123,
-                attr: null
+                attr: null,
             };
             const config = {
                 properties: {
                     id: { attribute: true },
-                    attr: { attribute: true }
-                }
+                    attr: { attribute: true },
+                },
             };
             const xml = XmlBuilder.serialize(data, 'Item', config);
             // Should have id="123" but no attr="..."
@@ -116,13 +116,13 @@ describe('Utility: XmlBuilder', () => {
             const data = {
                 txt: null,
                 cdata: null,
-                other: 'val'
+                other: 'val',
             };
             const config = {
                 properties: {
                     txt: { nodeType: 'text' },
-                    cdata: { nodeType: 'cdata' }
-                }
+                    cdata: { nodeType: 'cdata' },
+                },
             };
             const xml = XmlBuilder.serialize(data, 'Root', config);
             // Should act as empty content
@@ -135,13 +135,15 @@ describe('Utility: XmlBuilder', () => {
                 properties: {
                     list: {
                         wrapped: true,
-                        items: { name: 'item' }
-                    }
-                }
+                        items: { name: 'item' },
+                    },
+                },
             };
             const xml = XmlBuilder.serialize(data, 'Root', config);
             // Expecting valid wrapped structure with xsi definitions
-            expect(xml).toBe('<Root><list><item>a</item><item xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" /><item>b</item></list></Root>');
+            expect(xml).toBe(
+                '<Root><list><item>a</item><item xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" /><item>b</item></list></Root>',
+            );
         });
     });
 
@@ -150,8 +152,8 @@ describe('Utility: XmlBuilder', () => {
             const data = { id: 99, content: 'stuff' };
             const config = {
                 properties: {
-                    id: { nodeType: 'attribute' }
-                }
+                    id: { nodeType: 'attribute' },
+                },
             };
             const xml = XmlBuilder.serialize(data, 'Node', config);
             expect(xml).toBe('<Node id="99"><content>stuff</content></Node>');
@@ -164,9 +166,9 @@ describe('Utility: XmlBuilder', () => {
                 properties: {
                     list: {
                         nodeType: 'element',
-                        items: { name: 'item' }
-                    }
-                }
+                        items: { name: 'item' },
+                    },
+                },
             };
             const xml = XmlBuilder.serialize(data, 'Root', config);
             expect(xml).toBe('<Root><list><item>1</item><item>2</item></list></Root>');
@@ -175,12 +177,12 @@ describe('Utility: XmlBuilder', () => {
         it('should handle nodeType: "none" (Unwrapping/Grouping)', () => {
             // If a property is "none", it has no tag, its children (or text) are direct children of parent
             const data = {
-                meta: { version: '1.0', author: 'me' }
+                meta: { version: '1.0', author: 'me' },
             };
             const config = {
                 properties: {
-                    meta: { nodeType: 'none' }
-                }
+                    meta: { nodeType: 'none' },
+                },
             };
             // Expect meta's children to appear directly in Root, not wrapped in <meta>
             const xml = XmlBuilder.serialize(data, 'Root', config);
@@ -190,13 +192,13 @@ describe('Utility: XmlBuilder', () => {
         it('should handle nodeType: "text" (Inner Text)', () => {
             const data = {
                 attr: 'attrVal',
-                content: 'This is text content'
+                content: 'This is text content',
             };
             const config = {
                 properties: {
                     attr: { nodeType: 'attribute' },
-                    content: { nodeType: 'text' }
-                }
+                    content: { nodeType: 'text' },
+                },
             };
             const xml = XmlBuilder.serialize(data, 'Element', config);
             expect(xml).toBe('<Element attr="attrVal">This is text content</Element>');
@@ -204,12 +206,12 @@ describe('Utility: XmlBuilder', () => {
 
         it('should handle nodeType: "cdata"', () => {
             const data = {
-                html: '<html><body></body></html>'
+                html: '<html><body></body></html>',
             };
             const config = {
                 properties: {
-                    html: { nodeType: 'cdata' }
-                }
+                    html: { nodeType: 'cdata' },
+                },
             };
             // Per OAS 3.2, if nodeType is cdata, it represents a CDATA section node.
             // It is inserted directly into the parent without a wrapper tag named after the property.
@@ -220,12 +222,12 @@ describe('Utility: XmlBuilder', () => {
         it('should handle nodeType: "cdata" combined with "none" to inject raw CDATA', () => {
             // OAS Use case: Referenced Element With CDATA
             const data = {
-                raw: '<html></html>'
+                raw: '<html></html>',
             };
             const config = {
                 properties: {
-                    raw: { nodeType: 'cdata' }
-                }
+                    raw: { nodeType: 'cdata' },
+                },
             };
             const xml = XmlBuilder.serialize(data, 'Doc', config);
             expect(xml).toBe('<Doc><![CDATA[<html></html>]]></Doc>');
@@ -252,7 +254,7 @@ describe('Utility: XmlBuilder', () => {
             const data = { id: 1 };
             const config = {
                 namespace: 'http://example.com/schema',
-                name: 'Root'
+                name: 'Root',
             };
             const xml = XmlBuilder.serialize(data, 'Root', config);
             expect(xml).toBe('<Root xmlns="http://example.com/schema"><id>1</id></Root>');
@@ -263,7 +265,7 @@ describe('Utility: XmlBuilder', () => {
             const config = {
                 namespace: 'http://example.com/schema',
                 prefix: 'ex',
-                name: 'Root'
+                name: 'Root',
             };
             const xml = XmlBuilder.serialize(data, 'Root', config);
             expect(xml).toBe('<ex:Root xmlns:ex="http://example.com/schema"><id>1</id></ex:Root>');
@@ -271,15 +273,15 @@ describe('Utility: XmlBuilder', () => {
 
         it('should apply prefix to nested elements', () => {
             const data = {
-                nested: { val: 'test' }
+                nested: { val: 'test' },
             };
             const config = {
                 properties: {
                     nested: {
                         prefix: 'ns',
-                        name: 'Nested'
-                    }
-                }
+                        name: 'Nested',
+                    },
+                },
             };
             // Note: namespace is not declared here, just prefix used in tag name
             const xml = XmlBuilder.serialize(data, 'Root', config);
@@ -292,9 +294,9 @@ describe('Utility: XmlBuilder', () => {
                 properties: {
                     id: {
                         attribute: true,
-                        prefix: 'xsi'
-                    }
-                }
+                        prefix: 'xsi',
+                    },
+                },
             };
             const xml = XmlBuilder.serialize(data, 'Item', config);
             expect(xml).toBe('<Item xsi:id="123"></Item>');
@@ -308,9 +310,9 @@ describe('Utility: XmlBuilder', () => {
                         wrapped: true,
                         prefix: 'list',
                         namespace: 'http://lists.com',
-                        items: { name: 'i' }
-                    }
-                }
+                        items: { name: 'i' },
+                    },
+                },
             };
             const xml = XmlBuilder.serialize(data, 'Root', config);
             // The wrapper gets the namespace definition

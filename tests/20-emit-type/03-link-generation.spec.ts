@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+
 import { Project } from 'ts-morph';
-import { TypeGenerator } from "@src/generators/shared/type.generator.js";
+
+import { TypeGenerator } from '@src/generators/shared/type.generator.js';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig } from "@src/core/types/index.js";
+import { GeneratorConfig } from '@src/core/types/index.js';
 
 const linkSpec = {
     openapi: '3.0.0',
@@ -13,18 +15,18 @@ const linkSpec = {
             UserAddress: {
                 operationId: 'getUserAddress',
                 parameters: {
-                    userId: '$request.path.id'
+                    userId: '$request.path.id',
                 },
-                description: 'The user address link'
+                description: 'The user address link',
             },
             AnotherLink: {
                 operationRef: '#/paths/~12.0~1repositories~1{username}/get',
                 parameters: {
-                    username: '$response.body#/username'
-                }
-            }
-        }
-    }
+                    username: '$response.body#/username',
+                },
+            },
+        },
+    },
 };
 
 describe('Emitter: Link Interface Generation', () => {

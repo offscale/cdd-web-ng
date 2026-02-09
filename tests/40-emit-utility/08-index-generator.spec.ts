@@ -76,10 +76,42 @@ describe('Emitter: IndexGenerators', () => {
             expect(content).toContain(`export * from "./utils/link.service";`);
         });
 
+        it('should export links when operation responses include links', () => {
+            const specWithOpLinks = {
+                ...emptySpec,
+                paths: {
+                    '/test': {
+                        get: {
+                            responses: {
+                                '200': {
+                                    links: {
+                                        Next: { operationId: 'getNext' },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+            const content = runGenerator(specWithOpLinks, { generateServices: true });
+            expect(content).toContain(`export * from "./links";`);
+            expect(content).toContain(`export * from "./utils/link.service";`);
+        });
+
         it('should export server-url if specification has servers', () => {
             const specWithServers = { ...emptySpec, servers: [{ url: 'http://api.com' }] };
             const content = runGenerator(specWithServers, { generateServices: true });
             expect(content).toContain(`export * from "./utils/server-url";`);
+        });
+
+        it('should not export server-url for Swagger specs without servers', () => {
+            const swaggerSpec = {
+                swagger: '2.0',
+                info: { title: 'Swagger', version: '1.0' },
+                paths: { '/': { get: { responses: { '200': {} } } } },
+            };
+            const content = runGenerator(swaggerSpec, { generateServices: true });
+            expect(content).not.toContain(`export * from "./utils/server-url";`);
         });
 
         it('should handle missing services dir when generateServices is false', () => {

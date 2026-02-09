@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ServiceMethodAnalyzer } from '@src/analysis/service-method-analyzer.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig, PathInfo } from '@src/core/types/index.js';
@@ -385,5 +385,779 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
         // 4. Legacy Wrapped Array -> Should default to 'element'
         const wrappedConfig = (analyzer as any).getXmlConfig(spec.components.schemas.LegacyWrapped, 5);
         expect(wrappedConfig.nodeType).toBe('element');
+    });
+
+    it('should include externalDocs in generated docs', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Docs', version: '1.0' },
+            paths: {
+                '/doc': {
+                    get: {
+                        operationId: 'getDoc',
+                        externalDocs: { url: 'https://example.com/docs', description: 'More info' },
+                        responses: { '200': {} },
+                    },
+                },
+            },
+        };
+        const { analyzer } = setupAnalyzer(spec);
+        const operation = { ...spec.paths['/doc'].get, path: '/doc', method: 'GET', methodName: 'getDoc' } as PathInfo;
+        const model = analyzer.analyze(operation);
+        expect(model?.docs).toContain('@see https://example.com/docs More info');
+    });
+
+    it('should analyze multiple response media types including sse, text, xml, and blob', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Multi', version: '1.0' },
+            paths: {
+                '/multi': {
+                    get: {
+                        operationId: 'getMulti',
+                        responses: {
+                            '200': {
+                                content: {
+                                    'application/json-seq': { schema: { type: 'string' } },
+                                    'application/jsonl': { schema: { type: 'string' } },
+                                    'application/xml': {
+                                        schema: { type: 'object', xml: { name: 'Doc' }, properties: { id: { type: 'string' } } },
+                                    },
+                                    'text/event-stream': { schema: { type: 'string' } },
+                                    'text/plain': { schema: { type: 'string' } },
+                                    'application/octet-stream': { schema: { type: 'string', format: 'binary' } },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        };
+        const { analyzer } = setupAnalyzer(spec);
+        const operation = { ...spec.paths['/multi'].get, path: '/multi', method: 'GET', methodName: 'getMulti' } as any;
+        const model = analyzer.analyze(operation)!;
+
+        expect(model.responseVariants.some(v => v.serialization === 'json-seq')).toBe(true);
+        expect(model.responseVariants.some(v => v.serialization === 'json-lines')).toBe(true);
+        expect(model.responseVariants.some(v => v.serialization === 'xml')).toBe(true);
+        expect(model.responseVariants.some(v => v.serialization === 'sse')).toBe(true);
+        expect(model.responseVariants.some(v => v.serialization === 'text')).toBe(true);
+        expect(model.responseVariants.some(v => v.serialization === 'blob')).toBe(true);
+    });
+
+    it('should classify error responses by content type and auth codes', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Errors', version: '1.0' },
+            paths: {
+                '/err': {
+                    get: {
+                        operationId: 'getErr',
+                        responses: {
+                            '200': { content: { 'application/json': { schema: { type: 'string' } } } },
+                            '400': { content: { 'application/xml': { schema: { type: 'string' } } } },
+                            '401': { description: 'Unauthorized' },
+                            '500': { content: { 'text/plain': {} } },
+                        },
+                    },
+                },
+            },
+        };
+        const { analyzer } = setupAnalyzer(spec);
+        const operation = { ...spec.paths['/err'].get, path: '/err', method: 'GET', methodName: 'getErr' } as any;
+        const model = analyzer.analyze(operation)!;
+
+        const types = model.errorResponses.map(e => e.type);
+        expect(types).toContain('string'); // xml string
+        expect(types).toContain('void'); // 401 with no content
+    });
+
+    it('should infer array type when requestBody uses itemSchema', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'ItemSchema', version: '1.0' },
+            paths: {
+                '/items': {
+                    post: {
+                        operationId: 'postItems',
+                        requestBody: {
+                            content: {
+                                'application/json': {
+                                    itemSchema: { type: 'string' },
+                                },
+                            },
+                        },
+                        responses: { '200': {} },
+                    },
+                },
+            },
+        };
+        const { analyzer } = setupAnalyzer(spec);
+        const op = { ...spec.paths['/items'].post, path: '/items', method: 'POST', methodName: 'postItems' } as any;
+        const model = analyzer.analyze(op)!;
+        const bodyParam = model.parameters.find(p => p.type === '(string)[]');
+        expect(bodyParam).toBeDefined();
+        expect(bodyParam?.name).toBe('string');
+    });
+
+    it('should fallback to FormData typing for multipart without schema', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Multipart', version: '1.0' },
+            paths: {
+                '/upload': {
+                    post: {
+                        operationId: 'upload',
+                        requestBody: {
+                            content: {
+                                'multipart/form-data': {},
+                            },
+                        },
+                        responses: { '200': {} },
+                    },
+                },
+            },
+        };
+        const { analyzer } = setupAnalyzer(spec);
+        const op = { ...spec.paths['/upload'].post, path: '/upload', method: 'POST', methodName: 'upload' } as any;
+        const model = analyzer.analyze(op)!;
+        const bodyParam = model.parameters.find(p => p.name === 'body');
+        expect(bodyParam?.type).toBe('FormData | any[] | any');
+    });
+
+    it('should preserve multipart prefix and item encodings', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Multipart', version: '1.0' },
+            paths: {
+                '/multi': {
+                    post: {
+                        operationId: 'postMulti',
+                        requestBody: {
+                            content: {
+                                'multipart/mixed': {
+                                    schema: {
+                                        type: 'array',
+                                        prefixItems: [{ type: 'object', properties: { a: { type: 'string' } } }],
+                                        items: { type: 'object', properties: { b: { type: 'string' } } },
+                                    },
+                                    prefixEncoding: [{ contentType: 'application/json' }],
+                                    itemEncoding: { contentType: 'application/json' },
+                                },
+                            },
+                        },
+                        responses: { '200': {} },
+                    },
+                },
+            },
+        };
+        const { analyzer } = setupAnalyzer(spec);
+        const op = { ...spec.paths['/multi'].post, path: '/multi', method: 'POST', methodName: 'postMulti' } as any;
+        const model = analyzer.analyze(op)!;
+        expect(model.body?.type).toBe('multipart');
+    });
+
+    it('should merge decoding config from allOf', () => {
+        const spec = {
+            openapi: '3.1.0',
+            info: { title: 'Decode', version: '1.0' },
+            paths: {},
+            components: {
+                schemas: {
+                    Encoded: {
+                        allOf: [
+                            {
+                                type: 'object',
+                                properties: {
+                                    payload: {
+                                        type: 'string',
+                                        contentSchema: { type: 'object', properties: { id: { type: 'string' } } },
+                                    },
+                                },
+                            },
+                        ],
+                    },
+                },
+            },
+        };
+        const { analyzer } = setupAnalyzer(spec);
+        const config = (analyzer as any).getDecodingConfig(spec.components.schemas.Encoded, 5);
+        expect(config.properties.payload).toBeDefined();
+    });
+
+    it('should merge encoding config from allOf', () => {
+        const spec = {
+            openapi: '3.1.0',
+            info: { title: 'Encode', version: '1.0' },
+            paths: {},
+            components: {
+                schemas: {
+                    Encoded: {
+                        allOf: [
+                            {
+                                type: 'object',
+                                properties: {
+                                    payload: {
+                                        type: 'string',
+                                        contentMediaType: 'application/json',
+                                    },
+                                },
+                            },
+                        ],
+                    },
+                },
+            },
+        };
+        const { analyzer } = setupAnalyzer(spec);
+        const config = (analyzer as any).getEncodingConfig(spec.components.schemas.Encoded, 5);
+        expect(config.properties.payload).toBeDefined();
+    });
+
+    it('should mark json serialization when contentMediaType is resolved via ref', () => {
+        const spec = {
+            openapi: '3.1.0',
+            info: { title: 'Content Media', version: '1.0' },
+            components: {
+                schemas: {
+                    JsonString: { type: 'string', contentMediaType: 'application/json' },
+                },
+            },
+            paths: {
+                '/query': {
+                    get: {
+                        operationId: 'getQuery',
+                        parameters: [{ name: 'q', in: 'query', schema: { $ref: '#/components/schemas/JsonString' } }],
+                        responses: {},
+                    },
+                },
+            },
+        };
+        const { analyzer } = setupAnalyzer(spec);
+        const op = { ...spec.paths['/query'].get, path: '/query', method: 'GET', methodName: 'getQuery' } as any;
+        const model = analyzer.analyze(op)!;
+        expect(model.queryParams[0].serializationLink).toBe('json');
+    });
+
+    describe('Coverage edge cases', () => {
+        it('should skip response entries without schema and fall back to default variant', () => {
+            const spec = {
+                openapi: '3.0.0',
+                info: { title: 'Skip', version: '1.0' },
+                paths: {
+                    '/empty': {
+                        get: {
+                            operationId: 'getEmpty',
+                            responses: {
+                                '200': {
+                                    content: {
+                                        'application/json': {},
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+            const { analyzer } = setupAnalyzer(spec);
+            const op = { ...spec.paths['/empty'].get, path: '/empty', method: 'GET', methodName: 'getEmpty' } as any;
+            const model = analyzer.analyze(op)!;
+            expect(model.responseVariants).toHaveLength(0);
+            expect(model.responseType).toBe('any');
+        });
+
+        it('should handle application/json with itemSchema only', () => {
+            const spec = {
+                openapi: '3.0.0',
+                info: { title: 'ItemSchema', version: '1.0' },
+                paths: {
+                    '/items': {
+                        get: {
+                            operationId: 'getItems',
+                            responses: {
+                                '200': {
+                                    content: {
+                                        'application/json': { itemSchema: { type: 'string' } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+            const { analyzer } = setupAnalyzer(spec);
+            const op = { ...spec.paths['/items'].get, path: '/items', method: 'GET', methodName: 'getItems' } as any;
+            const model = analyzer.analyze(op)!;
+            expect(model.responseVariants[0].type).toBe('any');
+        });
+
+        it('should treat non-standard json media types as non-default', () => {
+            const spec = {
+                openapi: '3.0.0',
+                info: { title: 'VendorJson', version: '1.0' },
+                paths: {
+                    '/vendor': {
+                        get: {
+                            operationId: 'getVendor',
+                            responses: {
+                                '200': {
+                                    content: {
+                                        'application/vnd.api+json': { schema: { type: 'string' } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+            const { analyzer } = setupAnalyzer(spec);
+            const op = { ...spec.paths['/vendor'].get, path: '/vendor', method: 'GET', methodName: 'getVendor' } as any;
+            const model = analyzer.analyze(op)!;
+            expect(model.responseVariants[0].mediaType).toBe('application/vnd.api+json');
+            expect(model.responseVariants[0].isDefault).toBe(true);
+        });
+
+        it('should skip xml variant when schema is missing', () => {
+            const spec = {
+                openapi: '3.0.0',
+                info: { title: 'XmlSkip', version: '1.0' },
+                paths: {
+                    '/xml': {
+                        get: {
+                            operationId: 'getXml',
+                            responses: {
+                                '200': {
+                                    content: {
+                                        'application/json': { schema: { type: 'string' } },
+                                        'application/xml': { itemSchema: { type: 'string' } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+            const { analyzer } = setupAnalyzer(spec);
+            const op = { ...spec.paths['/xml'].get, path: '/xml', method: 'GET', methodName: 'getXml' } as any;
+            const model = analyzer.analyze(op)!;
+            expect(model.responseVariants.some(v => v.serialization === 'xml')).toBe(false);
+        });
+
+        it('should use itemSchema for text/event-stream responses', () => {
+            const spec = {
+                openapi: '3.0.0',
+                info: { title: 'SSE', version: '1.0' },
+                paths: {
+                    '/sse': {
+                        get: {
+                            operationId: 'getSse',
+                            responses: {
+                                '200': {
+                                    content: {
+                                        'text/event-stream': { itemSchema: { type: 'string' } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+            const { analyzer } = setupAnalyzer(spec);
+            const op = { ...spec.paths['/sse'].get, path: '/sse', method: 'GET', methodName: 'getSse' } as any;
+            const model = analyzer.analyze(op)!;
+            expect(model.responseVariants[0].type).toBe('string');
+        });
+
+        it('should keep error response type unknown for unsupported content', () => {
+            const spec = {
+                openapi: '3.0.0',
+                info: { title: 'Errors', version: '1.0' },
+                paths: {
+                    '/err': {
+                        get: {
+                            operationId: 'getErr',
+                            responses: {
+                                '200': { description: 'ok' },
+                                '400': { content: { 'application/octet-stream': {} } },
+                            },
+                        },
+                    },
+                },
+            };
+            const { analyzer } = setupAnalyzer(spec);
+            const op = { ...spec.paths['/err'].get, path: '/err', method: 'GET', methodName: 'getErr' } as any;
+            const model = analyzer.analyze(op)!;
+            expect(model.errorResponses[0].type).toBe('unknown');
+        });
+
+        it('should handle requestBody with empty content map', () => {
+            const spec = {
+                openapi: '3.0.0',
+                info: { title: 'Body', version: '1.0' },
+                paths: {
+                    '/body': {
+                        post: {
+                            operationId: 'postBody',
+                            requestBody: { content: {} },
+                            responses: { '200': {} },
+                        },
+                    },
+                },
+            };
+            const { analyzer } = setupAnalyzer(spec);
+            const op = { ...spec.paths['/body'].post, path: '/body', method: 'POST', methodName: 'postBody' } as any;
+            const model = analyzer.analyze(op)!;
+            expect(model.body?.type).toBe('json');
+            expect(model.requestEncodingConfig).toBeUndefined();
+        });
+
+        it('should treat requestBody without content as raw', () => {
+            const spec = {
+                openapi: '3.0.0',
+                info: { title: 'Raw', version: '1.0' },
+                paths: {
+                    '/raw': {
+                        post: {
+                            operationId: 'postRaw',
+                            requestBody: {},
+                            responses: { '200': {} },
+                        },
+                    },
+                },
+            };
+            const { analyzer } = setupAnalyzer(spec);
+            const op = { ...spec.paths['/raw'].post, path: '/raw', method: 'POST', methodName: 'postRaw' } as any;
+            const model = analyzer.analyze(op)!;
+            expect(model.body?.type).toBe('raw');
+        });
+
+        it('should sort required parameters before optional ones', () => {
+            const spec = {
+                openapi: '3.0.0',
+                info: { title: 'Params', version: '1.0' },
+                paths: {
+                    '/params': {
+                        get: {
+                            operationId: 'getParams',
+                            parameters: [
+                                { name: 'opt', in: 'query', schema: { type: 'string' } },
+                                { name: 'req', in: 'query', required: true, schema: { type: 'string' } },
+                            ],
+                            responses: { '200': {} },
+                        },
+                    },
+                },
+            };
+            const { analyzer } = setupAnalyzer(spec);
+            const op = { ...spec.paths['/params'].get, path: '/params', method: 'GET', methodName: 'getParams' } as any;
+            const model = analyzer.analyze(op)!;
+            expect(model.parameters[0].name).toBe('req');
+            expect(model.parameters[1].name).toBe('opt');
+        });
+
+        it('should initialize multipart prefix and item encodings when missing', () => {
+            const spec = {
+                openapi: '3.0.0',
+                info: { title: 'Multipart', version: '1.0' },
+                paths: {
+                    '/multi': {
+                        post: {
+                            operationId: 'postMulti',
+                            requestBody: {
+                                content: {
+                                    'multipart/form-data': {
+                                        schema: {
+                                            type: 'array',
+                                            prefixItems: [{ type: 'object', properties: { a: { type: 'string' } } }],
+                                            items: { type: 'object', properties: { b: { type: 'string' } } },
+                                        },
+                                    },
+                                },
+                            },
+                            responses: { '200': {} },
+                        },
+                    },
+                },
+            };
+            const { analyzer } = setupAnalyzer(spec);
+            const op = { ...spec.paths['/multi'].post, path: '/multi', method: 'POST', methodName: 'postMulti' } as any;
+            const model = analyzer.analyze(op)!;
+            const config = (model.body as any)?.config as any;
+            expect(config.prefixEncoding).toBeDefined();
+            expect(config.prefixEncoding[0]).toBeDefined();
+            expect(config.itemEncoding).toBeDefined();
+        });
+
+        it('should populate Content-Transfer-Encoding headers when missing', () => {
+            const spec = { openapi: '3.0.0', info: { title: 'Enc', version: '1.0' }, paths: {} };
+            const { analyzer } = setupAnalyzer(spec);
+            const configMap: any = {};
+            (analyzer as any).enrichEncodingConfig({ type: 'string', contentEncoding: 'base64' }, configMap, 'field');
+            expect(configMap.field.headers['Content-Transfer-Encoding']).toBe('base64');
+        });
+
+        it('should not overwrite existing Content-Transfer-Encoding headers', () => {
+            const spec = { openapi: '3.0.0', info: { title: 'Enc', version: '1.0' }, paths: {} };
+            const { analyzer } = setupAnalyzer(spec);
+            const configMap: any = { field: { headers: { 'content-transfer-encoding': 'gzip' } } };
+            (analyzer as any).enrichEncodingConfig({ type: 'string', contentEncoding: 'base64' }, configMap, 'field');
+            expect(configMap.field.headers['content-transfer-encoding']).toBe('gzip');
+        });
+
+        it('should merge xml config from allOf properties', () => {
+            const spec = { openapi: '3.0.0', info: { title: 'Xml', version: '1.0' }, paths: {} };
+            const { analyzer } = setupAnalyzer(spec);
+            const schema = {
+                allOf: [
+                    {
+                        type: 'object',
+                        properties: {
+                            node: { type: 'string', xml: { name: 'node' } },
+                        },
+                    },
+                ],
+            };
+            const cfg = (analyzer as any).getXmlConfig(schema, 5);
+            expect(cfg.properties?.node).toBeDefined();
+        });
+
+        it('should build decoding config for array items and allOf properties', () => {
+            const spec = { openapi: '3.0.0', info: { title: 'Dec', version: '1.0' }, paths: {} };
+            const { analyzer } = setupAnalyzer(spec);
+            const schema = {
+                type: 'array',
+                items: {
+                    type: 'string',
+                    contentSchema: { type: 'object', properties: { id: { type: 'string' } } },
+                },
+            };
+            const cfg = (analyzer as any).getDecodingConfig(schema, 5);
+            expect(cfg.items).toBeDefined();
+
+            const allOfSchema = {
+                allOf: [
+                    {
+                        type: 'object',
+                        properties: {
+                            payload: {
+                                type: 'string',
+                                contentSchema: { type: 'object', properties: { id: { type: 'string' } } },
+                            },
+                        },
+                    },
+                ],
+            };
+            const cfg2 = (analyzer as any).getDecodingConfig(allOfSchema, 5);
+            expect(cfg2.properties?.payload).toBeDefined();
+        });
+
+        it('should return empty decoding config for undefined or unresolved schema', () => {
+            const spec = { openapi: '3.0.0', info: { title: 'Dec', version: '1.0' }, paths: {} };
+            const { analyzer } = setupAnalyzer(spec);
+            expect((analyzer as any).getDecodingConfig(undefined, 5)).toEqual({});
+            expect((analyzer as any).getDecodingConfig({ $ref: '#/missing' }, 5)).toEqual({});
+        });
+
+        it('should build encoding config for arrays and allOf properties', () => {
+            const spec = { openapi: '3.0.0', info: { title: 'Enc', version: '1.0' }, paths: {} };
+            const { analyzer } = setupAnalyzer(spec);
+            const schema = {
+                type: 'object',
+                properties: {
+                    payload: { type: 'string', contentMediaType: 'application/json' },
+                },
+                allOf: [
+                    {
+                        type: 'object',
+                        properties: {
+                            extra: { type: 'string', contentMediaType: 'application/json' },
+                        },
+                    },
+                ],
+            };
+            const cfg = (analyzer as any).getEncodingConfig(schema, 5);
+            expect(cfg.properties?.payload).toBeDefined();
+            expect(cfg.properties?.extra).toBeDefined();
+        });
+
+        it('should return empty encoding config for undefined or unresolved schema', () => {
+            const spec = { openapi: '3.0.0', info: { title: 'Enc', version: '1.0' }, paths: {} };
+            const { analyzer } = setupAnalyzer(spec);
+            expect((analyzer as any).getEncodingConfig(undefined, 5)).toEqual({});
+            expect((analyzer as any).getEncodingConfig({ $ref: '#/missing' }, 5)).toEqual({});
+        });
+
+        it('should return "any" when resolveType receives undefined schema', () => {
+            const spec = { openapi: '3.0.0', info: { title: 'Resolve', version: '1.0' }, paths: {} };
+            const { analyzer } = setupAnalyzer(spec);
+            expect((analyzer as any).resolveType(undefined, [])).toBe('any');
+        });
+
+        it('should avoid requestEncodingConfig when body is forced to json with no content', () => {
+            const spec = {
+                openapi: '3.0.0',
+                info: { title: 'Enc', version: '1.0' },
+                paths: {
+                    '/enc': {
+                        post: {
+                            operationId: 'postEnc',
+                            requestBody: {},
+                            responses: { '200': {} },
+                        },
+                    },
+                },
+            };
+            const { analyzer } = setupAnalyzer(spec);
+            vi.spyOn(analyzer as any, 'analyzeBody').mockReturnValue({ type: 'json', paramName: 'body' });
+            const op = { ...spec.paths['/enc'].post, path: '/enc', method: 'POST', methodName: 'postEnc' } as any;
+            const model = analyzer.analyze(op)!;
+            expect(model.requestEncodingConfig).toBeUndefined();
+        });
+
+        it('should handle json-lines responses using itemSchema', () => {
+            const spec = {
+                openapi: '3.0.0',
+                info: { title: 'Jsonl', version: '1.0' },
+                paths: {
+                    '/jsonl': {
+                        get: {
+                            operationId: 'getJsonl',
+                            responses: {
+                                '200': { content: { 'application/jsonl': { itemSchema: { type: 'number' } } } },
+                            },
+                        },
+                    },
+                },
+            };
+            const { analyzer } = setupAnalyzer(spec);
+            const op = { ...spec.paths['/jsonl'].get, path: '/jsonl', method: 'GET', methodName: 'getJsonl' } as any;
+            const model = analyzer.analyze(op)!;
+            expect(model.responseVariants[0].type).toBe('(number)[]');
+        });
+
+        it('should fall back to any for event-stream when schema resolves to undefined mid-flight', () => {
+            const spec = { openapi: '3.0.0', info: { title: 'Weird', version: '1.0' }, paths: {} };
+            const { analyzer } = setupAnalyzer(spec);
+            let readCount = 0;
+            const mediaObj: any = {};
+            Object.defineProperty(mediaObj, 'schema', {
+                get() {
+                    readCount += 1;
+                    return readCount === 1 ? { type: 'string' } : undefined;
+                },
+            });
+            const op = {
+                methodName: 'getWeird',
+                method: 'GET',
+                path: '/weird',
+                responses: {
+                    '200': { content: { 'text/event-stream': mediaObj } },
+                },
+            } as any;
+            const model = analyzer.analyze(op)!;
+            expect(model.responseVariants[0].type).toBe('any');
+        });
+
+        it('should skip multipart itemEncoding initialization when items are tuple arrays', () => {
+            const spec = {
+                openapi: '3.0.0',
+                info: { title: 'Multipart', version: '1.0' },
+                paths: {
+                    '/tuple': {
+                        post: {
+                            operationId: 'postTuple',
+                            requestBody: {
+                                content: {
+                                    'multipart/form-data': {
+                                        schema: {
+                                            type: 'array',
+                                            items: [{ type: 'string' }, { type: 'number' }],
+                                        },
+                                    },
+                                },
+                            },
+                            responses: { '200': {} },
+                        },
+                    },
+                },
+            };
+            const { analyzer } = setupAnalyzer(spec);
+            const op = { ...spec.paths['/tuple'].post, path: '/tuple', method: 'POST', methodName: 'postTuple' } as any;
+            const model = analyzer.analyze(op)!;
+            expect(model.body?.type).toBe('multipart');
+        });
+
+        it('should skip allOf merges when subConfig has no properties', () => {
+            const spec = { openapi: '3.0.0', info: { title: 'Skip', version: '1.0' }, paths: {} };
+            const { analyzer } = setupAnalyzer(spec);
+            const xmlCfg = (analyzer as any).getXmlConfig({ allOf: [{ type: 'object' }] }, 5);
+            expect(xmlCfg.properties).toBeUndefined();
+
+            const decCfg = (analyzer as any).getDecodingConfig({ allOf: [{ type: 'object' }] }, 5);
+            expect(decCfg.properties).toBeUndefined();
+
+            const encCfg = (analyzer as any).getEncodingConfig({ allOf: [{ type: 'object' }] }, 5);
+            expect(encCfg.properties).toBeUndefined();
+        });
+
+        it('should use fallback docs when summary and description are missing', () => {
+            const spec = {
+                openapi: '3.0.0',
+                info: { title: 'Docs', version: '1.0' },
+                paths: {
+                    '/fallback': {
+                        get: {
+                            operationId: 'getFallback',
+                            responses: { '200': {} },
+                        },
+                    },
+                },
+            };
+            const { analyzer } = setupAnalyzer(spec);
+            const op = { ...spec.paths['/fallback'].get, path: '/fallback', method: 'GET', methodName: 'getFallback' } as any;
+            const model = analyzer.analyze(op)!;
+            expect(model.docs).toContain('Performs a GET request to /fallback.');
+        });
+
+        it('should include description when both summary and description are provided', () => {
+            const spec = {
+                openapi: '3.0.0',
+                info: { title: 'Docs', version: '1.0' },
+                paths: {
+                    '/desc': {
+                        get: {
+                            operationId: 'getDesc',
+                            summary: 'Short summary',
+                            description: 'Detailed description',
+                            responses: { '200': {} },
+                        },
+                    },
+                },
+            };
+            const { analyzer } = setupAnalyzer(spec);
+            const op = { ...spec.paths['/desc'].get, path: '/desc', method: 'GET', methodName: 'getDesc' } as any;
+            const model = analyzer.analyze(op)!;
+            expect(model.docs).toContain('Short summary');
+            expect(model.docs).toContain('Detailed description');
+        });
+
+        it('should handle externalDocs without description', () => {
+            const spec = {
+                openapi: '3.0.0',
+                info: { title: 'Docs', version: '1.0' },
+                paths: {
+                    '/ext': {
+                        get: {
+                            operationId: 'getExt',
+                            externalDocs: { url: 'https://example.com' },
+                            responses: { '200': {} },
+                        },
+                    },
+                },
+            };
+            const { analyzer } = setupAnalyzer(spec);
+            const op = { ...spec.paths['/ext'].get, path: '/ext', method: 'GET', methodName: 'getExt' } as any;
+            const model = analyzer.analyze(op)!;
+            expect(model.docs).toContain('@see https://example.com');
+        });
     });
 });

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Project } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from '@src/core/types/index.js';
@@ -314,6 +314,420 @@ describe('Generated Code: Service Test Generators', () => {
             // Should use 'active_filter' from dataValue
             expect(text).toContain("const filter = 'active_filter';");
             expect(text).not.toContain('ignore_me');
+        });
+
+        it('should generate mock data for model parameters', () => {
+            const modelParamSpec = {
+                openapi: '3.0.0',
+                info: { title: 'Model Param', version: '1.0' },
+                paths: {
+                    '/with-model': {
+                        get: {
+                            operationId: 'getWithModel',
+                            parameters: [
+                                { name: 'filter', in: 'query', schema: { $ref: '#/components/schemas/Filter' } },
+                            ],
+                            responses: { '200': {} },
+                        },
+                    },
+                },
+                components: {
+                    schemas: {
+                        Filter: { type: 'object', properties: { id: { type: 'string' } } },
+                    },
+                },
+            };
+
+            const { parser, testGen } = setupTestGen(modelParamSpec);
+            const ops = parser.operations;
+            setOperationMethodNames(ops as any[]);
+
+            testGen.generateServiceTestFile('model', ops as any, '/');
+            const sourceFile = project.getSourceFileOrThrow('/model.service.spec.ts');
+            const text = sourceFile.getFullText();
+
+            expect(text).toContain('const filter: Filter =');
+        });
+
+        it('should cover example extraction branches directly', () => {
+            const { parser, testGen } = setupTestGen({ paths: {} });
+
+            // examples map with dataValue/value/serializedValue
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    examples: { a: { dataValue: 'dv' } },
+                }),
+            ).toBe("'dv'");
+
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    examples: { a: { value: 'val' } },
+                }),
+            ).toBe("'val'");
+
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    examples: { a: { serializedValue: 'ser' } },
+                }),
+            ).toBe("'ser'");
+
+            const resolveSpy = vi
+                .spyOn(parser, 'resolveReference')
+                .mockReturnValueOnce({ dataValue: 'rdv' })
+                .mockReturnValueOnce({ value: 'rval' })
+                .mockReturnValueOnce({ serializedValue: 'rser' });
+
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    examples: { a: { $ref: '#/components/examples/Example' } },
+                }),
+            ).toBe("'rdv'");
+
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    examples: { a: { $ref: '#/components/examples/Example' } },
+                }),
+            ).toBe("'rval'");
+
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    examples: { a: { $ref: '#/components/examples/Example' } },
+                }),
+            ).toBe("'rser'");
+
+            resolveSpy.mockRestore();
+
+            // examples map with empty object (no keys)
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    examples: {},
+                }),
+            ).toBeUndefined();
+
+            // examples map object missing known example keys
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    examples: { a: { note: 'missing' } },
+                }),
+            ).toBeUndefined();
+
+            const unresolvedSpy = vi.spyOn(parser, 'resolveReference').mockReturnValueOnce(undefined);
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    examples: { a: { $ref: '#/components/examples/Missing' } },
+                }),
+            ).toBeUndefined();
+            unresolvedSpy.mockRestore();
+
+            // examples map literal value
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    examples: { a: 'literal' },
+                }),
+            ).toBe("'literal'");
+
+            // schema-based examples
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { type: 'string', dataValue: 'sdv' },
+                }),
+            ).toBe("'sdv'");
+
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { type: 'string', example: 'sex' },
+                }),
+            ).toBe("'sex'");
+
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { type: 'string', examples: ['ex1'] },
+                }),
+            ).toBe("'ex1'");
+
+            // schema $ref should skip schema example branch
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { $ref: '#/components/schemas/RefType' },
+                }),
+            ).toBeUndefined();
+
+            // content examples
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    content: { 'application/json': { example: { a: 1 } } },
+                }),
+            ).toBe(JSON.stringify({ a: 1 }));
+
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    content: {},
+                }),
+            ).toBeUndefined();
+
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    content: { 'application/json': {} },
+                }),
+            ).toBeUndefined();
+
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    content: { 'application/json': { examples: {} } },
+                }),
+            ).toBeUndefined();
+
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    content: { 'application/json': { examples: { a: 'literal' } } },
+                }),
+            ).toBeUndefined();
+
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    content: {
+                        'application/json': {
+                            examples: { a: { dataValue: 'cdv' } },
+                        },
+                    },
+                }),
+            ).toBe("'cdv'");
+
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    content: {
+                        'application/json': {
+                            examples: { a: { value: 42 } },
+                        },
+                    },
+                }),
+            ).toBe('42');
+
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    content: {
+                        'application/json': {
+                            examples: { a: { serializedValue: 'cser' } },
+                        },
+                    },
+                }),
+            ).toBe("'cser'");
+        });
+
+        it('should cover example fallthroughs without value keys', () => {
+            const { parser, testGen } = setupTestGen({ paths: {} });
+
+            const resolvedSerialized = Object.create(null) as any;
+            resolvedSerialized.serializedValue = 'rser-null';
+
+            const resolveSpy = vi.spyOn(parser, 'resolveReference').mockReturnValueOnce(resolvedSerialized);
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    examples: { a: { $ref: '#/components/examples/Example' } },
+                }),
+            ).toBe("'rser-null'");
+            resolveSpy.mockRestore();
+
+            const emptyExamples = Object.create(null);
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    examples: emptyExamples,
+                }),
+            ).toBeUndefined();
+
+            const contentSerialized = Object.create(null) as any;
+            contentSerialized.serializedValue = 'cser-null';
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    content: {
+                        'application/json': {
+                            examples: { a: contentSerialized },
+                        },
+                    },
+                }),
+            ).toBe("'cser-null'");
+        });
+
+        it('should cover serializedValue fallbacks for resolved and content examples', () => {
+            const { parser, testGen } = setupTestGen({ paths: {} });
+
+            const resolvedSpy = vi.spyOn(parser, 'resolveReference').mockReturnValueOnce({ serializedValue: 'only' });
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    examples: { a: { $ref: '#/components/examples/Example' } },
+                }),
+            ).toBe("'only'");
+            resolvedSpy.mockRestore();
+
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    content: {
+                        'application/json': {
+                            examples: { a: { serializedValue: 'only-content' } },
+                        },
+                    },
+                }),
+            ).toBe("'only-content'");
+
+            expect(
+                (testGen as any).getParameterExampleValue({
+                    name: 'p',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    examples: {},
+                }),
+            ).toBeUndefined();
+        });
+
+        it('should handle undefined parameters in internal helpers', () => {
+            const { testGen } = setupTestGen({ paths: {} });
+
+            const output = (testGen as any).generateMethodTests([
+                {
+                    methodName: 'doThing',
+                    method: 'GET',
+                    path: '/things/{id}',
+                    responses: { '200': {} },
+                    parameters: undefined,
+                },
+            ]);
+
+            expect(output.join('\n')).toContain('doThing');
+
+            const imports = (testGen as any).collectModelImports([
+                {
+                    method: 'GET',
+                    path: '/things/{id}',
+                    responses: { '200': {} },
+                    parameters: undefined,
+                },
+            ]);
+
+            expect(imports.size).toBe(0);
+        });
+
+        it('should handle primitive defaults in generateDefaultPrimitiveValue', () => {
+            const { testGen } = setupTestGen({ paths: {} });
+
+            expect((testGen as any).generateDefaultPrimitiveValue({ type: 'integer' })).toBe('123');
+            expect((testGen as any).generateDefaultPrimitiveValue({ type: 'boolean' })).toBe('true');
+            expect((testGen as any).generateDefaultPrimitiveValue({ type: 'string' })).toBe("'test-value'");
+        });
+
+        it('collectModelImports should include response, body, and parameter models', () => {
+            const spec = {
+                openapi: '3.0.0',
+                info: { title: 'Imports', version: '1.0' },
+                paths: {
+                    '/with-models': {
+                        post: {
+                            operationId: 'postModels',
+                            parameters: [
+                                { name: 'filter', in: 'query', schema: { $ref: '#/components/schemas/Filter' } },
+                            ],
+                            requestBody: {
+                                content: {
+                                    'application/json': { schema: { $ref: '#/components/schemas/BodyModel' } },
+                                },
+                            },
+                            responses: {
+                                '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/Resp' } } } },
+                            },
+                        },
+                    },
+                },
+                components: {
+                    schemas: {
+                        Filter: { type: 'object', properties: { id: { type: 'string' } } },
+                        BodyModel: { type: 'object', properties: { name: { type: 'string' } } },
+                        Resp: { type: 'object', properties: { ok: { type: 'boolean' } } },
+                    },
+                },
+            };
+
+            const { parser, testGen } = setupTestGen(spec);
+            const imports = (testGen as any).collectModelImports(parser.operations);
+
+            expect(imports.has('Filter')).toBe(true);
+            expect(imports.has('BodyModel')).toBe(true);
+            expect(imports.has('Resp')).toBe(true);
         });
     });
 });

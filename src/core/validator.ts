@@ -113,17 +113,13 @@ export function validateSpec(spec: SwaggerSpec): void {
             if (signature.includes('{}')) {
                 if (signatures.has(signature)) {
                     const existingPath = signatures.get(signature)!;
-                    // Throw if they are different string constants mapping to the same signature
-                    if (existingPath !== pathKey) {
-                        throw new SpecValidationError(
-                            `Ambiguous path definition detected. OAS 3.2 forbids identical path hierarchies with different parameter names.\n` +
-                                `Path 1: "${existingPath}"\n` +
-                                `Path 2: "${pathKey}"`,
-                        );
-                    }
-                } else {
-                    signatures.set(signature, pathKey);
+                    throw new SpecValidationError(
+                        `Ambiguous path definition detected. OAS 3.2 forbids identical path hierarchies with different parameter names.\n` +
+                            `Path 1: "${existingPath}"\n` +
+                            `Path 2: "${pathKey}"`,
+                    );
                 }
+                signatures.set(signature, pathKey);
             }
 
             // 5. Parameter Validation (OAS 3.2 Strictness)

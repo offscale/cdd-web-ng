@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 
 import { Project } from 'ts-morph';
 
-import { discoverAdminResources } from '@src/generators/angular/admin/resource-discovery.js';
+import { discoverAdminResources, getFormProperties } from '@src/generators/angular/admin/resource-discovery.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { Resource } from '@src/core/types/index.js';
 import { ListComponentGenerator } from '@src/generators/angular/admin/list-component.generator.js';
@@ -140,6 +140,135 @@ describe('Admin Generators (Coverage)', () => {
         expect(resource).toBeDefined();
         // It should fall back to a default 'id' property.
         expect(resource!.formProperties).toEqual([{ name: 'id', schema: { type: 'string' } }]);
+    });
+
+    it('resource-discovery should fall back to default resource name when tag and segment are missing', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Default', version: '1.0' },
+            paths: {
+                '/': {
+                    get: { responses: { '200': {} } },
+                },
+            },
+        };
+        const parser = new SwaggerParser(spec as any, { options: {} } as any);
+        const resources = discoverAdminResources(parser);
+        expect(resources[0].name).toBe('default');
+    });
+
+    it('resource-discovery should merge formData params and allOf schema properties', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Forms', version: '1.0' },
+            paths: {
+                '/upload': {
+                    post: {
+                        parameters: [
+                            {
+                                name: 'file',
+                                in: 'formData',
+                                schema: { type: 'string', format: 'binary' },
+                                description: 'Upload file',
+                            },
+                        ],
+                        requestBody: {
+                            content: {
+                                'application/json': { schema: { $ref: '#/components/schemas/Combined' } },
+                            },
+                        },
+                        responses: {
+                            '200': {
+                                content: {
+                                    'application/json': {
+                                        schema: { type: 'array', items: { $ref: '#/components/schemas/Base' } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            components: {
+                schemas: {
+                    Base: {
+                        type: 'object',
+                        properties: { base: { type: 'string' } },
+                        required: ['base'],
+                    },
+                    Combined: {
+                        type: 'object',
+                        allOf: [
+                            { $ref: '#/components/schemas/Base' },
+                            { $ref: '#/components/schemas/Missing' },
+                        ],
+                        properties: { extra: { type: 'string' } },
+                    },
+                },
+            },
+        };
+        const parser = new SwaggerParser(spec as any, { options: {} } as any);
+        const ops = parser.operations.filter(op => op.path === '/upload');
+        const props = getFormProperties(ops, parser);
+        const fileProp = props.find(p => p.name === 'file');
+        expect(fileProp?.schema.format).toBe('binary');
+        expect(fileProp?.schema.description).toBe('Upload file');
+        const baseProp = props.find(p => p.name === 'base');
+        expect(baseProp?.schema.required).toContain('base');
+    });
+
+    it('getFormProperties should skip array-typed formData params and tolerate unresolved array items', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'FormData', version: '1.0' },
+            paths: {
+                '/upload': {
+                    post: {
+                        parameters: [
+                            {
+                                name: 'meta',
+                                in: 'formData',
+                                schema: { type: ['string', 'null'] },
+                                description: 'metadata',
+                            },
+                        ],
+                        responses: {
+                            '200': {
+                                content: {
+                                    'application/json': {
+                                        schema: { type: 'array', items: { $ref: '#/components/schemas/Missing' } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            components: { schemas: {} },
+        };
+        const parser = new SwaggerParser(spec as any, { options: {} } as any);
+        const ops = parser.operations.filter(op => op.path === '/upload');
+        const props = getFormProperties(ops, parser);
+        const metaProp = props.find(p => p.name === 'meta');
+        expect(metaProp?.schema.type).toBeUndefined();
+    });
+
+    it('resource-discovery should handle operations without parameters or method names', () => {
+        const parser = new SwaggerParser(coverageSpecPart2 as any, { options: {} } as any);
+        (parser.operations as any).push({
+            path: '',
+            method: '',
+            tags: [],
+            responses: {},
+            operationId: '',
+            parameters: undefined,
+        });
+
+        const resources = discoverAdminResources(parser);
+        const defaultResource = resources.find((r: Resource) => r.name === 'default');
+        const op = defaultResource?.operations.find(o => o.path === '' && o.method === '');
+        expect(op?.methodName).toBeUndefined();
+        expect(op?.methodParameters).toBeUndefined();
     });
 
     it('list-component-generator getIconForAction should fall back for unknown actions', () => {

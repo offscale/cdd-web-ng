@@ -19,6 +19,12 @@ describe('Core: ReferenceResolver', () => {
     });
 
     describe('indexSchemaIds', () => {
+        it('should return early for non-object specs', () => {
+            const sizeBefore = cache.size;
+            ReferenceResolver.indexSchemaIds(null as any, rootUri, cache);
+            expect(cache.size).toBe(sizeBefore);
+        });
+
         it('should index standard $id and anchors', () => {
             const spec = {
                 schemas: {
@@ -34,6 +40,19 @@ describe('Core: ReferenceResolver', () => {
         it('should safely ignore invalid IDs', () => {
             const spec = { schemas: { Bad: { $id: 'invalid-uri' } } };
             expect(() => ReferenceResolver.indexSchemaIds(spec, rootUri, cache)).not.toThrow();
+        });
+
+        it('should skip inherited properties and avoid re-adding anchors', () => {
+            const proto = { inherited: { $anchor: 'skip' } };
+            const spec = Object.create(proto);
+            spec.schemas = {
+                User: { $id: 'http://example.com/user', $anchor: 'local', $dynamicAnchor: 'dyn' },
+            };
+            ReferenceResolver.indexSchemaIds(spec, rootUri, cache);
+            const sizeAfterFirst = cache.size;
+            ReferenceResolver.indexSchemaIds(spec, rootUri, cache);
+            expect(cache.size).toBe(sizeAfterFirst);
+            expect(cache.has('http://example.com/user#skip')).toBe(false);
         });
     });
 
@@ -102,6 +121,13 @@ describe('Core: ReferenceResolver', () => {
             expect(refs).toContain('#/b');
             expect(refs.length).toBe(2);
         });
+
+        it('should ignore inherited ref properties', () => {
+            const proto = { inherited: { $ref: '#/proto' } };
+            const obj = Object.create(proto);
+            const refs = ReferenceResolver.findRefs(obj);
+            expect(refs).toEqual([]);
+        });
     });
 
     describe('resolve', () => {
@@ -116,6 +142,28 @@ describe('Core: ReferenceResolver', () => {
             expect(res.type).toBe('string');
             expect(res.description).toBe('Overridden');
             expect(res.summary).toBe('Summary');
+        });
+
+        it('should only override description when summary is omitted', () => {
+            cache.set(rootUri, { defs: { Target: { type: 'string', description: 'Original' } } } as any);
+            const refObj = {
+                $ref: '#/defs/Target',
+                description: 'Only description',
+            };
+            const res: any = resolver.resolve(refObj);
+            expect(res.description).toBe('Only description');
+            expect(res.summary).toBeUndefined();
+        });
+
+        it('should only override summary when description is omitted', () => {
+            cache.set(rootUri, { defs: { Target: { type: 'string', description: 'Original' } } } as any);
+            const refObj = {
+                $ref: '#/defs/Target',
+                summary: 'Only summary',
+            };
+            const res: any = resolver.resolve(refObj);
+            expect(res.summary).toBe('Only summary');
+            expect(res.description).toBe('Original');
         });
 
         it('should return null/undefined if input is null/undefined', () => {
@@ -196,6 +244,44 @@ describe('Core: ReferenceResolver', () => {
 
             expect(resolved).toBeDefined();
             expect(resolved.type).toBe('string');
+        });
+
+        it('should return undefined when dynamic anchor is not found in stack', () => {
+            cache.set('http://base/generic', { openapi: '3.0.0', paths: {} } as any);
+            const resolved = resolver.resolveReference('#missing', 'http://base/generic', ['http://base/generic']);
+            expect(resolved).toBeUndefined();
+        });
+    });
+
+    describe('resolveReference edge cases', () => {
+        it('should return entire document when ref has no pointer', () => {
+            const spec = { openapi: '3.0.0', paths: { '/x': {} } } as any;
+            cache.set('http://doc.com/root.json', spec);
+            const res = resolver.resolveReference('http://doc.com/root.json');
+            expect(res).toBe(spec);
+        });
+
+        it('should return undefined without warning when current document is missing and ref has no file path', () => {
+            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            const res = resolver.resolveReference('#/missing', 'file:///missing.json');
+            expect(res).toBeUndefined();
+            expect(warnSpy).not.toHaveBeenCalled();
+        });
+
+        it('should skip JSON pointer traversal when no fragment is present and cache has() returns false', () => {
+            class NonHasCache extends Map<string, SwaggerSpec> {
+                // Force has() to return false to bypass the early cache hit
+                override has(_key: string): boolean {
+                    return false;
+                }
+            }
+
+            const customCache = new NonHasCache();
+            const spec = { openapi: '3.0.0', paths: {} } as any;
+            customCache.set('http://doc.com/root.json', spec);
+            const customResolver = new ReferenceResolver(customCache, 'http://doc.com/root.json');
+            const res = customResolver.resolveReference('http://doc.com/root.json');
+            expect(res).toBe(spec);
         });
     });
 });

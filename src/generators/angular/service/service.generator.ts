@@ -99,12 +99,9 @@ export class ServiceGenerator extends AbstractServiceGenerator {
             });
         }
 
-        const hasXmlResponse = operations.some(op => {
-            if (op.responses) {
-                return Object.values(op.responses).some(r => r.content?.['application/xml']);
-            }
-            return false;
-        });
+        const hasXmlResponse = operations.some(op =>
+            Object.values(op.responses!).some(r => r.content?.['application/xml']),
+        );
 
         if (hasXmlResponse) {
             sourceFile.addImportDeclaration({
@@ -118,14 +115,12 @@ export class ServiceGenerator extends AbstractServiceGenerator {
         let hasEncoding = false;
 
         for (const op of operations) {
-            if (op.responses) {
-                hasDecoding =
-                    hasDecoding ||
-                    Object.values(op.responses).some(r => {
-                        const s = r.content?.['application/json']?.schema;
-                        return s && JSON.stringify(s).includes('contentSchema');
-                    });
-            }
+            hasDecoding =
+                hasDecoding ||
+                Object.values(op.responses!).some(r => {
+                    const s = r.content?.['application/json']?.schema;
+                    return s && JSON.stringify(s).includes('contentSchema');
+                });
 
             // Check request body for encoding
             if (op.requestBody?.content?.['application/json']?.schema) {
@@ -176,28 +171,26 @@ export class ServiceGenerator extends AbstractServiceGenerator {
 
         for (const op of operations) {
             // Check all responses for models
-            if (op.responses) {
-                for (const resp of Object.values(op.responses)) {
-                    if (resp.content) {
-                        const jsonSchema = resp.content['application/json']?.schema;
-                        const xmlSchema = resp.content['application/xml']?.schema;
-                        const wildcardSchema = resp.content['*/*']?.schema;
+            for (const resp of Object.values(op.responses!)) {
+                if (resp.content) {
+                    const jsonSchema = resp.content['application/json']?.schema;
+                    const xmlSchema = resp.content['application/xml']?.schema;
+                    const wildcardSchema = resp.content['*/*']?.schema;
 
-                        const schema = jsonSchema || xmlSchema || wildcardSchema;
-                        if (schema) {
-                            const typeName = getTypeScriptType(schema, this.config, knownTypes).replace(
-                                /\[\]| \| null/g,
-                                '',
-                            );
-                            if (isDataTypeInterface(typeName)) {
-                                modelImports.add(typeName);
-                            }
+                    const schema = jsonSchema || xmlSchema || wildcardSchema;
+                    if (schema) {
+                        const typeName = getTypeScriptType(schema, this.config, knownTypes).replace(
+                            /\[\]| \| null/g,
+                            '',
+                        );
+                        if (isDataTypeInterface(typeName)) {
+                            modelImports.add(typeName);
                         }
                     }
                 }
             }
 
-            (op.parameters ?? []).forEach(param => {
+            op.parameters!.forEach(param => {
                 const paramType = getTypeScriptType(param.schema, this.config, knownTypes).replace(
                     /\[\]| \| null/g,
                     '',
@@ -222,12 +215,10 @@ export class ServiceGenerator extends AbstractServiceGenerator {
         const validModels = Array.from(modelImports).filter(
             m => /^[A-Z]/.test(m) && !['Date', 'Blob', 'File'].includes(m),
         );
-        if (validModels.length > 0) {
-            sourceFile.addImportDeclaration({
-                moduleSpecifier: '../models',
-                namedImports: validModels,
-            });
-        }
+        sourceFile.addImportDeclaration({
+            moduleSpecifier: '../models',
+            namedImports: validModels,
+        });
 
         sourceFile.addImportDeclaration({
             moduleSpecifier: '../tokens',

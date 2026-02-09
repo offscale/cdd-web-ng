@@ -33,6 +33,11 @@ describe('Core Utils: Type Converter', () => {
                 expect(utils.getTypeScriptType(schema, config, [])).toBe('null');
             });
 
+            it('should fallback to any for non-primitive const values', () => {
+                const schema: SwaggerDefinition = { const: { nested: true } };
+                expect(utils.getTypeScriptType(schema, config, [])).toBe('any');
+            });
+
             it('should prefer const over type/enum if present', () => {
                 const schema: SwaggerDefinition = {
                     type: 'string',
@@ -73,6 +78,16 @@ describe('Core Utils: Type Converter', () => {
         it('should return "any" for unresolvable $dynamicRef', () => {
             const schema = { $dynamicRef: '#/components/schemas/HiddenDynamic' };
             expect(utils.getTypeScriptType(schema, config, [])).toBe('any');
+        });
+
+        it('should fall back to any when $ref has an empty segment', () => {
+            const schema: SwaggerDefinition = { $ref: '#/components/schemas/' };
+            expect(utils.getTypeScriptType(schema, config, ['User'])).toBe('any');
+        });
+
+        it('should fall back to any when $dynamicRef has an empty segment', () => {
+            const schema: SwaggerDefinition = { $dynamicRef: '#/components/schemas/' };
+            expect(utils.getTypeScriptType(schema, config, ['DynamicUser'])).toBe('any');
         });
 
         it('should handle array of types (nullable)', () => {
@@ -172,6 +187,11 @@ describe('Core Utils: Type Converter', () => {
             expect(utils.getTypeScriptType(schema, config, [])).toBe('10 | 20.5 | 30');
         });
 
+        it('should fall back to number enum handling when title is unknown', () => {
+            const schema: SwaggerDefinition = { type: 'number', enum: [1, 2], title: 'UnknownEnum' };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('1 | 2');
+        });
+
         it('should use configured int64Type', () => {
             const conf = { ...config, options: { ...config.options, int64Type: 'string' as const } };
             const schema: SwaggerDefinition = { type: 'integer', format: 'int64' };
@@ -192,6 +212,21 @@ describe('Core Utils: Type Converter', () => {
             expect(utils.getTypeScriptType(schema, config, [])).toBe('[string, number]');
         });
 
+        it('should handle prefixItems without explicit type', () => {
+            const schema: SwaggerDefinition = {
+                prefixItems: [{ type: 'string' }, { type: 'number' }],
+            };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('[string, number]');
+        });
+
+        it('should handle prefixItems with rest items', () => {
+            const schema: SwaggerDefinition = {
+                prefixItems: [{ type: 'string' }, { type: 'number' }],
+                items: { oneOf: [{ type: 'string' }, { type: 'number' }] },
+            };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('[string, number, ...(string | number)[]]');
+        });
+
         it('should correctly wrap union types in arrays with parentheses', () => {
             const schema: SwaggerDefinition = {
                 type: 'array',
@@ -203,6 +238,11 @@ describe('Core Utils: Type Converter', () => {
         it('should handle simple array types', () => {
             const schema: SwaggerDefinition = { type: 'array', items: { type: 'string' } };
             expect(utils.getTypeScriptType(schema, config, [])).toBe('string[]');
+        });
+
+        it('should default array items to any when items is missing', () => {
+            const schema: SwaggerDefinition = { type: 'array' };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('any[]');
         });
 
         // OBJECTS
@@ -221,6 +261,51 @@ describe('Core Utils: Type Converter', () => {
             expect(utils.getTypeScriptType(schema, config, [])).toBe('{ [key: string]: number }');
         });
 
+        it('should handle `unevaluatedProperties` schema', () => {
+            const schema: SwaggerDefinition = { type: 'object', unevaluatedProperties: { type: 'string' } };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('{ [key: string]: string }');
+        });
+
+        it('should handle `unevaluatedProperties: true`', () => {
+            const schema: SwaggerDefinition = { type: 'object', unevaluatedProperties: true };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('{ [key: string]: any }');
+        });
+
+        it('should return closed object when additionalProperties and unevaluatedProperties are false', () => {
+            const schema: SwaggerDefinition = {
+                type: 'object',
+                properties: {},
+                additionalProperties: false,
+                unevaluatedProperties: false,
+            };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('{}');
+        });
+
+        it('should return index signature when properties are empty but object is open', () => {
+            const schema: SwaggerDefinition = {
+                type: 'object',
+                properties: {},
+            };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('{ [key: string]: any }');
+        });
+
+        it('should return index signature for empty properties with additionalProperties schema', () => {
+            const schema: SwaggerDefinition = {
+                type: 'object',
+                properties: {},
+                additionalProperties: { type: 'string' },
+            };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('{ [key: string]: string }');
+        });
+
+        it('should return closed object when properties are absent but additionalProperties is false', () => {
+            const schema: SwaggerDefinition = {
+                type: 'object',
+                additionalProperties: false,
+            };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('{}');
+        });
+
         it('should handle explicit properties with optionality', () => {
             const schema: SwaggerDefinition = {
                 type: 'object',
@@ -233,6 +318,19 @@ describe('Core Utils: Type Converter', () => {
             const res = utils.getTypeScriptType(schema, config, []);
             expect(res).toContain('req: string');
             expect(res).toContain('opt?: number');
+        });
+
+        it('should include index signature alongside explicit properties', () => {
+            const schema: SwaggerDefinition = {
+                type: 'object',
+                properties: {
+                    id: { type: 'string' },
+                },
+                additionalProperties: { type: 'number' },
+            };
+            const res = utils.getTypeScriptType(schema, config, []);
+            expect(res).toContain('id?: string');
+            expect(res).toContain('[key: string]: number | any');
         });
 
         it('should quote invalid identifier keys', () => {

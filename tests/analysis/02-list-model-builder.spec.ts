@@ -77,4 +77,46 @@ describe('Analysis: ListModelBuilder', () => {
         expect(processItemAction).toBeDefined();
         expect(processItemAction?.kind).toBe('default');
     });
+
+    it('should fall back to first property when id is missing', () => {
+        const builder = new ListModelBuilder();
+        const resource = createResource({
+            formProperties: [{ name: 'uuid', schema: { type: 'string' } as SwaggerDefinition }],
+            listProperties: [{ name: 'uuid', schema: { type: 'string' } as SwaggerDefinition }],
+        });
+
+        const viewModel = builder.build(resource);
+
+        expect(viewModel.idProperty).toBe('uuid');
+        expect(viewModel.columns[0].key).toBe('uuid');
+    });
+
+    it('should ensure a default id column when no usable properties exist', () => {
+        const builder = new ListModelBuilder();
+        const resource = createResource({
+            // Force getIdProperty to return an empty string
+            formProperties: [{ name: '', schema: { type: 'string' } as SwaggerDefinition }],
+            listProperties: [],
+        });
+
+        const viewModel = builder.build(resource);
+
+        expect(viewModel.columns).toHaveLength(1);
+        expect(viewModel.columns[0].key).toBe('id');
+        expect(viewModel.columns[0].isId).toBe(true);
+    });
+
+    it('should fall back when listProperties is undefined and formProperties are empty', () => {
+        const builder = new ListModelBuilder();
+        const resource = createResource({
+            formProperties: [],
+            listProperties: undefined as any,
+        });
+
+        const viewModel = builder.build(resource);
+
+        expect(viewModel.idProperty).toBe('id');
+        expect(viewModel.columns).toHaveLength(1);
+        expect(viewModel.columns[0].key).toBe('id');
+    });
 });

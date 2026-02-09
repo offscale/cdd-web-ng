@@ -1,6 +1,6 @@
 // tests/analysis/01-form-model-builder.spec.ts
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { FormModelBuilder } from '@src/analysis/form-model.builder.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig, Resource } from '@src/core/types/index.js';
@@ -77,6 +77,37 @@ describe('Analysis: FormModelBuilder', () => {
         expect(mapControl!.mapValueControl!.dataType).toContain('string');
     });
 
+    it('should carry nestedFormInterface for map value objects', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
+            components: {
+                schemas: {
+                    TestResource: {
+                        type: 'object',
+                        properties: {
+                            meta: {
+                                type: 'object',
+                                additionalProperties: {
+                                    type: 'object',
+                                    properties: {
+                                        value: { type: 'string' },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        };
+        const { builder, resource } = setup(spec);
+        const result = builder.build(resource);
+        const mapControl = result.topLevelControls.find(c => c.name === 'meta');
+
+        expect(mapControl?.controlType).toBe('map');
+        expect(mapControl?.nestedFormInterface).toBeDefined();
+    });
+
     it('should extract keyPattern from patternProperties for Map types', () => {
         const spec = {
             openapi: '3.0.0',
@@ -140,6 +171,32 @@ describe('Analysis: FormModelBuilder', () => {
         expect(rules.some(r => r.targetField === 'cvv')).toBe(true);
         expect(rules.some(r => r.targetField === 'billingAddress')).toBe(true);
         expect(rules[0].type).toBe('required');
+    });
+
+    it('should not error when dependentSchemas includes properties', () => {
+        const spec = {
+            openapi: '3.1.0',
+            info: { title: 'Deps', version: '1.0' },
+            components: {
+                schemas: {
+                    TestResource: {
+                        type: 'object',
+                        properties: {
+                            flag: { type: 'string' },
+                        },
+                        dependentSchemas: {
+                            flag: {
+                                required: ['flag'],
+                                properties: { extra: { type: 'string' } },
+                            },
+                        },
+                    },
+                },
+            },
+        };
+        const { builder, resource } = setup(spec);
+        const result = builder.build(resource);
+        expect(result.dependencyRules.length).toBe(1);
     });
 
     it('should set usesCustomValidators flag for other custom rules like uniqueItems', () => {
@@ -295,6 +352,465 @@ describe('Analysis: FormModelBuilder', () => {
         const config = result.polymorphicProperties[0];
         expect(config.defaultOption).toBe('DefaultSub');
         expect(config.options.length).toBe(2);
+    });
+
+    it('should skip adding polymorphic config when analyzer returns null', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
+            components: {
+                schemas: {
+                    TestResource: {
+                        type: 'object',
+                        properties: {
+                            poly: {
+                                oneOf: [{ $ref: '#/components/schemas/Sub' }],
+                                discriminator: { propertyName: 'type' },
+                            },
+                        },
+                    },
+                    Sub: {
+                        type: 'object',
+                        properties: { type: { type: 'string', enum: ['sub'] } },
+                    },
+                },
+            },
+        };
+        const { builder, resource } = setup(spec);
+        vi.spyOn(builder as any, 'analyzePolymorphism').mockReturnValue(null);
+        const result = builder.build(resource);
+
+        expect(result.isPolymorphic).toBe(true);
+        expect(result.polymorphicProperties).toHaveLength(0);
+    });
+
+    it('should return early when dependentSchemas is missing', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
+            components: {
+                schemas: {
+                    TestResource: { type: 'object', properties: {} },
+                },
+            },
+        };
+        const { builder } = setup(spec);
+        (builder as any).analyzeDependentSchemas({ type: 'object' });
+        expect((builder as any).result.dependencyRules).toEqual([]);
+    });
+
+    it('should ignore dependentSchemas when ref cannot be resolved', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
+            components: {
+                schemas: {
+                    TestResource: { type: 'object', properties: {} },
+                },
+            },
+        };
+        const { builder } = setup(spec);
+        (builder as any).analyzeDependentSchemas({
+            dependentSchemas: {
+                missing: { $ref: '#/components/schemas/DoesNotExist' },
+            },
+        });
+        expect((builder as any).result.dependencyRules).toEqual([]);
+    });
+
+    it('should ignore dependentSchemas without required fields', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
+            components: {
+                schemas: {
+                    TestResource: { type: 'object', properties: {} },
+                },
+            },
+        };
+        const { builder } = setup(spec);
+        (builder as any).analyzeDependentSchemas({
+            dependentSchemas: {
+                flag: { properties: { extra: { type: 'string' } } },
+            },
+        });
+        expect((builder as any).result.dependencyRules).toEqual([]);
+    });
+
+    it('should return null when analyzePolymorphism receives schema without discriminator', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
+            components: {
+                schemas: {
+                    TestResource: { type: 'object', properties: {} },
+                },
+            },
+        };
+        const { builder } = setup(spec);
+        const result = (builder as any).analyzePolymorphism({
+            name: 'poly',
+            schema: { oneOf: [{ type: 'string' }] },
+        });
+        expect(result).toBeNull();
+    });
+
+    it('should handle discriminator-only schemas without oneOf', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
+            components: {
+                schemas: {
+                    TestResource: { type: 'object', properties: {} },
+                },
+            },
+        };
+        const { builder } = setup(spec);
+        const config = (builder as any).analyzePolymorphism({
+            name: 'poly',
+            schema: { discriminator: { propertyName: 'type' } },
+        });
+        expect(config).toBeDefined();
+        expect(config.options).toEqual([]);
+        expect(config.discriminatorOptions).toEqual([]);
+    });
+
+    it('should use discriminator mapping when explicit mapping is present', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
+            components: {
+                schemas: {
+                    Poly: {
+                        oneOf: [{ $ref: '#/components/schemas/Sub' }],
+                        discriminator: {
+                            propertyName: 'type',
+                            mapping: { mapped: '#/components/schemas/Sub' },
+                        },
+                    },
+                    Sub: {
+                        type: 'object',
+                        properties: { type: { type: 'string' }, name: { type: 'string' } },
+                        allOf: [{ $ref: '#/components/schemas/Missing' }],
+                    },
+                },
+            },
+        };
+        const { builder } = setup(spec, 'Poly');
+        const config = (builder as any).analyzePolymorphism({
+            name: 'poly',
+            schema: spec.components.schemas.Poly,
+        });
+        expect(config.options[0].discriminatorValue).toBe('mapped');
+    });
+
+    it('should handle map schemas with empty patternProperties and unevaluatedProperties', () => {
+        const spec = {
+            openapi: '3.1.0',
+            info: { title: 'Map', version: '1.0' },
+            components: {
+                schemas: {
+                    TestResource: {
+                        type: 'object',
+                        properties: {
+                            prefixed: {
+                                type: 'object',
+                                patternProperties: {},
+                                additionalProperties: { type: 'string' },
+                            },
+                            unevaluated: {
+                                type: 'object',
+                                unevaluatedProperties: { type: 'integer' },
+                            },
+                        },
+                    },
+                },
+            },
+        };
+        const { builder, resource } = setup(spec);
+        const result = builder.build(resource);
+
+        const prefixed = result.topLevelControls.find(c => c.name === 'prefixed');
+        expect(prefixed?.controlType).toBe('map');
+        expect(prefixed?.keyPattern).toBeUndefined();
+
+        const unevaluated = result.topLevelControls.find(c => c.name === 'unevaluated');
+        expect(unevaluated?.controlType).toBe('map');
+        expect(unevaluated?.mapValueControl?.dataType).toContain('number');
+    });
+
+    it('should fall back to Record<string, any> for invalid map value types', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Map', version: '1.0' },
+            components: {
+                schemas: {
+                    TestResource: {
+                        type: 'object',
+                        properties: {
+                            meta: {
+                                type: 'object',
+                                additionalProperties: { type: 'string' },
+                            },
+                        },
+                    },
+                },
+            },
+        };
+        const { builder, resource } = setup(spec);
+        (builder as any).getFormControlTypeString = () => 'any';
+        const result = builder.build(resource);
+        const mapControl = result.topLevelControls.find(c => c.name === 'meta');
+
+        expect(mapControl?.dataType).toBe('Record<string, any>');
+    });
+
+    it('should handle boolean additionalProperties fallback to empty schema', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Map', version: '1.0' },
+            components: {
+                schemas: {
+                    TestResource: {
+                        type: 'object',
+                        properties: {
+                            loose: {
+                                type: 'object',
+                                additionalProperties: true,
+                                unevaluatedProperties: false,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+        const { builder, resource } = setup(spec);
+        const result = builder.build(resource);
+        const mapControl = result.topLevelControls.find(c => c.name === 'loose');
+        expect(mapControl?.controlType).toBe('map');
+    });
+
+    it('should include properties from resolvable allOf schemas in polymorphism', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Poly', version: '1.0' },
+            components: {
+                schemas: {
+                    Poly: {
+                        oneOf: [{ $ref: '#/components/schemas/Sub' }],
+                        discriminator: { propertyName: 'type' },
+                    },
+                    Base: {
+                        type: 'object',
+                        properties: {
+                            name: { type: 'string' },
+                        },
+                    },
+                    Sub: {
+                        allOf: [{ $ref: '#/components/schemas/Base' }],
+                        type: 'object',
+                        properties: {
+                            type: { type: 'string', enum: ['sub'] },
+                        },
+                    },
+                },
+            },
+        };
+        const { builder } = setup(spec, 'Poly');
+        const config = (builder as any).analyzePolymorphism({
+            name: 'poly',
+            schema: spec.components.schemas.Poly,
+        });
+        expect(config.options[0].controls.some((c: any) => c.name === 'name')).toBe(true);
+    });
+
+    it('should handle allOf schemas without properties during polymorphism analysis', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Poly', version: '1.0' },
+            components: {
+                schemas: {
+                    Poly: {
+                        oneOf: [{ $ref: '#/components/schemas/Sub' }],
+                        discriminator: { propertyName: 'type' },
+                    },
+                    Empty: {
+                        type: 'object',
+                    },
+                    Sub: {
+                        allOf: [
+                            { $ref: '#/components/schemas/Empty' },
+                            {
+                                type: 'object',
+                                properties: { type: { type: 'string', enum: ['sub'] }, name: { type: 'string' } },
+                            },
+                        ],
+                    },
+                },
+            },
+        };
+        const { builder } = setup(spec, 'Poly');
+        const config = (builder as any).analyzePolymorphism({
+            name: 'poly',
+            schema: spec.components.schemas.Poly,
+        });
+        expect(config.options[0].controls.some((c: any) => c.name === 'name')).toBe(true);
+    });
+
+    it('should not set defaultOption when defaultMapping does not match any option', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Poly', version: '1.0' },
+            components: {
+                schemas: {
+                    Poly: {
+                        oneOf: [{ $ref: '#/components/schemas/Sub' }],
+                        discriminator: { propertyName: 'type', defaultMapping: '#/components/schemas/Missing' },
+                    },
+                    Sub: {
+                        type: 'object',
+                        properties: { type: { type: 'string', enum: ['sub'] } },
+                    },
+                },
+            },
+        };
+        const { builder } = setup(spec, 'Poly');
+        const config = (builder as any).analyzePolymorphism({
+            name: 'poly',
+            schema: spec.components.schemas.Poly,
+        });
+        expect(config.defaultOption).toBeUndefined();
+    });
+
+    it('should skip unresolved allOf refs when collecting polymorphic properties', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Poly', version: '1.0' },
+            components: {
+                schemas: {
+                    Poly: {
+                        oneOf: [{ $ref: '#/components/schemas/Sub' }],
+                        discriminator: { propertyName: 'type' },
+                    },
+                    Sub: {
+                        allOf: [
+                            { $ref: '#/components/schemas/Missing' },
+                            {
+                                type: 'object',
+                                properties: { type: { type: 'string', enum: ['sub'] }, name: { type: 'string' } },
+                            },
+                        ],
+                    },
+                },
+            },
+        };
+        const { builder } = setup(spec, 'Poly');
+        const config = (builder as any).analyzePolymorphism({
+            name: 'poly',
+            schema: spec.components.schemas.Poly,
+        });
+        expect(config.options[0].controls.some((c: any) => c.name === 'name')).toBe(true);
+    });
+
+    it('should handle defaultMapping with empty ref segment gracefully', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Poly', version: '1.0' },
+            components: {
+                schemas: {
+                    Poly: {
+                        oneOf: [{ $ref: '#/components/schemas/Sub' }],
+                        discriminator: { propertyName: 'type', defaultMapping: '#/components/schemas/' },
+                    },
+                    Sub: {
+                        type: 'object',
+                        properties: { type: { type: 'string', enum: ['sub'] } },
+                    },
+                },
+            },
+        };
+        const { builder } = setup(spec, 'Poly');
+        const config = (builder as any).analyzePolymorphism({
+            name: 'poly',
+            schema: spec.components.schemas.Poly,
+        });
+        expect(config.defaultOption).toBeUndefined();
+    });
+
+    it('should add discriminator option when parser options are empty', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
+            components: {
+                schemas: {
+                    Poly: {
+                        oneOf: [{ $ref: '#/components/schemas/Sub' }],
+                        discriminator: { propertyName: 'type' },
+                    },
+                    Sub: {
+                        type: 'object',
+                        properties: { type: { type: 'string', enum: ['sub'] }, name: { type: 'string' } },
+                    },
+                },
+            },
+        };
+        const { builder, parser } = setup(spec, 'Poly');
+        const prop = {
+            name: 'poly',
+            schema: spec.components.schemas.Poly,
+        } as any;
+        vi.spyOn(parser, 'getPolymorphicSchemaOptions').mockReturnValue([]);
+        const config = (builder as any).analyzePolymorphism(prop);
+        expect(config.discriminatorOptions).toContain('sub');
+    });
+
+    it('should fall back to ref name when discriminator value has no enum', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
+            components: {
+                schemas: {
+                    Poly: {
+                        oneOf: [{ $ref: '#/components/schemas/Sub' }],
+                        discriminator: { propertyName: 'type' },
+                    },
+                    Sub: {
+                        type: 'object',
+                        properties: { type: { type: 'string' }, name: { type: 'string' } },
+                    },
+                },
+            },
+        };
+        const { builder } = setup(spec, 'Poly');
+        const prop = { name: 'poly', schema: spec.components.schemas.Poly } as any;
+        const config = (builder as any).analyzePolymorphism(prop);
+        expect(config.options[0].discriminatorValue).toBe('Sub');
+    });
+
+    it('should skip polymorphic option when ref name is empty', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
+            components: {
+                schemas: {
+                    TestResource: { type: 'object', properties: {} },
+                },
+            },
+        };
+        const { builder, parser } = setup(spec);
+        const prop = {
+            name: 'poly',
+            schema: {
+                discriminator: { propertyName: 'type' },
+                oneOf: [{ $ref: '/' }],
+            },
+        } as any;
+        vi.spyOn(parser, 'resolve').mockReturnValue({
+            type: 'object',
+            properties: { type: { type: 'string' } },
+        } as any);
+        const config = (builder as any).analyzePolymorphism(prop);
+        expect(config.options.length).toBe(0);
     });
 
     it('should support implicit discriminator mapping based on component name (OAS 3.2)', () => {

@@ -220,10 +220,10 @@ export class AuthInterceptorGenerator {
         if (s.type === 'oauth2' || s.type === 'openIdConnect') return 'Bearer';
         if (s.type === 'http') {
             // scheme is required for http type
-            const schemeUpper = (s.scheme || 'Bearer').toLowerCase();
-            if (schemeUpper === 'bearer') return 'Bearer';
+            const scheme = s.scheme;
+            if (!scheme || scheme.toLowerCase() === 'bearer') return 'Bearer';
             // Use pascalCase to handle casing conventions (e.g. basic -> Basic, digest -> Digest)
-            return pascalCase(s.scheme || 'Bearer');
+            return pascalCase(scheme);
         }
         return 'Bearer';
     }

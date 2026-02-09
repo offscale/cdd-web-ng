@@ -232,6 +232,19 @@ export class ServiceTestGenerator {
     // Helper to extract examples from parameters, handling nested OAS structures
     private getParameterExampleValue(param: Parameter): string | undefined {
         let potentialValue: any = undefined;
+        const pickExampleValue = (example: unknown): { found: boolean; value: any } => {
+            if (!example || typeof example !== 'object') return { found: false, value: undefined };
+            if (Object.prototype.hasOwnProperty.call(example, 'dataValue')) {
+                return { found: true, value: (example as any).dataValue };
+            }
+            if (Object.prototype.hasOwnProperty.call(example, 'value')) {
+                return { found: true, value: (example as any).value };
+            }
+            if (Object.prototype.hasOwnProperty.call(example, 'serializedValue')) {
+                return { found: true, value: (example as any).serializedValue };
+            }
+            return { found: false, value: undefined };
+        };
 
         // 1. Direct Example (OAS 3.x / Swagger 2.0)
         if (param.example !== undefined) {
@@ -239,28 +252,21 @@ export class ServiceTestGenerator {
         }
         // 2. Examples Map (OAS 3.x) - pick first
         else if (param.examples && typeof param.examples === 'object') {
-            const keys = Object.keys(param.examples);
-            if (keys.length > 0) {
-                // OAS 3.2: Example Object keys
-                const firstExample = param.examples[keys[0]];
-                if (firstExample && typeof firstExample === 'object') {
-                    // OAS 3.2 Priority: dataValue > value > serializedValue
-                    if ('dataValue' in firstExample) {
-                        potentialValue = firstExample.dataValue;
-                    } else if ('value' in firstExample) {
-                        potentialValue = firstExample.value;
-                    } else if ('serializedValue' in firstExample) {
-                        // Usage in tests: We prefer objects, but if only serialized string is provided, use it.
-                        potentialValue = firstExample.serializedValue;
-                    } else if ('$ref' in firstExample) {
-                        const resolved = this.parser.resolveReference<any>(firstExample.$ref);
-                        if (resolved) {
-                            if ('dataValue' in resolved) potentialValue = resolved.dataValue;
-                            else if ('value' in resolved) potentialValue = resolved.value;
-                            else if ('serializedValue' in resolved) potentialValue = resolved.serializedValue;
-                        }
-                    }
-                } else {
+            const firstExample = Object.values(param.examples)[0];
+            if (firstExample !== undefined) {
+                // OAS 3.2 Priority: dataValue > value > serializedValue
+                const directValue = pickExampleValue(firstExample);
+                if (directValue.found) {
+                    potentialValue = directValue.value;
+                } else if (
+                    firstExample &&
+                    typeof firstExample === 'object' &&
+                    Object.prototype.hasOwnProperty.call(firstExample, '$ref')
+                ) {
+                    const resolved = this.parser.resolveReference<any>((firstExample as any).$ref);
+                    const resolvedValue = pickExampleValue(resolved);
+                    if (resolvedValue.found) potentialValue = resolvedValue.value;
+                } else if (firstExample === null || typeof firstExample !== 'object') {
                     // Literal value fallback (Swagger 2.0 allowed looser maps)
                     potentialValue = firstExample;
                 }
@@ -290,11 +296,8 @@ export class ServiceTestGenerator {
                     const keys = Object.keys(media.examples);
                     if (keys.length > 0) {
                         const ex = media.examples[keys[0]];
-                        if (ex && typeof ex === 'object') {
-                            if ('dataValue' in ex) potentialValue = ex.dataValue;
-                            else if ('value' in ex) potentialValue = ex.value;
-                            else if ('serializedValue' in ex) potentialValue = ex.serializedValue;
-                        }
+                        const contentValue = pickExampleValue(ex);
+                        if (contentValue.found) potentialValue = contentValue.value;
                     }
                 }
             }

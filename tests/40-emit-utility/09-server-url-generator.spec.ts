@@ -154,4 +154,22 @@ describe('Emitter: ServerUrlGenerator', () => {
         // Partial override
         expect(getServerUrl(0, { port: '3000', protocol: 'http' })).toBe('http://localhost:3000/api');
     });
+
+    it('should fall back to default server when parser.servers is undefined', () => {
+        const project = createTestProject();
+        const parser = new SwaggerParser(
+            {
+                openapi: '3.2.0',
+                info: { title: 'No Servers', version: '1.0' },
+                paths: {},
+            } as any,
+            { options: {} } as any,
+        );
+        // Force undefined to exercise defensive fallback path
+        (parser as any).servers = undefined;
+
+        new ServerUrlGenerator(parser, project).generate('/out');
+        const sourceFile = project.getSourceFileOrThrow('/out/utils/server-url.ts');
+        expect(sourceFile.getText()).toContain('"url": "/"');
+    });
 });

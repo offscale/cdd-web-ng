@@ -463,6 +463,24 @@ describe('Core: Input Spec Validation', () => {
             expect(() => validateSpec(spec)).toThrow(/has an invalid 'content' map. It MUST contain exactly one entry/);
         });
 
+        it('should accept component parameter content map with a single entry', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {},
+                components: {
+                    parameters: {
+                        SingleContent: {
+                            name: 'id',
+                            in: 'query',
+                            content: { 'application/json': { schema: { type: 'string' } } },
+                        },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).not.toThrow();
+        });
+
         it('should throw if allowEmptyValue used with style (OAS 3.2)', () => {
             const spec: any = {
                 openapi: '3.2.0',
@@ -485,6 +503,27 @@ describe('Core: Input Spec Validation', () => {
             expect(() => validateSpec(spec)).toThrow(/defines 'allowEmptyValue' alongside 'style'. This is forbidden/);
         });
 
+        it('should accept allowEmptyValue on query parameter when style is absent', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/test': {
+                        get: {
+                            parameters: [
+                                {
+                                    name: 'id',
+                                    in: 'query',
+                                    allowEmptyValue: true,
+                                },
+                            ],
+                        },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).not.toThrow();
+        });
+
         it('should throw if allowEmptyValue used on non-query param (OAS 3.2)', () => {
             const spec: any = {
                 openapi: '3.2.0',
@@ -504,6 +543,119 @@ describe('Core: Input Spec Validation', () => {
                 },
             };
             expect(() => validateSpec(spec)).toThrow(/defines 'allowEmptyValue' but location is not 'query'/);
+        });
+
+        it('should throw if querystring parameter defines style/explode/allowReserved', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/test': {
+                        get: {
+                            parameters: [
+                                {
+                                    name: 'q',
+                                    in: 'querystring',
+                                    style: 'form',
+                                    explode: true,
+                                    allowReserved: true,
+                                },
+                            ],
+                        },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).toThrow(/location 'querystring' but defines style\/explode\/allowReserved/);
+        });
+
+        it('should throw if component parameter allowEmptyValue used on non-query', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {},
+                components: {
+                    parameters: {
+                        BadAllow: {
+                            name: 'id',
+                            in: 'header',
+                            allowEmptyValue: true,
+                        },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).toThrow(/defines 'allowEmptyValue' but location is not 'query'/);
+        });
+
+        it('should throw if component parameter allowEmptyValue used with style', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {},
+                components: {
+                    parameters: {
+                        BadAllowStyle: {
+                            name: 'id',
+                            in: 'query',
+                            allowEmptyValue: true,
+                            style: 'form',
+                        },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).toThrow(/defines 'allowEmptyValue' alongside 'style'/);
+        });
+
+        it('should accept component parameter allowEmptyValue when style is absent', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {},
+                components: {
+                    parameters: {
+                        OkAllow: {
+                            name: 'id',
+                            in: 'query',
+                            allowEmptyValue: true,
+                        },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).not.toThrow();
+        });
+
+        it('should throw if component parameter querystring defines style/explode/allowReserved', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {},
+                components: {
+                    parameters: {
+                        BadQuerystring: {
+                            name: 'q',
+                            in: 'querystring',
+                            style: 'form',
+                        },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).toThrow(/location 'querystring' but defines style\/explode\/allowReserved/);
+        });
+
+        it('should accept component parameter querystring without style/explode/allowReserved', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {},
+                components: {
+                    parameters: {
+                        GoodQuerystring: {
+                            name: 'q',
+                            in: 'querystring',
+                        },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).not.toThrow();
         });
 
         it('should accept "example" only', () => {
@@ -602,6 +754,16 @@ describe('Core: Input Spec Validation', () => {
                 jsonSchemaDialect: 'not-a-uri',
             };
             expect(() => validateSpec(spec)).toThrow(/must be a valid URI/);
+        });
+
+        it('should accept dialect strings that satisfy URI scheme regex when URL parsing fails', () => {
+            const spec: any = {
+                openapi: '3.1.0',
+                info: validInfo,
+                paths: {},
+                jsonSchemaDialect: 'http://',
+            };
+            expect(() => validateSpec(spec)).not.toThrow();
         });
 
         it('should throw on non-string value', () => {

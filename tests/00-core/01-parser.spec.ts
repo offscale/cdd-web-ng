@@ -219,6 +219,29 @@ describe('Core: SwaggerParser', () => {
             // The implementation should revert brace encoding.
             expect(parser.servers[0].url).toBe('https://example.com/api/{version}');
         });
+
+        it('should keep server entries without url unchanged', () => {
+            const spec = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {},
+                servers: [{ description: 'no url' } as any],
+            } as any;
+            const parser = new SwaggerParser(spec, config);
+            expect(parser.servers[0]).toEqual({ description: 'no url' });
+        });
+
+        it('should return original server URL when resolution fails', () => {
+            const spec = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {},
+                servers: [{ url: 'http://[invalid]' }],
+            } as any;
+
+            const parser = new SwaggerParser(spec, config, undefined, 'https://example.com');
+            expect(parser.servers[0].url).toBe('http://[invalid]');
+        });
     });
 
     describe('Reference Resolution (`resolve()` and `resolveReference()`)', () => {
@@ -526,6 +549,24 @@ describe('Core: SwaggerParser', () => {
             expect(options).toHaveLength(1);
             expect(options[0].name).toBe('sub-type');
         });
+
+        it('should return empty options when implicit name is missing', () => {
+            const parser = new SwaggerParser(
+                {
+                    openapi: '3.1.0',
+                    info: validInfo,
+                    paths: {},
+                } as any,
+                config,
+            );
+            vi.spyOn(parser, 'resolveReference').mockReturnValue({ properties: { type: { type: 'string' } } } as any);
+            const options = parser.getPolymorphicSchemaOptions({
+                oneOf: [{ $ref: '/' }],
+                discriminator: { propertyName: 'type' },
+            } as any);
+
+            expect(options).toEqual([]);
+        });
     });
 
     describe('OAS 3.1+ Features', () => {
@@ -538,6 +579,18 @@ describe('Core: SwaggerParser', () => {
             } as any;
             const parser = new SwaggerParser(spec, config);
             expect(parser.getJsonSchemaDialect()).toBe(OAS_3_1_DIALECT);
+        });
+
+        it('should default jsonSchemaDialect for OpenAPI 3.1 when missing', () => {
+            const spec = { openapi: '3.1.0', info: validInfo, paths: {} } as any;
+            const parser = new SwaggerParser(spec, config);
+            expect(parser.getJsonSchemaDialect()).toBe(OAS_3_1_DIALECT);
+        });
+
+        it('should return undefined jsonSchemaDialect for OpenAPI 3.0 without dialect', () => {
+            const spec = { openapi: '3.0.3', info: validInfo, paths: {} } as any;
+            const parser = new SwaggerParser(spec, config);
+            expect(parser.getJsonSchemaDialect()).toBeUndefined();
         });
 
         it('should accept JSON Schema 2020-12 dialect silently', () => {
@@ -681,6 +734,46 @@ describe('Core: SwaggerParser', () => {
             const links = parser.getLinks();
             expect(links).toHaveProperty('MyLink');
             expect(links.MyLink.description).toBe('An inline link');
+        });
+
+        it('should resolve $ref LinkObjects from components', () => {
+            const specWithRefLink = {
+                openapi: '3.0.0',
+                info: validInfo,
+                paths: {},
+                components: {
+                    links: {
+                        BaseLink: {
+                            operationId: 'baseOp',
+                            description: 'Base link',
+                        },
+                        RefLink: {
+                            $ref: '#/components/links/BaseLink',
+                        },
+                    },
+                },
+            };
+            const parser = new SwaggerParser(specWithRefLink as any, config);
+            const links = parser.getLinks();
+            expect(links.RefLink.description).toBe('Base link');
+        });
+
+        it('should skip unresolved $ref LinkObjects', () => {
+            const specWithMissingLink = {
+                openapi: '3.0.0',
+                info: validInfo,
+                paths: {},
+                components: {
+                    links: {
+                        RefLink: {
+                            $ref: '#/components/links/DoesNotExist',
+                        },
+                    },
+                },
+            };
+            const parser = new SwaggerParser(specWithMissingLink as any, config);
+            const links = parser.getLinks();
+            expect(links.RefLink).toBeUndefined();
         });
 
         it('should return null for getSpecVersion on a spec without a version field', () => {

@@ -83,6 +83,15 @@ describe('Core: Runtime Expression Evaluator', () => {
             expect(evaluateJsonPointer(data, '/arr/key')).toBeUndefined();
         });
 
+        it('should return undefined for pointer without leading slash', () => {
+            expect(evaluateJsonPointer(data, 'foo')).toBeUndefined();
+            expect(evaluateJsonPointer(data, '#foo')).toBeUndefined();
+        });
+
+        it('should return undefined when traversing into non-objects', () => {
+            expect(evaluateJsonPointer(data, '/foo/bar')).toBeUndefined();
+        });
+
         it('should return full object for empty pointer', () => {
             expect(evaluateJsonPointer(data, '')).toEqual(data);
             expect(evaluateJsonPointer(data, '#')).toEqual(data);
@@ -112,9 +121,21 @@ describe('Core: Runtime Expression Evaluator', () => {
                 expect(evaluateRuntimeExpression('$request.header.X-Request-ID', mockContext)).toBe('req-1');
             });
 
+            it('should return first header value when header is an array', () => {
+                expect(evaluateRuntimeExpression('$request.header.Accept', mockContext)).toBe('application/json');
+            });
+
+            it('should return undefined for missing request header', () => {
+                expect(evaluateRuntimeExpression('$request.header.Missing', mockContext)).toBeUndefined();
+            });
+
             it('should resolve request query (case-sensitive)', () => {
                 expect(evaluateRuntimeExpression('$request.query.search', mockContext)).toBe('foo');
                 expect(evaluateRuntimeExpression('$request.query.Search', mockContext)).toBeUndefined();
+            });
+
+            it('should resolve first query value when array is provided', () => {
+                expect(evaluateRuntimeExpression('$request.query.tags', mockContext)).toBe('a');
             });
 
             it('should resolve request path (case-sensitive)', () => {
@@ -129,6 +150,14 @@ describe('Core: Runtime Expression Evaluator', () => {
                 expect(evaluateRuntimeExpression('$request.body#/user/id', mockContext)).toBe(999);
                 expect(evaluateRuntimeExpression('$request.body#/user/roles/0', mockContext)).toBe('admin');
             });
+
+            it('should return undefined for malformed request body expressions', () => {
+                expect(evaluateRuntimeExpression('$request.bodyFoo', mockContext)).toBeUndefined();
+            });
+
+            it('should return undefined for unknown request expressions', () => {
+                expect(evaluateRuntimeExpression('$request.unknown', mockContext)).toBeUndefined();
+            });
         });
 
         describe('$response sources', () => {
@@ -136,6 +165,10 @@ describe('Core: Runtime Expression Evaluator', () => {
                 expect(evaluateRuntimeExpression('$response.header.Location', mockContext)).toBe(
                     'https://example.com/users/999',
                 );
+            });
+
+            it('should resolve full response body', () => {
+                expect(evaluateRuntimeExpression('$response.body', mockContext)).toEqual(mockContext.response?.body);
             });
 
             it('should resolve response body via pointer', () => {
@@ -157,6 +190,10 @@ describe('Core: Runtime Expression Evaluator', () => {
             it('should return undefined for malformed body expressions', () => {
                 // This expression is not '$response.body' and does not start with '$response.body#'
                 expect(evaluateRuntimeExpression('$response.bodyFoo', mockContext)).toBeUndefined();
+            });
+
+            it('should return undefined for unknown response expressions', () => {
+                expect(evaluateRuntimeExpression('$response.unknown', mockContext)).toBeUndefined();
             });
         });
 

@@ -56,12 +56,15 @@ const mockDataGenSpec = {
             StringArrayType: { type: ['string', 'null'] },
             InferredObjectType: { properties: { name: { type: 'string' } } },
             ArrayWithUnsupportedItems: { type: 'array', items: { type: 'function' } },
+            ArrayWithUnknownItem: { type: 'array', items: { type: 'funky' } },
             StringFormats: {
                 type: 'object',
                 properties: {
                     myDate: { type: 'string', format: 'date' },
+                    myDateTime: { type: 'string', format: 'date-time' },
                     myUuid: { type: 'string', format: 'uuid' },
                     myPassword: { type: 'string', format: 'password' },
+                    myEmail: { type: 'string', format: 'email' },
                     myBase64: { type: 'string', contentEncoding: 'base64' },
                 },
             },
@@ -77,6 +80,13 @@ const mockDataGenSpec = {
                     badProp: { $ref: '#/components/schemas/NonExistent' },
                 },
             },
+            DataValueSchema: { dataValue: { id: 1 } },
+            ValueSchema: { value: 'raw-value' },
+            SerializedValueSchema: { serializedValue: 'serialized-value' },
+            UnknownTypeSchema: { type: 'funky' },
+            ExternalRelativeHttp: { externalValue: 'relative.json' },
+            ExternalInvalidUrl: { externalValue: 'http://[invalid' },
+            ExternalMissingFile: { externalValue: 'missing.json' },
         },
     },
 };
@@ -111,11 +121,31 @@ describe('Generated Code: MockDataGenerator (Coverage)', () => {
         expect(fs.readFileSync).toHaveBeenCalled();
     });
 
+    it('should return raw file content when externalValue is not JSON', () => {
+        (fs.existsSync as any).mockReturnValue(true);
+        (fs.readFileSync as any).mockReturnValue('plain text');
+
+        const mockString = generator.generate('WithExternalValue');
+        const mock = JSON.parse(mockString);
+        expect(mock).toBe('plain text');
+    });
+
     it('should handle externalValue with remote URL by referencing content URL', () => {
         const mockString = generator.generate('WithExternalUrl');
         const mock = JSON.parse(mockString);
         expect(mock).toContain('URL Content: http://example.com/data.json');
         expect(fs.readFileSync).not.toHaveBeenCalled();
+    });
+
+    it('should prioritize dataValue, value, and serializedValue in that order', () => {
+        expect(JSON.parse(generator.generate('DataValueSchema'))).toEqual({ id: 1 });
+        expect(JSON.parse(generator.generate('ValueSchema'))).toBe('raw-value');
+        expect(JSON.parse(generator.generate('SerializedValueSchema'))).toBe('serialized-value');
+    });
+
+    it('should return empty object for unknown types without oneOf/anyOf', () => {
+        const mockString = generator.generate('UnknownTypeSchema');
+        expect(JSON.parse(mockString)).toEqual({});
     });
 
     it('should handle allOf containing a null type by ignoring it', () => {
@@ -230,6 +260,8 @@ describe('Generated Code: MockDataGenerator (Coverage)', () => {
         const mockString = generator.generate('StringFormats');
         const mock = JSON.parse(mockString);
         expect(mock).toHaveProperty('myDate');
+        expect(mock).toHaveProperty('myDateTime');
+        expect(mock.myEmail).toBe('test@example.com');
         expect(mock.myUuid).toBe('123e4567-e89b-12d3-a456-426614174000');
         expect(mock.myPassword).toBe('StrongPassword123!');
         // The test data for base64 encoding
@@ -271,6 +303,69 @@ describe('Generated Code: MockDataGenerator (Coverage)', () => {
     it('should return an empty array for an array of unsupported items', () => {
         const mockString = generator.generate('ArrayWithUnsupportedItems');
         expect(JSON.parse(mockString)).toEqual([]);
+    });
+
+    it('should return empty array when array items resolve to undefined', () => {
+        const mockString = generator.generate('ArrayWithUnknownItem');
+        expect(JSON.parse(mockString)).toEqual([]);
+    });
+
+    it('should resolve externalValue relative to an http base', () => {
+        const config: GeneratorConfig = {
+            input: '',
+            output: '/out',
+            options: { dateType: 'string', enumStyle: 'enum' },
+        };
+        const parser = new SwaggerParser(
+            mockDataGenSpec as any,
+            config,
+            undefined,
+            'https://example.com/spec.json',
+        );
+        const customGenerator = new MockDataGenerator(parser);
+
+        const mockString = customGenerator.generate('ExternalRelativeHttp');
+        const mock = JSON.parse(mockString);
+        expect(mock).toContain('URL Content: https://example.com/relative.json');
+    });
+
+    it('should fall back for non-file protocol externalValue resolution', () => {
+        const config: GeneratorConfig = {
+            input: '',
+            output: '/out',
+            options: { dateType: 'string', enumStyle: 'enum' },
+        };
+        const parser = new SwaggerParser(
+            mockDataGenSpec as any,
+            config,
+            undefined,
+            'ftp://example.com/spec.json',
+        );
+        const customGenerator = new MockDataGenerator(parser);
+
+        const mockString = customGenerator.generate('ExternalRelativeHttp');
+        const mock = JSON.parse(mockString);
+        expect(mock).toContain('External Content: relative.json');
+    });
+
+    it('should fall back when externalValue file is missing or invalid', () => {
+        const config: GeneratorConfig = {
+            input: '',
+            output: '/out',
+            options: { dateType: 'string', enumStyle: 'enum' },
+        };
+        const invalidBaseParser = new SwaggerParser(mockDataGenSpec as any, config, undefined, 'http://[invalid');
+        const invalidBaseGenerator = new MockDataGenerator(invalidBaseParser);
+        const invalid = JSON.parse(invalidBaseGenerator.generate('ExternalRelativeHttp'));
+        expect(invalid).toContain('External Content: relative.json');
+
+        const parser = new SwaggerParser(mockDataGenSpec as any, config);
+        (parser as any).documentUri = '';
+        const customGenerator = new MockDataGenerator(parser);
+
+        (fs.existsSync as any).mockReturnValue(false);
+        const missing = JSON.parse(customGenerator.generate('ExternalMissingFile'));
+        expect(missing).toContain('External Content: missing.json');
     });
 
     it('should return undefined for deep recursion to hit maxDepth', () => {

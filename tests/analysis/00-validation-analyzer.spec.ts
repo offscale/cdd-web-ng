@@ -36,6 +36,11 @@ describe('Analysis: validation.analyzer', () => {
         );
     });
 
+    it('should ignore unsupported contentEncoding values', () => {
+        const rules = analyzeValidationRules({ contentEncoding: 'quoted-printable' } as any);
+        expect(rules).toEqual([]);
+    });
+
     it('should map numeric constraints (exclusive vs standard)', () => {
         const standard = analyzeValidationRules({ minimum: 5, maximum: 10 } as any);
         expect(standard).toContainEqual({ type: 'min', value: 5 });
@@ -101,5 +106,14 @@ describe('Analysis: validation.analyzer', () => {
         expect(notRule).toBeDefined();
         expect(notRule.rules).toBeDefined();
         expect(notRule.rules).toContainEqual({ type: 'pattern', value: '^foo' });
+    });
+
+    it('should skip not rules when inner schema yields no validations', () => {
+        const schema: SwaggerDefinition = {
+            type: 'string',
+            not: { readOnly: true } as any,
+        };
+        const rules = analyzeValidationRules(schema);
+        expect(rules.find(r => r.type === 'not')).toBeUndefined();
     });
 });

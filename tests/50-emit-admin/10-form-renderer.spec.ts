@@ -163,6 +163,20 @@ describe('Admin: FormRenderer', () => {
             expect(result).toContain('}, { validators: [Validators.required] })');
         });
 
+        it('should render an empty form group without validators when no nested controls exist', () => {
+            const control: FormControlModel = {
+                name: 'emptyGroup',
+                propertyName: 'emptyGroup',
+                dataType: 'EmptyGroupForm',
+                defaultValue: null,
+                validationRules: [],
+                controlType: 'group',
+            };
+
+            const result = FormInitializerRenderer.renderControlInitializer(control, false);
+            expect(result).toBe('new FormGroup({})');
+        });
+
         it('should render a simple form array using FormBuilder', () => {
             const control: FormControlModel = {
                 name: 'tags',
@@ -189,6 +203,20 @@ describe('Admin: FormRenderer', () => {
 
             const result = FormInitializerRenderer.renderControlInitializer(control, false);
             expect(result).toBe('new FormArray([], [Validators.minLength(1)])');
+        });
+
+        it('should render a map control using standard FormArray when useFormBuilder is false', () => {
+            const control: FormControlModel = {
+                name: 'meta',
+                propertyName: 'meta',
+                dataType: 'Record<string, string>',
+                defaultValue: null,
+                validationRules: [],
+                controlType: 'map',
+            };
+
+            const result = FormInitializerRenderer.renderControlInitializer(control, false);
+            expect(result).toBe('new FormArray([])');
         });
 
         it('should render a form array item initializer using default values', () => {
@@ -223,6 +251,22 @@ describe('Admin: FormRenderer', () => {
             expect(result).toContain(`new FormControl<string | null>(item?.name ?? null)`);
         });
 
+        it('should include validators in form array item initializers', () => {
+            const controls: FormControlModel[] = [
+                {
+                    name: 'name',
+                    propertyName: 'name',
+                    dataType: 'string | null',
+                    defaultValue: null,
+                    validationRules: [{ type: 'required' }],
+                    controlType: 'control',
+                },
+            ];
+
+            const result = FormInitializerRenderer.renderFormArrayItemInitializer(controls);
+            expect(result).toContain(`new FormControl<string | null>(item?.name ?? null, [Validators.required])`);
+        });
+
         it('should render map item initializer with key pattern validators', () => {
             const valueControl: FormControlModel = {
                 name: 'val',
@@ -237,6 +281,38 @@ describe('Admin: FormRenderer', () => {
             expect(result).toContain(
                 "new FormGroup({ 'key': new FormControl<string>(item?.key ?? '', [Validators.required, Validators.pattern(/^[a-z]+$/)])",
             );
+        });
+
+        it('should include validators for map value control', () => {
+            const valueControl: FormControlModel = {
+                name: 'val',
+                propertyName: 'val',
+                dataType: 'string',
+                defaultValue: null,
+                validationRules: [{ type: 'required' }],
+                controlType: 'control',
+            };
+            const result = FormInitializerRenderer.renderMapItemInitializer(valueControl);
+            expect(result).toContain(`new FormControl<string>(item?.value ?? null, [Validators.required])`);
+        });
+
+        it('should render a map control with validators using FormBuilder', () => {
+            const control: FormControlModel = {
+                name: 'meta',
+                propertyName: 'meta',
+                dataType: 'Record<string, string>',
+                defaultValue: null,
+                validationRules: [{ type: 'required' }],
+                controlType: 'map',
+            };
+
+            const result = FormInitializerRenderer.renderControlInitializer(control);
+            expect(result).toBe('this.fb.array([], [Validators.required])');
+        });
+
+        it('should render empty form array item initializer when controls are undefined', () => {
+            const result = FormInitializerRenderer.renderFormArrayItemInitializer(undefined as any);
+            expect(result).toMatch(/new FormGroup\(\{\s*\}\)/);
         });
     });
 });

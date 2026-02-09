@@ -46,6 +46,11 @@ const headerSpec = {
             },
         },
     },
+    components: {
+        schemas: {
+            Dummy: { type: 'object', properties: { id: { type: 'string' } } },
+        },
+    },
 };
 
 describe('Emitter: Response Header Type Generation', () => {

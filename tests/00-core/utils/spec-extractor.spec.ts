@@ -243,5 +243,101 @@ describe('Core Utils: Spec Extractor', () => {
             expect((pathInfo as any)['x-custom-op']).toBe('op-value');
             expect((pathInfo.parameters![0] as any)['x-custom-param']).toBe('param-value');
         });
+
+        it('should merge path-level and operation-level parameters and preserve flags', () => {
+            const swaggerPaths = {
+                '/items/{id}': {
+                    parameters: [
+                        {
+                            name: 'id',
+                            in: 'path',
+                            required: true,
+                            schema: { type: 'string' },
+                            description: 'Path id',
+                        },
+                    ],
+                    get: {
+                        parameters: [
+                            {
+                                name: 'filter',
+                                in: 'query',
+                                schema: { type: 'string' },
+                                allowReserved: true,
+                                allowEmptyValue: true,
+                            },
+                        ],
+                        responses: {},
+                    },
+                },
+            };
+            const [pathInfo] = utils.extractPaths(swaggerPaths as any);
+            const idParam = pathInfo.parameters!.find(p => p.name === 'id')!;
+            const filterParam = pathInfo.parameters!.find(p => p.name === 'filter')!;
+
+            expect(idParam.description).toBe('Path id');
+            expect(filterParam.allowReserved).toBe(true);
+            expect(filterParam.allowEmptyValue).toBe(true);
+        });
+
+        it('should tolerate non-array path parameters and use path-level description fallback', () => {
+            const swaggerPaths = {
+                '/desc': {
+                    parameters: null,
+                    description: 'Path description',
+                    get: { responses: {} },
+                },
+            };
+            const [pathInfo] = utils.extractPaths(swaggerPaths as any);
+            expect(pathInfo.description).toBe('Path description');
+        });
+
+        it('should include externalDocs when provided on operation', () => {
+            const swaggerPaths = {
+                '/docs': {
+                    get: {
+                        operationId: 'getDocs',
+                        externalDocs: { url: 'https://example.com', description: 'More docs' },
+                        responses: {},
+                    },
+                },
+            };
+            const [pathInfo] = utils.extractPaths(swaggerPaths as any);
+            expect(pathInfo.externalDocs?.url).toBe('https://example.com');
+        });
+
+        it('should ignore undefined parameters and apply default explode rules', () => {
+            const swaggerPaths = {
+                '/mix': {
+                    parameters: [undefined, { name: 'shared', in: 'query', schema: { type: 'string' } }],
+                    get: {
+                        parameters: [null, { name: 'op', in: 'query', schema: { type: 'string' }, style: 'form' }],
+                        responses: {},
+                    },
+                },
+            };
+            const [pathInfo] = utils.extractPaths(swaggerPaths as any);
+            const opParam = pathInfo.parameters!.find(p => p.name === 'op');
+            expect(opParam?.explode).toBe(true);
+        });
+
+        it('should preserve explicit explode values when provided', () => {
+            const swaggerPaths = {
+                '/explode': {
+                    get: {
+                        parameters: [
+                            {
+                                name: 'q',
+                                in: 'query',
+                                explode: false,
+                                schema: { type: 'string' },
+                            },
+                        ],
+                        responses: {},
+                    },
+                },
+            };
+            const [pathInfo] = utils.extractPaths(swaggerPaths as any);
+            expect(pathInfo.parameters![0].explode).toBe(false);
+        });
     });
 });

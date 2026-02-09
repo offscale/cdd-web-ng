@@ -78,7 +78,11 @@ export class FormComponentGenerator {
         );
 
         // Helper function to find a control model by name, searching recursively
-        const findControlInModel = (controls: FormControlModel[], name: string): FormControlModel | undefined => {
+        const findControlInModel = (
+            controls: FormControlModel[],
+            name: string,
+            searchPolymorphic: boolean = true,
+        ): FormControlModel | undefined => {
             for (const control of controls) {
                 if (control.name === name) return control;
                 if (control.nestedControls) {
@@ -87,10 +91,12 @@ export class FormComponentGenerator {
                 }
             }
             // Also check polymorphic options, as their controls are not in the main tree
-            for (const propConfig of analysis.polymorphicProperties) {
-                for (const polyOption of propConfig.options) {
-                    const nested = findControlInModel(polyOption.controls, name);
-                    if (nested) return nested;
+            if (searchPolymorphic) {
+                for (const propConfig of analysis.polymorphicProperties) {
+                    for (const polyOption of propConfig.options) {
+                        const nested = findControlInModel(polyOption.controls, name, false);
+                        if (nested) return nested;
+                    }
                 }
             }
             return undefined;
@@ -502,9 +508,9 @@ export class FormComponentGenerator {
         } else if (updateOp?.methodName) {
             body += `if (!this.isEditMode()) { console.error('Form is not in edit mode, but no create operation is available.'); return; }\n`;
             body += `const action$ = this.${camelCase(serviceName)}.${updateOp.methodName}(this.id()!, finalPayload);\n`;
-        } else if (createOp?.methodName) {
+        } else {
             body += `if (this.isEditMode()) { console.error('Form is in edit mode, but no update operation is available.'); return; }\n`;
-            body += `const action$ = this.${camelCase(serviceName)}.${createOp.methodName}(finalPayload);\n`;
+            body += `const action$ = this.${camelCase(serviceName)}.${createOp!.methodName}(finalPayload);\n`;
         }
         body += `action$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({\n  next: () => {\n    this.snackBar.open('${resource.modelName} saved successfully!', 'Close', { duration: 3000 });\n    this.router.navigate(['../'], { relativeTo: this.route });\n  },\n  error: (err) => {\n    console.error('Error saving ${resource.modelName}', err);\n    this.snackBar.open('Error saving ${resource.modelName}', 'Close', { duration: 5000, panelClass: 'error-snackbar' });\n  }\n});`;
         classDeclaration.addMethod({ name: 'onSubmit', statements: body });

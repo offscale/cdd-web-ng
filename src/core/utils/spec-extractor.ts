@@ -95,7 +95,7 @@ export function extractPaths(
         for (const { method, operation } of operationsToProcess) {
             const paramsMap = new Map<string, UnifiedParameter>();
             pathParameters.forEach(p => {
-                if (p) paramsMap.set(`${p.name}:${p.in}`, p);
+                paramsMap.set(`${p.name}:${p.in}`, p);
             });
             (Array.isArray(operation.parameters) ? operation.parameters : []).forEach(p => {
                 if (p) paramsMap.set(`${p.name}:${p.in}`, p);

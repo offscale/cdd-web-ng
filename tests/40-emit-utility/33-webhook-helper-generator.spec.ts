@@ -100,4 +100,23 @@ describe('Emitter: WebhookHelperGenerator', () => {
         const isFake = service.isWebhookEvent('order.fake', {}, 'POST');
         expect(isFake).toBe(false);
     });
+
+    it('should use raw spec webhooks if parser.webhooks is empty', () => {
+        const project = createTestProject();
+        const spec = {
+            openapi: '3.1.0',
+            info: { title: 'Fallback', version: '1.0' },
+            paths: {},
+            webhooks: {
+                'fallback.event': { post: { responses: { '200': {} } } },
+            },
+        };
+        const parser = createParser(spec);
+        // Force parser.webhooks empty to exercise fallback branch
+        (parser as any).webhooks = [];
+
+        new WebhookHelperGenerator(parser, project).generate('/out');
+        const sourceFile = project.getSourceFile('/out/utils/webhook.service.ts');
+        expect(sourceFile).toBeDefined();
+    });
 });

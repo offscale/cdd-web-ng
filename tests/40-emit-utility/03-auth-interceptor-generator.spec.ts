@@ -182,4 +182,58 @@ describe('Emitter: AuthInterceptorGenerator', () => {
         expect(body).toContain('if (requirements.length === 0)');
         expect(body).toContain('return next.handle(req);');
     });
+
+    it('should ignore apiKey schemes with unsupported in-location', () => {
+        const { project } = runGenerator({
+            ...emptySpec,
+            components: {
+                securitySchemes: {
+                    ApiKeyHeader: { type: 'apiKey', in: 'header', name: 'X-API-KEY' },
+                    ApiKeyPath: { type: 'apiKey', in: 'path', name: 'id' },
+                },
+            },
+        });
+        const body = project
+            .getSourceFileOrThrow('/out/auth/auth.interceptor.ts')
+            .getClassOrThrow('AuthInterceptor')!
+            .getMethodOrThrow('intercept')!
+            .getBodyText()!;
+        expect(body).toContain('ApiKeyHeader');
+        expect(body).not.toContain('ApiKeyPath');
+    });
+
+    it('should skip unknown scheme types when building applicators', () => {
+        const { project } = runGenerator({
+            ...emptySpec,
+            components: {
+                securitySchemes: {
+                    BearerAuth: { type: 'http', scheme: 'bearer' },
+                    CustomScheme: { type: 'custom' },
+                },
+            },
+        });
+        const body = project
+            .getSourceFileOrThrow('/out/auth/auth.interceptor.ts')
+            .getClassOrThrow('AuthInterceptor')!
+            .getMethodOrThrow('intercept')!
+            .getBodyText()!;
+        expect(body).toContain('BearerAuth');
+        expect(body).not.toContain('CustomScheme');
+    });
+
+    it('should default auth prefix to Bearer for non-http schemes', () => {
+        const project = createTestProject();
+        const config: GeneratorConfig = { output: '/out' } as any;
+        const parser = new SwaggerParser(emptySpec as any, config);
+        const generator = new AuthInterceptorGenerator(parser, project);
+
+        const prefix = (generator as any).getAuthPrefix({ type: 'apiKey' });
+        expect(prefix).toBe('Bearer');
+
+        const bearerDefault = (generator as any).getAuthPrefix({ type: 'http' });
+        expect(bearerDefault).toBe('Bearer');
+
+        const basicPrefix = (generator as any).getAuthPrefix({ type: 'http', scheme: 'basic' });
+        expect(basicPrefix).toBe('Basic');
+    });
 });

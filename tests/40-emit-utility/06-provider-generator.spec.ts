@@ -166,4 +166,19 @@ describe('Emitter: ProviderGenerator', () => {
         // If the 'return' statement was hit, the file should not have been created.
         expect(project.getSourceFile('/out/providers.ts')).toBeUndefined();
     });
+
+    it('should use default tokenNames when omitted', () => {
+        const project = createTestProject();
+        const config: GeneratorConfig = {
+            input: '',
+            output: '/out',
+            options: { generateServices: true, dateType: 'string', enumStyle: 'enum' },
+        } as any;
+        const parser = new SwaggerParser(emptySpec as any, config);
+
+        new ProviderGenerator(parser, project).generate('/out');
+
+        const fileContent = project.getSourceFileOrThrow('/out/providers.ts').getText();
+        expect(fileContent).toContain('export function provideDefaultClient');
+    });
 });

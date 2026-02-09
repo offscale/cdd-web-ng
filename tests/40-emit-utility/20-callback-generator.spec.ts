@@ -119,6 +119,40 @@ describe('Emitter: CallbackGenerator', () => {
         expect(typeAlias.getTypeNode()?.getText()).toBe('EventPayload');
     });
 
+    it('should handle callbacks with missing responses', () => {
+        const spec: SwaggerSpec = {
+            openapi: '3.0.0',
+            info: { title: 'Callback Missing Responses', version: '1.0' },
+            paths: {
+                '/notify': {
+                    post: {
+                        operationId: 'notify',
+                        callbacks: {
+                            onNotify: {
+                                '{$request.query.url}': {
+                                    post: {
+                                        requestBody: {
+                                            content: {
+                                                'application/json': {
+                                                    schema: { type: 'object', properties: { id: { type: 'string' } } },
+                                                },
+                                            },
+                                        },
+                                        // responses intentionally omitted
+                                    },
+                                },
+                            },
+                        },
+                        responses: { '200': {} },
+                    },
+                },
+            },
+        };
+        const project = runGenerator(spec);
+        const sourceFile = project.getSourceFileOrThrow('/out/callbacks.ts');
+        expect(sourceFile.getText()).toContain('API_CALLBACKS');
+    });
+
     it('should handle empty callbacks safely with empty module export', () => {
         const emptySpec: SwaggerSpec = { openapi: '3.0.0', info: { title: 'E', version: '1' }, paths: {} };
         const project = runGenerator(emptySpec);

@@ -84,7 +84,7 @@ export class TypeGenerator {
         });
 
         // 4. Links
-        const links = this.parser.links || {};
+        const links = this.parser.links;
         Object.entries(links).forEach(([linkName, linkObj]) => {
             if (linkObj.parameters) {
                 const paramsName = `${pascalCase(linkName)}LinkParameters`;
@@ -112,74 +112,65 @@ export class TypeGenerator {
 
         // 5. Response Headers
         allPaths.forEach(op => {
-            if (op.responses) {
-                Object.entries(op.responses).forEach(([code, resp]) => {
-                    if (resp.headers) {
-                        const opIdBase = op.operationId ? pascalCase(op.operationId) : pascalCase(op.method + op.path);
-                        const interfaceName = `${opIdBase}${code}Headers`;
+            Object.entries(op.responses!).forEach(([code, resp]) => {
+                if (resp.headers) {
+                    const opIdBase = op.operationId ? pascalCase(op.operationId) : pascalCase(op.method + op.path);
+                    const interfaceName = `${opIdBase}${code}Headers`;
 
-                        const properties: OptionalKind<PropertySignatureStructure>[] = [];
+                    const properties: OptionalKind<PropertySignatureStructure>[] = [];
 
-                        for (const [headerName, headerObj] of Object.entries(resp.headers)) {
-                            const resolvedHeader = this.parser.resolve(headerObj) as HeaderObject;
-                            if (!resolvedHeader) continue;
+                    for (const [headerName, headerObj] of Object.entries(resp.headers)) {
+                        const resolvedHeader = this.parser.resolve(headerObj) as HeaderObject;
+                        if (!resolvedHeader) continue;
 
-                            // Logic updated to support 'content' map in Header Object (OAS 3.x)
-                            let schema = resolvedHeader.schema as SwaggerDefinition;
+                        // Logic updated to support 'content' map in Header Object (OAS 3.x)
+                        let schema = resolvedHeader.schema as SwaggerDefinition;
 
-                            if (!schema && resolvedHeader.content) {
-                                // Headers usually have one content-type defined if using 'content'
-                                const firstContentType = Object.keys(resolvedHeader.content)[0];
-                                if (firstContentType && resolvedHeader.content[firstContentType].schema) {
-                                    schema = resolvedHeader.content[firstContentType].schema as SwaggerDefinition;
-                                }
+                        if (!schema && resolvedHeader.content) {
+                            // Headers usually have one content-type defined if using 'content'
+                            const firstContentType = Object.keys(resolvedHeader.content)[0];
+                            if (firstContentType && resolvedHeader.content[firstContentType].schema) {
+                                schema = resolvedHeader.content[firstContentType].schema as SwaggerDefinition;
                             }
-
-                            // Fallback to Swagger 2.0 style flat properties if no schema found
-                            if (!schema) {
-                                schema = { type: resolvedHeader.type, format: resolvedHeader.format } as any;
-                            }
-
-                            const type = getTypeScriptType(
-                                schema,
-                                this.config,
-                                this.parser.schemas.map(s => s.name),
-                            );
-                            const safeName = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(headerName)
-                                ? headerName
-                                : `'${headerName}'`;
-
-                            // Updated logic: Build JSDoc structure explicitly
-                            const jsDocs: OptionalKind<JSDocStructure>[] = [];
-                            if (resolvedHeader.description || resolvedHeader.deprecated) {
-                                const doc: OptionalKind<JSDocStructure> = {};
-                                if (resolvedHeader.description)
-                                    doc.description = sanitizeComment(resolvedHeader.description);
-                                if (resolvedHeader.deprecated) doc.tags = [{ tagName: 'deprecated' }];
-                                jsDocs.push(doc);
-                            }
-
-                            properties.push({
-                                name: safeName,
-                                type: type,
-                                hasQuestionToken: !resolvedHeader.required,
-                                docs: jsDocs,
-                            });
                         }
 
-                        if (properties.length > 0) {
-                            sourceFile.addInterface({
-                                name: interfaceName,
-                                isExported: true,
-                                properties: properties,
-                                docs: [
-                                    `Response headers for operation '${op.operationId || op.method + ' ' + op.path}' with status ${code}.`,
-                                ],
-                            });
+                        // Fallback to Swagger 2.0 style flat properties if no schema found
+                        if (!schema) {
+                            schema = { type: resolvedHeader.type, format: resolvedHeader.format } as any;
                         }
+
+                        const type = getTypeScriptType(schema, this.config, this.parser.schemas.map(s => s.name));
+                        const safeName = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(headerName) ? headerName : `'${headerName}'`;
+
+                        // Updated logic: Build JSDoc structure explicitly
+                        const jsDocs: OptionalKind<JSDocStructure>[] = [];
+                        if (resolvedHeader.description || resolvedHeader.deprecated) {
+                            const doc: OptionalKind<JSDocStructure> = {};
+                            if (resolvedHeader.description) doc.description = sanitizeComment(resolvedHeader.description);
+                            if (resolvedHeader.deprecated) doc.tags = [{ tagName: 'deprecated' }];
+                            jsDocs.push(doc);
+                        }
+
+                        properties.push({
+                            name: safeName,
+                            type: type,
+                            hasQuestionToken: !resolvedHeader.required,
+                            docs: jsDocs,
+                        });
                     }
-                });
-            }
+
+                    if (properties.length > 0) {
+                        sourceFile.addInterface({
+                            name: interfaceName,
+                            isExported: true,
+                            properties: properties,
+                            docs: [
+                                `Response headers for operation '${op.operationId || op.method + ' ' + op.path}' with status ${code}.`,
+                            ],
+                        });
+                    }
+                }
+            });
         });
 
         sourceFile.formatText();
@@ -194,7 +185,7 @@ export class TypeGenerator {
 
     private generateEnum(sourceFile: SourceFile, name: string, def: SwaggerDefinition): void {
         const enumStyle = this.config.options.enumStyle || 'enum';
-        const values = def.enum || [];
+        const values = def.enum as NonNullable<SwaggerDefinition['enum']>;
 
         if (values.length === 0) {
             sourceFile.addTypeAlias({

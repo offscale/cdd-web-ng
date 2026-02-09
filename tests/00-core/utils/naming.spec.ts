@@ -13,6 +13,10 @@ describe('Core Utils: Naming', () => {
             expect(naming.getClientContextTokenName('test-client')).toBe('CLIENT_CONTEXT_TOKEN_TEST_CLIENT');
         });
 
+        it('should default interceptor token name when no client is provided', () => {
+            expect(naming.getInterceptorsTokenName()).toBe('HTTP_INTERCEPTORS_DEFAULT');
+        });
+
         it('should handle clean client names without replacement', () => {
             expect(naming.getInterceptorsTokenName('MYCLIENT')).toBe('HTTP_INTERCEPTORS_MYCLIENT');
         });

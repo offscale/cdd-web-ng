@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { Project, Scope } from 'ts-morph';
 
@@ -45,6 +45,20 @@ describe('Generators (Angular): ServiceGenerator', () => {
 
         return project;
     };
+
+    it('should create utils directory for parameter serializer when missing', () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const fsHost = project.getFileSystem();
+        const dirSpy = vi
+            .spyOn(fsHost, 'directoryExists')
+            .mockReturnValue(false as unknown as Promise<boolean>);
+        const mkdirSpy = vi.spyOn(fsHost, 'mkdirSync');
+
+        new ParameterSerializerGenerator(project).generate('/out');
+
+        expect(dirSpy).toHaveBeenCalled();
+        expect(mkdirSpy).toHaveBeenCalledWith('/out/utils');
+    });
 
     it('should handle methods with query, path, and body parameters', () => {
         const project = createTestEnvironment(coverageSpec);
@@ -203,5 +217,62 @@ describe('Generators (Angular): ServiceGenerator', () => {
             return specifier.includes('auth.tokens');
         });
         expect(authImport).toBeUndefined();
+    });
+
+    it('should import xml, content encoder/decoder, and extensions when needed', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Mixed', version: '1.0' },
+            paths: {
+                '/mixed': {
+                    post: {
+                        tags: ['Mixed'],
+                        operationId: 'postMixed',
+                        'x-test': 'ext',
+                        requestBody: {
+                            content: {
+                                'application/xml': {
+                                    schema: { type: 'object', xml: { name: 'Root' }, properties: { id: { type: 'string' } } },
+                                },
+                                'application/json': {
+                                    schema: {
+                                        type: 'string',
+                                        contentMediaType: 'application/json',
+                                    },
+                                },
+                            },
+                        },
+                        responses: {
+                            '200': {
+                                content: {
+                                    'application/xml': { schema: { type: 'string' } },
+                                    'application/json': {
+                                        schema: {
+                                            type: 'string',
+                                            contentSchema: { type: 'string' },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                '/no-resp': {
+                    get: {
+                        tags: ['Mixed'],
+                        operationId: 'noResp',
+                    },
+                },
+            },
+        };
+
+        const project = createTestEnvironment(spec);
+        const serviceFile = project.getSourceFileOrThrow('/out/services/mixed.service.ts');
+
+        expect(serviceFile.getImportDeclaration('../utils/xml.builder')).toBeDefined();
+        expect(serviceFile.getImportDeclaration('../utils/xml-parser')).toBeDefined();
+        expect(serviceFile.getImportDeclaration('../utils/content-decoder')).toBeDefined();
+        expect(serviceFile.getImportDeclaration('../utils/content-encoder')).toBeDefined();
+        expect(serviceFile.getImportDeclaration('../tokens/extensions.token')).toBeDefined();
     });
 });

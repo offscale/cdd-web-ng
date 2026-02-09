@@ -145,9 +145,7 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
     allSchemas.forEach(schema => {
         const effectiveSchema =
             findSchema(schema.type === 'array' ? (schema.items as SwaggerDefinition) : schema, parser) ?? schema;
-        if (effectiveSchema) {
-            assignPropertiesRecursive(effectiveSchema);
-        }
+        assignPropertiesRecursive(effectiveSchema);
     });
 
     const finalSchema: SwaggerDefinition = {
@@ -157,7 +155,7 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
         ...(mergedDiscriminator && { discriminator: mergedDiscriminator }),
     };
 
-    const properties: FormProperty[] = Object.entries(finalSchema.properties ?? {}).map(([name, propSchema]) => {
+    const properties: FormProperty[] = Object.entries(finalSchema.properties!).map(([name, propSchema]) => {
         const resolvedSchema = findSchema(propSchema, parser);
         const finalPropSchema: SwaggerDefinition = resolvedSchema ? { ...propSchema, ...resolvedSchema } : propSchema;
         if (finalSchema.required?.includes(name)) (finalPropSchema.required ||= []).push(name);

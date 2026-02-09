@@ -95,4 +95,18 @@ describe('Emitter: TagGenerator', () => {
         const sourceFile = project.getSourceFileOrThrow('/out/tags.ts');
         expect(sourceFile.getText()).toContain('export { };');
     });
+
+    it('should omit description when not provided', () => {
+        const minimalSpec: SwaggerSpec = {
+            openapi: '3.2.0',
+            info: { title: 'MinimalTags', version: '1.0' },
+            paths: {},
+            tags: [{ name: 'Minimal' } as any],
+        };
+        const project = runGenerator(minimalSpec);
+        const { API_TAGS } = compileGeneratedFile(project);
+
+        expect(API_TAGS).toHaveLength(1);
+        expect(API_TAGS[0].description).toBeUndefined();
+    });
 });

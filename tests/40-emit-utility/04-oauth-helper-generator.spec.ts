@@ -171,4 +171,66 @@ describe('Emitter: OAuthHelperGenerator', () => {
         // Redirect needed because Auth Code is present
         expect(project.getSourceFile('/out/auth/oauth-redirect/oauth-redirect.component.ts')).toBeDefined();
     });
+
+    it('should handle oauth2 scheme without flows', () => {
+        const noFlowSpec = {
+            openapi: '3.0.0',
+            info: { title: 'No Flow', version: '1' },
+            paths: {},
+            components: {
+                securitySchemes: {
+                    NoFlow: { type: 'oauth2' },
+                },
+            },
+        };
+        const project = runGenerator(noFlowSpec);
+        expect(project.getSourceFile('/out/auth/oauth.service.ts')).toBeDefined();
+        // No implicit or auth code -> no redirect component
+        expect(project.getSourceFile('/out/auth/oauth-redirect/oauth-redirect.component.ts')).toBeUndefined();
+    });
+
+    it('should not overwrite authorization/token URLs when already set', () => {
+        const multiSchemeSpec = {
+            openapi: '3.0.0',
+            info: { title: 'Multi', version: '1' },
+            paths: {},
+            components: {
+                securitySchemes: {
+                    Implicit1: {
+                        type: 'oauth2',
+                        flows: { implicit: { authorizationUrl: 'https://first.example.com/auth', scopes: {} } },
+                    },
+                    Implicit2: {
+                        type: 'oauth2',
+                        flows: { implicit: { authorizationUrl: 'https://second.example.com/auth', scopes: {} } },
+                    },
+                    AuthCode2: {
+                        type: 'oauth2',
+                        flows: {
+                            authorizationCode: {
+                                authorizationUrl: 'https://second.example.com/auth',
+                                tokenUrl: 'https://second.example.com/token',
+                                scopes: {},
+                            },
+                        },
+                    },
+                    ClientCreds4: {
+                        type: 'oauth2',
+                        flows: { clientCredentials: { tokenUrl: 'https://fourth.example.com/token', scopes: {} } },
+                    },
+                    Password3: {
+                        type: 'oauth2',
+                        flows: { password: { tokenUrl: 'https://third.example.com/token', scopes: {} } },
+                    },
+                },
+            },
+        };
+        const project = runGenerator(multiSchemeSpec);
+        const service = project.getSourceFileOrThrow('/out/auth/oauth.service.ts').getText();
+
+        // First authorizationUrl should win
+        expect(service).toContain("authorizationUrl = 'https://first.example.com/auth'");
+        // First tokenUrl should win (from auth code)
+        expect(service).toContain("tokenUrl = 'https://second.example.com/token'");
+    });
 });

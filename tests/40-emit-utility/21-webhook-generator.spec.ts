@@ -131,6 +131,31 @@ describe('Emitter: WebhookGenerator', () => {
         expect(typeAlias.getTypeNode()?.getText()).toBe('Pet');
     });
 
+    it('should handle webhook entries without responses', () => {
+        const spec: SwaggerSpec = {
+            openapi: '3.1.0',
+            info: { title: 'No Response', version: '1.0' },
+            paths: {},
+            webhooks: {
+                noResponseHook: {
+                    post: {
+                        requestBody: {
+                            content: {
+                                'application/json': {
+                                    schema: { type: 'object', properties: { id: { type: 'string' } } },
+                                },
+                            },
+                        },
+                        responses: {},
+                    },
+                },
+            },
+        };
+        const project = runGenerator(spec);
+        const sourceFile = project.getSourceFileOrThrow('/out/webhooks.ts');
+        expect(sourceFile.getText()).toContain('API_WEBHOOKS');
+    });
+
     it('should handle empty webhooks safely', () => {
         const emptySpec: SwaggerSpec = { openapi: '3.1.0', info: { title: 'Empty', version: '1.0' }, paths: {} };
         const project = runGenerator(emptySpec);

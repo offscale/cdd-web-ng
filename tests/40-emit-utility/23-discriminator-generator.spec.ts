@@ -205,6 +205,81 @@ describe('Emitter: DiscriminatorGenerator', () => {
         expect(API_DISCRIMINATORS['Item'].mapping['remote']).toBe('WeirdName');
     });
 
+    it('should skip mapping entries when resolved name is empty', () => {
+        const spec: SwaggerSpec = {
+            openapi: '3.0.0',
+            info: { title: 'Empty Mapping', version: '1' },
+            paths: {},
+            components: {
+                schemas: {
+                    Thing: {
+                        discriminator: {
+                            propertyName: 'kind',
+                            mapping: {
+                                bad: '',
+                            },
+                        },
+                    },
+                },
+            },
+        } as any;
+
+        const project = runGenerator(spec);
+        const { API_DISCRIMINATORS } = compileGeneratedFile(project);
+        expect(API_DISCRIMINATORS['Thing'].mapping).toBeUndefined();
+    });
+
+    it('should not register discriminators without a propertyName', () => {
+        const spec: SwaggerSpec = {
+            openapi: '3.0.0',
+            info: { title: 'No Property', version: '1' },
+            paths: {},
+            components: {
+                schemas: {
+                    Thing: {
+                        discriminator: { propertyName: '' },
+                    },
+                },
+            },
+        } as any;
+
+        const project = runGenerator(spec);
+        const sourceFile = project.getSourceFileOrThrow('/out/discriminators.ts');
+        expect(sourceFile.getText()).toContain('export { };');
+    });
+
+    it('should fall back when resolved schema is not in parser.schemas', () => {
+        const spec: SwaggerSpec = {
+            openapi: '3.0.0',
+            info: { title: 'Fallback', version: '1' },
+            paths: {},
+            components: {
+                schemas: {
+                    Context: {
+                        type: 'object',
+                        discriminator: {
+                            propertyName: 'type',
+                            mapping: {
+                                external: 'https://example.com/models/ExternalModel',
+                            },
+                        },
+                    },
+                },
+            },
+        } as any;
+
+        const project = createTestProject();
+        const config: GeneratorConfig = { output: '/out', options: {} } as any;
+        const parser = new SwaggerParser(spec, config);
+
+        vi.spyOn(parser, 'resolveReference').mockReturnValue({ type: 'object' } as any);
+
+        new DiscriminatorGenerator(parser, project).generate('/out');
+        const { API_DISCRIMINATORS } = compileGeneratedFile(project);
+
+        expect(API_DISCRIMINATORS['Context'].mapping['external']).toBe('ExternalModel');
+    });
+
     it('should include defaultMapping in registry when present', () => {
         const defaultMapSpec: SwaggerSpec = {
             openapi: '3.0.0',

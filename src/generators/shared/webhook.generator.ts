@@ -51,8 +51,9 @@ export class WebhookGenerator {
                     this.parser.config,
                     this.parser.schemas.map(s => s.name),
                 );
+                const responseKeys = Object.keys(sub.responses!);
                 const responseType = getResponseType(
-                    sub.responses?.[Object.keys(sub.responses || {})[0]],
+                    sub.responses![responseKeys[0]],
                     this.parser.config,
                     this.parser.schemas.map(s => s.name),
                 );

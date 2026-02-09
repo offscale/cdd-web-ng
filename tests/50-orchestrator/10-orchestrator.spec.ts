@@ -8,6 +8,7 @@ import path from 'node:path';
 import { AngularClientGenerator } from '@src/generators/angular/angular-client.generator.js';
 import { GeneratorConfig, SwaggerSpec } from '@src/core/types/index.js';
 import { SwaggerParser } from '@src/core/parser.js';
+import { AuthInterceptorGenerator } from '@src/generators/angular/utils/auth-interceptor.generator.js';
 
 // Mock the sub-generators to focus on orchestration wiring
 vi.mock('@src/service/emit/type/type.generator.js', () => {
@@ -127,5 +128,68 @@ describe('Generators: AngularClientGenerator (Orchestrator)', () => {
         const tagsFile = fs.readFileSync(path.join(testOutputDir, 'tags.ts'), 'utf-8');
         expect(tagsFile).toContain('API_TAGS');
         expect(tagsFile).toContain('User management');
+    });
+
+    it('should derive controller names from path segments when tags are missing', async () => {
+        const outputDir = path.join(process.cwd(), 'temp_gen_out_paths');
+        if (fs.existsSync(outputDir)) fs.rmSync(outputDir, { recursive: true, force: true });
+
+        const spec: SwaggerSpec = {
+            openapi: '3.0.0',
+            info: { title: 'Paths Only', version: '1.0' },
+            paths: {
+                '/': { get: { operationId: 'rootGet', responses: { '200': {} } } },
+                '/items': { get: { operationId: 'listItems', responses: { '200': {} } } },
+            },
+        };
+
+        const config: GeneratorConfig = {
+            input: '',
+            output: outputDir,
+            options: { dateType: 'string', enumStyle: 'enum', generateServices: true, generateServiceTests: true },
+        } as any;
+
+        const project = new Project();
+        const parser = new SwaggerParser(spec, config);
+        const generator = new AngularClientGenerator();
+
+        await generator.generate(project, parser, config, outputDir);
+        await project.save();
+
+        expect(fs.existsSync(path.join(outputDir, 'services', 'default.service.spec.ts'))).toBe(true);
+        expect(fs.existsSync(path.join(outputDir, 'services', 'items.service.spec.ts'))).toBe(true);
+    });
+
+    it('should default token names when auth interceptor returns undefined', async () => {
+        const outputDir = path.join(process.cwd(), 'temp_gen_out_tokens');
+        if (fs.existsSync(outputDir)) fs.rmSync(outputDir, { recursive: true, force: true });
+
+        const specWithSecurity: SwaggerSpec = {
+            openapi: '3.0.0',
+            info: { title: 'Security', version: '1.0' },
+            paths: { '/secure': { get: { responses: { '200': {} } } } },
+            components: {
+                securitySchemes: {
+                    ApiKey: { type: 'apiKey', name: 'x-api-key', in: 'header' },
+                },
+            },
+        };
+
+        const config: GeneratorConfig = {
+            input: '',
+            output: outputDir,
+            options: { dateType: 'string', enumStyle: 'enum', generateServices: true },
+        } as any;
+
+        const project = new Project();
+        const parser = new SwaggerParser(specWithSecurity, config);
+        const generator = new AngularClientGenerator();
+
+        const spy = vi.spyOn(AuthInterceptorGenerator.prototype, 'generate').mockReturnValue(undefined as any);
+        await generator.generate(project, parser, config, outputDir);
+        await project.save();
+        spy.mockRestore();
+
+        expect(fs.existsSync(path.join(outputDir, 'providers.ts'))).toBe(true);
     });
 });

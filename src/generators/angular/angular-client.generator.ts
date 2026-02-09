@@ -58,7 +58,7 @@ function getControllerCanonicalName(op: any): string {
     if (Array.isArray(op.tags) && op.tags[0]) {
         return pascalCase(op.tags[0].toString());
     }
-    const firstSegment = (op.path || '').split('/').filter(Boolean)[0];
+    const firstSegment = op.path.split('/').filter(Boolean)[0];
     return firstSegment ? pascalCase(firstSegment) : 'Default';
 }
 

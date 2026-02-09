@@ -169,4 +169,16 @@ describe('Emitter: InfoGenerator', () => {
         expect(apiTag.getProperty('externalDocs')).toBeDefined();
         expect(apiTag.getProperty('summary')).toBeDefined();
     });
+
+    it('should fall back to empty info object if parser info is missing', () => {
+        const project = createTestProject();
+        const parser = new SwaggerParser(emptySpec as any, { options: {} } as any);
+        // Simulate a defensive fallback scenario after validation
+        (parser as any).spec.info = undefined;
+
+        new InfoGenerator(parser, project).generate('/out');
+        const { API_INFO } = compileGeneratedFile(project);
+
+        expect(API_INFO).toEqual({});
+    });
 });

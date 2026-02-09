@@ -191,5 +191,34 @@ describe('Generators (Angular): ListComponentGenerator', () => {
             expect(html).toContain('<ng-container matColumnDef="config">');
             expect(html).not.toContain('<ng-container matColumnDef="id">');
         });
+
+        it('should map kinds to icons via fallback switch cases', () => {
+            const generator = new ListComponentGenerator(createTestProject());
+            expect((generator as any).mapKindToIcon('custom', 'state-change')).toBe('sync');
+            expect((generator as any).mapKindToIcon('custom', 'navigation')).toBe('arrow_forward');
+            expect((generator as any).mapKindToIcon('custom', 'default')).toBe('play_arrow');
+            expect((generator as any).mapKindToIcon('editItem', 'default')).toBe('edit');
+        });
+
+        it('should skip onDelete when delete operation lacks methodName', () => {
+            const project = createTestProject();
+            const resource: Resource = {
+                name: 'orphans',
+                modelName: 'Orphan',
+                isEditable: true,
+                operations: [
+                    { action: 'list', methodName: 'listOrphans' } as any,
+                    { action: 'delete' } as any,
+                ],
+                formProperties: [{ name: 'id', schema: { type: 'string' } as any }],
+                listProperties: [{ name: 'id', schema: { type: 'string' } as any }],
+            };
+            const generator = new ListComponentGenerator(project);
+            generator.generate(resource, '/admin');
+            const listClass = project
+                .getSourceFileOrThrow('/admin/orphans/orphans-list/orphans-list.component.ts')
+                .getClassOrThrow('OrphansListComponent');
+            expect(listClass.getMethod('onDelete')).toBeUndefined();
+        });
     });
 });

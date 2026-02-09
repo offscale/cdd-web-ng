@@ -79,4 +79,20 @@ describe('Admin: AdminGenerator (Orchestrator)', () => {
 
         vi.restoreAllMocks();
     });
+
+    it('should create admin directory when missing', async () => {
+        const project = createTestProject();
+        const fsHost = project.getFileSystem();
+        const dirSpy = vi
+            .spyOn(fsHost, 'directoryExists')
+            .mockReturnValue(false as unknown as Promise<boolean>);
+        const mkdirSpy = vi.spyOn(fsHost, 'mkdirSync');
+
+        const parser = new SwaggerParser(coverageSpec as any, { options: { admin: true } } as any);
+        const adminGen = new AdminGenerator(parser, project);
+        await adminGen.generate('/out');
+
+        expect(dirSpy).toHaveBeenCalled();
+        expect(mkdirSpy).toHaveBeenCalledWith('/out/admin');
+    });
 });

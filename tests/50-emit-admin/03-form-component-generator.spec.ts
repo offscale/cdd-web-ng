@@ -4,6 +4,7 @@ import { Project } from 'ts-morph';
 
 import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig, Resource, SwaggerDefinition } from '@src/core/types/index.js';
+import { FormAnalysisResult, FormControlModel } from '@src/analysis/form-types.js';
 import { FormModelBuilder } from '@src/analysis/form-model.builder.js';
 import { FormComponentGenerator } from '@src/generators/angular/admin/form-component.generator.js';
 
@@ -12,7 +13,7 @@ import { branchCoverageSpec } from '../fixtures/coverage.fixture.js';
 describe('Generators (Angular): FormComponentGenerator', () => {
     let project: Project;
     let config: GeneratorConfig;
-    const validBase = { openapi: '3.0.0', info: { title: 'Test', version: '1.0' } };
+    const validBase = { openapi: '3.0.0', info: { title: 'Test', version: '1.0' }, paths: {} };
 
     const run = (spec: any, resourceOverrides: Partial<Resource> = {}) => {
         const parser = new SwaggerParser(spec, config);
@@ -308,5 +309,332 @@ describe('Generators (Angular): FormComponentGenerator', () => {
         const importDecls = sourceFile.getImportDeclarations().map(d => d.getModuleSpecifierValue());
         // With current relative path structure, this should point to shared folder
         expect(importDecls).toContain('../../shared/custom-validators');
+    });
+
+    describe('Coverage: internal helpers', () => {
+        it('should generate polymorphic form helpers with enum dedupe and map branches', () => {
+            const parser = new SwaggerParser(validBase as any, config);
+            const generator = new FormComponentGenerator(project, parser);
+
+            const arrayItemControl: FormControlModel = {
+                name: 'itemName',
+                propertyName: 'itemName',
+                dataType: 'string | null',
+                defaultValue: null,
+                validationRules: [],
+                controlType: 'control',
+                schema: { type: 'string' },
+            } as any;
+
+            const analysis: FormAnalysisResult = {
+                interfaces: [{ name: 'IgnoredForm', properties: [{ name: 'subProp' }], isTopLevel: false }],
+                topLevelControls: [
+                    {
+                        name: 'status',
+                        propertyName: 'status',
+                        dataType: 'string | null',
+                        defaultValue: null,
+                        validationRules: [],
+                        controlType: 'control',
+                        schema: { type: 'string', enum: ['A', 'B'] },
+                    } as any,
+                    {
+                        name: 'status',
+                        propertyName: 'status',
+                        dataType: 'string | null',
+                        defaultValue: null,
+                        validationRules: [],
+                        controlType: 'control',
+                        schema: { type: 'string', enum: ['A', 'B'] },
+                    } as any,
+                    {
+                        name: 'missingSchema',
+                        propertyName: 'missingSchema',
+                        dataType: 'string | null',
+                        defaultValue: null,
+                        validationRules: [],
+                        controlType: 'control',
+                        schema: undefined,
+                    } as any,
+                    {
+                        name: 'items',
+                        propertyName: 'items',
+                        dataType: 'ItemForm[]',
+                        defaultValue: null,
+                        validationRules: [],
+                        controlType: 'array',
+                        schema: { type: 'array', items: { type: 'object' } },
+                        nestedControls: [arrayItemControl],
+                        nestedFormInterface: 'ItemForm',
+                    } as any,
+                    {
+                        name: 'meta',
+                        propertyName: 'meta',
+                        dataType: 'Record<string, string>',
+                        defaultValue: null,
+                        validationRules: [],
+                        controlType: 'map',
+                        schema: { type: 'object' },
+                        mapValueControl: {
+                            name: 'value',
+                            propertyName: 'value',
+                            dataType: 'string | null',
+                            defaultValue: null,
+                            validationRules: [],
+                            controlType: 'control',
+                            schema: { type: 'string' },
+                        } as any,
+                    } as any,
+                    {
+                        name: 'meta2',
+                        propertyName: 'meta2',
+                        dataType: 'Record<string, string>',
+                        defaultValue: null,
+                        validationRules: [],
+                        controlType: 'map',
+                        schema: { type: 'object' },
+                        mapValueControl: undefined,
+                    } as any,
+                ],
+                usesCustomValidators: false,
+                hasFormArrays: true,
+                hasFileUploads: false,
+                hasMaps: true,
+                isPolymorphic: true,
+                polymorphicProperties: [
+                    {
+                        propertyName: 'type',
+                        discriminatorOptions: ['sub'],
+                        options: [
+                            {
+                                discriminatorValue: 'sub',
+                                modelName: 'SubModel',
+                                subFormName: 'sub',
+                                controls: [
+                                    {
+                                        name: 'subProp',
+                                        propertyName: 'subProp',
+                                        dataType: 'string | null',
+                                        defaultValue: null,
+                                        validationRules: [],
+                                        controlType: 'control',
+                                        schema: { type: 'string' },
+                                    } as any,
+                                ],
+                            },
+                        ],
+                    } as any,
+                ],
+                dependencyRules: [
+                    { type: 'required', triggerField: 'flag', targetField: 'target' },
+                    { type: 'required', triggerField: 'flag', targetField: 'target2' },
+                ],
+            };
+
+            const resource: Resource = {
+                name: 'test',
+                modelName: 'Test',
+                isEditable: true,
+                operations: [],
+                formProperties: [],
+                listProperties: [],
+            };
+
+            (generator as any).generateFormComponentTs(resource, '/admin/test/test-form', analysis);
+            const sourceFile = project.getSourceFileOrThrow('/admin/test/test-form/test-form.component.ts');
+            const text = sourceFile.getText();
+
+            expect(text).toContain('updateFormForType');
+            expect(text).toContain('StatusOptions');
+            expect(text).toContain('FormArray<FormGroup<ItemForm>>');
+            expect(text).toContain('createMetaEntry');
+            expect(text).toContain('createMeta2Entry');
+            expect(text).toContain('return new FormGroup({});');
+        });
+
+        it('should fall back to any when interface props are not found in polymorphic options', () => {
+            const parser = new SwaggerParser(validBase as any, config);
+            const generator = new FormComponentGenerator(project, parser);
+
+            const analysis: FormAnalysisResult = {
+                interfaces: [{ name: 'AnyForm', properties: [{ name: 'unknownProp' }], isTopLevel: false }],
+                topLevelControls: [],
+                usesCustomValidators: false,
+                hasFormArrays: false,
+                hasFileUploads: false,
+                hasMaps: false,
+                isPolymorphic: true,
+                polymorphicProperties: [
+                    {
+                        propertyName: 'type',
+                        discriminatorOptions: ['sub'],
+                        options: [
+                            {
+                                discriminatorValue: 'sub',
+                                modelName: 'SubModel',
+                                subFormName: 'sub',
+                                controls: [
+                                    {
+                                        name: 'subProp',
+                                        propertyName: 'subProp',
+                                        dataType: 'string | null',
+                                        defaultValue: null,
+                                        validationRules: [],
+                                        controlType: 'control',
+                                        schema: { type: 'string' },
+                                    } as any,
+                                ],
+                            },
+                        ],
+                    } as any,
+                ],
+                dependencyRules: [],
+            };
+
+            const resource: Resource = {
+                name: 'test',
+                modelName: 'Test',
+                isEditable: true,
+                operations: [],
+                formProperties: [],
+                listProperties: [],
+            };
+
+            (generator as any).generateFormComponentTs(resource, '/admin/test-any/test-form', analysis);
+            const sourceFile = project.getSourceFileOrThrow('/admin/test-any/test-form/test-form.component.ts');
+            expect(sourceFile.getText()).toContain('unknownProp: any');
+        });
+
+        it('should default array item interface to any when nestedFormInterface is missing', () => {
+            const parser = new SwaggerParser(validBase as any, config);
+            const generator = new FormComponentGenerator(project, parser);
+
+            const analysis: FormAnalysisResult = {
+                interfaces: [],
+                topLevelControls: [
+                    {
+                        name: 'items',
+                        propertyName: 'items',
+                        dataType: 'any[]',
+                        defaultValue: null,
+                        validationRules: [],
+                        controlType: 'array',
+                        nestedControls: [
+                            {
+                                name: 'name',
+                                propertyName: 'name',
+                                dataType: 'string | null',
+                                defaultValue: null,
+                                validationRules: [],
+                                controlType: 'control',
+                                schema: { type: 'string' },
+                            } as any,
+                        ],
+                    } as any,
+                ],
+                usesCustomValidators: false,
+                hasFormArrays: true,
+                hasFileUploads: false,
+                hasMaps: false,
+                isPolymorphic: false,
+                polymorphicProperties: [],
+                dependencyRules: [],
+            };
+
+            const resource: Resource = {
+                name: 'test',
+                modelName: 'Test',
+                isEditable: true,
+                operations: [],
+                formProperties: [],
+                listProperties: [],
+            };
+
+            (generator as any).generateFormComponentTs(resource, '/admin/test-any-array/test-form', analysis);
+            const sourceFile = project.getSourceFileOrThrow('/admin/test-any-array/test-form/test-form.component.ts');
+            expect(sourceFile.getText()).toContain('FormArray<FormGroup<any>>');
+        });
+
+        it('should generate onSubmit branches for create-only and update-only flows', () => {
+            const parser = new SwaggerParser(validBase as any, config);
+            const generator = new FormComponentGenerator(project, parser);
+            const sourceFile = project.createSourceFile('/admin/test-on-submit.ts', '', { overwrite: true });
+            const classDeclaration = sourceFile.addClass({ name: 'OnSubmitTest' });
+
+            const createOnly: Resource = {
+                name: 'test',
+                modelName: 'Test',
+                isEditable: true,
+                operations: [{ action: 'create', methodName: 'createTest' } as any],
+                formProperties: [],
+                listProperties: [],
+            };
+
+            (generator as any).addOnSubmit(classDeclaration, createOnly, 'TestService', false);
+            const createBody = classDeclaration.getMethodOrThrow('onSubmit').getBodyText() ?? '';
+            expect(createBody).toContain('this.form.getRawValue()');
+            expect(createBody).toContain('createTest');
+            expect(createBody).toContain('no update operation is available');
+
+            classDeclaration.getMethodOrThrow('onSubmit').remove();
+            const updateOnly: Resource = {
+                name: 'test',
+                modelName: 'Test',
+                isEditable: true,
+                operations: [{ action: 'update', methodName: 'updateTest' } as any],
+                formProperties: [],
+                listProperties: [],
+            };
+            (generator as any).addOnSubmit(classDeclaration, updateOnly, 'TestService', false);
+            const updateBody = classDeclaration.getMethodOrThrow('onSubmit').getBodyText() ?? '';
+            expect(updateBody).toContain('updateTest');
+            expect(updateBody).toContain('no create operation is available');
+        });
+
+        it('should skip patchForm when there are no complex props and use any when modelName is missing', () => {
+            const parser = new SwaggerParser(validBase as any, config);
+            const generator = new FormComponentGenerator(project, parser);
+            const sourceFile = project.createSourceFile('/admin/test-patch.ts', '', { overwrite: true });
+            const classDeclaration = sourceFile.addClass({ name: 'PatchFormTest' });
+
+            const analysisEmpty: FormAnalysisResult = {
+                interfaces: [],
+                topLevelControls: [],
+                usesCustomValidators: false,
+                hasFormArrays: false,
+                hasFileUploads: false,
+                hasMaps: false,
+                isPolymorphic: false,
+                polymorphicProperties: [],
+                dependencyRules: [],
+            };
+
+            (generator as any).addPatchForm(classDeclaration, { name: 'test', modelName: 'Test' } as any, analysisEmpty);
+            expect(classDeclaration.getMethod('patchForm')).toBeUndefined();
+
+            const analysisComplex: FormAnalysisResult = {
+                ...analysisEmpty,
+                topLevelControls: [
+                    {
+                        name: 'meta',
+                        propertyName: 'meta',
+                        dataType: 'Record<string, string>',
+                        defaultValue: null,
+                        validationRules: [],
+                        controlType: 'map',
+                        schema: { type: 'object' },
+                    } as any,
+                ],
+                hasMaps: true,
+            };
+
+            (generator as any).addPatchForm(
+                classDeclaration,
+                { name: 'test', modelName: '' } as any,
+                analysisComplex,
+            );
+            const patchMethod = classDeclaration.getMethodOrThrow('patchForm');
+            expect(patchMethod.getParameters()[0].getType().getText()).toBe('any');
+        });
     });
 });

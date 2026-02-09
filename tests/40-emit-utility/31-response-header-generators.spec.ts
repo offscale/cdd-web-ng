@@ -149,6 +149,108 @@ describe('Emitter: Response Header Utilities', () => {
             expect(API_HEADER_XML_CONFIGS['getXmlHeader_200_X-Xml'].name).toBe('Data');
         });
 
+        it('should capture XML config fields and handle missing schema', () => {
+            const project = createTestProject();
+            const spec = {
+                paths: {
+                    '/xml-extra': {
+                        get: {
+                            operationId: 'getXmlExtra',
+                            responses: {
+                                '200': {
+                                    headers: {
+                                        'X-Xml-NoSchema': {
+                                            content: { 'application/xml': {} },
+                                        },
+                                        'X-Xml-Config': {
+                                            content: {
+                                                'application/xml': {
+                                                    schema: {
+                                                        type: 'object',
+                                                        xml: {
+                                                            name: 'Root',
+                                                            attribute: true,
+                                                            wrapped: true,
+                                                            prefix: 'p',
+                                                            namespace: 'ns',
+                                                            nodeType: 'element',
+                                                        },
+                                                        properties: {
+                                                            id: { type: 'string', xml: { name: 'Id' } },
+                                                            missing: { $ref: '#/components/schemas/Missing' },
+                                                        },
+                                                    },
+                                                },
+                                            },
+                                        },
+                                        // Swagger-style header without schema wrapper to hit fallback
+                                        'X-Obj': { type: 'object', properties: { a: { type: 'string' } } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                components: { schemas: {} },
+            };
+
+            const parser = createParser(spec);
+            new ResponseHeaderRegistryGenerator(parser, project).generate('/out');
+
+            const file = project.getSourceFileOrThrow('/out/response-headers.ts');
+            const text = file.getText().replace(/import.*;/g, '');
+            const jsCode = ts.transpile(text, { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS });
+            const moduleScope = { exports: {} as any };
+            new Function('exports', jsCode)(moduleScope.exports);
+
+            const { API_RESPONSE_HEADERS, API_HEADER_XML_CONFIGS } = moduleScope.exports;
+            expect(API_RESPONSE_HEADERS['getXmlExtra']['200']['X-Xml-NoSchema']).toBe('xml');
+            expect(API_RESPONSE_HEADERS['getXmlExtra']['200']['X-Obj']).toBe('json');
+
+            const xmlConfig = API_HEADER_XML_CONFIGS['getXmlExtra_200_X-Xml-Config'];
+            expect(xmlConfig.name).toBe('Root');
+            expect(xmlConfig.attribute).toBe(true);
+            expect(xmlConfig.wrapped).toBe(true);
+            expect(xmlConfig.prefix).toBe('p');
+            expect(xmlConfig.namespace).toBe('ns');
+            expect(xmlConfig.nodeType).toBe('element');
+            expect(xmlConfig.properties?.id).toBeDefined();
+        });
+
+        it('should skip headers when getHeaderTypeInfo returns no typeHint', () => {
+            const project = createTestProject();
+            const spec = {
+                paths: {
+                    '/skip-header': {
+                        get: {
+                            operationId: 'skipHeader',
+                            responses: {
+                                '200': {
+                                    headers: { 'X-Skip': { schema: { type: 'string' } } },
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+            const parser = createParser(spec);
+            const generator = new ResponseHeaderRegistryGenerator(parser, project);
+            vi.spyOn(generator as any, 'getHeaderTypeInfo').mockReturnValue({ typeHint: undefined });
+
+            generator.generate('/out');
+            const file = project.getSourceFileOrThrow('/out/response-headers.ts');
+            expect(file.getText()).toContain('export { };');
+        });
+
+        it('should return empty XML config when schema is missing or depth limit is reached', () => {
+            const project = createTestProject();
+            const parser = createParser({ paths: {} });
+            const generator = new ResponseHeaderRegistryGenerator(parser, project);
+
+            expect((generator as any).getXmlConfig(undefined, 1)).toEqual({});
+            expect((generator as any).getXmlConfig({ type: 'object' } as any, 0)).toEqual({});
+        });
+
         // New Test: LinkSet Support via Header detection
         it('should generate registry with type hints including LinkSet support', () => {
             const project = createTestProject();

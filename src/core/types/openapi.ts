@@ -127,14 +127,14 @@ export interface HeaderObject {
     description?: string;
     required?: boolean;
     deprecated?: boolean;
-    schema?: SwaggerDefinition | { $ref: string };
+    schema?: SwaggerDefinition | boolean | { $ref: string } | { $dynamicRef?: string };
     type?: 'string' | 'number' | 'integer' | 'boolean' | 'array';
     format?: string;
-    items?: SwaggerDefinition | { $ref: string };
+    items?: SwaggerDefinition | boolean | { $ref: string } | { $dynamicRef?: string };
     style?: string;
     explode?: boolean;
     allowReserved?: boolean;
-    content?: Record<string, { schema?: SwaggerDefinition | { $ref: string } }>;
+    content?: Record<string, MediaTypeObject | { $ref: string } | { $dynamicRef?: string }>;
     example?: any;
     examples?: Record<string, any>;
 
@@ -145,7 +145,7 @@ export interface Parameter {
     name: string;
     in: 'query' | 'path' | 'header' | 'cookie' | 'formData' | 'querystring';
     required?: boolean;
-    schema?: SwaggerDefinition | { $ref: string };
+    schema?: SwaggerDefinition | boolean | { $ref: string } | { $dynamicRef?: string };
     type?: 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'file';
     format?: string;
     description?: string;
@@ -153,15 +153,7 @@ export interface Parameter {
     explode?: boolean;
     allowReserved?: boolean;
     allowEmptyValue?: boolean;
-    content?: Record<
-        string,
-        {
-            schema?: SwaggerDefinition | { $ref: string };
-            example?: any;
-            examples?: Record<string, any>;
-            encoding?: Record<string, EncodingProperty>;
-        }
-    >;
+    content?: Record<string, MediaTypeObject | { $ref: string } | { $dynamicRef?: string }>;
     deprecated?: boolean;
 
     [key: string]: any;
@@ -173,35 +165,37 @@ export interface EncodingProperty {
     style?: string;
     explode?: boolean;
     allowReserved?: boolean;
+    encoding?: Record<string, EncodingProperty>;
+    prefixEncoding?: EncodingProperty[];
+    itemEncoding?: EncodingProperty;
 
     [key: string]: any;
 }
 
 export interface RequestBody {
+    description?: string;
     required?: boolean;
-    content?: Record<
-        string,
-        {
-            schema?: SwaggerDefinition | { $ref: string };
-            itemSchema?: SwaggerDefinition | { $ref: string };
-            encoding?: Record<string, EncodingProperty>;
-            prefixEncoding?: EncodingProperty[];
-            itemEncoding?: EncodingProperty;
-        }
-    >;
+    content?: Record<string, MediaTypeObject | { $ref: string } | { $dynamicRef?: string }>;
+
+    [key: string]: any;
+}
+
+export interface MediaTypeObject {
+    schema?: SwaggerDefinition | boolean | { $ref: string } | { $dynamicRef?: string };
+    itemSchema?: SwaggerDefinition | boolean | { $ref: string } | { $dynamicRef?: string };
+    example?: any;
+    examples?: Record<string, ExampleObject | { $ref: string }>;
+    encoding?: Record<string, EncodingProperty>;
+    prefixEncoding?: EncodingProperty[];
+    itemEncoding?: EncodingProperty;
 
     [key: string]: any;
 }
 
 export interface SwaggerResponse {
     description?: string;
-    content?: Record<
-        string,
-        {
-            schema?: SwaggerDefinition | { $ref: string };
-            itemSchema?: SwaggerDefinition | { $ref: string };
-        }
-    >;
+    summary?: string;
+    content?: Record<string, MediaTypeObject | { $ref: string } | { $dynamicRef?: string }>;
     links?: Record<string, LinkObject | { $ref: string }>;
     headers?: Record<string, HeaderObject | { $ref: string }>;
 
@@ -236,26 +230,26 @@ export interface SwaggerDefinition {
     uniqueItems?: boolean;
     multipleOf?: number;
     enum?: (string | number)[];
-    items?: SwaggerDefinition | SwaggerDefinition[];
-    prefixItems?: SwaggerDefinition[];
-    if?: SwaggerDefinition;
-    then?: SwaggerDefinition;
-    else?: SwaggerDefinition;
-    not?: SwaggerDefinition;
+    items?: SwaggerDefinition | boolean | (SwaggerDefinition | boolean)[];
+    prefixItems?: (SwaggerDefinition | boolean)[];
+    if?: SwaggerDefinition | boolean;
+    then?: SwaggerDefinition | boolean;
+    else?: SwaggerDefinition | boolean;
+    not?: SwaggerDefinition | boolean;
     contentEncoding?: string;
     contentMediaType?: string;
-    contentSchema?: SwaggerDefinition;
+    contentSchema?: SwaggerDefinition | boolean;
     unevaluatedProperties?: SwaggerDefinition | boolean;
     $ref?: string;
     $dynamicRef?: string;
     $dynamicAnchor?: string;
-    allOf?: SwaggerDefinition[];
-    oneOf?: SwaggerDefinition[];
-    anyOf?: SwaggerDefinition[];
+    allOf?: (SwaggerDefinition | boolean)[];
+    oneOf?: (SwaggerDefinition | boolean)[];
+    anyOf?: (SwaggerDefinition | boolean)[];
     additionalProperties?: SwaggerDefinition | boolean;
-    properties?: { [propertyName: string]: SwaggerDefinition };
-    patternProperties?: { [pattern: string]: SwaggerDefinition };
-    dependentSchemas?: Record<string, SwaggerDefinition>;
+    properties?: { [propertyName: string]: SwaggerDefinition | boolean };
+    patternProperties?: { [pattern: string]: SwaggerDefinition | boolean };
+    dependentSchemas?: Record<string, SwaggerDefinition | boolean>;
     discriminator?: DiscriminatorObject;
     readOnly?: boolean;
     writeOnly?: boolean;
@@ -271,11 +265,15 @@ export interface SwaggerDefinition {
 
 export interface SecurityScheme {
     type: 'apiKey' | 'http' | 'oauth2' | 'openIdConnect' | 'mutualTLS';
+    description?: string;
     in?: 'header' | 'query' | 'cookie';
     name?: string;
     scheme?: 'bearer' | string;
+    bearerFormat?: string;
     flows?: Record<string, unknown>;
     openIdConnectUrl?: string;
+    oauth2MetadataUrl?: string;
+    deprecated?: boolean;
 
     [key: string]: any;
 }
@@ -331,15 +329,19 @@ export interface SwaggerSpec {
     webhooks?: { [name: string]: PathItem };
     jsonSchemaDialect?: string;
     servers?: ServerObject[];
-    definitions?: { [definitionsName: string]: SwaggerDefinition };
+    definitions?: { [definitionsName: string]: SwaggerDefinition | boolean };
     components?: {
-        schemas?: Record<string, SwaggerDefinition>;
+        schemas?: Record<string, SwaggerDefinition | boolean>;
+        responses?: Record<string, SwaggerResponse | { $ref: string }>;
         securitySchemes?: Record<string, SecurityScheme>;
         pathItems?: Record<string, PathItem>;
         callbacks?: Record<string, PathItem | { $ref: string }>;
         links?: Record<string, LinkObject | { $ref: string }>;
         headers?: Record<string, HeaderObject | { $ref: string }>;
-        parameters?: Parameter[];
+        parameters?: Record<string, Parameter | { $ref: string }>;
+        requestBodies?: Record<string, RequestBody | { $ref: string }>;
+        examples?: Record<string, ExampleObject | { $ref: string }>;
+        mediaTypes?: Record<string, MediaTypeObject | { $ref: string }>;
         webhooks?: Record<string, PathItem | { $ref: string }>;
     };
     securityDefinitions?: { [securityDefinitionName: string]: SecurityScheme };

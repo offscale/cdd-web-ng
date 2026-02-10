@@ -110,6 +110,8 @@ describe('Generators: AngularClientGenerator (Orchestrator)', () => {
         expect(fs.existsSync(path.join(testOutputDir, 'security.ts'))).toBe(true);
         expect(fs.existsSync(path.join(testOutputDir, 'servers.ts'))).toBe(true);
         expect(fs.existsSync(path.join(testOutputDir, 'tags.ts'))).toBe(true);
+        expect(fs.existsSync(path.join(testOutputDir, 'openapi.snapshot.json'))).toBe(true);
+        expect(fs.existsSync(path.join(testOutputDir, 'openapi.snapshot.yaml'))).toBe(true);
 
         // Framework Specifics
         expect(fs.existsSync(path.join(testOutputDir, 'services', 'user.service.spec.ts'))).toBe(true);

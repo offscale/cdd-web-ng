@@ -587,6 +587,12 @@ describe('Core: SwaggerParser', () => {
             expect(parser.getJsonSchemaDialect()).toBe(OAS_3_1_DIALECT);
         });
 
+        it('should default jsonSchemaDialect for OpenAPI 3.2 when missing', () => {
+            const spec = { openapi: '3.2.0', info: validInfo, paths: {} } as any;
+            const parser = new SwaggerParser(spec, config);
+            expect(parser.getJsonSchemaDialect()).toBe(OAS_3_1_DIALECT);
+        });
+
         it('should return undefined jsonSchemaDialect for OpenAPI 3.0 without dialect', () => {
             const spec = { openapi: '3.0.3', info: validInfo, paths: {} } as any;
             const parser = new SwaggerParser(spec, config);

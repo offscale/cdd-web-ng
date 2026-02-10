@@ -68,6 +68,24 @@ const encodingSpec = {
                 responses: { '200': {} },
             },
         },
+        '/base64-request': {
+            post: {
+                operationId: 'postBase64',
+                requestBody: {
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    data: { type: 'string', contentEncoding: 'base64' },
+                                },
+                            },
+                        },
+                    },
+                },
+                responses: { '200': {} },
+            },
+        },
     },
 };
 
@@ -141,5 +159,22 @@ describe('Emitter: ServiceMethodGenerator (Request Encoding)', () => {
         // Check nested structure
         expect(body).toContain('ContentEncoder.encode(body,');
         expect(body).toContain('"properties":{"items":{"items":{"properties":{"raw":{"encode":true}}}}}');
+    });
+
+    it('should include contentEncoding in ContentEncoder config', () => {
+        const { methodGen, serviceClass } = createTestEnv();
+        const op: any = {
+            method: 'POST',
+            path: '/base64-request',
+            methodName: 'postBase64',
+            requestBody: encodingSpec.paths['/base64-request'].post.requestBody,
+            responses: encodingSpec.paths['/base64-request'].post.responses,
+        };
+
+        methodGen.addServiceMethod(serviceClass, op);
+
+        const body = serviceClass.getMethodOrThrow('postBase64').getBodyText()!;
+        expect(body).toContain('ContentEncoder.encode(body,');
+        expect(body).toContain('"properties":{"data":{"contentEncoding":"base64"}}');
     });
 });

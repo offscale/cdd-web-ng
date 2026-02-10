@@ -82,7 +82,7 @@ export const coverageSpec = {
         '/custom-name': { get: { tags: ['CustomName'], operationId: 'get-custom-name', responses: {} } },
         '/duplicate-name': {
             get: { tags: ['DuplicateName'], operationId: 'getName', responses: {} },
-            post: { tags: ['DuplicateName'], operationId: 'getName', responses: {} },
+            post: { tags: ['DuplicateName'], operationId: 'postName', responses: {} },
         },
         '/action-test/{id}': {
             head: {

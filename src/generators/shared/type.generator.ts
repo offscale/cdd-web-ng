@@ -25,7 +25,11 @@ export class TypeGenerator {
 
         const definitions = this.parser.schemas;
 
-        const processDefinition = (name: string, def: SwaggerDefinition) => {
+        const processDefinition = (name: string, def: SwaggerDefinition | boolean) => {
+            if (typeof def === 'boolean') {
+                this.generateTypeAlias(sourceFile, name, def);
+                return;
+            }
             if (def.enum) {
                 this.generateEnum(sourceFile, name, def);
             } else if (this.shouldGenerateInterface(def)) {
@@ -124,18 +128,18 @@ export class TypeGenerator {
                         if (!resolvedHeader) continue;
 
                         // Logic updated to support 'content' map in Header Object (OAS 3.x)
-                        let schema = resolvedHeader.schema as SwaggerDefinition;
+                        let schema = resolvedHeader.schema as SwaggerDefinition | boolean | undefined;
 
-                        if (!schema && resolvedHeader.content) {
+                        if (schema === undefined && resolvedHeader.content) {
                             // Headers usually have one content-type defined if using 'content'
                             const firstContentType = Object.keys(resolvedHeader.content)[0];
-                            if (firstContentType && resolvedHeader.content[firstContentType].schema) {
+                            if (firstContentType && resolvedHeader.content[firstContentType].schema !== undefined) {
                                 schema = resolvedHeader.content[firstContentType].schema as SwaggerDefinition;
                             }
                         }
 
                         // Fallback to Swagger 2.0 style flat properties if no schema found
-                        if (!schema) {
+                        if (schema === undefined) {
                             schema = { type: resolvedHeader.type, format: resolvedHeader.format } as any;
                         }
 
@@ -176,7 +180,8 @@ export class TypeGenerator {
         sourceFile.formatText();
     }
 
-    private shouldGenerateInterface(def: SwaggerDefinition): boolean {
+    private shouldGenerateInterface(def: SwaggerDefinition | boolean): boolean {
+        if (typeof def === 'boolean') return false;
         if (def.anyOf || def.oneOf) return false;
         // dependentSchemas involve intersection/union types logic which can only be represented by type alias
         if (def.dependentSchemas) return false;
@@ -221,9 +226,9 @@ export class TypeGenerator {
         }
     }
 
-    private generateTypeAlias(sourceFile: SourceFile, name: string, def: SwaggerDefinition): void {
+    private generateTypeAlias(sourceFile: SourceFile, name: string, def: SwaggerDefinition | boolean): void {
         const type = getTypeScriptType(
-            def,
+            def as SwaggerDefinition,
             this.config,
             this.parser.schemas.map(s => s.name),
         );
@@ -391,7 +396,8 @@ export class TypeGenerator {
         return false;
     }
 
-    private buildJSDoc(def: SwaggerDefinition): OptionalKind<JSDocStructure>[] {
+    private buildJSDoc(def: SwaggerDefinition | boolean): OptionalKind<JSDocStructure>[] {
+        if (!def || typeof def !== 'object') return [];
         const description = sanitizeComment(def.description || '');
         const tags: OptionalKind<JSDocTagStructure>[] = [];
 

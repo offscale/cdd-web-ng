@@ -47,6 +47,26 @@ describe('Core: Input Spec Validation', () => {
             expect(() => validateSpec(spec)).not.toThrow();
         });
 
+        it('should accept a valid $self URI reference', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                $self: '/api/openapi',
+                paths: {},
+            };
+            expect(() => validateSpec(spec)).not.toThrow();
+        });
+
+        it('should reject an invalid $self URI reference', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                $self: 'not a uri',
+                paths: {},
+            };
+            expect(() => validateSpec(spec)).toThrow(/\\$self.*URI reference/);
+        });
+
         it('should throw if spec object is null/undefined', () => {
             expect(() => validateSpec(null as any)).toThrow(SpecValidationError);
             expect(() => validateSpec(undefined as any)).toThrow(SpecValidationError);
@@ -152,6 +172,153 @@ describe('Core: Input Spec Validation', () => {
         });
     });
 
+    describe('Path Parameter Validation', () => {
+        it('should reject when a templated path is missing a path parameter definition', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/users/{id}': {
+                        get: { responses: { '200': { description: 'ok' } } },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).toThrow(/missing a corresponding 'in: path'/i);
+        });
+
+        it('should reject when a path parameter is not required', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/users/{id}': {
+                        get: {
+                            parameters: [{ name: 'id', in: 'path', required: false, schema: { type: 'string' } }],
+                            responses: { '200': { description: 'ok' } },
+                        },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).toThrow(/must be marked as required/i);
+        });
+
+        it('should reject when a path parameter does not match the template', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/users': {
+                        get: {
+                            parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+                            responses: { '200': { description: 'ok' } },
+                        },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).toThrow(/does not match any template variable/i);
+        });
+
+        it('should accept when path parameters are defined at the path level', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/users/{id}': {
+                        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+                        get: { responses: { '200': { description: 'ok' } } },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).not.toThrow();
+        });
+    });
+
+    describe('Components Key Validation', () => {
+        it('should accept mediaTypes and webhooks component keys that match the regex', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                components: {
+                    mediaTypes: { 'My.Media_Type-1': { schema: { type: 'string' } } },
+                    webhooks: { ValidWebhook: { post: { responses: { '200': {} } } } },
+                },
+            };
+            expect(() => validateSpec(spec)).not.toThrow();
+        });
+
+        it('should reject invalid mediaTypes component keys', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                components: {
+                    mediaTypes: { 'Bad Key!': { schema: { type: 'string' } } },
+                },
+            };
+            expect(() => validateSpec(spec)).toThrow(/components\\.mediaTypes/);
+        });
+
+        it('should reject invalid webhooks component keys', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                components: {
+                    webhooks: { 'Bad/Key': { post: { responses: { '200': {} } } } },
+                },
+            };
+            expect(() => validateSpec(spec)).toThrow(/components\\.webhooks/);
+        });
+    });
+
+    describe('OperationId Uniqueness', () => {
+        it('should throw when operationIds are duplicated across paths', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/one': {
+                        get: { operationId: 'dup', responses: {} },
+                    },
+                    '/two': {
+                        post: { operationId: 'dup', responses: {} },
+                    },
+                },
+            };
+
+            expect(() => validateSpec(spec)).toThrow(/Duplicate operationId "dup"/);
+        });
+
+        it('should throw when operationIds are duplicated across webhooks', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {},
+                webhooks: {
+                    eventA: { post: { operationId: 'whDup', responses: {} } },
+                    eventB: { post: { operationId: 'whDup', responses: {} } },
+                },
+            };
+
+            expect(() => validateSpec(spec)).toThrow(/Duplicate operationId "whDup"/);
+        });
+
+        it('should allow unique operationIds across paths and webhooks', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/one': {
+                        get: { operationId: 'getOne', responses: {} },
+                    },
+                },
+                webhooks: {
+                    eventA: { post: { operationId: 'hookA', responses: {} } },
+                },
+            };
+
+            expect(() => validateSpec(spec)).not.toThrow();
+        });
+    });
+
     describe('Integration with SwaggerParser', () => {
         it('should validate spec upon construction', () => {
             const invalidSpec: any = { openapi: '3.0.0' }; // No info
@@ -235,6 +402,106 @@ describe('Core: Input Spec Validation', () => {
                 },
             };
             expect(() => validateSpec(spec)).toThrow(/Invalid component key "@auth" in "components.securitySchemes"/);
+        });
+    });
+
+    describe('Server Object Validation (OAS 3.x)', () => {
+        it('should reject server URLs containing query or fragment', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                servers: [{ url: 'https://example.com/api?x=1' }],
+                paths: {},
+            };
+            expect(() => validateSpec(spec)).toThrow(/MUST NOT include query or fragment/);
+        });
+
+        it('should reject server variables with empty enum', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                servers: [
+                    {
+                        url: 'https://{region}.example.com',
+                        variables: {
+                            region: { enum: [], default: 'us' },
+                        },
+                    },
+                ],
+                paths: {},
+            };
+            expect(() => validateSpec(spec)).toThrow(/enum MUST NOT be empty/);
+        });
+
+        it('should reject server variables whose default is not in enum', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                servers: [
+                    {
+                        url: 'https://{region}.example.com',
+                        variables: {
+                            region: { enum: ['eu'], default: 'us' },
+                        },
+                    },
+                ],
+                paths: {},
+            };
+            expect(() => validateSpec(spec)).toThrow(/default MUST be present in enum/);
+        });
+
+        it('should reject server variables that appear more than once', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                servers: [
+                    {
+                        url: 'https://{region}.example.com/{region}',
+                        variables: { region: { default: 'us' } },
+                    },
+                ],
+                paths: {},
+            };
+            expect(() => validateSpec(spec)).toThrow(/appears more than once/);
+        });
+
+    });
+
+    describe('Tag Parent Validation (OAS 3.2)', () => {
+        it('should reject tags whose parent does not exist', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {},
+                tags: [{ name: 'child', parent: 'missing' }],
+            };
+            expect(() => validateSpec(spec)).toThrow(/parent "missing" which does not exist/);
+        });
+
+        it('should reject circular tag parent references', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {},
+                tags: [
+                    { name: 'a', parent: 'b' },
+                    { name: 'b', parent: 'a' },
+                ],
+            };
+            expect(() => validateSpec(spec)).toThrow(/Circular tag parent reference/);
+        });
+
+        it('should accept valid tag parent references', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {},
+                tags: [
+                    { name: 'root' },
+                    { name: 'child', parent: 'root' },
+                ],
+            };
+            expect(() => validateSpec(spec)).not.toThrow();
         });
     });
 
@@ -717,6 +984,338 @@ describe('Core: Input Spec Validation', () => {
                                     content: { 'application/json': { schema: { type: 'string' } } },
                                 },
                             ],
+                        },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).not.toThrow();
+        });
+    });
+
+    describe('OAS 3.2 Header, MediaType, and Link Validation', () => {
+        it('should reject header objects that define a name', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/test': {
+                        get: {
+                            responses: {
+                                '200': {
+                                    description: 'ok',
+                                    headers: {
+                                        'X-Test': {
+                                            name: 'X-Test',
+                                            schema: { type: 'string' },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).toThrow(/Header Object.*name/);
+        });
+
+        it('should reject header objects that define an in', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/test': {
+                        get: {
+                            responses: {
+                                '200': {
+                                    description: 'ok',
+                                    headers: {
+                                        'X-Test': {
+                                            in: 'header',
+                                            schema: { type: 'string' },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).toThrow(/Header Object.*in/);
+        });
+
+        it('should reject header objects that define allowEmptyValue', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/test': {
+                        get: {
+                            responses: {
+                                '200': {
+                                    description: 'ok',
+                                    headers: {
+                                        'X-Test': {
+                                            allowEmptyValue: true,
+                                            schema: { type: 'string' },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).toThrow(/allowEmptyValue/);
+        });
+
+        it('should reject header objects with a non-simple style', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/test': {
+                        get: {
+                            responses: {
+                                '200': {
+                                    description: 'ok',
+                                    headers: {
+                                        'X-Test': {
+                                            style: 'form',
+                                            schema: { type: 'string' },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).toThrow(/invalid 'style'/);
+        });
+
+        it('should reject header objects with example and examples', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/test': {
+                        get: {
+                            responses: {
+                                '200': {
+                                    description: 'ok',
+                                    headers: {
+                                        'X-Test': {
+                                            schema: { type: 'string' },
+                                            example: 'a',
+                                            examples: { one: { value: 'b' } },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).toThrow(/example.*examples/);
+        });
+
+        it('should reject header objects with schema and content', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/test': {
+                        get: {
+                            responses: {
+                                '200': {
+                                    description: 'ok',
+                                    headers: {
+                                        'X-Test': {
+                                            schema: { type: 'string' },
+                                            content: {
+                                                'text/plain': { schema: { type: 'string' } },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).toThrow(/schema.*content/);
+        });
+
+        it('should reject header content maps with multiple entries', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/test': {
+                        get: {
+                            responses: {
+                                '200': {
+                                    description: 'ok',
+                                    headers: {
+                                        'X-Test': {
+                                            content: {
+                                                'text/plain': { schema: { type: 'string' } },
+                                                'text/html': { schema: { type: 'string' } },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).toThrow(/content.*exactly one entry/);
+        });
+
+        it('should accept header content maps with single entry and valid media type', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/test': {
+                        get: {
+                            responses: {
+                                '200': {
+                                    description: 'ok',
+                                    headers: {
+                                        'X-Test': {
+                                            content: {
+                                                'text/plain': { schema: { type: 'string' } },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).not.toThrow();
+        });
+
+        it('should reject media types that define example and examples', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/test': {
+                        get: {
+                            responses: {
+                                '200': {
+                                    description: 'ok',
+                                    content: {
+                                        'application/json': {
+                                            schema: { type: 'object' },
+                                            example: { ok: true },
+                                            examples: { one: { value: { ok: false } } },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).toThrow(/Media Type Object.*example.*examples/);
+        });
+
+        it('should reject media types that mix encoding with prefixEncoding', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/test': {
+                        post: {
+                            requestBody: {
+                                content: {
+                                    'multipart/form-data': {
+                                        schema: { type: 'object' },
+                                        encoding: { file: { contentType: 'image/png' } },
+                                        prefixEncoding: [{ contentType: 'image/png' }],
+                                    },
+                                },
+                            },
+                            responses: {
+                                '204': { description: 'ok' },
+                            },
+                        },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).toThrow(/encoding.*prefixEncoding.*mutually exclusive/);
+        });
+
+        it('should reject link objects that define both operationId and operationRef', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {},
+                components: {
+                    links: {
+                        BadLink: {
+                            operationId: 'getUser',
+                            operationRef: '#/paths/~1users/get',
+                        },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).toThrow(/both 'operationId' and 'operationRef'/);
+        });
+
+        it('should reject link objects that define neither operationId nor operationRef', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/test': {
+                        get: {
+                            responses: {
+                                '200': {
+                                    description: 'ok',
+                                    links: {
+                                        MissingLink: {},
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).toThrow(/must define either 'operationId' or 'operationRef'/);
+        });
+
+        it('should validate webhooks additionalOperations content and responses', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                webhooks: {
+                    hook: {
+                        additionalOperations: {
+                            POST: {
+                                requestBody: {
+                                    content: {
+                                        'application/json': {
+                                            schema: { type: 'object' },
+                                        },
+                                    },
+                                },
+                                responses: {
+                                    '200': {
+                                        description: 'ok',
+                                        content: {
+                                            'application/json': {
+                                                schema: { type: 'object' },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
                         },
                     },
                 },

@@ -6,8 +6,8 @@ import { ValidationRule } from './validation-types.js';
  * @param schema The Swagger/OpenAPI schema object for a property.
  * @returns An array of ValidationRule objects.
  */
-export function analyzeValidationRules(schema: SwaggerDefinition): ValidationRule[] {
-    if (!schema || schema.readOnly) {
+export function analyzeValidationRules(schema: SwaggerDefinition | boolean): ValidationRule[] {
+    if (!schema || typeof schema !== 'object' || schema.readOnly) {
         return [];
     }
 

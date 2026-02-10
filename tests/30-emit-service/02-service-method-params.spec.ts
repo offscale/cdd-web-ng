@@ -30,6 +30,7 @@ const specParamTests = {
                     {
                         name: 'xmlId',
                         in: 'path',
+                        required: true,
                         content: { 'application/xml': { schema: { type: 'string' } } },
                     },
                 ],
@@ -75,6 +76,47 @@ const specParamTests = {
                         name: 'filter',
                         in: 'querystring',
                         content: { 'application/json': { schema: { type: 'object' } } },
+                    },
+                ],
+                responses: { '200': {} },
+            },
+        },
+        '/query-form': {
+            get: {
+                operationId: 'getWithFormQuerystring',
+                parameters: [
+                    {
+                        name: 'filter',
+                        in: 'querystring',
+                        content: { 'application/x-www-form-urlencoded': { schema: { type: 'object' } } },
+                    },
+                ],
+                responses: { '200': {} },
+            },
+        },
+        '/query-form-encoded': {
+            get: {
+                operationId: 'getWithFormQuerystringEncoding',
+                parameters: [
+                    {
+                        name: 'filter',
+                        in: 'querystring',
+                        content: {
+                            'application/x-www-form-urlencoded': {
+                                schema: {
+                                    type: 'object',
+                                    properties: {
+                                        tags: {
+                                            type: 'array',
+                                            items: { type: 'string' },
+                                        },
+                                    },
+                                },
+                                encoding: {
+                                    tags: { style: 'pipeDelimited', explode: false },
+                                },
+                            },
+                        },
                     },
                 ],
                 responses: { '200': {} },
@@ -248,6 +290,38 @@ describe('Emitter: ServiceMethodGenerator (Parameters)', () => {
         const body = serviceClass.getMethodOrThrow('getWithQuerystring').getBodyText()!;
         expect(body).toContain("const queryString = ParameterSerializer.serializeRawQuerystring(filter, 'json');");
         expect(body).toContain("const url = `${basePath}/query-string${queryString ? '?' + queryString : ''}`;");
+    });
+
+    it('should pass contentType hint for x-www-form-urlencoded querystring parameters', () => {
+        const { methodGen, serviceClass } = createTestEnvironment(specParamTests);
+        const op: PathInfo = {
+            method: 'GET',
+            path: '/query-form',
+            methodName: 'getWithFormQuerystring',
+            parameters: specParamTests.paths['/query-form'].get.parameters,
+        } as any;
+
+        methodGen.addServiceMethod(serviceClass, op);
+        const body = serviceClass.getMethodOrThrow('getWithFormQuerystring').getBodyText()!;
+        expect(body).toContain(
+            "const queryString = ParameterSerializer.serializeRawQuerystring(filter, undefined, 'application/x-www-form-urlencoded');",
+        );
+    });
+
+    it('should pass encoding map for x-www-form-urlencoded querystring parameters', () => {
+        const { methodGen, serviceClass } = createTestEnvironment(specParamTests);
+        const op: PathInfo = {
+            method: 'GET',
+            path: '/query-form-encoded',
+            methodName: 'getWithFormQuerystringEncoding',
+            parameters: specParamTests.paths['/query-form-encoded'].get.parameters,
+        } as any;
+
+        methodGen.addServiceMethod(serviceClass, op);
+        const body = serviceClass.getMethodOrThrow('getWithFormQuerystringEncoding').getBodyText()!;
+        expect(body).toContain(
+            "const queryString = ParameterSerializer.serializeRawQuerystring(filter, undefined, 'application/x-www-form-urlencoded', {\"tags\":{\"style\":\"pipeDelimited\",\"explode\":false}});",
+        );
     });
 
     it('should generate correct builder call with "json" hint for path params with content', () => {

@@ -6,7 +6,7 @@ import * as path from 'node:path';
 import yaml from 'js-yaml';
 import { generateFromConfig } from './index.js';
 import { GeneratorConfig, GeneratorConfigOptions } from '@src/core/types/index.js';
-import { isUrl } from '@src/core/utils/index.js';
+import { isUrl, readOpenApiSnapshot } from '@src/core/utils/index.js';
 
 const packageJsonPath = new URL('../package.json', import.meta.url);
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
@@ -167,16 +167,27 @@ program
 
 program
     .command('to_openapi')
-    .description('Generate an OpenAPI specification from TypeScript code (Not yet implemented)')
-    .requiredOption('-f, --file <path>', 'Path to the input TypeScript source file or directory')
+    .description('Generate an OpenAPI specification from TypeScript code (snapshot-based)')
+    .requiredOption(
+        '-f, --file <path>',
+        'Path to a snapshot file (openapi.snapshot.json|yaml) or a generated output directory containing one',
+    )
     .addOption(
         new Option('--format <format>', 'Output format for the OpenAPI spec').choices(['json', 'yaml']).default('yaml'),
     )
     .action((options: ToActionOptions) => {
-        console.log('\n`to_openapi` command is a stub and is not yet implemented.');
-        console.log('Provided Options:');
-        console.log(`  - Input file: ${options.file}`);
-        console.log(`  - Output format: ${options.format}`);
+        try {
+            const { spec } = readOpenApiSnapshot(options.file, fs);
+            const output =
+                options.format === 'json' ? JSON.stringify(spec, null, 2) : yaml.dump(spec, { noRefs: true });
+            process.stdout.write(output.trimEnd() + '\n');
+        } catch (error) {
+            console.error(
+                '❌ to_openapi failed:',
+                error instanceof Error ? error.message : `Unknown error: ${String(error)}`,
+            );
+            process.exit(1);
+        }
     });
 
 program.parse(process.argv);

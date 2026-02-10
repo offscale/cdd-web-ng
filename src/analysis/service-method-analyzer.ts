@@ -98,7 +98,7 @@ export class ServiceMethodAnalyzer {
             const rbContent = operation.requestBody?.content;
             // For URL Encoded, analyze the schema inside; for JSON, same.
             const contentType = Object.keys(rbContent || {})[0];
-            if (contentType && rbContent?.[contentType]?.schema) {
+            if (contentType && rbContent?.[contentType]?.schema !== undefined) {
                 const cfg = this.getEncodingConfig(rbContent[contentType].schema as SwaggerDefinition);
                 if (Object.keys(cfg).length > 0) {
                     requestEncodingConfig = cfg;
@@ -191,7 +191,7 @@ export class ServiceMethodAnalyzer {
         if (!operation.responses || Object.keys(operation.responses).length === 0) {
             // Request schema fallback (legacy behavior for operations with no response defined)
             const reqSchema = operation.requestBody?.content?.['application/json']?.schema;
-            if (reqSchema) {
+            if (reqSchema !== undefined) {
                 variants.push({
                     mediaType: 'application/json',
                     type: getTypeScriptType(reqSchema as SwaggerDefinition, this.config, knownTypes),
@@ -222,7 +222,7 @@ export class ServiceMethodAnalyzer {
 
             // Collect all supported variants
             Object.entries(responseObj.content).forEach(([mediaType, mediaObj]) => {
-                if (!mediaObj || (!mediaObj.schema && !mediaObj.itemSchema)) return;
+                if (!mediaObj || (mediaObj.schema === undefined && mediaObj.itemSchema === undefined)) return;
 
                 if (mediaType.includes('json') || mediaType.includes('*/*')) {
                     // Covers json, json-seq, jsonl, ndjson
@@ -231,19 +231,26 @@ export class ServiceMethodAnalyzer {
                     let decodingConfig = undefined;
                     let isDefault = false;
 
+                    const sequentialSchema =
+                        mediaObj.schema !== undefined
+                            ? mediaObj.schema
+                            : mediaObj.itemSchema !== undefined
+                              ? mediaObj.itemSchema
+                              : undefined;
+
                     if (mediaType === 'application/json-seq') {
                         serialization = 'json-seq';
-                        const itemType = this.resolveType(mediaObj.schema || mediaObj.itemSchema, knownTypes);
+                        const itemType = this.resolveType(sequentialSchema, knownTypes);
                         type = `(${itemType})[]`;
                     } else if (mediaType === 'application/jsonl' || mediaType === 'application/x-ndjson') {
                         serialization = 'json-lines';
-                        const itemType = this.resolveType(mediaObj.schema || mediaObj.itemSchema, knownTypes);
+                        const itemType = this.resolveType(sequentialSchema, knownTypes);
                         type = `(${itemType})[]`;
                     } else {
                         // Standard JSON
                         if (mediaType === 'application/json') isDefault = true; // Preferred
                         const schema = mediaObj.schema;
-                        if (schema) {
+                        if (schema !== undefined) {
                             type = getTypeScriptType(schema as SwaggerDefinition, this.config, knownTypes);
                             const dConf = this.getDecodingConfig(schema as SwaggerDefinition);
                             if (Object.keys(dConf).length > 0) decodingConfig = dConf;
@@ -253,16 +260,22 @@ export class ServiceMethodAnalyzer {
                     variants.push({ mediaType, type, serialization, decodingConfig, isDefault });
                 } else if (mediaType === 'application/xml' || mediaType.endsWith('+xml')) {
                     const schema = mediaObj.schema as SwaggerDefinition;
-                    if (schema) {
+                    if (schema !== undefined) {
                         const xmlConfig = this.getXmlConfig(schema, 5);
                         const type = getTypeScriptType(schema, this.config, knownTypes);
                         variants.push({ mediaType, type, serialization: 'xml', xmlConfig, isDefault: false });
                     }
                 } else if (mediaType === 'text/event-stream') {
-                    const effectiveSchema = mediaObj.schema || mediaObj.itemSchema;
-                    const itemType = effectiveSchema
-                        ? getTypeScriptType(effectiveSchema as SwaggerDefinition, this.config, knownTypes)
-                        : 'any';
+                    const effectiveSchema =
+                        mediaObj.schema !== undefined
+                            ? mediaObj.schema
+                            : mediaObj.itemSchema !== undefined
+                              ? mediaObj.itemSchema
+                              : undefined;
+                    const itemType =
+                        effectiveSchema !== undefined
+                            ? getTypeScriptType(effectiveSchema as SwaggerDefinition, this.config, knownTypes)
+                            : 'any';
                     variants.push({ mediaType, type: itemType, serialization: 'sse', isDefault: false });
                 } else if (mediaType.startsWith('text/')) {
                     variants.push({ mediaType, type: 'string', serialization: 'text', isDefault: false });
@@ -284,7 +297,7 @@ export class ServiceMethodAnalyzer {
     }
 
     private resolveType(schema: any, knownTypes: string[]): string {
-        return schema ? getTypeScriptType(schema as SwaggerDefinition, this.config, knownTypes) : 'any';
+        return schema !== undefined ? getTypeScriptType(schema as SwaggerDefinition, this.config, knownTypes) : 'any';
     }
 
     private analyzeErrorResponses(
@@ -311,10 +324,15 @@ export class ServiceMethodAnalyzer {
             if (responseObj.content) {
                 const content = responseObj.content;
                 // Prioritize JSON for errors
-                const jsonSchema = content['application/json']?.schema || content['*/*']?.schema;
-                if (jsonSchema) {
+                const jsonSchema =
+                    content['application/json']?.schema !== undefined
+                        ? content['application/json']?.schema
+                        : content['*/*']?.schema !== undefined
+                          ? content['*/*']?.schema
+                          : undefined;
+                if (jsonSchema !== undefined) {
                     type = getTypeScriptType(jsonSchema as SwaggerDefinition, this.config, knownTypes);
-                } else if (content['application/xml']?.schema) {
+                } else if (content['application/xml']?.schema !== undefined) {
                     // XML Error support
                     type = getTypeScriptType(
                         content['application/xml'].schema as SwaggerDefinition,
@@ -350,7 +368,7 @@ export class ServiceMethodAnalyzer {
             let effectiveSchema = param.schema;
             if (param.content) {
                 const firstType = Object.keys(param.content)[0];
-                if (firstType && param.content[firstType].schema) {
+                if (firstType && param.content[firstType].schema !== undefined) {
                     effectiveSchema = param.content[firstType].schema as SwaggerDefinition;
                 }
             }
@@ -378,12 +396,17 @@ export class ServiceMethodAnalyzer {
             else if (contentMap['application/x-www-form-urlencoded']) contentType = 'application/x-www-form-urlencoded';
 
             const content = contentMap[contentType!];
-            const effectiveSchema = content?.schema || content?.itemSchema;
+            const effectiveSchema =
+                content?.schema !== undefined
+                    ? content.schema
+                    : content?.itemSchema !== undefined
+                      ? content.itemSchema
+                      : undefined;
 
-            if (effectiveSchema) {
+            if (effectiveSchema !== undefined) {
                 let bodyType = getTypeScriptType(effectiveSchema as SwaggerDefinition, this.config, knownTypes);
 
-                if (!content.schema && content.itemSchema) {
+                if (content && content.schema === undefined && content.itemSchema !== undefined) {
                     bodyType = `(${bodyType})[]`;
                 }
 
@@ -449,7 +472,7 @@ export class ServiceMethodAnalyzer {
 
         if (multipartKey) {
             const mediaType = rb.content[multipartKey];
-            const schema = mediaType.schema as SwaggerDefinition;
+            const schema = mediaType.schema as SwaggerDefinition | boolean | undefined;
 
             const multipartConfig: {
                 mediaType?: string;
@@ -468,7 +491,7 @@ export class ServiceMethodAnalyzer {
                 multipartConfig.itemEncoding = { ...mediaType.itemEncoding };
             }
 
-            if (schema && schema.properties) {
+            if (schema && typeof schema === 'object' && schema.properties) {
                 if (!multipartConfig.encoding) {
                     multipartConfig.encoding = {};
                 }
@@ -478,7 +501,7 @@ export class ServiceMethodAnalyzer {
                 });
             }
 
-            if (schema && (schema.type === 'array' || schema.items || schema.prefixItems)) {
+            if (schema && typeof schema === 'object' && (schema.type === 'array' || schema.items || schema.prefixItems)) {
                 if (schema.prefixItems && Array.isArray(schema.prefixItems)) {
                     if (!multipartConfig.prefixEncoding) {
                         multipartConfig.prefixEncoding = [];
@@ -492,7 +515,7 @@ export class ServiceMethodAnalyzer {
                     });
                 }
 
-                if (schema.items && !Array.isArray(schema.items)) {
+                if (schema.items && typeof schema.items === 'object' && !Array.isArray(schema.items)) {
                     if (!multipartConfig.itemEncoding) {
                         multipartConfig.itemEncoding = {};
                     }
@@ -531,26 +554,29 @@ export class ServiceMethodAnalyzer {
         }
 
         if (rb.content['application/xml']) {
-            const schema = rb.content['application/xml'].schema as SwaggerDefinition;
-            const rootName = schema.xml?.name || 'root';
-            const xmlConfig = this.getXmlConfig(schema, 5);
-            return {
-                type: 'xml',
-                paramName: bodyParamName,
-                rootName,
-                config: xmlConfig,
-            };
+            const schema = rb.content['application/xml'].schema as SwaggerDefinition | boolean | undefined;
+            if (schema && typeof schema === 'object') {
+                const rootName = schema.xml?.name || 'root';
+                const xmlConfig = this.getXmlConfig(schema, 5);
+                return {
+                    type: 'xml',
+                    paramName: bodyParamName,
+                    rootName,
+                    config: xmlConfig,
+                };
+            }
         }
 
         return { type: 'json', paramName: bodyParamName };
     }
 
     private enrichEncodingConfig(
-        propSchema: SwaggerDefinition,
+        propSchema: SwaggerDefinition | boolean,
         configMap: Record<string, EncodingProperty>,
         key: string,
     ) {
         const resolvedProp = this.parser.resolve(propSchema);
+        if (!resolvedProp || typeof resolvedProp !== 'object') return;
         if (!configMap[key]) {
             configMap[key] = {};
         }
@@ -580,7 +606,7 @@ export class ServiceMethodAnalyzer {
     }
 
     private isJsonContentMediaType(p: Parameter): boolean {
-        if (!p.schema) return false;
+        if (p.schema === undefined || typeof p.schema !== 'object') return false;
 
         // Direct contentMediaType (OAS 3.1)
         if (
@@ -608,8 +634,8 @@ export class ServiceMethodAnalyzer {
         return Object.values(definition.properties).some(p => p.readOnly || p.writeOnly);
     }
 
-    private getXmlConfig(schema: SwaggerDefinition | undefined, depth: number): any {
-        if (!schema || depth <= 0) return {};
+    private getXmlConfig(schema: SwaggerDefinition | boolean | undefined, depth: number): any {
+        if (!schema || typeof schema !== 'object' || depth <= 0) return {};
         const resolved = this.parser.resolve(schema);
         if (!resolved) return {};
 
@@ -660,12 +686,16 @@ export class ServiceMethodAnalyzer {
         return config;
     }
 
-    private getDecodingConfig(schema: SwaggerDefinition | undefined, depth: number = 5): any {
-        if (!schema || depth <= 0) return {};
+    private getDecodingConfig(schema: SwaggerDefinition | boolean | undefined, depth: number = 5): any {
+        if (!schema || typeof schema !== 'object' || depth <= 0) return {};
         const resolved = this.parser.resolve(schema);
         if (!resolved) return {};
 
         const config: any = {};
+
+        if (resolved.contentEncoding) {
+            config.contentEncoding = resolved.contentEncoding;
+        }
 
         // Direct content schema on a string field
         if (resolved.contentSchema && resolved.type === 'string') {
@@ -710,12 +740,16 @@ export class ServiceMethodAnalyzer {
         return config;
     }
 
-    private getEncodingConfig(schema: SwaggerDefinition | undefined, depth: number = 5): any {
-        if (!schema || depth <= 0) return {};
+    private getEncodingConfig(schema: SwaggerDefinition | boolean | undefined, depth: number = 5): any {
+        if (!schema || typeof schema !== 'object' || depth <= 0) return {};
         const resolved = this.parser.resolve(schema);
         if (!resolved) return {};
 
         const config: any = {};
+
+        if (resolved.contentEncoding) {
+            config.contentEncoding = resolved.contentEncoding;
+        }
 
         // Check if this property is a string that should contain JSON (OAS 3.1)
         if (resolved.type === 'string' && resolved.contentMediaType && resolved.contentMediaType.includes('json')) {

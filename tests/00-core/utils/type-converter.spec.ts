@@ -12,6 +12,14 @@ describe('Core Utils: Type Converter', () => {
     const configWithDate: GeneratorConfig = { ...config, options: { ...config.options, dateType: 'Date' } };
 
     describe('getTypeScriptType', () => {
+        it('should treat boolean schema "true" as any', () => {
+            expect(utils.getTypeScriptType(true, config, [])).toBe('any');
+        });
+
+        it('should treat boolean schema "false" as never', () => {
+            expect(utils.getTypeScriptType(false, config, [])).toBe('never');
+        });
+
         describe('Literal Types based on `const` (OAS 3.1)', () => {
             it('should generate a string literal type', () => {
                 const schema: SwaggerDefinition = { type: 'string', const: 'active' };

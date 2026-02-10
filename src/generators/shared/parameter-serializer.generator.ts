@@ -275,11 +275,24 @@ export class ParameterSerializerGenerator {
             parameters: [
                 { name: 'value', type: 'any' },
                 { name: 'serialization', type: "'json' | undefined", hasQuestionToken: true },
+                { name: 'contentType', type: 'string | undefined', hasQuestionToken: true },
+                { name: 'encodings', type: 'Record<string, any> | undefined', hasQuestionToken: true },
             ],
             returnType: 'string',
             statements: `
         if (value === null || value === undefined) return '';
-        if (serialization === 'json') return encodeURIComponent(JSON.stringify(value));
+        const isJson = serialization === 'json' || (contentType && contentType.includes('application/json'));
+        if (isJson) return encodeURIComponent(JSON.stringify(value));
+        const encodeForm = (v: string) => encodeURIComponent(v).replace(/%20/g, '+');
+        
+        const isFormUrlEncoded = contentType && contentType.includes('application/x-www-form-urlencoded');
+        if (isFormUrlEncoded) {
+            if (typeof value === 'object') {
+                const parts = this.serializeUrlEncodedBody(value, encodings || {});
+                return parts.map(p => \`\${p.key}=\${p.value}\`).join('&');
+            }
+            return encodeForm(String(value));
+        }
         if (typeof value === 'object') {
             return Object.entries(value).map(([k, v]) => \`\${k}=\${v}\`).join('&');
         }
@@ -299,13 +312,19 @@ export class ParameterSerializerGenerator {
             statements: `
             const result: SerializedQueryParam[] = [];
             if (!body || typeof body !== 'object') return result;
+            const normalizeForm = (v: string) => v.replace(/%20/g, '+');
 
             Object.entries(body).forEach(([key, value]) => {
                 if (value === undefined || value === null) return;
                 const config = encodings[key] || { style: 'form', explode: true };
                 const paramConfig = { name: key, in: 'query', ...config };
                 const serialized = this.serializeQueryParam(paramConfig, value);
-                result.push(...serialized);
+                serialized.forEach(entry => {
+                    result.push({
+                        key: normalizeForm(entry.key),
+                        value: normalizeForm(entry.value),
+                    });
+                });
             });
             return result;`,
         });

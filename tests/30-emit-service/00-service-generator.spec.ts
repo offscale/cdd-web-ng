@@ -115,8 +115,19 @@ describe('Generators (Angular): ServiceGenerator', () => {
         expect(serviceClass.getMethod('getCustomName')).toBeDefined();
     });
 
-    it('should de-duplicate method names from conflicting operationIds', () => {
-        const project = createTestEnvironment(coverageSpec);
+    it('should de-duplicate method names from conflicting customizer outputs', () => {
+        const conflictSpec = {
+            paths: {
+                '/duplicate-name': {
+                    get: { tags: ['DuplicateName'], operationId: 'getName', responses: {} },
+                    post: { tags: ['DuplicateName'], operationId: 'postName', responses: {} },
+                },
+            },
+        };
+
+        const project = createTestEnvironment(conflictSpec, {
+            customizeMethodName: () => 'getName',
+        });
         const serviceFile = project.getSourceFileOrThrow('/out/services/duplicateName.service.ts');
         const serviceClass = serviceFile.getClassOrThrow('DuplicateNameService');
         expect(serviceClass.getMethod('getName')).toBeDefined();

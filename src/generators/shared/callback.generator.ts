@@ -132,6 +132,6 @@ export class CallbackGenerator {
         const tempMap = { [urlKey]: pathItem };
         // Pass the main components to ensure security resolution logic within callbacks
         // follows similar rules, although callbacks rarely define security schemes inline implicitly.
-        return extractPaths(tempMap, undefined, this.parser.spec.components);
+        return extractPaths(tempMap, undefined, this.parser.spec.components, { isOpenApi3: !!this.parser.spec.openapi });
     }
 }

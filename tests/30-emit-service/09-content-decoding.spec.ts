@@ -91,6 +91,25 @@ const encodedContentSpec = {
                 responses: { '200': {} },
             },
         },
+        '/base64-response': {
+            get: {
+                operationId: 'getBase64Response',
+                responses: {
+                    '200': {
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'object',
+                                    properties: {
+                                        blob: { type: 'string', contentEncoding: 'base64' },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
     },
 };
 
@@ -213,5 +232,21 @@ describe('Emitter: ServiceMethodGenerator (Auto Decoding & Encoding)', () => {
         expect(body).toContain('"serialization":"json"');
         expect(body).toContain('ParameterSerializer.serializeQueryParam('); // New generic call
         expect(body).toContain('"name":"filter"');
+    });
+
+    it('should include contentEncoding in response decoding config', () => {
+        const { methodGen, serviceClass } = createTestEnv();
+        const op: any = {
+            method: 'GET',
+            path: '/base64-response',
+            methodName: 'getBase64Response',
+            responses: encodedContentSpec.paths['/base64-response'].get.responses,
+        };
+
+        methodGen.addServiceMethod(serviceClass, op);
+
+        const body = serviceClass.getMethodOrThrow('getBase64Response').getBodyText()!;
+        expect(body).toContain('ContentDecoder.decode(response,');
+        expect(body).toContain('"properties":{"blob":{"contentEncoding":"base64"}}');
     });
 });

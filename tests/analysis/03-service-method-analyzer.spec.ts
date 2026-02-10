@@ -296,6 +296,41 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
         expect(bodyParam?.type).toBe('number');
     });
 
+    it('should resolve MediaTypeObject $ref entries when analyzing responses', () => {
+        const spec = {
+            openapi: '3.2.0',
+            info: { title: 'MediaTypeRef', version: '1.0' },
+            paths: {
+                '/items': {
+                    get: {
+                        operationId: 'getItems',
+                        responses: {
+                            '200': {
+                                content: {
+                                    'application/json': { $ref: '#/components/mediaTypes/Items' },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            components: {
+                mediaTypes: {
+                    Items: {
+                        schema: { type: 'array', items: { type: 'string' } },
+                    },
+                },
+            },
+        };
+
+        const { analyzer, parser } = setupAnalyzer(spec);
+        const op = parser.operations[0];
+        op.methodName = 'getItems';
+        const model = analyzer.analyze(op);
+
+        expect(model?.responseType).toBe('string[]');
+    });
+
     // Test for XML array config (line 243)
     it('should handle XML array config (items)', () => {
         const spec = {

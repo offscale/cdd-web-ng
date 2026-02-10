@@ -1,6 +1,7 @@
 import { BodyParameter, Parameter as SwaggerOfficialParameter, Response } from 'swagger-schema-official';
 import {
     HeaderObject,
+    MediaTypeObject,
     Parameter,
     PathInfo,
     PathItem,
@@ -40,19 +41,77 @@ type UnifiedParameter = SwaggerOfficialParameter & {
  *
  * @param swaggerPaths The raw `paths` object from the specification.
  * @param resolveRef Optional callback to resolve `$ref` pointers within path items.
+ * @param components Optional components object for resolving security precedence.
+ * @param options Optional flags (e.g., `isOpenApi3`) to enable OAS-specific behavior.
  * @returns An array of normalized `PathInfo` objects ready for analysis.
  */
 export function extractPaths(
     swaggerPaths: { [p: string]: PathItem } | undefined,
-    resolveRef?: (ref: string) => PathItem | undefined,
+    resolveRef?: (ref: string) => unknown,
     components?: { securitySchemes?: Record<string, any> } | undefined,
+    options?: { isOpenApi3?: boolean },
 ): PathInfo[] {
     if (!swaggerPaths) {
         return [];
     }
 
+    const isOpenApi3 = options?.isOpenApi3 === true;
+    const reservedHeaderNames = new Set(['accept', 'content-type', 'authorization']);
+
     const paths: PathInfo[] = [];
-    const methods = ['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'query'];
+    const methods = ['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'trace', 'query'];
+
+    const resolveMaybeRef = <T extends { summary?: string; description?: string }>(
+        obj: T | { $ref?: string; $dynamicRef?: string; summary?: string; description?: string } | undefined | null,
+    ): T | undefined => {
+        if (!obj) return undefined;
+        if (!resolveRef || typeof obj !== 'object') return obj as T;
+
+        const ref = (obj as any).$ref || (obj as any).$dynamicRef;
+        if (typeof ref !== 'string') return obj as T;
+
+        const resolved = resolveRef(ref) as T | undefined;
+        if (!resolved) return obj as T;
+
+        const summary = (obj as any).summary;
+        const description = (obj as any).description;
+        if (summary !== undefined || description !== undefined) {
+            return {
+                ...(resolved as any),
+                ...(summary !== undefined ? { summary } : {}),
+                ...(description !== undefined ? { description } : {}),
+            } as T;
+        }
+        return resolved;
+    };
+
+    const resolveHeaders = (
+        headers: Record<string, HeaderObject | { $ref?: string; $dynamicRef?: string; description?: string }> | undefined,
+    ): Record<string, HeaderObject> | undefined => {
+        if (!headers) return undefined;
+        const resolvedHeaders: Record<string, HeaderObject> = {};
+        for (const [name, header] of Object.entries(headers)) {
+            const resolvedHeader = resolveMaybeRef<HeaderObject>(header as any);
+            if (resolvedHeader) {
+                resolvedHeaders[name] = resolvedHeader;
+            }
+        }
+        return resolvedHeaders;
+    };
+
+    const resolveContentMap = (
+        content: Record<string, MediaTypeObject | { $ref?: string; $dynamicRef?: string }> | undefined,
+    ): Record<string, MediaTypeObject> | undefined => {
+        if (!content) return undefined;
+        const resolvedContent: Record<string, MediaTypeObject> = {};
+        for (const [mediaType, mediaObj] of Object.entries(content)) {
+            const resolvedMedia = resolveMaybeRef<MediaTypeObject>(mediaObj as any);
+            if (resolvedMedia) {
+                resolvedContent[mediaType] = resolvedMedia;
+            }
+        }
+        return Object.keys(resolvedContent).length > 0 ? resolvedContent : undefined;
+    };
 
     // Create a lookup Set for security schemes to enforce precedence rules (OAS 3.2 Security Requirements)
     const securitySchemeNames = new Set(components?.securitySchemes ? Object.keys(components.securitySchemes) : []);
@@ -61,7 +120,7 @@ export function extractPaths(
         let pathItem = rawPathItem;
 
         if (pathItem.$ref && resolveRef) {
-            const resolved = resolveRef(pathItem.$ref);
+            const resolved = resolveRef(pathItem.$ref) as PathItem | undefined;
             if (resolved) {
                 const localOverrides = { ...pathItem };
                 delete localOverrides.$ref;
@@ -70,9 +129,12 @@ export function extractPaths(
         }
 
         /** Defensive: ensure top-level pathParameters is always an array */
-        const pathParameters: UnifiedParameter[] = Array.isArray(pathItem.parameters)
+        const rawPathParameters: UnifiedParameter[] = Array.isArray(pathItem.parameters)
             ? pathItem.parameters.filter(Boolean)
             : [];
+        const pathParameters: UnifiedParameter[] = rawPathParameters
+            .map(param => resolveMaybeRef<UnifiedParameter>(param as any))
+            .filter((param): param is UnifiedParameter => !!param && 'name' in param && 'in' in param);
 
         const pathServers = pathItem.servers;
         const operationsToProcess: { method: string; operation: SpecOperation }[] = [];
@@ -98,7 +160,10 @@ export function extractPaths(
                 paramsMap.set(`${p.name}:${p.in}`, p);
             });
             (Array.isArray(operation.parameters) ? operation.parameters : []).forEach(p => {
-                if (p) paramsMap.set(`${p.name}:${p.in}`, p);
+                const resolvedParam = resolveMaybeRef<UnifiedParameter>(p as any);
+                if (resolvedParam && 'name' in resolvedParam && 'in' in resolvedParam) {
+                    paramsMap.set(`${resolvedParam.name}:${resolvedParam.in}`, resolvedParam);
+                }
             });
 
             const allParams = Array.from(paramsMap.values()).filter(Boolean);
@@ -110,14 +175,20 @@ export function extractPaths(
                 .map((p): Parameter => {
                     let finalSchema = p.schema;
 
-                    if (p.content) {
+                    const resolvedContent = resolveContentMap(p.content as any);
+                    if (resolvedContent) {
+                        const contentType = Object.keys(resolvedContent)[0];
+                        if (contentType && resolvedContent[contentType].schema !== undefined) {
+                            finalSchema = resolvedContent[contentType].schema;
+                        }
+                    } else if (p.content) {
                         const contentType = Object.keys(p.content)[0];
-                        if (contentType && p.content[contentType].schema) {
+                        if (contentType && p.content[contentType].schema !== undefined) {
                             finalSchema = p.content[contentType].schema;
                         }
                     }
 
-                    if (!finalSchema) {
+                    if (finalSchema === undefined) {
                         const baseSchema: SwaggerDefinition = {};
                         if (p.type !== undefined)
                             baseSchema.type = p.type as Exclude<SwaggerDefinition['type'], undefined>;
@@ -134,7 +205,11 @@ export function extractPaths(
                         schema: finalSchema as SwaggerDefinition,
                     };
 
-                    if (p.content) param.content = p.content as Record<string, { schema?: SwaggerDefinition }>;
+                    if (resolvedContent) {
+                        param.content = resolvedContent as Record<string, { schema?: SwaggerDefinition }>;
+                    } else if (p.content) {
+                        param.content = p.content as Record<string, { schema?: SwaggerDefinition }>;
+                    }
                     if (p.style !== undefined) param.style = p.style;
                     if (p.explode !== undefined) param.explode = p.explode;
                     if (p.allowReserved !== undefined) param.allowReserved = p.allowReserved;
@@ -192,19 +267,37 @@ export function extractPaths(
                     });
 
                     return param;
+                })
+                .filter(param => {
+                    if (!isOpenApi3) return true;
+                    if (param.in !== 'header') return true;
+                    return !reservedHeaderNames.has(param.name.toLowerCase());
                 });
 
-            const requestBody =
-                operation.requestBody ||
-                (bodyParam ? { content: { 'application/json': { schema: bodyParam.schema } } } : undefined);
+            let requestBody: RequestBody | undefined;
+            if (operation.requestBody !== undefined) {
+                requestBody =
+                    resolveMaybeRef<RequestBody>(operation.requestBody as any) ??
+                    (operation.requestBody as RequestBody);
+            } else if (bodyParam) {
+                requestBody = { content: { 'application/json': { schema: bodyParam.schema } } };
+            }
+            if (requestBody?.content) {
+                const resolvedContent = resolveContentMap(requestBody.content as any);
+                if (resolvedContent) {
+                    requestBody = { ...requestBody, content: resolvedContent };
+                }
+            }
 
             const normalizedResponses: Record<string, SwaggerResponse> = {};
             if (operation.responses) {
                 for (const [code, resp] of Object.entries(operation.responses)) {
-                    const swagger2Response = resp as Response;
-                    const headers = (resp as any).headers as Record<string, HeaderObject>;
+                    const resolvedResp =
+                        resolveMaybeRef<SwaggerResponse | Response>(resp as any) ?? (resp as SwaggerResponse);
+                    const swagger2Response = resolvedResp as Response;
+                    const headers = resolveHeaders((resolvedResp as any).headers as Record<string, HeaderObject>);
 
-                    if (swagger2Response && swagger2Response.schema) {
+                    if (swagger2Response && swagger2Response.schema !== undefined) {
                         normalizedResponses[code] = {
                             description: swagger2Response.description,
                             headers: headers,
@@ -213,9 +306,11 @@ export function extractPaths(
                             },
                         };
                     } else {
+                        const resolvedContent = resolveContentMap((resolvedResp as SwaggerResponse).content as any);
                         normalizedResponses[code] = {
-                            ...(resp as SwaggerResponse),
+                            ...(resolvedResp as SwaggerResponse),
                             headers: headers,
+                            ...(resolvedContent ? { content: resolvedContent } : {}),
                         };
                     }
                 }

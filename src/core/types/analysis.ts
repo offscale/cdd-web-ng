@@ -69,5 +69,5 @@ export interface Resource {
 /** A simple wrapper for a property's name and its underlying schema, used for templating. */
 export interface FormProperty {
     name: string;
-    schema: SwaggerDefinition;
+    schema: SwaggerDefinition | boolean;
 }

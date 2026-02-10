@@ -45,10 +45,12 @@ function formatLiteralValue(val: unknown): string {
 }
 
 export function getTypeScriptType(
-    schema: SwaggerDefinition | undefined,
+    schema: SwaggerDefinition | boolean | undefined,
     config: GeneratorConfig,
     knownTypes: string[] = [],
 ): string {
+    if (schema === true) return 'any';
+    if (schema === false) return 'never';
     if (!schema) return 'any';
 
     // JSON Schema 2020-12: dependentSchemas support
@@ -58,7 +60,7 @@ export function getTypeScriptType(
         const baseType = getTypeScriptType(restSchema, config, knownTypes);
 
         const dependencies = Object.entries(dependentSchemas).map(([propName, titleOrSchema]) => {
-            const depSchema = titleOrSchema as SwaggerDefinition;
+            const depSchema = titleOrSchema as SwaggerDefinition | boolean;
             const depType = getTypeScriptType(depSchema, config, knownTypes);
             const safeKey = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(propName) ? propName : `'${propName}'`;
 
@@ -179,8 +181,8 @@ function getArrayType(schema: SwaggerDefinition, config: GeneratorConfig, knownT
 
     if (Array.isArray(schema.items))
         return `[${schema.items.map(s => getTypeScriptType(s, config, knownTypes)).join(', ')}]`;
-    const itemsSchema = (schema.items as SwaggerDefinition) || {};
-    const itemsType = getTypeScriptType(itemsSchema, config, knownTypes);
+    const itemsSchema = schema.items ?? {};
+    const itemsType = getTypeScriptType(itemsSchema as SwaggerDefinition | boolean, config, knownTypes);
     return itemsType.includes('|') || itemsType.includes('&') ? `(${itemsType})[]` : `${itemsType}[]`;
 }
 
@@ -264,10 +266,20 @@ export function getRequestBodyType(
         'text/plain',
     ];
     for (const key of priority) {
-        if (content[key] && content[key].schema) return getTypeScriptType(content[key].schema!, config, knownTypes);
+        if (content[key] && content[key].schema !== undefined)
+            return getTypeScriptType(content[key].schema!, config, knownTypes);
+        if (content[key] && content[key].schema === undefined && content[key].itemSchema !== undefined) {
+            const itemType = getTypeScriptType(content[key].itemSchema!, config, knownTypes);
+            return `(${itemType})[]`;
+        }
     }
     const anyKey = Object.keys(content)[0];
-    if (anyKey && content[anyKey].schema) return getTypeScriptType(content[anyKey].schema!, config, knownTypes);
+    if (anyKey && content[anyKey].schema !== undefined)
+        return getTypeScriptType(content[anyKey].schema!, config, knownTypes);
+    if (anyKey && content[anyKey].schema === undefined && content[anyKey].itemSchema !== undefined) {
+        const itemType = getTypeScriptType(content[anyKey].itemSchema!, config, knownTypes);
+        return `(${itemType})[]`;
+    }
 
     return 'any';
 }
@@ -279,10 +291,18 @@ export function getResponseType(
 ): string {
     if (!response || !response.content) return 'void';
     const content = response.content;
-    if (content['application/json']?.schema)
+    if (content['application/json']?.schema !== undefined)
         return getTypeScriptType(content['application/json'].schema!, config, knownTypes);
+    if (content['application/json']?.schema === undefined && content['application/json']?.itemSchema !== undefined) {
+        const itemType = getTypeScriptType(content['application/json'].itemSchema!, config, knownTypes);
+        return `(${itemType})[]`;
+    }
     const keys = Object.keys(content);
-    if (keys.length > 0 && content[keys[0]].schema)
+    if (keys.length > 0 && content[keys[0]].schema !== undefined)
         return getTypeScriptType(content[keys[0]].schema!, config, knownTypes);
+    if (keys.length > 0 && content[keys[0]].schema === undefined && content[keys[0]].itemSchema !== undefined) {
+        const itemType = getTypeScriptType(content[keys[0]].itemSchema!, config, knownTypes);
+        return `(${itemType})[]`;
+    }
     return 'void';
 }

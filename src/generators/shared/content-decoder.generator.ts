@@ -30,6 +30,12 @@ export class ContentDecoderGenerator {
                     docs: ["If set, parse the string value. 'xml' uses XmlParser, 'json' or true uses JSON.parse."],
                 },
                 {
+                    name: 'contentEncoding',
+                    type: "'base64' | 'base64url' | string",
+                    hasQuestionToken: true,
+                    docs: ['If set, decodes base64/base64url strings to Uint8Array or string for parsing.'],
+                },
+                {
                     name: 'xmlConfig',
                     type: 'any',
                     hasQuestionToken: true,
@@ -49,6 +55,55 @@ export class ContentDecoderGenerator {
         });
 
         classDeclaration.addMethod({
+            name: 'base64ToBytes',
+            isStatic: true,
+            scope: Scope.Private,
+            parameters: [
+                { name: 'input', type: 'string' },
+                { name: 'urlSafe', type: 'boolean', hasQuestionToken: true },
+            ],
+            returnType: 'Uint8Array',
+            statements: `
+        let normalized = input;
+        if (urlSafe) {
+            normalized = normalized.replace(/-/g, '+').replace(/_/g, '/');
+            const pad = normalized.length % 4;
+            if (pad === 2) normalized += '==';
+            else if (pad === 3) normalized += '=';
+        }
+
+        if (typeof Buffer !== 'undefined') {
+            return Uint8Array.from(Buffer.from(normalized, 'base64'));
+        }
+        const binary = atob(normalized);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes;`,
+        });
+
+        classDeclaration.addMethod({
+            name: 'bytesToString',
+            isStatic: true,
+            scope: Scope.Private,
+            parameters: [{ name: 'bytes', type: 'Uint8Array' }],
+            returnType: 'string',
+            statements: `
+        if (typeof TextDecoder !== 'undefined') {
+            return new TextDecoder().decode(bytes);
+        }
+        if (typeof Buffer !== 'undefined') {
+            return Buffer.from(bytes).toString('utf-8');
+        }
+        let result = '';
+        for (let i = 0; i < bytes.length; i++) {
+            result += String.fromCharCode(bytes[i]);
+        }
+        return result;`,
+        });
+
+        classDeclaration.addMethod({
             name: 'decode',
             isStatic: true,
             scope: Scope.Public,
@@ -62,16 +117,27 @@ export class ContentDecoderGenerator {
             return data;
         }
 
+        let current = data;
+        if (config.contentEncoding && typeof current === 'string') {
+            const urlSafe = String(config.contentEncoding).toLowerCase() === 'base64url';
+            const bytes = this.base64ToBytes(current, urlSafe);
+            if (config.decode) {
+                current = this.bytesToString(bytes);
+            } else {
+                return bytes;
+            }
+        }
+
         // 1. Auto-decode string
-        if (config.decode && typeof data === 'string') {
+        if (config.decode && typeof current === 'string') {
             try {
                 if (config.decode === 'xml') {
                     // Use XmlParser for XML content
-                    return XmlParser.parse(data, config.xmlConfig || {});
+                    return XmlParser.parse(current, config.xmlConfig || {});
                 }
 
                 // Default to JSON parsing
-                const parsed = JSON.parse(data);
+                const parsed = JSON.parse(current);
                 // If parsed, we might need to recurse into the parsed structure if deeper config exists
                 // (though typically contentSchema is a boundary condition).
                 // If properties/items exist in config, apply them to the parsed result.
@@ -81,29 +147,29 @@ export class ContentDecoderGenerator {
                 return parsed;
             } catch (e) {
                 console.warn('Failed to decode contentSchema string', e);
-                return data;
+                return current;
             }
         }
 
         // 2. Arrays
-        if (Array.isArray(data) && config.items) {
-            return data.map(item => this.decode(item, config.items));
+        if (Array.isArray(current) && config.items) {
+            return current.map(item => this.decode(item, config.items));
         }
 
         // 3. Objects
-        if (typeof data === 'object') {
+        if (typeof current === 'object') {
             if (config.properties) {
-                const result = { ...data };
+                const result = { ...current };
                 Object.keys(config.properties).forEach(key => {
-                    if (Object.prototype.hasOwnProperty.call(data, key)) {
-                        result[key] = this.decode(data[key], config.properties![key]);
+                    if (Object.prototype.hasOwnProperty.call(current, key)) {
+                        result[key] = this.decode((current as any)[key], config.properties![key]);
                     }
                 });
                 return result;
             }
         }
 
-        return data;`,
+        return current;`,
         });
 
         sourceFile.formatText();

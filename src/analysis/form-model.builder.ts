@@ -28,7 +28,9 @@ export class FormModelBuilder {
         const definitions = this.parser.schemas;
 
         // 1. Detect Polymorphism
-        const polymorphicProps = resource.formProperties.filter(p => p.schema.oneOf && p.schema.discriminator);
+        const polymorphicProps = resource.formProperties.filter(
+            p => typeof p.schema === 'object' && p.schema.oneOf && p.schema.discriminator,
+        );
 
         if (polymorphicProps.length > 0) {
             this.result.isPolymorphic = true;
@@ -57,7 +59,9 @@ export class FormModelBuilder {
         this.result.topLevelControls = this.analyzeControls(resource.formProperties, formInterfaceName, true);
 
         // 4. Global Flags
-        this.result.hasFileUploads = resource.formProperties.some(p => p.schema.format === 'binary');
+        this.result.hasFileUploads = resource.formProperties.some(
+            p => typeof p.schema === 'object' && p.schema.format === 'binary',
+        );
 
         return this.result;
     }
@@ -67,7 +71,7 @@ export class FormModelBuilder {
 
         Object.entries(modelSchema.dependentSchemas).forEach(([triggerProp, schemaOrRef]) => {
             const dependentSchema = this.parser.resolve(schemaOrRef);
-            if (!dependentSchema) return;
+            if (!dependentSchema || typeof dependentSchema !== 'object') return;
 
             // Start with 'required' array
             if (dependentSchema.required) {
@@ -102,7 +106,7 @@ export class FormModelBuilder {
         const interfaceProps: { name: string }[] = [];
 
         for (const prop of properties) {
-            const schema = prop.schema;
+            const schema = typeof prop.schema === 'object' ? prop.schema : ({} as SwaggerDefinition);
             const validationRules = analyzeValidationRules(schema);
 
             if (
@@ -258,7 +262,7 @@ export class FormModelBuilder {
     }
 
     private analyzePolymorphism(prop: FormProperty): PolymorphicPropertyConfig | null {
-        if (!prop.schema.discriminator) return null;
+        if (!prop.schema || typeof prop.schema !== 'object' || !prop.schema.discriminator) return null;
 
         const options = this.parser.getPolymorphicSchemaOptions(prop.schema);
         const dPropName = prop.schema.discriminator.propertyName;
@@ -345,10 +349,10 @@ export class FormModelBuilder {
         return config;
     }
 
-    private getFormControlTypeString(schema: SwaggerDefinition): string {
+    private getFormControlTypeString(schema: SwaggerDefinition | boolean): string {
         const knownTypes = this.parser.schemas.map(s => s.name);
         const dummyConfig = { options: { dateType: 'Date', enumStyle: 'enum' } } as any;
-        const type = getTypeScriptType(schema, dummyConfig, knownTypes);
+        const type = getTypeScriptType(schema as any, dummyConfig, knownTypes);
         return `${type} | null`;
     }
 }

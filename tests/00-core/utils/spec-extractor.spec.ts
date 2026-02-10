@@ -49,6 +49,14 @@ describe('Core Utils: Spec Extractor', () => {
             expect(pathInfo.method).toBe('QUERY');
         });
 
+        it('should extract the TRACE method', () => {
+            const swaggerPaths = {
+                '/trace': { trace: { operationId: 'traceOp', responses: { '200': {} } } },
+            };
+            const [pathInfo] = utils.extractPaths(swaggerPaths as any);
+            expect(pathInfo.method).toBe('TRACE');
+        });
+
         it('should extract additionalOperations (OAS 3.2)', () => {
             const swaggerPaths = {
                 '/res': { additionalOperations: { LOCK: { operationId: 'lock', responses: {} } } },
@@ -108,6 +116,159 @@ describe('Core Utils: Spec Extractor', () => {
             };
             const [pathInfo] = utils.extractPaths(swaggerPaths as any, resolveRef as any);
             expect(pathInfo.summary).toBe('Override');
+        });
+
+        it('should resolve parameter $ref and apply description override', () => {
+            const resolveRef = (ref: string) => {
+                if (ref === '#/components/parameters/Limit') {
+                    return {
+                        name: 'limit',
+                        in: 'query',
+                        schema: { type: 'integer' },
+                        description: 'base description',
+                    };
+                }
+                return undefined;
+            };
+
+            const swaggerPaths = {
+                '/items': {
+                    get: {
+                        parameters: [
+                            {
+                                $ref: '#/components/parameters/Limit',
+                                description: 'override description',
+                            },
+                        ],
+                        responses: {},
+                    },
+                },
+            };
+
+            const [pathInfo] = utils.extractPaths(swaggerPaths as any, resolveRef as any);
+            expect(pathInfo.parameters?.[0].name).toBe('limit');
+            expect(pathInfo.parameters?.[0].description).toBe('override description');
+        });
+
+        it('should resolve response $ref to concrete content', () => {
+            const resolveRef = (ref: string) => {
+                if (ref === '#/components/responses/Ok') {
+                    return {
+                        description: 'ok',
+                        content: {
+                            'application/json': { schema: { type: 'string' } },
+                        },
+                    };
+                }
+                return undefined;
+            };
+
+            const swaggerPaths = {
+                '/items': {
+                    get: {
+                        responses: {
+                            '200': { $ref: '#/components/responses/Ok' },
+                        },
+                    },
+                },
+            };
+
+            const [pathInfo] = utils.extractPaths(swaggerPaths as any, resolveRef as any);
+            expect(pathInfo.responses?.['200'].content?.['application/json'].schema).toEqual({ type: 'string' });
+        });
+
+        it('should ignore reserved header parameters in OpenAPI 3', () => {
+            const swaggerPaths = {
+                '/headers': {
+                    get: {
+                        operationId: 'getHeaders',
+                        parameters: [
+                            { name: 'Accept', in: 'header', schema: { type: 'string' } },
+                            { name: 'X-Trace', in: 'header', schema: { type: 'string' } },
+                            { name: 'authorization', in: 'header', schema: { type: 'string' } },
+                        ],
+                        responses: {},
+                    },
+                },
+            };
+
+            const [pathInfo] = utils.extractPaths(swaggerPaths as any, undefined, undefined, { isOpenApi3: true });
+            const names = (pathInfo.parameters || []).map(p => p.name);
+            expect(names).toEqual(['X-Trace']);
+        });
+
+        it('should resolve requestBody $ref to concrete content', () => {
+            const resolveRef = (ref: string) => {
+                if (ref === '#/components/requestBodies/Payload') {
+                    return {
+                        description: 'payload',
+                        content: {
+                            'application/json': { schema: { type: 'string' } },
+                        },
+                    };
+                }
+                return undefined;
+            };
+
+            const swaggerPaths = {
+                '/payload': {
+                    post: {
+                        requestBody: { $ref: '#/components/requestBodies/Payload' },
+                        responses: {},
+                    },
+                },
+            };
+
+            const [pathInfo] = utils.extractPaths(swaggerPaths as any, resolveRef as any);
+            expect(pathInfo.requestBody?.content?.['application/json'].schema).toEqual({ type: 'string' });
+        });
+
+        it('should resolve MediaTypeObject $ref entries in content maps', () => {
+            const swaggerPaths = {
+                '/ref': {
+                    post: {
+                        requestBody: {
+                            content: {
+                                'application/json': { $ref: '#/components/mediaTypes/JsonPayload' },
+                            },
+                        },
+                        responses: {
+                            '200': {
+                                content: {
+                                    'application/json': { $ref: '#/components/mediaTypes/JsonPayload' },
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+
+            const resolveRef = (ref: string) => {
+                if (ref === '#/components/mediaTypes/JsonPayload') {
+                    return {
+                        schema: {
+                            type: 'object',
+                            properties: {
+                                id: { type: 'string' },
+                            },
+                        },
+                    };
+                }
+                return undefined;
+            };
+
+            const [pathInfo] = utils.extractPaths(swaggerPaths as any, resolveRef as any);
+            const requestSchema = pathInfo.requestBody?.content?.['application/json'].schema as SwaggerDefinition;
+            const responseSchema = pathInfo.responses['200']?.content?.['application/json'].schema as SwaggerDefinition;
+
+            expect(requestSchema).toEqual({
+                type: 'object',
+                properties: { id: { type: 'string' } },
+            });
+            expect(responseSchema).toEqual({
+                type: 'object',
+                properties: { id: { type: 'string' } },
+            });
         });
 
         it('should normalize Swagger 2.0 collectionFormat variants', () => {

@@ -120,6 +120,41 @@ describe('Emitter: OAuthHelperGenerator', () => {
         expect(project.getSourceFile('/out/auth/oauth-redirect/oauth-redirect.component.ts')).toBeUndefined();
     });
 
+    it('should generate Device Authorization flow logic', () => {
+        const deviceSpec = {
+            openapi: '3.2.0',
+            info: { title: 'Device Flow', version: '1' },
+            paths: {},
+            components: {
+                securitySchemes: {
+                    DeviceAuth: {
+                        type: 'oauth2',
+                        flows: {
+                            deviceAuthorization: {
+                                deviceAuthorizationUrl: 'https://device.example.com/device',
+                                tokenUrl: 'https://device.example.com/token',
+                                scopes: {},
+                            },
+                        },
+                    },
+                },
+            },
+        };
+        const project = runGenerator(deviceSpec);
+        const sourceFile = project.getSourceFileOrThrow('/out/auth/oauth.service.ts');
+        const service = sourceFile.getClassOrThrow('OAuthHelperService');
+
+        expect(service.getProperty('deviceAuthorizationUrl')?.getInitializer()?.getText()).toBe(
+            "'https://device.example.com/device'",
+        );
+        expect(service.getMethod('startDeviceAuthorization')).toBeDefined();
+        expect(service.getMethod('pollDeviceToken')).toBeDefined();
+        expect(service.getProperty('http')).toBeDefined();
+
+        // Device flow does not require redirect component
+        expect(project.getSourceFile('/out/auth/oauth-redirect/oauth-redirect.component.ts')).toBeUndefined();
+    });
+
     it('should generate Implicit flow logic', () => {
         const implicitSpec = {
             openapi: '3.0.0',

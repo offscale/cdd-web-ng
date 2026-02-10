@@ -76,4 +76,18 @@ describe('Utility: ContentEncoder', () => {
         const result = ContentEncoder.encode(data, config);
         expect(result.meta).toBe('{"already":"string"}');
     });
+
+    it('should base64 encode string values when contentEncoding is set', () => {
+        const data = { payload: 'hi' };
+        const config = { properties: { payload: { contentEncoding: 'base64' } } };
+        const result = ContentEncoder.encode(data, config);
+        expect(result.payload).toBe('aGk=');
+    });
+
+    it('should base64url encode byte values without padding', () => {
+        const bytes = new Uint8Array([1, 2, 3]);
+        const config = { contentEncoding: 'base64url' };
+        const result = ContentEncoder.encode(bytes, config);
+        expect(result).toBe('AQID');
+    });
 });

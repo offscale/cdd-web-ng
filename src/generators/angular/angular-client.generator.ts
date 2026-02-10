@@ -53,6 +53,7 @@ import { LinkGenerator } from '@src/generators/shared/link.generator.js';
 import { DiscriminatorGenerator } from '@src/generators/shared/discriminator.generator.js';
 import { SecurityGenerator } from '@src/generators/shared/security.generator.js';
 import { TagGenerator } from '@src/generators/shared/tag.generator.js';
+import { SpecSnapshotGenerator } from '@src/generators/shared/spec-snapshot.generator.js';
 
 function getControllerCanonicalName(op: any): string {
     if (Array.isArray(op.tags) && op.tags[0]) {
@@ -95,6 +96,7 @@ export class AngularClientGenerator extends AbstractClientGenerator {
         new DiscriminatorGenerator(parser, project).generate(outputRoot);
         new SecurityGenerator(parser, project).generate(outputRoot);
         new TagGenerator(parser, project).generate(outputRoot);
+        new SpecSnapshotGenerator(parser, project).generate(outputRoot);
 
         // 3. Services and Angular Specifics
         if (config.options.generateServices ?? true) {

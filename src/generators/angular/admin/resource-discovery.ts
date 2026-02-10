@@ -77,6 +77,7 @@ function classifyAction(path: PathInfo, method: string): ResourceOperation['acti
 function findSchema(
     schema:
         | SwaggerDefinition
+        | boolean
         | {
               $ref: string;
           }
@@ -84,6 +85,7 @@ function findSchema(
     parser: SwaggerParser,
 ): SwaggerDefinition | undefined {
     if (!schema) return undefined;
+    if (typeof schema === 'boolean') return undefined;
     if ('$ref' in schema && typeof schema.$ref === 'string')
         return parser.resolveReference<SwaggerDefinition>(schema.$ref);
     return schema as SwaggerDefinition;
@@ -104,7 +106,12 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
         if (resSchema) allSchemas.push(resSchema);
 
         op.parameters?.forEach(param => {
-            if (param.in === 'formData' && param.schema && !('$ref' in param.schema)) {
+            if (
+                param.in === 'formData' &&
+                param.schema &&
+                typeof param.schema === 'object' &&
+                !('$ref' in param.schema)
+            ) {
                 const prop: Partial<SwaggerDefinition> = {};
                 if (param.schema.format) prop.format = param.schema.format;
                 if (param.description) prop.description = param.description;
@@ -119,9 +126,9 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
         return [{ name: 'id', schema: { type: 'string' } }];
     }
 
-    const mergedProperties: Record<string, SwaggerDefinition> = { ...formDataProperties };
+    const mergedProperties: Record<string, SwaggerDefinition | boolean> = { ...formDataProperties };
     const mergedRequired = new Set<string>();
-    let mergedOneOf: SwaggerDefinition[] | undefined, mergedDiscriminator: DiscriminatorObject | undefined;
+    let mergedOneOf: (SwaggerDefinition | boolean)[] | undefined, mergedDiscriminator: DiscriminatorObject | undefined;
 
     const assignPropertiesRecursive = (schema: SwaggerDefinition) => {
         if (schema.properties) {
@@ -157,8 +164,17 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
 
     const properties: FormProperty[] = Object.entries(finalSchema.properties!).map(([name, propSchema]) => {
         const resolvedSchema = findSchema(propSchema, parser);
-        const finalPropSchema: SwaggerDefinition = resolvedSchema ? { ...propSchema, ...resolvedSchema } : propSchema;
-        if (finalSchema.required?.includes(name)) (finalPropSchema.required ||= []).push(name);
+        const finalPropSchema =
+            resolvedSchema && typeof propSchema === 'object'
+                ? { ...(propSchema as SwaggerDefinition), ...resolvedSchema }
+                : propSchema;
+        if (
+            typeof finalPropSchema === 'object' &&
+            finalSchema.required?.includes(name) &&
+            !finalPropSchema.required?.includes(name)
+        ) {
+            (finalPropSchema.required ||= []).push(name);
+        }
         return { name, schema: finalPropSchema };
     });
 
@@ -166,7 +182,7 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
         const dPropName = finalSchema.discriminator.propertyName;
         const existingProp = properties.find(p => p.name === dPropName);
 
-        if (existingProp) {
+        if (existingProp && typeof existingProp.schema === 'object') {
             existingProp.schema.oneOf = finalSchema.oneOf;
             existingProp.schema.discriminator = finalSchema.discriminator;
         } else {
@@ -195,7 +211,7 @@ export function getModelName(resourceName: string, operations: PathInfo[]): stri
     const schema =
         op?.requestBody?.content?.['application/json']?.schema ??
         op?.responses?.['200']?.content?.['application/json']?.schema;
-    if (schema) {
+    if (schema && typeof schema === 'object') {
         const ref =
             '$ref' in schema
                 ? schema.$ref
@@ -262,7 +278,10 @@ export function discoverAdminResources(parser: SwaggerParser): Resource[] {
             isEditable: group.operations.some(op => ['POST', 'PUT', 'PATCH'].includes(op.method)),
             formProperties,
             listProperties: formProperties.filter(
-                p => !p.schema.readOnly && ['string', 'number', 'integer', 'boolean'].includes(p.schema.type as string),
+                p =>
+                    typeof p.schema === 'object' &&
+                    !p.schema.readOnly &&
+                    ['string', 'number', 'integer', 'boolean'].includes(p.schema.type as string),
             ),
         });
     }

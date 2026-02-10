@@ -129,8 +129,35 @@ export class ServiceMethodGenerator {
         let queryStringVariable = '';
         if (qsParam) {
             const pName = camelCase(qsParam.name);
-            const hint = (qsParam as any).content?.['application/json'] ? ", 'json'" : '';
-            lines.push(`const queryString = ParameterSerializer.serializeRawQuerystring(${pName}${hint});`);
+            const contentKeys = (qsParam as any).content ? Object.keys((qsParam as any).content) : [];
+            const contentType = contentKeys.length > 0 ? contentKeys[0] : undefined;
+            const isJson =
+                (qsParam as any).content?.['application/json'] ||
+                (contentType && contentType.includes('application/json'));
+
+            const args: string[] = [pName];
+            if (isJson) {
+                args.push("'json'");
+            } else if (contentType) {
+                args.push('undefined', `'${contentType}'`);
+            }
+
+            const encodingConfig =
+                contentType && (qsParam as any).content?.[contentType]?.encoding
+                    ? (qsParam as any).content?.[contentType]?.encoding
+                    : undefined;
+            if (encodingConfig) {
+                const encodingArg = JSON.stringify(encodingConfig);
+                if (args.length === 1) {
+                    args.push('undefined', `'${contentType}'`, encodingArg);
+                } else if (args.length === 2) {
+                    args.push(`'${contentType}'`, encodingArg);
+                } else {
+                    args.push(encodingArg);
+                }
+            }
+
+            lines.push(`const queryString = ParameterSerializer.serializeRawQuerystring(${args.join(', ')});`);
             queryStringVariable = "${queryString ? '?' + queryString : ''}";
         }
 

@@ -81,4 +81,70 @@ describe('Core: Types & Interfaces Coverage', () => {
         };
         expect(spec.components?.webhooks?.['myWebhook']).toBeDefined();
     });
+
+    it('should support responses, requestBodies, examples, and mediaTypes in components (OAS 3.2)', () => {
+        const spec: SwaggerSpec = {
+            openapi: '3.2.0',
+            info: { title: 'Components Extras', version: '1.0' },
+            paths: {},
+            components: {
+                responses: {
+                    Ok: { description: 'ok' },
+                },
+                requestBodies: {
+                    Payload: {
+                        content: {
+                            'application/json': { schema: { type: 'string' } },
+                        },
+                    },
+                },
+                examples: {
+                    ExampleOne: { dataValue: { foo: 'bar' } },
+                },
+                mediaTypes: {
+                    JsonPayload: { schema: { type: 'string' } },
+                },
+            },
+        };
+
+        expect(spec.components?.responses?.Ok).toBeDefined();
+        expect(spec.components?.requestBodies?.Payload).toBeDefined();
+        expect(spec.components?.examples?.ExampleOne).toBeDefined();
+        expect(spec.components?.mediaTypes?.JsonPayload).toBeDefined();
+    });
+
+    it('should support oauth2MetadataUrl in security schemes (OAS 3.2)', () => {
+        const spec: SwaggerSpec = {
+            openapi: '3.2.0',
+            info: { title: 'Security Metadata', version: '1.0' },
+            paths: {},
+            components: {
+                securitySchemes: {
+                    OAuth: {
+                        type: 'oauth2',
+                        oauth2MetadataUrl: 'https://example.com/.well-known/oauth-authorization-server',
+                        flows: {},
+                    },
+                },
+            },
+        };
+        expect(spec.components?.securitySchemes?.OAuth.oauth2MetadataUrl).toContain('.well-known');
+    });
+
+    it('should allow boolean schemas in components (JSON Schema 2020-12)', () => {
+        const spec: SwaggerSpec = {
+            openapi: '3.2.0',
+            info: { title: 'Boolean Schemas', version: '1.0' },
+            paths: {},
+            components: {
+                schemas: {
+                    AllowAny: true,
+                    AllowNone: false,
+                },
+            },
+        };
+
+        expect(spec.components?.schemas?.AllowAny).toBe(true);
+        expect(spec.components?.schemas?.AllowNone).toBe(false);
+    });
 });

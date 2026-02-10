@@ -9,7 +9,9 @@ interface OAuthFlowConfig {
     hasPassword: boolean;
     hasClientCredentials: boolean;
     hasAuthorizationCode: boolean;
+    hasDeviceAuthorization: boolean;
     authorizationUrl?: string;
+    deviceAuthorizationUrl?: string;
     tokenUrl?: string;
 }
 
@@ -34,6 +36,7 @@ export class OAuthHelperGenerator {
             hasPassword: false,
             hasClientCredentials: false,
             hasAuthorizationCode: false,
+            hasDeviceAuthorization: false,
         };
 
         for (const scheme of oauthSchemes) {
@@ -61,6 +64,12 @@ export class OAuthHelperGenerator {
                         config.authorizationUrl = (scheme.flows.authorizationCode as any).authorizationUrl;
                     if (!config.tokenUrl) config.tokenUrl = (scheme.flows.authorizationCode as any).tokenUrl;
                 }
+                if (scheme.flows.deviceAuthorization) {
+                    config.hasDeviceAuthorization = true;
+                    if (!config.deviceAuthorizationUrl)
+                        config.deviceAuthorizationUrl = (scheme.flows.deviceAuthorization as any).deviceAuthorizationUrl;
+                    if (!config.tokenUrl) config.tokenUrl = (scheme.flows.deviceAuthorization as any).tokenUrl;
+                }
             }
         }
 
@@ -85,7 +94,7 @@ export class OAuthHelperGenerator {
             { moduleSpecifier: 'angular-oauth2-oidc', namedImports: ['OAuthService', 'AuthConfig'] },
         ];
 
-        if (config.hasPassword || config.hasClientCredentials) {
+        if (config.hasPassword || config.hasClientCredentials || config.hasDeviceAuthorization) {
             imports.push({ moduleSpecifier: '@angular/common/http', namedImports: ['HttpClient', 'HttpHeaders'] });
         }
 
@@ -105,7 +114,7 @@ export class OAuthHelperGenerator {
             { name: 'TOKEN_KEY', isReadonly: true, scope: Scope.Private, initializer: "'oauth_token'" },
         ]);
 
-        if (config.hasPassword || config.hasClientCredentials) {
+        if (config.hasPassword || config.hasClientCredentials || config.hasDeviceAuthorization) {
             serviceClass.addProperty({
                 name: 'http',
                 scope: Scope.Private,
@@ -128,6 +137,13 @@ export class OAuthHelperGenerator {
                 initializer: `'${config.tokenUrl}'`,
             });
         }
+        if (config.deviceAuthorizationUrl) {
+            serviceClass.addProperty({
+                name: 'deviceAuthorizationUrl',
+                isReadonly: true,
+                initializer: `'${config.deviceAuthorizationUrl}'`,
+            });
+        }
 
         // Methods
         this.addCommonMethods(serviceClass);
@@ -143,6 +159,9 @@ export class OAuthHelperGenerator {
         }
         if (config.hasClientCredentials) {
             this.addClientCredentialsMethods(serviceClass);
+        }
+        if (config.hasDeviceAuthorization) {
+            this.addDeviceAuthorizationMethods(serviceClass);
         }
 
         sourceFile.formatText();
@@ -241,6 +260,69 @@ export class OAuthHelperGenerator {
         body.set('grant_type', 'client_credentials');
         body.set('client_id', clientId);
         body.set('client_secret', clientSecret);
+
+        return new Promise((resolve, reject) => {
+            this.http.post(this.tokenUrl, body.toString(), {
+                headers: new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' })
+            }).subscribe({
+                next: (res: any) => {
+                    if (res.access_token) this.setToken(res.access_token);
+                    resolve(res);
+                },
+                error: reject
+            });
+        });`,
+        });
+    }
+
+    private addDeviceAuthorizationMethods(serviceClass: ClassDeclaration): void {
+        serviceClass.addMethod({
+            name: 'startDeviceAuthorization',
+            docs: [
+                'Initiates the OAuth2 Device Authorization flow.',
+                '@param clientId The OAuth client ID.',
+                '@param scope Optional space-delimited scopes.',
+            ],
+            parameters: [
+                { name: 'clientId', type: 'string' },
+                { name: 'scope', type: 'string', hasQuestionToken: true },
+            ],
+            returnType: 'Promise<any>',
+            statements: `
+        const body = new URLSearchParams();
+        body.set('client_id', clientId);
+        if (scope) body.set('scope', scope);
+
+        return new Promise((resolve, reject) => {
+            this.http.post(this.deviceAuthorizationUrl, body.toString(), {
+                headers: new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' })
+            }).subscribe({
+                next: (res: any) => resolve(res),
+                error: reject
+            });
+        });`,
+        });
+
+        serviceClass.addMethod({
+            name: 'pollDeviceToken',
+            docs: [
+                'Polls the token endpoint for a device authorization token.',
+                '@param deviceCode The device_code received from startDeviceAuthorization.',
+                '@param clientId The OAuth client ID.',
+                '@param clientSecret Optional client secret.',
+            ],
+            parameters: [
+                { name: 'deviceCode', type: 'string' },
+                { name: 'clientId', type: 'string' },
+                { name: 'clientSecret', type: 'string', hasQuestionToken: true },
+            ],
+            returnType: 'Promise<any>',
+            statements: `
+        const body = new URLSearchParams();
+        body.set('grant_type', 'urn:ietf:params:oauth:grant-type:device_code');
+        body.set('device_code', deviceCode);
+        body.set('client_id', clientId);
+        if (clientSecret) body.set('client_secret', clientSecret);
 
         return new Promise((resolve, reject) => {
             this.http.post(this.tokenUrl, body.toString(), {

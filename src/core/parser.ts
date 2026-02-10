@@ -33,7 +33,7 @@ export class SwaggerParser {
     public readonly config: GeneratorConfig;
     public readonly documentUri: string;
 
-    public readonly schemas: { name: string; definition: SwaggerDefinition }[];
+    public readonly schemas: { name: string; definition: SwaggerDefinition | boolean }[];
     public readonly servers: ServerObject[];
     public readonly operations: PathInfo[];
     public readonly webhooks: PathInfo[];
@@ -92,8 +92,9 @@ export class SwaggerParser {
         const resolveRef = (ref: string) => this.resolveReference(ref);
 
         // Pass components context to extractPaths for strict security matching
-        this.operations = extractPaths(this.spec.paths, resolveRef, this.spec.components);
-        this.webhooks = extractPaths(this.spec.webhooks, resolveRef, this.spec.components);
+        const extractOptions = { isOpenApi3: !!this.spec.openapi };
+        this.operations = extractPaths(this.spec.paths, resolveRef, this.spec.components, extractOptions);
+        this.webhooks = extractPaths(this.spec.webhooks, resolveRef, this.spec.components, extractOptions);
 
         this.security = this.getSecuritySchemes();
         this.links = this.getLinks();
@@ -166,14 +167,29 @@ export class SwaggerParser {
     }
 
     public getJsonSchemaDialect(): string | undefined {
-        return this.spec.jsonSchemaDialect || (this.spec.openapi?.startsWith('3.1') ? OAS_3_1_DIALECT : undefined);
+        if (this.spec.jsonSchemaDialect) {
+            return this.spec.jsonSchemaDialect;
+        }
+
+        const openapiVersion = this.spec.openapi;
+        if (!openapiVersion) return undefined;
+
+        const match = openapiVersion.match(/^3\.(\d+)/);
+        if (!match) return undefined;
+
+        const minor = Number(match[1]);
+        if (!Number.isNaN(minor) && minor >= 1) {
+            return OAS_3_1_DIALECT;
+        }
+
+        return undefined;
     }
 
-    public getDefinitions(): Record<string, SwaggerDefinition> {
+    public getDefinitions(): Record<string, SwaggerDefinition | boolean> {
         return this.spec.definitions || this.spec.components?.schemas || {};
     }
 
-    public getDefinition(name: string): SwaggerDefinition | undefined {
+    public getDefinition(name: string): SwaggerDefinition | boolean | undefined {
         return this.getDefinitions()[name];
     }
 

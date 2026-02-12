@@ -1,4 +1,5 @@
 import { OptionalKind, ParameterDeclarationStructure } from 'ts-morph';
+import { ServerObject } from '@src/core/types/index.js';
 
 /**
  * Represents the serialization strategy for a specific parameter.
@@ -10,6 +11,10 @@ export interface ParamSerialization {
     style?: string;
     explode: boolean;
     allowReserved: boolean;
+    /** Media type when the parameter uses `content` instead of `schema`. */
+    contentType?: string;
+    /** Encoding map when the parameter uses `content` with form media types. */
+    encoding?: Record<string, any>;
     /**
      * Explicit hint if complex serialization needed.
      * - 'json': Standard JSON.stringify
@@ -104,6 +109,11 @@ export interface ServiceMethodModel {
 
     // Body Logic
     body?: BodyVariant;
+    /**
+     * The selected request body Content-Type (if any).
+     * Used to set explicit Content-Type headers for non-JSON payloads.
+     */
+    requestContentType?: string;
 
     // Context / Config
     /** Effective security requirements */
@@ -112,4 +122,6 @@ export interface ServiceMethodModel {
     extensions: Record<string, any>;
     hasServers: boolean; // If true, method overrides base path
     basePath?: string; // If hasServers is true
+    /** Operation-level servers (if defined), used for per-request server selection */
+    operationServers?: ServerObject[];
 }

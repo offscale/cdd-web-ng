@@ -9,7 +9,7 @@ import { GeneratorConfig, PathInfo } from '@src/core/types/index.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { ServiceMethodAnalyzer } from '@src/analysis/service-method-analyzer.js';
 import { ResponseVariant, ServiceMethodModel } from '@src/analysis/service-method-types.js';
-import { camelCase, pascalCase } from '@src/core/utils/index.js';
+import { camelCase, pascalCase, sanitizeComment } from '@src/core/utils/index.js';
 
 export class ServiceMethodGenerator {
     private analyzer: ServiceMethodAnalyzer;
@@ -46,6 +46,7 @@ export class ServiceMethodGenerator {
         }
 
         const isSSE = model.responseSerialization === 'sse';
+        const serverOptionType = '{ server?: number | string; serverVariables?: Record<string, string> }';
 
         // Determine if we need content negotiation overloads
         // We have negotiation if there are multiple valid success variants with different mediaTypes
@@ -62,6 +63,7 @@ export class ServiceMethodGenerator {
             model.isDeprecated,
             isSSE,
             model.responseVariants,
+            serverOptionType,
         );
 
         // Default return type for implementation signature (widest type)
@@ -72,10 +74,12 @@ export class ServiceMethodGenerator {
             returnType = `Observable<${unionType}>`;
         }
 
-        const docs = model.docs ? [model.docs] : [];
-        if (errorTypeAlias) {
-            docs.push(`\n@throws {${errorTypeAlias}}`);
-        }
+        const responseTags = this.buildResponseTags(operation);
+        const docLines: string[] = [];
+        if (model.docs) docLines.push(model.docs);
+        if (errorTypeAlias) docLines.push(`@throws {${errorTypeAlias}}`);
+        if (responseTags.length > 0) docLines.push(...responseTags);
+        const docs = docLines.length > 0 ? [docLines.join('\n')] : [];
 
         classDeclaration.addMethod({
             name: model.methodName,
@@ -84,7 +88,7 @@ export class ServiceMethodGenerator {
                 {
                     name: 'options',
                     hasQuestionToken: true,
-                    type: `RequestOptions & { observe?: 'body' | 'events' | 'response', responseType?: 'arraybuffer' | 'blob' | 'json' | 'text' }`,
+                    type: `RequestOptions & { observe?: 'body' | 'events' | 'response', responseType?: 'arraybuffer' | 'blob' | 'json' | 'text' } & ${serverOptionType}`,
                 },
             ],
             returnType: returnType,
@@ -92,6 +96,28 @@ export class ServiceMethodGenerator {
             overloads: overloads,
             docs: docs,
         });
+    }
+
+    private buildResponseTags(operation: PathInfo): string[] {
+        if (!operation.responses) return [];
+        const tags: string[] = [];
+
+        Object.entries(operation.responses).forEach(([code, resp]) => {
+            const description = resp?.description ? sanitizeComment(resp.description) : '';
+            const mediaTypes = resp?.content ? Object.keys(resp.content) : [];
+
+            if (mediaTypes.length === 0) {
+                tags.push(`@response ${code}${description ? ` ${description}` : ''}`);
+                return;
+            }
+
+            mediaTypes.forEach(mediaType => {
+                const base = `@response ${code} ${mediaType}`;
+                tags.push(description ? `${base} ${description}` : base);
+            });
+        });
+
+        return tags;
     }
 
     private emitMethodBody(
@@ -162,10 +188,15 @@ export class ServiceMethodGenerator {
         }
 
         // 4. Base Path
-        if (model.hasServers && model.basePath) {
-            lines.push(`const basePath = '${model.basePath}';`);
+        if (model.operationServers && model.operationServers.length > 0) {
+            lines.push(`const operationServers = ${JSON.stringify(model.operationServers, null, 2)};`);
+            lines.push(
+                `const basePath = resolveServerUrl(operationServers, options?.server ?? 0, options?.serverVariables ?? {});`,
+            );
         } else {
-            lines.push(`const basePath = this.basePath;`);
+            lines.push(
+                `const basePath = (options?.server !== undefined || options?.serverVariables !== undefined) ? getServerUrl(options?.server ?? 0, options?.serverVariables ?? {}) : this.basePath;`,
+            );
         }
         lines.push(`const url = \`\${basePath}${urlTemplate}${queryStringVariable}\`;`);
 
@@ -187,6 +218,8 @@ export class ServiceMethodGenerator {
                     serialization: p.serializationLink,
                     // Support for OAS 3.2 allowEmptyValue - passed via config object
                     allowEmptyValue: (p as any).allowEmptyValue,
+                    ...(p.contentType ? { contentType: p.contentType } : {}),
+                    ...(p.encoding ? { encoding: p.encoding } : {}),
                 });
                 lines.push(
                     `const serialized_${p.paramName} = ParameterSerializer.serializeQueryParam(${configObj}, ${p.paramName});`,
@@ -202,9 +235,22 @@ export class ServiceMethodGenerator {
             `let headers = options?.headers instanceof HttpHeaders ? options.headers : new HttpHeaders(options?.headers ?? {});`,
         );
         model.headerParams.forEach(p => {
-            const hint = p.serializationLink === 'json' ? ", 'json'" : '';
+            const headerArgs: string[] = [p.paramName, `${p.explode}`];
+            if (p.serializationLink === 'json') {
+                headerArgs.push("'json'");
+            } else if (p.contentType || p.encoding) {
+                headerArgs.push('undefined');
+            }
+            if (p.contentType) {
+                headerArgs.push(`'${p.contentType}'`);
+            } else if (p.encoding) {
+                headerArgs.push('undefined');
+            }
+            if (p.encoding) {
+                headerArgs.push(JSON.stringify(p.encoding));
+            }
             lines.push(
-                `if (${p.paramName} != null) { headers = headers.set('${p.originalName}', ParameterSerializer.serializeHeaderParam(${p.paramName}, ${p.explode}${hint})); }`,
+                `if (${p.paramName} != null) { headers = headers.set('${p.originalName}', ParameterSerializer.serializeHeaderParam(${headerArgs.join(', ')})); }`,
             );
         });
 
@@ -303,8 +349,18 @@ export class ServiceMethodGenerator {
                 }
             } else if (body.type === 'urlencoded') {
                 // Use generic serializer then adapt to Angular HttpParams
+                let encodedBodyName = body.paramName;
+                if (model.requestEncodingConfig) {
+                    encodedBodyName = 'encodedBody';
+                    lines.push(`let encodedBody = ${body.paramName};`);
+                    lines.push(`if (encodedBody !== null && encodedBody !== undefined) {`);
+                    lines.push(
+                        `  encodedBody = ContentEncoder.encode(encodedBody, ${JSON.stringify(model.requestEncodingConfig)});`,
+                    );
+                    lines.push(`}`);
+                }
                 lines.push(
-                    `const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(${body.paramName}, ${JSON.stringify(body.config)});`,
+                    `const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(${encodedBodyName}, ${JSON.stringify(body.config)});`,
                 );
                 lines.push(`let formBody = new HttpParams({ encoder: new ApiParameterCodec() });`);
                 lines.push(`urlParamEntries.forEach(entry => formBody = formBody.append(entry.key, entry.value));`);
@@ -314,9 +370,12 @@ export class ServiceMethodGenerator {
                 lines.push(`const multipartResult = MultipartBuilder.serialize(${body.paramName}, multipartConfig);`);
                 lines.push(`if (multipartResult.headers) {`);
                 lines.push(
-                    `  const newHeaders = requestOptions.headers instanceof HttpHeaders ? requestOptions.headers : new HttpHeaders(requestOptions.headers || {});`,
+                    `  let newHeaders = requestOptions.headers instanceof HttpHeaders ? requestOptions.headers : new HttpHeaders(requestOptions.headers || {});`,
                 );
-                lines.push(`  Object.entries(multipartResult.headers).forEach(([k, v]) => newHeaders.set(k, v));`);
+                lines.push(
+                    `  Object.entries(multipartResult.headers).forEach(([k, v]) => { newHeaders = newHeaders.set(k, v as string); });`,
+                );
+                lines.push(`  headers = newHeaders;`);
                 lines.push(`  requestOptions = { ...requestOptions, headers: newHeaders };`);
                 lines.push(`}`);
                 bodyArgument = 'multipartResult.content';
@@ -327,6 +386,19 @@ export class ServiceMethodGenerator {
                 bodyArgument = 'xmlBody';
             }
         }
+
+        if (
+            body &&
+            model.requestContentType &&
+            body.type !== 'multipart' &&
+            body.type !== 'encoded-form-data'
+        ) {
+            lines.push(
+                `if (${body.paramName} != null && !headers.has('Content-Type')) { headers = headers.set('Content-Type', '${model.requestContentType}'); }`,
+            );
+        }
+
+        lines.push(`requestOptions = { ...requestOptions, headers };`);
 
         if (isSSE) {
             lines.push(`
@@ -449,6 +521,7 @@ export class ServiceMethodGenerator {
         isDeprecated: boolean,
         isSSE: boolean,
         variants: ResponseVariant[],
+        serverOptionType: string,
     ): OptionalKind<MethodDeclarationOverloadStructure>[] {
         const paramsDocs = parameters
             .map(p => `@param ${p.name} ${p.hasQuestionToken ? '(optional) ' : ''}`)
@@ -479,7 +552,7 @@ export class ServiceMethodGenerator {
                         {
                             name: 'options',
                             hasQuestionToken: false,
-                            type: `RequestOptions & { headers: { 'Accept': '${variant.mediaType}' } }`,
+                            type: `RequestOptions & { headers: { 'Accept': '${variant.mediaType}' } } & ${serverOptionType}`,
                         },
                     ],
                     returnType: `Observable<${variant.type}>`,
@@ -496,7 +569,7 @@ export class ServiceMethodGenerator {
                 {
                     name: 'options',
                     hasQuestionToken: true,
-                    type: `RequestOptions & { observe?: 'body' }`,
+                    type: `RequestOptions & { observe?: 'body' } & ${serverOptionType}`,
                 },
             ],
             returnType: `Observable<${defaultResponseType}>`,
@@ -509,7 +582,7 @@ export class ServiceMethodGenerator {
                 {
                     name: 'options',
                     hasQuestionToken: false,
-                    type: `RequestOptions & { observe: 'response' }`,
+                    type: `RequestOptions & { observe: 'response' } & ${serverOptionType}`,
                 },
             ],
             returnType: `Observable<HttpResponse<${defaultResponseType}>>`,
@@ -524,7 +597,7 @@ export class ServiceMethodGenerator {
                 {
                     name: 'options',
                     hasQuestionToken: false,
-                    type: `RequestOptions & { observe: 'events' }`,
+                    type: `RequestOptions & { observe: 'events' } & ${serverOptionType}`,
                 },
             ],
             returnType: `Observable<HttpEvent<${defaultResponseType}>>`,

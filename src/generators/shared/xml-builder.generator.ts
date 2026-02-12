@@ -29,13 +29,14 @@ export class XmlBuilderGenerator {
                 },
                 { name: 'properties', type: 'Record<string, XmlPropertyConfig>', hasQuestionToken: true },
                 { name: 'items', type: 'XmlPropertyConfig', hasQuestionToken: true },
+                { name: 'prefixItems', type: 'XmlPropertyConfig[]', hasQuestionToken: true },
             ],
         });
 
         const classDeclaration = sourceFile.addClass({
             name: 'XmlBuilder',
             isExported: true,
-            docs: ['Utility to serialize objects to XML based on OpenAPI metadata.'],
+            docs: ['Utility to serialize objects to XML based on OpenAPI metadata (including prefixItems ordering).'],
         });
 
         classDeclaration.addMethod({
@@ -99,11 +100,21 @@ export class XmlBuilderGenerator {
     // 3. Handle Arrays
     if (Array.isArray(data)) { 
         const itemConfig = config.items || {}; 
+        const prefixItems = Array.isArray(config.prefixItems) ? config.prefixItems : []; 
         const isWrapped = config.wrapped || nodeType === 'element'; 
 
+        const resolveItemConfig = (index: number) => (index < prefixItems.length ? prefixItems[index] : itemConfig); 
+        const resolveItemName = (cfg: any, fallback: string) => (cfg && cfg.name ? cfg.name : fallback); 
+
         if (isWrapped && !isNone) { 
-             const itemTagName = itemConfig.name || 'item'; 
-             const inner = data.map(item => this.buildElement(itemTagName, item, itemConfig)).join(''); 
+             const defaultItemName = resolveItemName(itemConfig, name); 
+             const inner = data
+                 .map((item, index) => { 
+                     const cfg = resolveItemConfig(index) || {}; 
+                     const itemTagName = resolveItemName(cfg, defaultItemName); 
+                     return this.buildElement(itemTagName, item, cfg); 
+                 })
+                 .join(''); 
              let wrapperAttrs = ''; 
              if (config.namespace) { 
                  wrapperAttrs = config.prefix 
@@ -112,7 +123,13 @@ export class XmlBuilderGenerator {
              } 
              return \`<\${name}\${wrapperAttrs}>\${inner}</\${name}>\`; 
         } else { 
-             return data.map(item => this.buildElement(name, item, itemConfig)).join(''); 
+             return data
+                 .map((item, index) => { 
+                     const cfg = resolveItemConfig(index) || {}; 
+                     const itemTagName = resolveItemName(cfg, name); 
+                     return this.buildElement(itemTagName, item, cfg); 
+                 })
+                 .join(''); 
         } 
     } 
     

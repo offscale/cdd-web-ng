@@ -52,15 +52,17 @@ export class ServerUrlGenerator {
         const lookupParamType = 'number | string';
 
         sourceFile.addFunction({
-            name: 'getServerUrl',
+            name: 'resolveServerUrl',
             isExported: true,
             parameters: [
+                { name: 'servers', type: 'ServerConfiguration[]' },
                 { name: 'indexOrDescription', type: lookupParamType, initializer: '0' },
                 { name: 'variables', type: 'Record<string, string>', hasQuestionToken: true },
             ],
             returnType: 'string',
             docs: [
-                'Gets the URL for a specific server definition.',
+                'Resolves a server URL from a provided server list.',
+                '@param servers The list of servers to resolve against (operation-level or global).',
                 '@param indexOrDescription The index of the server, or its name (OAS 3.2), or description.',
                 "@param variables A dictionary of variable values (e.g. { port: '8080' }) to override defaults.",
             ],
@@ -69,12 +71,12 @@ export class ServerUrlGenerator {
                 writer
                     .writeLine("if (typeof indexOrDescription === 'number') {")
                     .indent(() => {
-                        writer.writeLine('server = API_SERVERS[indexOrDescription];');
+                        writer.writeLine('server = servers[indexOrDescription];');
                     })
                     .writeLine('} else {')
                     .indent(() => {
                         writer.writeLine(
-                            'server = API_SERVERS.find(s => s.name === indexOrDescription || s.description === indexOrDescription);',
+                            'server = servers.find(s => s.name === indexOrDescription || s.description === indexOrDescription);',
                         );
                     })
                     .writeLine('}');
@@ -108,6 +110,24 @@ export class ServerUrlGenerator {
                     })
                     .writeLine('}');
                 writer.writeLine('return url;');
+            },
+        });
+
+        sourceFile.addFunction({
+            name: 'getServerUrl',
+            isExported: true,
+            parameters: [
+                { name: 'indexOrDescription', type: lookupParamType, initializer: '0' },
+                { name: 'variables', type: 'Record<string, string>', hasQuestionToken: true },
+            ],
+            returnType: 'string',
+            docs: [
+                'Gets the URL for a specific server definition.',
+                '@param indexOrDescription The index of the server, or its name (OAS 3.2), or description.',
+                "@param variables A dictionary of variable values (e.g. { port: '8080' }) to override defaults.",
+            ],
+            statements: writer => {
+                writer.writeLine('return resolveServerUrl(API_SERVERS, indexOrDescription, variables);');
             },
         });
 

@@ -57,13 +57,17 @@ const formGenCoverageSpec = {
                     '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/NoSubmit' } } } },
                 },
             },
-            delete: { tags: ['NoSubmit'], parameters: [{ name: 'id', in: 'path' }], responses: { '204': {} } }, // isEditable = true if we add custom action
+            delete: {
+                tags: ['NoSubmit'],
+                parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+                responses: { '204': {} },
+            }, // isEditable = true if we add custom action
         },
         '/no-submit/{id}/custom': {
             post: {
                 tags: ['NoSubmit'],
                 operationId: 'customAction',
-                parameters: [{ name: 'id', in: 'path' }],
+                parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
                 responses: { '200': {} },
             },
         },
@@ -76,7 +80,7 @@ const formGenCoverageSpec = {
             },
             put: {
                 tags: ['SimpleForm'],
-                parameters: [{ name: 'id', in: 'path' }],
+                parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
                 requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/Simple' } } } },
                 responses: { '200': {} },
             },

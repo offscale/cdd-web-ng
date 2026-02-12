@@ -23,6 +23,7 @@ export interface PathInfo {
     externalDocs?: ExternalDocumentationObject;
     tags?: string[];
     consumes?: string[];
+    produces?: string[];
     parameters?: Parameter[];
     requestBody?: RequestBody;
     responses?: Record<string, SwaggerResponse>;

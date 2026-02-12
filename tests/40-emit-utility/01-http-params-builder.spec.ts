@@ -143,6 +143,12 @@ describe('Utility: HttpParamsBuilder', () => {
             expect(res.get('p')).toBe('a%7Cb');
         });
 
+        it('should serialize tabDelimited arrays with encoded tab', () => {
+            const params = createParams();
+            const res = Builder.serializeQueryParam(params, { name: 't', style: 'tabDelimited' }, ['a', 'b']);
+            expect(res.get('t')).toBe('a%09b');
+        });
+
         // New OAS 3.2 allowEmptyValue Tests
         it('should emit empty string if allowEmptyValue is true and value is null', () => {
             const params = createParams();

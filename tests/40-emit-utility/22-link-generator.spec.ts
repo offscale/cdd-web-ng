@@ -86,6 +86,14 @@ const complexLinkSpec: SwaggerSpec = {
                 },
             },
         },
+        '/other': {
+            get: {
+                operationId: 'getOther',
+                responses: {
+                    '200': { description: 'ok' },
+                },
+            },
+        },
     },
     components: {},
 };
@@ -116,6 +124,37 @@ const brokenRefsSpec: SwaggerSpec = {
                         },
                     },
                 },
+            },
+        },
+    },
+    components: {},
+};
+
+const webhookLinkSpec: SwaggerSpec = {
+    openapi: '3.2.0',
+    info: { title: 'Webhook Link Test', version: '1.0' },
+    paths: {
+        '/trigger': {
+            post: {
+                operationId: 'triggerWebhook',
+                responses: {
+                    '200': {
+                        description: 'ok',
+                        links: {
+                            NotifyWebhook: {
+                                operationRef: '#/webhooks/user.created/post',
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    },
+    webhooks: {
+        'user.created': {
+            post: {
+                operationId: 'handleUserCreated',
+                responses: { '200': { description: 'ok' } },
             },
         },
     },
@@ -190,7 +229,7 @@ describe('Emitter: LinkGenerator', () => {
         expect(link.parameters).toEqual({ orderId: '$request.path.id' });
     });
 
-    it('should copy all Link fields including operationRef, requestBody, server', () => {
+    it('should resolve operationRef to operationId and preserve operationRef, requestBody, server', () => {
         const project = runGenerator(complexLinkSpec);
         const { API_LINKS } = compileGeneratedFile(project);
 
@@ -200,9 +239,18 @@ describe('Emitter: LinkGenerator', () => {
         expect(link.server).toEqual({ url: 'https://other.com' });
 
         // Verify omitted fields
-        expect(link.operationId).toBeUndefined();
+        expect(link.operationId).toBe('getOther');
         expect(link.description).toBeUndefined();
         expect(link.parameters).toBeUndefined();
+    });
+
+    it('should resolve operationRef that targets webhooks', () => {
+        const project = runGenerator(webhookLinkSpec);
+        const { API_LINKS } = compileGeneratedFile(project);
+
+        const link = API_LINKS['triggerWebhook']['200']['NotifyWebhook'];
+        expect(link.operationRef).toBe('#/webhooks/user.created/post');
+        expect(link.operationId).toBe('handleUserCreated');
     });
 
     it('should ignore operations without identifiers or links', () => {

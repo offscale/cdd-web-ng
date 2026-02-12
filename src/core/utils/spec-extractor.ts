@@ -42,20 +42,22 @@ type UnifiedParameter = SwaggerOfficialParameter & {
  * @param swaggerPaths The raw `paths` object from the specification.
  * @param resolveRef Optional callback to resolve `$ref` pointers within path items.
  * @param components Optional components object for resolving security precedence.
- * @param options Optional flags (e.g., `isOpenApi3`) to enable OAS-specific behavior.
+ * @param options Optional flags (e.g., `isOpenApi3`) and Swagger 2 defaults to enable OAS-specific behavior.
  * @returns An array of normalized `PathInfo` objects ready for analysis.
  */
 export function extractPaths(
     swaggerPaths: { [p: string]: PathItem } | undefined,
     resolveRef?: (ref: string) => unknown,
     components?: { securitySchemes?: Record<string, any> } | undefined,
-    options?: { isOpenApi3?: boolean },
+    options?: { isOpenApi3?: boolean; defaultConsumes?: string[]; defaultProduces?: string[] },
 ): PathInfo[] {
     if (!swaggerPaths) {
         return [];
     }
 
     const isOpenApi3 = options?.isOpenApi3 === true;
+    const defaultConsumes = options?.defaultConsumes;
+    const defaultProduces = options?.defaultProduces;
     const reservedHeaderNames = new Set(['accept', 'content-type', 'authorization']);
 
     const paths: PathInfo[] = [];
@@ -91,6 +93,10 @@ export function extractPaths(
         if (!headers) return undefined;
         const resolvedHeaders: Record<string, HeaderObject> = {};
         for (const [name, header] of Object.entries(headers)) {
+            if (name.toLowerCase() === 'content-type') {
+                // OAS 3.2: Response header definitions named "Content-Type" are ignored.
+                continue;
+            }
             const resolvedHeader = resolveMaybeRef<HeaderObject>(header as any);
             if (resolvedHeader) {
                 resolvedHeaders[name] = resolvedHeader;
@@ -231,6 +237,10 @@ export function extractPaths(
                                 param.style = 'spaceDelimited';
                                 param.explode = false;
                                 break;
+                            case 'tsv':
+                                param.style = 'tabDelimited';
+                                param.explode = false;
+                                break;
                             case 'pipes':
                                 param.style = 'pipeDelimited';
                                 param.explode = false;
@@ -280,7 +290,20 @@ export function extractPaths(
                     resolveMaybeRef<RequestBody>(operation.requestBody as any) ??
                     (operation.requestBody as RequestBody);
             } else if (bodyParam) {
-                requestBody = { content: { 'application/json': { schema: bodyParam.schema } } };
+                const consumes =
+                    (operation.consumes && operation.consumes.length > 0
+                        ? operation.consumes
+                        : defaultConsumes) || ['application/json'];
+
+                const content: Record<string, MediaTypeObject> = {};
+                consumes.forEach(mediaType => {
+                    content[mediaType] = { schema: bodyParam.schema as SwaggerDefinition };
+                });
+
+                requestBody = { content };
+
+                if (bodyParam.description) requestBody.description = bodyParam.description;
+                if (bodyParam.required !== undefined) requestBody.required = bodyParam.required;
             }
             if (requestBody?.content) {
                 const resolvedContent = resolveContentMap(requestBody.content as any);
@@ -298,12 +321,22 @@ export function extractPaths(
                     const headers = resolveHeaders((resolvedResp as any).headers as Record<string, HeaderObject>);
 
                     if (swagger2Response && swagger2Response.schema !== undefined) {
+                        const produces =
+                            (operation.produces && operation.produces.length > 0
+                                ? operation.produces
+                                : defaultProduces) || ['application/json'];
+
+                        const content: Record<string, MediaTypeObject> = {};
+                        produces.forEach(mediaType => {
+                            content[mediaType] = {
+                                schema: swagger2Response.schema as unknown as SwaggerDefinition,
+                            };
+                        });
+
                         normalizedResponses[code] = {
                             description: swagger2Response.description,
                             headers: headers,
-                            content: {
-                                'application/json': { schema: swagger2Response.schema as unknown as SwaggerDefinition },
-                            },
+                            content,
                         };
                     } else {
                         const resolvedContent = resolveContentMap((resolvedResp as SwaggerResponse).content as any);
@@ -353,7 +386,16 @@ export function extractPaths(
             if (description) pathInfo.description = description;
 
             if (operation.tags) pathInfo.tags = operation.tags;
-            if (operation.consumes) pathInfo.consumes = operation.consumes;
+            if (operation.consumes) {
+                pathInfo.consumes = operation.consumes;
+            } else if (!isOpenApi3 && defaultConsumes) {
+                pathInfo.consumes = defaultConsumes;
+            }
+            if (operation.produces) {
+                pathInfo.produces = operation.produces;
+            } else if (!isOpenApi3 && defaultProduces) {
+                pathInfo.produces = defaultProduces;
+            }
             if (operation.deprecated) pathInfo.deprecated = operation.deprecated;
             if (operation.externalDocs) pathInfo.externalDocs = operation.externalDocs;
             if (effectiveSecurity) pathInfo.security = effectiveSecurity;

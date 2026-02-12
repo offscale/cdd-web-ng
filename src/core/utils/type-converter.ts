@@ -174,6 +174,19 @@ function getArrayType(schema: SwaggerDefinition, config: GeneratorConfig, knownT
             const innerType = getTypeScriptType(itemsSchema, config, knownTypes);
             const safeInnerType = innerType.includes('|') || innerType.includes('&') ? `(${innerType})` : innerType;
             restType = `, ...${safeInnerType}[]`;
+        } else if (schema.unevaluatedItems !== undefined) {
+            // JSON Schema 2020-12: unevaluatedItems applies to remaining tuple items
+            const unevaluated = schema.unevaluatedItems;
+            if (unevaluated === true) {
+                restType = `, ...any[]`;
+            } else if (unevaluated === false) {
+                restType = '';
+            } else {
+                const innerType = getTypeScriptType(unevaluated as SwaggerDefinition, config, knownTypes);
+                const safeInnerType =
+                    innerType.includes('|') || innerType.includes('&') ? `(${innerType})` : innerType;
+                restType = `, ...${safeInnerType}[]`;
+            }
         }
 
         return `[${prefixTypes.join(', ')}${restType}]`;
@@ -181,7 +194,7 @@ function getArrayType(schema: SwaggerDefinition, config: GeneratorConfig, knownT
 
     if (Array.isArray(schema.items))
         return `[${schema.items.map(s => getTypeScriptType(s, config, knownTypes)).join(', ')}]`;
-    const itemsSchema = schema.items ?? {};
+    const itemsSchema = schema.items ?? schema.unevaluatedItems ?? {};
     const itemsType = getTypeScriptType(itemsSchema as SwaggerDefinition | boolean, config, knownTypes);
     return itemsType.includes('|') || itemsType.includes('&') ? `(${itemsType})[]` : `${itemsType}[]`;
 }
@@ -196,6 +209,18 @@ function getObjectType(schema: SwaggerDefinition, config: GeneratorConfig, known
                 ? 'any'
                 : getTypeScriptType(schema.additionalProperties as SwaggerDefinition, config, knownTypes);
         indexSignatureTypes.push(valueType);
+    }
+
+    // 1b. patternProperties (JSON Schema 2020-12)
+    if (schema.patternProperties && typeof schema.patternProperties === 'object') {
+        const patternTypes = Object.values(schema.patternProperties)
+            .map(patternSchema =>
+                getTypeScriptType(patternSchema as SwaggerDefinition | boolean, config, knownTypes),
+            )
+            .filter(Boolean);
+        if (patternTypes.length > 0) {
+            indexSignatureTypes.push(...patternTypes);
+        }
     }
 
     // 2. unevaluatedProperties (OAS 3.1)

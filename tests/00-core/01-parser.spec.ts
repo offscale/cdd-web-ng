@@ -9,6 +9,7 @@ import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig, SwaggerSpec } from '@src/core/types/index.js';
 import { JSON_SCHEMA_2020_12_DIALECT, OAS_3_1_DIALECT } from '@src/core/constants.js';
 import * as validator from '@src/core/validator.js';
+import { ReferenceResolver } from '@src/core/parser/reference-resolver.js';
 
 import { parserCoverageSpec } from '../shared/specs.js';
 
@@ -160,7 +161,71 @@ describe('Core: SwaggerParser', () => {
             expect(parser.servers[1].url).toBe('https://example.com/root/api');
         });
 
-        it('should prefer $self for relative resolution if present', async () => {
+        it('should resolve relative operation servers against document URI', () => {
+            const spec = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/users': {
+                        servers: [{ url: './path-level' }],
+                        get: {
+                            operationId: 'getUsers',
+                            servers: [{ url: './op-level' }],
+                            responses: { '200': { description: 'ok' } },
+                        },
+                    },
+                },
+            } as any;
+
+            const parser = new SwaggerParser(spec, config, undefined, 'https://example.com/api/openapi.json');
+            const op = parser.operations.find(item => item.operationId === 'getUsers');
+            expect(op?.servers?.[0].url).toBe('https://example.com/api/op-level');
+        });
+
+        it('should resolve referenced path-item servers against their document URI', () => {
+            const entryUri = 'https://example.com/root/openapi.yaml';
+            const refUri = 'https://example.com/shared/paths.yaml';
+
+            const entrySpec: SwaggerSpec = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/external': {
+                        $ref: '../shared/paths.yaml#/components/pathItems/ExternalPath',
+                    },
+                },
+            } as any;
+
+            const refSpec: SwaggerSpec = {
+                openapi: '3.2.0',
+                info: validInfo,
+                components: {
+                    pathItems: {
+                        ExternalPath: {
+                            get: {
+                                operationId: 'getExternal',
+                                servers: [{ url: './v1' }],
+                                responses: { '200': { description: 'ok' } },
+                            },
+                        },
+                    },
+                },
+            } as any;
+
+            const cache = new Map<string, SwaggerSpec>([
+                [entryUri, entrySpec],
+                [refUri, refSpec],
+            ]);
+
+            ReferenceResolver.indexSchemaIds(entrySpec, entryUri, cache, entryUri);
+            ReferenceResolver.indexSchemaIds(refSpec, refUri, cache, refUri);
+
+            const parser = new SwaggerParser(entrySpec, config, cache, entryUri);
+            const op = parser.operations.find(item => item.operationId === 'getExternal');
+            expect(op?.servers?.[0].url).toBe('https://example.com/shared/v1');
+        });
+
+        it('should ignore $self when resolving relative server URLs', async () => {
             const spec = {
                 openapi: '3.2.0',
                 $self: 'https://cdn.spec.com/latest/spec.yaml',
@@ -169,13 +234,13 @@ describe('Core: SwaggerParser', () => {
                 servers: [{ url: './v1' }],
             } as any;
 
-            const parser = new SwaggerParser(spec, config, undefined, 'file://local/download.json');
+            const parser = new SwaggerParser(spec, config, undefined, 'https://example.com/spec.json');
 
-            // Should resolve against $self, not file://
-            expect(parser.servers[0].url).toBe('https://cdn.spec.com/latest/v1');
+            // Should resolve against document retrieval URI, not $self
+            expect(parser.servers[0].url).toBe('https://example.com/v1');
         });
 
-        it('should resolve relative $self against document URI before resolving servers', () => {
+        it('should ignore relative $self when resolving server URLs', () => {
             const spec = {
                 openapi: '3.2.0',
                 // relative $self
@@ -187,9 +252,8 @@ describe('Core: SwaggerParser', () => {
 
             const parser = new SwaggerParser(spec, config, undefined, 'https://example.com/v2/draft/doc.json');
 
-            // $self resolves to https://example.com/v2/canon/spec.yaml
-            // Server resolves relative to that $self -> https://example.com/v2/canon/api
-            expect(parser.servers[0].url).toBe('https://example.com/v2/canon/api');
+            // Server resolves relative to retrieval URI -> https://example.com/v2/draft/api
+            expect(parser.servers[0].url).toBe('https://example.com/v2/draft/api');
         });
 
         it('should leave template URLs untouched if they start with braces', async () => {
@@ -550,6 +614,35 @@ describe('Core: SwaggerParser', () => {
             expect(options[0].name).toBe('sub-type');
         });
 
+        it('should support discriminator resolution for anyOf schemas', () => {
+            const spec = {
+                openapi: '3.1.0',
+                info: validInfo,
+                paths: {},
+                components: {
+                    schemas: {
+                        Pet: {
+                            anyOf: [{ $ref: '#/components/schemas/Cat' }, { $ref: '#/components/schemas/Dog' }],
+                            discriminator: { propertyName: 'petType' },
+                        },
+                        Cat: {
+                            type: 'object',
+                            properties: { petType: { type: 'string', enum: ['cat'] } },
+                        },
+                        Dog: {
+                            type: 'object',
+                            properties: { petType: { type: 'string', enum: ['dog'] } },
+                        },
+                    },
+                },
+            };
+            const parser = new SwaggerParser(spec as any, config);
+            const petSchema = parser.getDefinition('Pet')!;
+            const options = parser.getPolymorphicSchemaOptions(petSchema);
+
+            expect(options.map(opt => opt.name).sort()).toEqual(['cat', 'dog']);
+        });
+
         it('should return empty options when implicit name is missing', () => {
             const parser = new SwaggerParser(
                 {
@@ -716,7 +809,7 @@ describe('Core: SwaggerParser', () => {
                 openapi: '3.0.0',
                 info: validInfo,
                 paths: {},
-                components: { securitySchemes: { Bearer: { type: 'http' } } },
+                components: { securitySchemes: { Bearer: { type: 'http', scheme: 'bearer' } } },
             };
             const parser = new SwaggerParser(spec as any, config);
             expect(parser.getSecuritySchemes()).toHaveProperty('Bearer');
@@ -805,10 +898,42 @@ describe('Core: SwaggerParser', () => {
             expect(p.servers[0].url).toBe('/');
         });
 
-        it('should NOT default servers for Swagger 2.0', () => {
+        it('should NOT default servers for Swagger 2.0 when host is missing', () => {
             const spec = { swagger: '2.0', info: validInfo, paths: {} };
             const p = new SwaggerParser(spec as any, config);
             expect(p.servers).toEqual([]);
+        });
+
+        it('should derive Swagger 2.0 servers from host/basePath/schemes', () => {
+            const spec = {
+                swagger: '2.0',
+                info: validInfo,
+                paths: {},
+                host: 'api.example.com',
+                basePath: '/v1',
+                schemes: ['https', 'http'],
+            };
+            const p = new SwaggerParser(spec as any, config);
+            expect(p.servers).toEqual([
+                { url: 'https://api.example.com/v1' },
+                { url: 'http://api.example.com/v1' },
+            ]);
+        });
+
+        it('should fall back to document URI host/scheme when Swagger 2.0 host/schemes are missing', () => {
+            const spec = {
+                swagger: '2.0',
+                info: validInfo,
+                paths: {},
+                basePath: '/api',
+            };
+            const p = new SwaggerParser(
+                spec as any,
+                config,
+                undefined,
+                'https://swagger.example.com/specs/petstore.json',
+            );
+            expect(p.servers).toEqual([{ url: 'https://swagger.example.com/api' }]);
         });
     });
 });

@@ -124,6 +124,24 @@ describe('Core Utils: SpecLoader', () => {
         expect(result.entrySpec).toBeDefined();
     });
 
+    it('should parse YAML content without extension when JSON parsing fails', async () => {
+        const yamlSchema = `
+type: object
+properties:
+  name:
+    type: string
+`;
+        mockFetch.mockResolvedValue({
+            ok: true,
+            text: () => Promise.resolve(yamlSchema),
+        });
+
+        const result = await SpecLoader.load('http://api.com/spec');
+        expect(result.entrySpec).toBeDefined();
+        expect((result.entrySpec as any).type).toBe('object');
+        expect((result.entrySpec as any).properties?.name?.type).toBe('string');
+    });
+
     it('should handle non-url paths when calling loadContent directly', async () => {
         (fs.existsSync as Mock).mockReturnValue(true);
         (fs.readFileSync as Mock).mockReturnValue('{"openapi":"3.0.0"}');

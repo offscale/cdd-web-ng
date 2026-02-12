@@ -156,7 +156,23 @@ export class HttpParamsBuilderGenerator {
         
         const allowReserved = config.allowReserved === true;
         const encode = (v: string) => allowReserved ? this.encodeReserved(v) : encodeURIComponent(v);
-        const isJson = config.serialization === 'json' || config.contentType === 'application/json';
+        const normalizedContentType = config.contentType ? config.contentType.split(';')[0].trim().toLowerCase() : undefined;
+        const isJson =
+            config.serialization === 'json' ||
+            (normalizedContentType !== undefined &&
+                (normalizedContentType === 'application/json' || normalizedContentType.endsWith('+json')));
+
+        if (normalizedContentType === 'application/x-www-form-urlencoded') {
+            const encodedValue = typeof value === 'object'
+                ? this.serializeUrlEncodedBody(value, config.encoding || {}).map(p => \`\${p.key}=\${p.value}\`).join('&')
+                : String(value);
+            return params.append(encode(name), encodeURIComponent(encodedValue));
+        }
+
+        if (normalizedContentType && !isJson) {
+            const rawValue = typeof value === 'string' ? value : String(value);
+            return params.append(encode(name), encode(rawValue));
+        }
 
         if (isJson && typeof value !== 'string') {
             value = JSON.stringify(value);
@@ -186,6 +202,8 @@ export class HttpParamsBuilderGenerator {
                 value.forEach(v => params = params.append(encode(name), encode(String(v)))); 
             } else if (style === 'spaceDelimited') { 
                 params = params.append(encode(name), encode(value.join(' '))); 
+            } else if (style === 'tabDelimited') { 
+                params = params.append(encode(name), encode(value.join('\\t'))); 
             } else if (style === 'pipeDelimited') { 
                 params = params.append(encode(name), encode(value.join('|'))); 
             } else { 
@@ -204,9 +222,67 @@ export class HttpParamsBuilderGenerator {
                  } 
                  return params; 
              } 
+             if (style === 'tabDelimited') { 
+                 const delimiter = '\\t'; 
+                 const flattened = Object.entries(value).map(([k, v]) => \`\${k}\${delimiter}\${v}\`).join(delimiter); 
+                 params = params.append(encode(name), encode(flattened)); 
+                 return params; 
+             } 
         } 
 
         return params.append(encode(name), encode(String(value)));`,
+        });
+
+        classDeclaration.addMethod({
+            name: 'serializeUrlEncodedBody',
+            isStatic: true,
+            scope: Scope.Private,
+            parameters: [
+                { name: 'body', type: 'any' },
+                { name: 'encodings', type: 'Record<string, any>', initializer: '{}' },
+            ],
+            returnType: 'Array<{ key: string; value: string }>',
+            statements: `
+        const result: Array<{ key: string; value: string }> = [];
+        if (!body || typeof body !== 'object') return result;
+        const normalizeForm = (v: string) => v.replace(/%20/g, '+');
+        const normalizeContentType = (value: string | undefined) => value?.split(';')[0].trim().toLowerCase();
+
+        Object.entries(body).forEach(([key, value]) => {
+            if (value === undefined || value === null) return;
+            const config = encodings[key] || {};
+            const hasSerializationHints =
+                config.style !== undefined || config.explode !== undefined || config.allowReserved !== undefined;
+            const contentType = normalizeContentType(config.contentType);
+
+            if (contentType && !hasSerializationHints) {
+                let rawValue = value;
+                if (
+                    contentType === 'application/json' ||
+                    (typeof contentType === 'string' && contentType.endsWith('+json'))
+                ) {
+                    rawValue = typeof value === 'string' ? value : JSON.stringify(value);
+                } else {
+                    rawValue = typeof value === 'string' ? value : String(value);
+                }
+                result.push({
+                    key: normalizeForm(encodeURIComponent(key)),
+                    value: normalizeForm(encodeURIComponent(String(rawValue))),
+                });
+                return;
+            }
+
+            const paramConfig = { name: key, in: 'query', ...config };
+            const serialized = this.serializeQueryParam(new HttpParams(), paramConfig, value);
+            // SerializeQueryParam returns a HttpParams; convert by re-encoding key/value pairs.
+            serialized.keys().forEach(paramKey => {
+                const values = serialized.getAll(paramKey) ?? [];
+                values.forEach(paramValue => {
+                    result.push({ key: normalizeForm(paramKey), value: normalizeForm(paramValue) });
+                });
+            });
+        });
+        return result;`,
         });
 
         classDeclaration.addMethod({

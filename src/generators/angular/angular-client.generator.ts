@@ -53,7 +53,14 @@ import { LinkGenerator } from '@src/generators/shared/link.generator.js';
 import { DiscriminatorGenerator } from '@src/generators/shared/discriminator.generator.js';
 import { SecurityGenerator } from '@src/generators/shared/security.generator.js';
 import { TagGenerator } from '@src/generators/shared/tag.generator.js';
+import { ExamplesGenerator } from '@src/generators/shared/examples.generator.js';
+import { MediaTypesGenerator } from '@src/generators/shared/media-types.generator.js';
+import { PathItemsGenerator } from '@src/generators/shared/path-items.generator.js';
+import { ParametersGenerator } from '@src/generators/shared/parameters.generator.js';
+import { RequestBodiesGenerator } from '@src/generators/shared/request-bodies.generator.js';
+import { ResponsesGenerator } from '@src/generators/shared/responses.generator.js';
 import { SpecSnapshotGenerator } from '@src/generators/shared/spec-snapshot.generator.js';
+import { DocumentMetaGenerator } from '@src/generators/shared/document-meta.generator.js';
 
 function getControllerCanonicalName(op: any): string {
     if (Array.isArray(op.tags) && op.tags[0]) {
@@ -96,6 +103,13 @@ export class AngularClientGenerator extends AbstractClientGenerator {
         new DiscriminatorGenerator(parser, project).generate(outputRoot);
         new SecurityGenerator(parser, project).generate(outputRoot);
         new TagGenerator(parser, project).generate(outputRoot);
+        new ExamplesGenerator(parser, project).generate(outputRoot);
+        new MediaTypesGenerator(parser, project).generate(outputRoot);
+        new PathItemsGenerator(parser, project).generate(outputRoot);
+        new ParametersGenerator(parser, project).generate(outputRoot);
+        new RequestBodiesGenerator(parser, project).generate(outputRoot);
+        new ResponsesGenerator(parser, project).generate(outputRoot);
+        new DocumentMetaGenerator(parser, project).generate(outputRoot);
         new SpecSnapshotGenerator(parser, project).generate(outputRoot);
 
         // 3. Services and Angular Specifics

@@ -4,3 +4,6 @@ export * from './spec-extractor.js';
 export * from './naming.js';
 export * from './sanitizer.js';
 export * from './openapi-snapshot.js';
+export * from './openapi-reverse.js';
+export * from './openapi-reverse-models.js';
+export * from './openapi-ast-scanner.js';

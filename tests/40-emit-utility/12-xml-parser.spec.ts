@@ -35,11 +35,23 @@ function getXmlParser() {
     function parseXmlSimple(xml: string) {
         const parserError = { length: 0 }; // No error
 
-        const createNode = (tagName: string, attributes: any, children: any[], textContent: string | null) => ({
+        const createTextNode = (text: string) => ({
+            nodeType: 3,
+            textContent: text,
+        });
+
+        const createNode = (
+            tagName: string,
+            attributes: any,
+            children: any[],
+            textContent: string | null,
+            childNodes?: any[],
+        ) => ({
             tagName,
             nodeType: 1,
             attributes,
             children,
+            childNodes: childNodes ?? children,
             textContent,
             hasAttribute: (k: string) => k in attributes,
             getAttribute: (k: string) => attributes[k],
@@ -86,6 +98,20 @@ function getXmlParser() {
                 ),
             };
         }
+        // Case 5: PrefixItems with text nodes
+        if (xml.includes('<report>start<data>42</data>end</report>')) {
+            const dataNode = createNode('data', {}, [], '42');
+            return {
+                getElementsByTagName: () => parserError,
+                documentElement: createNode(
+                    'report',
+                    {},
+                    [dataNode],
+                    null,
+                    [createTextNode('start'), dataNode, createTextNode('end')],
+                ),
+            };
+        }
         // Case 5: Null
         if (xml.includes('nil="true"') && xml.includes('empty')) {
             return {
@@ -101,7 +127,10 @@ function getXmlParser() {
             };
         }
 
-        return { getElementsByTagName: () => parserError, documentElement: { tagName: 'unknown', children: [] } };
+        return {
+            getElementsByTagName: () => parserError,
+            documentElement: createNode('unknown', {}, [], null),
+        };
     }
 
     const finalCode = `${jsCode}\nmoduleScope.exports.XmlParser = XmlParser;`;
@@ -167,6 +196,15 @@ describe('Utility: XmlParser', () => {
         };
         const result = XmlParser.parse(xml, config);
         expect(result.tags).toEqual(['A', 'B']);
+    });
+
+    it('should parse prefixItems arrays with text nodes in order', () => {
+        const xml = '<report>start<data>42</data>end</report>';
+        const config = {
+            prefixItems: [{ nodeType: 'text' }, { name: 'data' }, { nodeType: 'text' }],
+        };
+        const result = XmlParser.parse(xml, config);
+        expect(result).toEqual(['start', '42', 'end']);
     });
 
     it('should handle null values (xsi:nil)', () => {

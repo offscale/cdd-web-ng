@@ -6,7 +6,17 @@ import * as path from 'node:path';
 import yaml from 'js-yaml';
 import { generateFromConfig } from './index.js';
 import { GeneratorConfig, GeneratorConfigOptions } from '@src/core/types/index.js';
-import { isUrl, readOpenApiSnapshot } from '@src/core/utils/index.js';
+import {
+    applyReverseMetadata,
+    buildOpenApiSpecFromServices,
+    buildOpenApiSpecFromScan,
+    isUrl,
+    parseGeneratedMetadata,
+    parseGeneratedModels,
+    parseGeneratedServices,
+    readOpenApiSnapshot,
+    scanTypeScriptProject,
+} from '@src/core/utils/index.js';
 
 const packageJsonPath = new URL('../package.json', import.meta.url);
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
@@ -167,7 +177,7 @@ program
 
 program
     .command('to_openapi')
-    .description('Generate an OpenAPI specification from TypeScript code (snapshot-based)')
+    .description('Generate an OpenAPI specification from TypeScript code (snapshot-based with AST fallback)')
     .requiredOption(
         '-f, --file <path>',
         'Path to a snapshot file (openapi.snapshot.json|yaml) or a generated output directory containing one',
@@ -177,7 +187,60 @@ program
     )
     .action((options: ToActionOptions) => {
         try {
-            const { spec } = readOpenApiSnapshot(options.file, fs);
+            let spec: any;
+            try {
+                ({ spec } = readOpenApiSnapshot(options.file, fs));
+            } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                const shouldFallback =
+                    message.includes('No OpenAPI snapshot found') ||
+                    message.includes('Unsupported snapshot file extension');
+                if (!shouldFallback) {
+                    throw error;
+                }
+
+                console.warn(`⚠️  ${message}`);
+                console.warn('ℹ️  Falling back to parsing generated service files.');
+
+                try {
+                    const services = parseGeneratedServices(options.file, fs);
+                    let schemas: Record<string, any> | undefined;
+
+                    try {
+                        schemas = parseGeneratedModels(options.file, fs);
+                    } catch (modelError) {
+                        const modelMessage = modelError instanceof Error ? modelError.message : String(modelError);
+                        console.warn(`⚠️  ${modelMessage}`);
+                        console.warn('ℹ️  Continuing without reconstructed component schemas.');
+                    }
+
+                    spec = buildOpenApiSpecFromServices(services, {}, schemas);
+
+                    try {
+                        const metadata = parseGeneratedMetadata(options.file, fs);
+                        spec = applyReverseMetadata(spec, metadata);
+                    } catch (metaError) {
+                        const metaMessage = metaError instanceof Error ? metaError.message : String(metaError);
+                        console.warn(`⚠️  ${metaMessage}`);
+                        console.warn('ℹ️  Continuing without reconstructed metadata.');
+                    }
+                } catch (serviceError) {
+                    const serviceMessage = serviceError instanceof Error ? serviceError.message : String(serviceError);
+                    console.warn(`⚠️  ${serviceMessage}`);
+                    console.warn('ℹ️  Falling back to AST-based TypeScript scanning.');
+                    const scan = scanTypeScriptProject(options.file, fs);
+                    spec = buildOpenApiSpecFromScan(scan);
+                    try {
+                        const metadata = parseGeneratedMetadata(options.file, fs);
+                        spec = applyReverseMetadata(spec, metadata);
+                    } catch (metaError) {
+                        const metaMessage = metaError instanceof Error ? metaError.message : String(metaError);
+                        console.warn(`⚠️  ${metaMessage}`);
+                        console.warn('ℹ️  Continuing without reconstructed metadata.');
+                    }
+                }
+            }
+
             const output =
                 options.format === 'json' ? JSON.stringify(spec, null, 2) : yaml.dump(spec, { noRefs: true });
             process.stdout.write(output.trimEnd() + '\n');

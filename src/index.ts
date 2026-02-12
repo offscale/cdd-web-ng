@@ -95,3 +95,20 @@ export async function generateFromConfig(
         throw error;
     }
 }
+
+/**
+ * AST scanner utilities for reverse-generating OpenAPI specs from TypeScript.
+ */
+export {
+    buildOpenApiSpecFromScan,
+    scanTypeScriptProject,
+    scanTypeScriptSource,
+    type CodeScanFileSystem,
+    type CodeScanIr,
+    type CodeScanOperation,
+    type CodeScanOptions,
+    type CodeScanParam,
+    type CodeScanParamLocation,
+    type CodeScanRequestBody,
+    type CodeScanResponse,
+} from './core/utils/openapi-ast-scanner.js';

@@ -72,6 +72,28 @@ const webhookWithModelSpec: SwaggerSpec = {
     },
 };
 
+const componentWebhookSpec: SwaggerSpec = {
+    openapi: '3.2.0',
+    info: { title: 'Component Webhook', version: '1.0' },
+    paths: {},
+    components: {
+        webhooks: {
+            componentHook: {
+                post: {
+                    requestBody: {
+                        content: {
+                            'application/json': {
+                                schema: { type: 'object', properties: { id: { type: 'string' } } },
+                            },
+                        },
+                    },
+                    responses: { '200': { description: 'ok' } },
+                },
+            },
+        },
+    },
+};
+
 describe('Emitter: WebhookGenerator', () => {
     const runGenerator = (spec: SwaggerSpec) => {
         const project = createTestProject();
@@ -112,9 +134,22 @@ describe('Emitter: WebhookGenerator', () => {
 
         expect(API_WEBHOOKS).toHaveLength(1);
         expect(API_WEBHOOKS[0].name).toBe('validHook');
+        expect(API_WEBHOOKS[0].scope).toBe('root');
+        expect(API_WEBHOOKS[0].pathItem?.post?.requestBody?.content?.['application/json']).toBeDefined();
+        expect(API_WEBHOOKS[0].pathItem?.post?.responses?.['200']).toBeDefined();
 
         const invalid = API_WEBHOOKS.find((w: any) => w.name === 'invalidHook');
         expect(invalid).toBeUndefined();
+    });
+
+    it('should include component webhooks with component scope', () => {
+        const project = runGenerator(componentWebhookSpec);
+        const { API_WEBHOOKS } = compileGeneratedFile(project);
+
+        expect(API_WEBHOOKS).toHaveLength(1);
+        expect(API_WEBHOOKS[0].name).toBe('componentHook');
+        expect(API_WEBHOOKS[0].scope).toBe('component');
+        expect(API_WEBHOOKS[0].pathItem?.post?.requestBody?.content?.['application/json']).toBeDefined();
     });
 
     it('should import models when webhook payload references a schema', () => {

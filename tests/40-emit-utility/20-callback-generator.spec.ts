@@ -54,7 +54,7 @@ const refCallbackSpec: SwaggerSpec = {
     components: {
         callbacks: {
             MyCallback: {
-                'http://target.com': {
+                'http://target.com?hook={$request.body#/id}': {
                     post: {
                         requestBody: {
                             content: { 'application/json': { schema: { $ref: '#/components/schemas/EventPayload' } } },
@@ -103,9 +103,19 @@ describe('Emitter: CallbackGenerator', () => {
         const project = runGenerator(refCallbackSpec);
         const { API_CALLBACKS } = compileGeneratedFile(project);
 
-        // Should contain MyCallback
-        expect(API_CALLBACKS).toHaveLength(1);
-        expect(API_CALLBACKS[0].name).toBe('myWebhook');
+        // Should contain operation callback and component callback
+        expect(API_CALLBACKS).toHaveLength(2);
+        const opCallback = API_CALLBACKS.find((c: any) => c.name === 'myWebhook');
+        const componentCallback = API_CALLBACKS.find((c: any) => c.name === 'MyCallback');
+
+        expect(opCallback).toBeDefined();
+        expect(opCallback?.scope).toBe('operation');
+        expect(opCallback?.expression).toBe('http://target.com?hook={$request.body#/id}');
+        expect(opCallback?.pathItem?.post?.requestBody?.content?.['application/json']).toBeDefined();
+        expect(opCallback?.pathItem?.post?.responses?.['200']).toBeDefined();
+
+        expect(componentCallback).toBeDefined();
+        expect(componentCallback?.scope).toBe('component');
 
         // Should NOT contain brokenWebhook because it resolves to undefined
         const broken = API_CALLBACKS.find((c: any) => c.name === 'brokenWebhook');

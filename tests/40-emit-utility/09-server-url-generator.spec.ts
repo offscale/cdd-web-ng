@@ -29,13 +29,14 @@ describe('Emitter: ServerUrlGenerator', () => {
             target: ts.ScriptTarget.ESNext,
             module: ts.ModuleKind.CommonJS,
         });
-        const moduleScope = { API_SERVERS: [], getServerUrl: null as any };
+        const moduleScope = { API_SERVERS: [], getServerUrl: null as any, resolveServerUrl: null as any };
         new Function(
             'scope',
             `
             ${jsCode} 
             scope.API_SERVERS = API_SERVERS; 
             scope.getServerUrl = getServerUrl; 
+            scope.resolveServerUrl = resolveServerUrl;
         `,
         )(moduleScope);
         return moduleScope;
@@ -113,6 +114,21 @@ describe('Emitter: ServerUrlGenerator', () => {
         // Expect trailing slashes due to URL normalization
         expect(getServerUrl('prod')).toBe('https://prod.api.com/');
         expect(getServerUrl('dev')).toBe('https://dev.api.com/');
+    });
+
+    it('should resolve server URLs from a custom server list', () => {
+        const project = runGenerator([
+            { url: 'https://global.api.com', name: 'global' },
+        ]);
+
+        const { resolveServerUrl } = compileHelper(project);
+        const customServers = [
+            { url: 'https://custom.api.com', name: 'custom' },
+            { url: 'https://alt.api.com', description: 'Alternative' },
+        ];
+
+        expect(resolveServerUrl(customServers, 'custom')).toBe('https://custom.api.com');
+        expect(resolveServerUrl(customServers, 'Alternative')).toBe('https://alt.api.com');
     });
 
     it('should generate logic to look up server by description (Legacy fallback)', () => {

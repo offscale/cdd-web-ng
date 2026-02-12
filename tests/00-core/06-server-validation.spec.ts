@@ -20,6 +20,36 @@ describe('Core: Server Object Validation (Additional)', () => {
         expect(() => validateSpec(spec)).toThrow(/not defined in variables/);
     });
 
+    it('should reject server variables missing required default', () => {
+        const spec: any = {
+            openapi: '3.2.0',
+            info: validInfo,
+            servers: [
+                {
+                    url: 'https://{env}.example.com',
+                    variables: { env: {} },
+                },
+            ],
+            paths: {},
+        };
+        expect(() => validateSpec(spec)).toThrow(/must define a string default/);
+    });
+
+    it('should reject server variables with non-string default', () => {
+        const spec: any = {
+            openapi: '3.2.0',
+            info: validInfo,
+            servers: [
+                {
+                    url: 'https://{env}.example.com',
+                    variables: { env: { default: 123 } },
+                },
+            ],
+            paths: {},
+        };
+        expect(() => validateSpec(spec)).toThrow(/must define a string default/);
+    });
+
     it('should reject duplicate server names', () => {
         const spec: any = {
             openapi: '3.2.0',

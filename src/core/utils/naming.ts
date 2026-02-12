@@ -13,11 +13,11 @@ export function hasDuplicateFunctionNames(methods: MethodDeclaration[]): boolean
  * If the key is a JSON pointer/URI, it extracts the simple name. Otherwise returns the key as is.
  */
 export function normalizeSecurityKey(key: string): string {
-    if (key.includes('/')) {
-        const parts = key.split('/');
-        return parts[parts.length - 1];
-    }
-    return key;
+    const withoutQuery = key.split('?')[0];
+    const [, fragment] = withoutQuery.split('#');
+    const target = fragment ?? withoutQuery;
+    const parts = target.split('/').filter(Boolean);
+    return parts.length > 0 ? parts[parts.length - 1] : key;
 }
 
 export function getBasePathTokenName(clientName = 'default'): string {

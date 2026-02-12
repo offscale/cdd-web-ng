@@ -61,6 +61,24 @@ const specBodyTests = {
                 responses: { '200': {} },
             },
         },
+        '/urlencoded-content-encoding': {
+            post: {
+                operationId: 'postUrlEncodedEncoded',
+                requestBody: {
+                    content: {
+                        'application/x-www-form-urlencoded': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    payload: { type: 'string', contentEncoding: 'base64' },
+                                },
+                            },
+                        },
+                    },
+                },
+                responses: { '200': {} },
+            },
+        },
         '/xml-endpoint': {
             post: {
                 operationId: 'postXml',
@@ -246,6 +264,24 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
 
         // Expect generic call
         expect(body).toContain('return this.http.post<any>(url, formBody, requestOptions as any);');
+    });
+
+    it('should apply ContentEncoder for urlencoded bodies with contentEncoding', () => {
+        const { methodGen, serviceClass } = createTestEnvironment(specBodyTests);
+        const op: PathInfo = {
+            ...specBodyTests.paths['/urlencoded-content-encoding'].post,
+            method: 'POST',
+            path: '/urlencoded-content-encoding',
+            methodName: 'postUrlEncodedEncoded',
+        } as any;
+
+        methodGen.addServiceMethod(serviceClass, op);
+
+        const body = serviceClass.getMethodOrThrow('postUrlEncodedEncoded').getBodyText()!;
+
+        expect(body).toContain('let encodedBody = body;');
+        expect(body).toContain('encodedBody = ContentEncoder.encode(encodedBody');
+        expect(body).toContain('const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(encodedBody, {});');
     });
 
     it('should use *Request type for body parameter if model has readonly/writeonly properties', () => {

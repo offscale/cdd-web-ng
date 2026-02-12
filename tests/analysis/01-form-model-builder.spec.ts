@@ -880,4 +880,32 @@ describe('Analysis: FormModelBuilder', () => {
         expect(carOption?.controls.some(c => c.name === 'wheels')).toBe(true);
         expect(carOption?.subFormName).toBe('car'); // camelCase check
     });
+
+    it('should use unevaluatedItems when array items are absent', () => {
+        const spec = {
+            openapi: '3.1.0',
+            info: { title: 'Array', version: '1.0' },
+            components: {
+                schemas: {
+                    TestResource: {
+                        type: 'object',
+                        properties: {
+                            tags: {
+                                type: 'array',
+                                unevaluatedItems: { type: 'string' },
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const { builder, resource } = setup(spec);
+        const result = builder.build(resource);
+        const arrayControl = result.topLevelControls.find(c => c.name === 'tags');
+
+        expect(arrayControl).toBeDefined();
+        expect(arrayControl?.controlType).toBe('array');
+        expect(arrayControl?.dataType).toContain('string');
+    });
 });

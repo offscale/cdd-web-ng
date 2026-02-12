@@ -124,8 +124,14 @@ export class TypeGenerator {
                     const properties: OptionalKind<PropertySignatureStructure>[] = [];
 
                     for (const [headerName, headerObj] of Object.entries(resp.headers)) {
+                        if (headerName.toLowerCase() === 'content-type') {
+                            // OAS 3.2: Response header definitions named "Content-Type" are ignored.
+                            continue;
+                        }
                         const resolvedHeader = this.parser.resolve(headerObj) as HeaderObject;
                         if (!resolvedHeader) continue;
+
+                        const isSetCookie = headerName.toLowerCase() === 'set-cookie';
 
                         // Logic updated to support 'content' map in Header Object (OAS 3.x)
                         let schema = resolvedHeader.schema as SwaggerDefinition | boolean | undefined;
@@ -143,7 +149,9 @@ export class TypeGenerator {
                             schema = { type: resolvedHeader.type, format: resolvedHeader.format } as any;
                         }
 
-                        const type = getTypeScriptType(schema, this.config, this.parser.schemas.map(s => s.name));
+                        const type = isSetCookie
+                            ? 'string[]'
+                            : getTypeScriptType(schema, this.config, this.parser.schemas.map(s => s.name));
                         const safeName = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(headerName) ? headerName : `'${headerName}'`;
 
                         // Updated logic: Build JSDoc structure explicitly

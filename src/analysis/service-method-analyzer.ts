@@ -53,6 +53,7 @@ export class ServiceMethodAnalyzer {
             // Check for explicit JSON content or implicit contentMediaType JSON
             const explicitJson = this.isJsonContent(p);
             const implicitJson = this.isJsonContentMediaType(p);
+            const { contentType, encoding } = this.getParameterContent(p);
 
             // If explicit, we use 'json' (full content negotiation logic usually implied).
             // If only contentMediaType='application/json' on a string/param, we treat it as 'json',
@@ -68,6 +69,8 @@ export class ServiceMethodAnalyzer {
                 allowReserved: p.allowReserved ?? false,
                 serializationLink,
                 ...(p.style != null && { style: p.style }),
+                ...(contentType ? { contentType } : {}),
+                ...(encoding ? { encoding } : {}),
             };
 
             switch (p.in) {
@@ -91,13 +94,14 @@ export class ServiceMethodAnalyzer {
 
         // Body Analysis
         const body = this.analyzeBody(operation, parameters);
+        const requestContentType = this.getRequestBodyContentType(operation.requestBody);
 
         // Request Body Encoding Analysis (OAS 3.1 auto-encoding support)
         let requestEncodingConfig: any = undefined;
         if (body && (body.type === 'json' || body.type === 'urlencoded')) {
             const rbContent = operation.requestBody?.content;
             // For URL Encoded, analyze the schema inside; for JSON, same.
-            const contentType = Object.keys(rbContent || {})[0];
+            const contentType = rbContent ? this.selectRequestBodyContentType(rbContent) : undefined;
             if (contentType && rbContent?.[contentType]?.schema !== undefined) {
                 const cfg = this.getEncodingConfig(rbContent[contentType].schema as SwaggerDefinition);
                 if (Object.keys(cfg).length > 0) {
@@ -121,8 +125,9 @@ export class ServiceMethodAnalyzer {
 
         // Servers
         let basePath: string | undefined;
-        if (operation.servers && operation.servers.length > 0) {
-            const s = operation.servers[0];
+        const operationServers = operation.servers && operation.servers.length > 0 ? operation.servers : undefined;
+        if (operationServers && operationServers.length > 0) {
+            const s = operationServers[0];
             basePath = s.url;
             if (s.variables) {
                 Object.entries(s.variables).forEach(([key, variable]) => {
@@ -144,6 +149,12 @@ export class ServiceMethodAnalyzer {
         if (operation.externalDocs?.url) {
             const cleanDesc = sanitizeComment(operation.externalDocs.description || '');
             docText += `\n\n@see ${operation.externalDocs.url} ${cleanDesc}`.trimEnd();
+        }
+        if (operation.tags && operation.tags.length > 0) {
+            const tagList = operation.tags.map(tag => sanitizeComment(tag)).filter(Boolean);
+            if (tagList.length > 0) {
+                docText += `\n\n@tags ${tagList.join(', ')}`;
+            }
         }
         if (operation.deprecated) {
             docText += `\n\n@deprecated`;
@@ -171,11 +182,13 @@ export class ServiceMethodAnalyzer {
             queryParams,
             headerParams,
             cookieParams,
+            requestContentType,
             security: effectiveSecurity,
             extensions,
             hasServers: !!basePath,
             ...(body != null && { body }),
             ...(basePath != null && { basePath }),
+            ...(operationServers ? { operationServers } : {}),
         };
     }
 
@@ -308,6 +321,20 @@ export class ServiceMethodAnalyzer {
         if (!operation.responses) return [];
 
         const errors: ErrorResponseInfo[] = [];
+        const pickJsonSchema = (content: Record<string, { schema?: SwaggerDefinition }>): SwaggerDefinition | undefined => {
+            const direct = content['application/json']?.schema;
+            if (direct !== undefined) return direct as SwaggerDefinition;
+
+            const jsonLikeEntry = Object.entries(content).find(([mediaType, obj]) => {
+                const normalized = this.normalizeMediaType(mediaType);
+                if (normalized === '*/*') return false;
+                return this.isJsonMediaType(normalized) && obj?.schema !== undefined;
+            });
+            if (jsonLikeEntry) return jsonLikeEntry[1].schema as SwaggerDefinition;
+
+            const wildcard = content['*/*']?.schema;
+            return wildcard as SwaggerDefinition | undefined;
+        };
 
         for (const [code, responseObj] of Object.entries(operation.responses)) {
             // Skip the identified success code
@@ -324,12 +351,7 @@ export class ServiceMethodAnalyzer {
             if (responseObj.content) {
                 const content = responseObj.content;
                 // Prioritize JSON for errors
-                const jsonSchema =
-                    content['application/json']?.schema !== undefined
-                        ? content['application/json']?.schema
-                        : content['*/*']?.schema !== undefined
-                          ? content['*/*']?.schema
-                          : undefined;
+                const jsonSchema = pickJsonSchema(content as Record<string, { schema?: SwaggerDefinition }>);
                 if (jsonSchema !== undefined) {
                     type = getTypeScriptType(jsonSchema as SwaggerDefinition, this.config, knownTypes);
                 } else if (content['application/xml']?.schema !== undefined) {
@@ -339,8 +361,21 @@ export class ServiceMethodAnalyzer {
                         this.config,
                         knownTypes,
                     );
-                } else if (content['text/plain']) {
+                } else if (Object.keys(content).some(mt => this.isTextMediaType(this.normalizeMediaType(mt)))) {
                     type = 'string';
+                } else {
+                    const nonTextMedia = Object.keys(content).find(mt => {
+                        const normalized = this.normalizeMediaType(mt);
+                        return (
+                            normalized !== '' &&
+                            !this.isJsonMediaType(normalized) &&
+                            !this.isXmlMediaType(normalized) &&
+                            !this.isTextMediaType(normalized)
+                        );
+                    });
+                    if (nonTextMedia) {
+                        type = 'Blob';
+                    }
                 }
             } else if (!responseObj.content && (code === '401' || code === '403')) {
                 // Infer void/unknown for auth errors without content
@@ -385,17 +420,10 @@ export class ServiceMethodAnalyzer {
         const requestBody = operation.requestBody;
         if (requestBody) {
             const contentMap = requestBody.content || {};
-            let contentType = Object.keys(contentMap)[0];
+            const contentType = this.selectRequestBodyContentType(contentMap);
+            const normalized = contentType ? this.normalizeMediaType(contentType) : undefined;
 
-            // Prioritize specific types
-            if (contentMap['application/json']) contentType = 'application/json';
-            else if (contentMap['application/xml']) contentType = 'application/xml';
-            else if (contentMap['multipart/form-data']) contentType = 'multipart/form-data';
-            else if (contentMap['multipart/mixed']) contentType = 'multipart/mixed';
-            else if (contentMap['multipart/byteranges']) contentType = 'multipart/byteranges';
-            else if (contentMap['application/x-www-form-urlencoded']) contentType = 'application/x-www-form-urlencoded';
-
-            const content = contentMap[contentType!];
+            const content = contentType ? contentMap[contentType] : undefined;
             const effectiveSchema =
                 content?.schema !== undefined
                     ? content.schema
@@ -403,7 +431,7 @@ export class ServiceMethodAnalyzer {
                       ? content.itemSchema
                       : undefined;
 
-            if (effectiveSchema !== undefined) {
+            if (contentType && normalized && this.isJsonMediaType(normalized) && effectiveSchema !== undefined) {
                 let bodyType = getTypeScriptType(effectiveSchema as SwaggerDefinition, this.config, knownTypes);
 
                 if (content && content.schema === undefined && content.itemSchema !== undefined) {
@@ -420,17 +448,35 @@ export class ServiceMethodAnalyzer {
                 }
                 const bodyName = isDataTypeInterface(rawBodyType) ? camelCase(rawBodyType) : 'body';
                 parameters.push({ name: bodyName, type: bodyType, hasQuestionToken: !requestBody.required });
-            } else if (
-                contentType &&
-                (contentType.startsWith('multipart/') ||
-                    contentType === 'multipart/form-data' ||
-                    contentType === 'multipart/mixed')
-            ) {
+            } else if (normalized && this.isMultipartMediaType(normalized)) {
                 parameters.push({
                     name: 'body',
                     type: 'FormData | any[] | any',
                     hasQuestionToken: !requestBody.required,
                 });
+            } else if (normalized && this.isXmlMediaType(normalized)) {
+                const rawBodyType = effectiveSchema
+                    ? getTypeScriptType(effectiveSchema as SwaggerDefinition, this.config, knownTypes)
+                    : 'string';
+                const bodyType = rawBodyType.includes('|') ? `(${rawBodyType})` : rawBodyType;
+                const bodyName = isDataTypeInterface(rawBodyType) ? camelCase(rawBodyType) : 'body';
+                parameters.push({ name: bodyName, type: bodyType, hasQuestionToken: !requestBody.required });
+            } else if (normalized && this.isTextMediaType(normalized)) {
+                parameters.push({ name: 'body', type: 'string', hasQuestionToken: !requestBody.required });
+            } else if (normalized && this.isFormUrlEncodedMediaType(normalized)) {
+                const rawBodyType = effectiveSchema
+                    ? getTypeScriptType(effectiveSchema as SwaggerDefinition, this.config, knownTypes)
+                    : 'any';
+                const bodyType = rawBodyType.includes('|') ? `(${rawBodyType})` : rawBodyType;
+                const bodyName = isDataTypeInterface(rawBodyType) ? camelCase(rawBodyType) : 'body';
+                parameters.push({ name: bodyName, type: bodyType, hasQuestionToken: !requestBody.required });
+            } else if (contentType && normalized) {
+                const rawBodyType = effectiveSchema
+                    ? getTypeScriptType(effectiveSchema as SwaggerDefinition, this.config, knownTypes)
+                    : 'Blob';
+                const bodyType = rawBodyType.includes('|') ? `(${rawBodyType})` : rawBodyType;
+                const bodyName = isDataTypeInterface(rawBodyType) ? camelCase(rawBodyType) : 'body';
+                parameters.push({ name: bodyName, type: bodyType, hasQuestionToken: !requestBody.required });
             } else {
                 parameters.push({ name: 'body', type: 'unknown', hasQuestionToken: !requestBody.required });
             }
@@ -462,16 +508,22 @@ export class ServiceMethodAnalyzer {
         const rb = operation.requestBody;
         if (!rb || !rb.content) return { type: 'raw', paramName: bodyParamName };
 
-        const multipartKey = rb.content['multipart/form-data']
-            ? 'multipart/form-data'
-            : rb.content['multipart/mixed']
-              ? 'multipart/mixed'
-              : rb.content['multipart/byteranges']
-                ? 'multipart/byteranges'
-                : undefined;
+        const selectedContentType = this.selectRequestBodyContentType(rb.content);
+        if (!selectedContentType) return { type: 'raw', paramName: bodyParamName };
+
+        const normalizedContentType = this.normalizeMediaType(selectedContentType);
+
+        const multipartKey =
+            normalizedContentType === 'multipart/form-data' || normalizedContentType === 'multipart/mixed'
+                ? normalizedContentType
+                : normalizedContentType === 'multipart/byteranges'
+                  ? normalizedContentType
+                  : normalizedContentType.startsWith('multipart/')
+                    ? normalizedContentType
+                    : undefined;
 
         if (multipartKey) {
-            const mediaType = rb.content[multipartKey];
+            const mediaType = rb.content[selectedContentType];
             const schema = mediaType.schema as SwaggerDefinition | boolean | undefined;
 
             const multipartConfig: {
@@ -545,16 +597,35 @@ export class ServiceMethodAnalyzer {
             };
         }
 
-        if (rb.content['application/x-www-form-urlencoded']) {
+        if (this.isFormUrlEncodedMediaType(normalizedContentType)) {
+            const encodingConfig: Record<string, EncodingProperty> = {
+                ...(rb.content[selectedContentType]?.encoding || {}),
+            };
+            const schema = rb.content[selectedContentType]?.schema as SwaggerDefinition | boolean | undefined;
+
+            if (schema && typeof schema === 'object' && schema.properties) {
+                Object.entries(schema.properties).forEach(([propName, propSchema]) => {
+                    if (!encodingConfig[propName]) {
+                        encodingConfig[propName] = {};
+                    }
+                    const entry = encodingConfig[propName];
+                    const hasSerializationHints =
+                        entry.style !== undefined || entry.explode !== undefined || entry.allowReserved !== undefined;
+                    if (!hasSerializationHints) {
+                        this.enrichEncodingConfig(propSchema, encodingConfig, propName);
+                    }
+                });
+            }
+
             return {
                 type: 'urlencoded',
                 paramName: bodyParamName,
-                config: rb.content['application/x-www-form-urlencoded'].encoding || {},
+                config: encodingConfig,
             };
         }
 
-        if (rb.content['application/xml']) {
-            const schema = rb.content['application/xml'].schema as SwaggerDefinition | boolean | undefined;
+        if (this.isXmlMediaType(normalizedContentType)) {
+            const schema = rb.content[selectedContentType]?.schema as SwaggerDefinition | boolean | undefined;
             if (schema && typeof schema === 'object') {
                 const rootName = schema.xml?.name || 'root';
                 const xmlConfig = this.getXmlConfig(schema, 5);
@@ -565,6 +636,15 @@ export class ServiceMethodAnalyzer {
                     config: xmlConfig,
                 };
             }
+            return { type: 'raw', paramName: bodyParamName };
+        }
+
+        if (this.isTextMediaType(normalizedContentType)) {
+            return { type: 'raw', paramName: bodyParamName };
+        }
+
+        if (!this.isJsonMediaType(normalizedContentType)) {
+            return { type: 'raw', paramName: bodyParamName };
         }
 
         return { type: 'json', paramName: bodyParamName };
@@ -602,7 +682,21 @@ export class ServiceMethodAnalyzer {
     private isJsonContent(p: Parameter): boolean {
         if (!p.content) return false;
         const keys = Object.keys(p.content);
-        return keys.some(k => k.includes('application/json') || k.includes('*/*'));
+        return keys.some(k => this.isJsonMediaType(this.normalizeMediaType(k)));
+    }
+
+    private getParameterContent(
+        p: Parameter,
+    ): { contentType?: string; encoding?: Record<string, any> } {
+        if (!p.content) return {};
+        const keys = Object.keys(p.content);
+        if (keys.length === 0) return {};
+        const contentType = keys[0];
+        const encoding = (p.content as any)?.[contentType]?.encoding;
+        return {
+            ...(contentType ? { contentType } : {}),
+            ...(encoding ? { encoding } : {}),
+        };
     }
 
     private isJsonContentMediaType(p: Parameter): boolean {
@@ -611,22 +705,77 @@ export class ServiceMethodAnalyzer {
         // Direct contentMediaType (OAS 3.1)
         if (
             (p.schema as SwaggerDefinition).contentMediaType &&
-            (p.schema as SwaggerDefinition).contentMediaType!.includes('application/json')
+            this.isJsonMediaType(this.normalizeMediaType((p.schema as SwaggerDefinition).contentMediaType!))
         ) {
             return true;
         }
 
         // Look inside resolved schema
         const resolved = this.parser.resolve(p.schema);
-        return !!(resolved && resolved.contentMediaType && resolved.contentMediaType.includes('application/json'));
-
-
+        return !!(
+            resolved &&
+            resolved.contentMediaType &&
+            this.isJsonMediaType(this.normalizeMediaType(resolved.contentMediaType))
+        );
     }
 
     private isXmlContent(p: Parameter): boolean {
         if (!p.content) return false;
         const keys = Object.keys(p.content);
-        return keys.some(k => k.includes('application/xml'));
+        return keys.some(k => k.includes('application/xml') || k.includes('+xml'));
+    }
+
+    private getRequestBodyContentType(requestBody: PathInfo['requestBody']): string | undefined {
+        if (!requestBody || !requestBody.content) return undefined;
+        return this.selectRequestBodyContentType(requestBody.content);
+    }
+
+    private selectRequestBodyContentType(content: Record<string, { schema?: SwaggerDefinition }>): string | undefined {
+        const entries = Object.keys(content).map(key => ({
+            raw: key,
+            normalized: this.normalizeMediaType(key),
+        }));
+        if (entries.length === 0) return undefined;
+
+        const pick = (predicate: (value: string) => boolean) => entries.find(e => predicate(e.normalized))?.raw;
+
+        return (
+            pick(mt => mt === 'application/json' || mt === '*/*') ||
+            pick(mt => mt.endsWith('+json')) ||
+            pick(mt => mt === 'application/xml') ||
+            pick(mt => mt.endsWith('+xml')) ||
+            pick(mt => mt === 'text/plain') ||
+            pick(mt => mt.startsWith('text/')) ||
+            pick(mt => mt === 'application/x-www-form-urlencoded') ||
+            pick(mt => mt.startsWith('multipart/')) ||
+            entries[0].raw
+        );
+    }
+
+    private normalizeMediaType(mediaType: string): string {
+        return mediaType.split(';')[0].trim().toLowerCase();
+    }
+
+    private isJsonMediaType(mediaType: string): boolean {
+        if (!mediaType) return false;
+        return mediaType === '*/*' || mediaType.includes('json') || mediaType.endsWith('+json');
+    }
+
+    private isXmlMediaType(mediaType: string): boolean {
+        if (!mediaType) return false;
+        return mediaType === 'application/xml' || mediaType.endsWith('+xml') || mediaType.includes('/xml');
+    }
+
+    private isTextMediaType(mediaType: string): boolean {
+        return !!mediaType && mediaType.startsWith('text/');
+    }
+
+    private isFormUrlEncodedMediaType(mediaType: string): boolean {
+        return mediaType === 'application/x-www-form-urlencoded';
+    }
+
+    private isMultipartMediaType(mediaType: string): boolean {
+        return !!mediaType && mediaType.startsWith('multipart/');
     }
 
     private needsRequestType(definition: SwaggerDefinition): boolean {
@@ -663,6 +812,9 @@ export class ServiceMethodAnalyzer {
 
         if (resolved.type === 'array' && resolved.items) {
             config.items = this.getXmlConfig(resolved.items as SwaggerDefinition, depth - 1);
+        }
+        if (Array.isArray(resolved.prefixItems)) {
+            config.prefixItems = resolved.prefixItems.map(item => this.getXmlConfig(item as SwaggerDefinition, depth - 1));
         }
 
         if (resolved.properties) {

@@ -70,7 +70,10 @@ describe('Emitter: IndexGenerators', () => {
         });
 
         it('should export links and link.service if specification has links or op links', () => {
-            const specWithLinks = { ...emptySpec, components: { links: { MyLink: {} } } };
+            const specWithLinks = {
+                ...emptySpec,
+                components: { links: { MyLink: { operationId: 'getNext' } } },
+            };
             const content = runGenerator(specWithLinks, { generateServices: true });
             expect(content).toContain(`export * from "./links";`);
             expect(content).toContain(`export * from "./utils/link.service";`);
@@ -98,10 +101,72 @@ describe('Emitter: IndexGenerators', () => {
             expect(content).toContain(`export * from "./utils/link.service";`);
         });
 
+        it('should export callbacks when operations define callbacks', () => {
+            const specWithCallbacks = {
+                ...emptySpec,
+                paths: {
+                    '/test': {
+                        post: {
+                            callbacks: {
+                                onEvent: {
+                                    '{$request.body#/url}': {
+                                        post: {
+                                            responses: { '200': { description: 'ok' } },
+                                        },
+                                    },
+                                },
+                            },
+                            responses: { '200': { description: 'ok' } },
+                        },
+                    },
+                },
+            };
+            const content = runGenerator(specWithCallbacks, { generateServices: true });
+            expect(content).toContain(`export * from "./callbacks";`);
+        });
+
+        it('should export webhooks and webhook.service when webhooks are defined', () => {
+            const specWithWebhooks = {
+                ...emptySpec,
+                webhooks: {
+                    onEvent: {
+                        post: {
+                            requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
+                            responses: { '200': { description: 'ok' } },
+                        },
+                    },
+                },
+            };
+            const content = runGenerator(specWithWebhooks, { generateServices: true });
+            expect(content).toContain(`export * from "./webhooks";`);
+            expect(content).toContain(`export * from "./utils/webhook.service";`);
+        });
+
         it('should export server-url if specification has servers', () => {
             const specWithServers = { ...emptySpec, servers: [{ url: 'http://api.com' }] };
             const content = runGenerator(specWithServers, { generateServices: true });
             expect(content).toContain(`export * from "./utils/server-url";`);
+        });
+
+        it('should export component registries when examples/mediaTypes/pathItems exist', () => {
+            const specWithComponents = {
+                ...emptySpec,
+                components: {
+                    examples: { Sample: { summary: 'Example', dataValue: { id: 1 } } },
+                    mediaTypes: { EventStream: { schema: { type: 'string' } } },
+                    pathItems: { Ping: { get: { responses: { '200': { description: 'pong' } } } } },
+                    parameters: { Limit: { name: 'limit', in: 'query', schema: { type: 'integer' } } },
+                    requestBodies: { CreateUser: { content: { 'application/json': { schema: { type: 'object' } } } } },
+                    responses: { NotFound: { description: 'Not found' } },
+                },
+            };
+            const content = runGenerator(specWithComponents, { generateServices: true });
+            expect(content).toContain(`export * from "./examples";`);
+            expect(content).toContain(`export * from "./media-types";`);
+            expect(content).toContain(`export * from "./path-items";`);
+            expect(content).toContain(`export * from "./parameters";`);
+            expect(content).toContain(`export * from "./request-bodies";`);
+            expect(content).toContain(`export * from "./responses";`);
         });
 
         it('should not export server-url for Swagger specs without servers', () => {

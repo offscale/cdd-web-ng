@@ -70,7 +70,8 @@ describe('Generators (Angular): ServiceGenerator', () => {
             .find(m => m.getName() === 'updateUser' && m.getParameters().some(p => p.getName() === 'user'))!;
         const body = method.getBodyText() ?? '';
 
-        expect(body).toContain('const basePath = this.basePath;');
+        expect(body).toContain('getServerUrl');
+        expect(body).toContain('options?.serverVariables');
         // Updated expectation: ParameterSerializer
         expect(body).toContain(
             "const url = `${basePath}/users/${ParameterSerializer.serializePathParam('id', id, 'simple', false, false)}`;",
@@ -78,6 +79,37 @@ describe('Generators (Angular): ServiceGenerator', () => {
         // Expect generic call now
         expect(body).toContain('return this.http.put<any>(url, user, requestOptions as any);');
         expect(body).not.toContain('finalOptions.body = user;');
+    });
+
+    it('should resolve operation-level servers with per-request overrides', () => {
+        const specWithOpServer = {
+            paths: {
+                '/op': {
+                    get: {
+                        tags: ['Op'],
+                        operationId: 'getOp',
+                        servers: [
+                            {
+                                url: 'https://{env}.example.com/v1',
+                                variables: { env: { default: 'dev' } },
+                            },
+                        ],
+                        responses: { '200': { description: 'ok' } },
+                    },
+                },
+            },
+        };
+
+        const project = createTestEnvironment(specWithOpServer);
+        const serviceClass = project
+            .getSourceFileOrThrow('/out/services/op.service.ts')
+            .getClassOrThrow('OpService');
+        const method = serviceClass.getMethodOrThrow('getOp');
+        const body = method.getBodyText() ?? '';
+
+        expect(body).toContain('resolveServerUrl');
+        expect(body).toContain('operationServers');
+        expect(body).toContain('options?.serverVariables');
     });
 
     it('should generate a void return type for 204 responses', () => {

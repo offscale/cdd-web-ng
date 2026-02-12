@@ -82,6 +82,34 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
         expect(model?.docs).toContain('@deprecated');
     });
 
+    it('should add @tags to docs when operation tags are present', () => {
+        const spec = {
+            openapi: '3.2.0',
+            info: { title: 'Test', version: '1.0' },
+            paths: {
+                '/tagged': {
+                    get: {
+                        operationId: 'getTagged',
+                        tags: ['users', 'admin'],
+                        summary: 'Tagged endpoint.',
+                        responses: { '200': { description: 'OK' } },
+                    },
+                },
+            },
+        };
+
+        const { analyzer } = setupAnalyzer(spec);
+        const operation: PathInfo = {
+            ...spec.paths['/tagged'].get,
+            path: '/tagged',
+            method: 'GET',
+            methodName: 'getTagged',
+        } as PathInfo;
+
+        const model = analyzer.analyze(operation);
+        expect(model?.docs).toContain('@tags users, admin');
+    });
+
     it('should correctly parse advanced XML config properties and stop at depth limit', () => {
         const spec = {
             openapi: '3.0.0',
@@ -132,6 +160,54 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
             expect(config.properties.child).toBeDefined();
             expect(config.properties.child.properties.child).toBeDefined();
         }
+    });
+
+    it('should include prefixItems in XML config for ordered arrays', () => {
+        const spec = {
+            openapi: '3.2.0',
+            info: { title: 'XML Ordered', version: '1.0' },
+            components: {
+                schemas: {
+                    Report: {
+                        type: 'array',
+                        xml: { name: 'Report', nodeType: 'element' },
+                        prefixItems: [
+                            { type: 'string', xml: { name: 'One' } },
+                            { type: 'number', xml: { name: 'Two' } },
+                        ],
+                    },
+                },
+            },
+            paths: {
+                '/report': {
+                    get: {
+                        operationId: 'getReport',
+                        responses: {
+                            '200': {
+                                content: {
+                                    'application/xml': {
+                                        schema: { $ref: '#/components/schemas/Report' },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const { analyzer } = setupAnalyzer(spec);
+        const operation = {
+            ...spec.paths['/report'].get,
+            path: '/report',
+            method: 'GET',
+            methodName: 'getReport',
+        } as PathInfo;
+
+        const model = analyzer.analyze(operation);
+        expect(model?.responseXmlConfig?.prefixItems).toBeDefined();
+        expect(model?.responseXmlConfig?.prefixItems?.[0]?.name).toBe('One');
+        expect(model?.responseXmlConfig?.prefixItems?.[1]?.name).toBe('Two');
     });
 
     it('should handle various JSON content types detection', () => {
@@ -220,6 +296,90 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
             // Should include local properties
             expect(config.properties.name).toBeDefined();
         }
+    });
+
+    it('should infer request body content types for text, binary, and +xml payloads', () => {
+        const spec = {
+            openapi: '3.2.0',
+            info: { title: 'Request Bodies', version: '1.0' },
+            paths: {
+                '/text': {
+                    post: {
+                        operationId: 'postText',
+                        requestBody: {
+                            required: true,
+                            content: {
+                                'text/plain': { schema: { type: 'string' } },
+                            },
+                        },
+                        responses: { '200': { description: 'OK' } },
+                    },
+                },
+                '/binary': {
+                    post: {
+                        operationId: 'postBinary',
+                        requestBody: {
+                            content: {
+                                'application/octet-stream': {},
+                            },
+                        },
+                        responses: { '200': { description: 'OK' } },
+                    },
+                },
+                '/soap': {
+                    post: {
+                        operationId: 'postSoap',
+                        requestBody: {
+                            content: {
+                                'application/soap+xml': {
+                                    schema: {
+                                        type: 'object',
+                                        properties: {
+                                            message: { type: 'string' },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                        responses: { '200': { description: 'OK' } },
+                    },
+                },
+            },
+        };
+
+        const { analyzer } = setupAnalyzer(spec);
+
+        const textOp = {
+            ...spec.paths['/text'].post,
+            path: '/text',
+            method: 'POST',
+            methodName: 'postText',
+        } as PathInfo;
+        const textModel = analyzer.analyze(textOp);
+        expect(textModel?.body?.type).toBe('raw');
+        expect(textModel?.requestContentType).toBe('text/plain');
+        expect(textModel?.parameters.find(p => p.name === 'body')?.type).toBe('string');
+
+        const binaryOp = {
+            ...spec.paths['/binary'].post,
+            path: '/binary',
+            method: 'POST',
+            methodName: 'postBinary',
+        } as PathInfo;
+        const binaryModel = analyzer.analyze(binaryOp);
+        expect(binaryModel?.body?.type).toBe('raw');
+        expect(binaryModel?.requestContentType).toBe('application/octet-stream');
+        expect(binaryModel?.parameters.find(p => p.name === 'body')?.type).toBe('Blob');
+
+        const soapOp = {
+            ...spec.paths['/soap'].post,
+            path: '/soap',
+            method: 'POST',
+            methodName: 'postSoap',
+        } as PathInfo;
+        const soapModel = analyzer.analyze(soapOp);
+        expect(soapModel?.body?.type).toBe('xml');
+        expect(soapModel?.requestContentType).toBe('application/soap+xml');
     });
 
     // Test for line 267: Unresolved ref in getXmlConfig
@@ -492,6 +652,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                             '200': { content: { 'application/json': { schema: { type: 'string' } } } },
                             '400': { content: { 'application/xml': { schema: { type: 'string' } } } },
                             '401': { description: 'Unauthorized' },
+                            '422': { content: { 'application/problem+json': { schema: { type: 'string' } } } },
                             '500': { content: { 'text/plain': {} } },
                         },
                     },
@@ -503,8 +664,30 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
         const model = analyzer.analyze(operation)!;
 
         const types = model.errorResponses.map(e => e.type);
-        expect(types).toContain('string'); // xml string
+        expect(types).toContain('string'); // xml string + json/text
         expect(types).toContain('void'); // 401 with no content
+    });
+
+    it('should treat text/* error responses as string', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Errors', version: '1.0' },
+            paths: {
+                '/err': {
+                    get: {
+                        operationId: 'getErr',
+                        responses: {
+                            '200': { description: 'ok' },
+                            '400': { content: { 'text/html': {} } },
+                        },
+                    },
+                },
+            },
+        };
+        const { analyzer } = setupAnalyzer(spec);
+        const op = { ...spec.paths['/err'].get, path: '/err', method: 'GET', methodName: 'getErr' } as any;
+        const model = analyzer.analyze(op)!;
+        expect(model.errorResponses[0].type).toBe('string');
     });
 
     it('should infer array type when requestBody uses itemSchema', () => {
@@ -802,7 +985,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
             expect(model.responseVariants[0].type).toBe('string');
         });
 
-        it('should keep error response type unknown for unsupported content', () => {
+        it('should treat binary error responses as Blob', () => {
             const spec = {
                 openapi: '3.0.0',
                 info: { title: 'Errors', version: '1.0' },
@@ -821,10 +1004,10 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
             const { analyzer } = setupAnalyzer(spec);
             const op = { ...spec.paths['/err'].get, path: '/err', method: 'GET', methodName: 'getErr' } as any;
             const model = analyzer.analyze(op)!;
-            expect(model.errorResponses[0].type).toBe('unknown');
+            expect(model.errorResponses[0].type).toBe('Blob');
         });
 
-        it('should handle requestBody with empty content map', () => {
+        it('should handle requestBody with minimal content map', () => {
             const spec = {
                 openapi: '3.0.0',
                 info: { title: 'Body', version: '1.0' },
@@ -832,7 +1015,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                     '/body': {
                         post: {
                             operationId: 'postBody',
-                            requestBody: { content: {} },
+                            requestBody: { content: { 'application/json': {} } },
                             responses: { '200': {} },
                         },
                     },
@@ -845,7 +1028,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
             expect(model.requestEncodingConfig).toBeUndefined();
         });
 
-        it('should treat requestBody without content as raw', () => {
+        it('should treat binary requestBody content as raw', () => {
             const spec = {
                 openapi: '3.0.0',
                 info: { title: 'Raw', version: '1.0' },
@@ -853,7 +1036,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                     '/raw': {
                         post: {
                             operationId: 'postRaw',
-                            requestBody: {},
+                            requestBody: { content: { 'application/octet-stream': {} } },
                             responses: { '200': {} },
                         },
                     },
@@ -920,6 +1103,47 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
             expect(config.prefixEncoding).toBeDefined();
             expect(config.prefixEncoding[0]).toBeDefined();
             expect(config.itemEncoding).toBeDefined();
+        });
+
+        it('should enrich urlencoded encoding config from schema properties', () => {
+            const spec = {
+                openapi: '3.2.0',
+                info: { title: 'UrlEncoded', version: '1.0' },
+                paths: {
+                    '/form': {
+                        post: {
+                            operationId: 'postForm',
+                            requestBody: {
+                                content: {
+                                    'application/x-www-form-urlencoded': {
+                                        schema: {
+                                            type: 'object',
+                                            properties: {
+                                                meta: { type: 'object' },
+                                                note: { type: 'string', contentEncoding: 'base64' },
+                                                tags: { type: 'array', items: { type: 'string' } },
+                                            },
+                                        },
+                                        encoding: {
+                                            tags: { style: 'pipeDelimited', explode: false },
+                                        },
+                                    },
+                                },
+                            },
+                            responses: { '200': {} },
+                        },
+                    },
+                },
+            };
+            const { analyzer } = setupAnalyzer(spec);
+            const op = { ...spec.paths['/form'].post, path: '/form', method: 'POST', methodName: 'postForm' } as any;
+            const model = analyzer.analyze(op)!;
+            expect(model.body?.type).toBe('urlencoded');
+            const config = (model.body as any).config as any;
+            expect(config.meta.contentType).toBe('application/json');
+            expect(config.note.headers['Content-Transfer-Encoding']).toBe('base64');
+            expect(config.tags.style).toBe('pipeDelimited');
+            expect(config.tags.explode).toBe(false);
         });
 
         it('should populate Content-Transfer-Encoding headers when missing', () => {
@@ -1035,7 +1259,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                     '/enc': {
                         post: {
                             operationId: 'postEnc',
-                            requestBody: {},
+                            requestBody: { content: { 'application/json': {} } },
                             responses: { '200': {} },
                         },
                     },

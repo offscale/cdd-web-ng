@@ -49,7 +49,7 @@ const fullSpec: SwaggerSpec = {
             get: {
                 tags: ['User'],
                 responses: { '200': { description: 'ok' } },
-                callbacks: { onUser: { '{$request.query}': { post: { responses: { '200': {} } } } } },
+                callbacks: { onUser: { '{$request.query.userId}': { post: { responses: { '200': {} } } } } },
             },
         },
     },
@@ -63,6 +63,15 @@ const fullSpec: SwaggerSpec = {
         },
         schemas: {
             User: { type: 'object', properties: { name: { type: 'string' } } },
+        },
+        examples: {
+            Sample: { summary: 'Example', dataValue: { id: 1 } },
+        },
+        mediaTypes: {
+            EventStream: { schema: { type: 'string' } },
+        },
+        pathItems: {
+            Ping: { get: { responses: { '200': { description: 'pong' } } } },
         },
     },
     servers: [{ url: 'https://api.test.com' }],
@@ -110,6 +119,10 @@ describe('Generators: AngularClientGenerator (Orchestrator)', () => {
         expect(fs.existsSync(path.join(testOutputDir, 'security.ts'))).toBe(true);
         expect(fs.existsSync(path.join(testOutputDir, 'servers.ts'))).toBe(true);
         expect(fs.existsSync(path.join(testOutputDir, 'tags.ts'))).toBe(true);
+        expect(fs.existsSync(path.join(testOutputDir, 'examples.ts'))).toBe(true);
+        expect(fs.existsSync(path.join(testOutputDir, 'media-types.ts'))).toBe(true);
+        expect(fs.existsSync(path.join(testOutputDir, 'path-items.ts'))).toBe(true);
+        expect(fs.existsSync(path.join(testOutputDir, 'document.ts'))).toBe(true);
         expect(fs.existsSync(path.join(testOutputDir, 'openapi.snapshot.json'))).toBe(true);
         expect(fs.existsSync(path.join(testOutputDir, 'openapi.snapshot.yaml'))).toBe(true);
 
@@ -130,6 +143,15 @@ describe('Generators: AngularClientGenerator (Orchestrator)', () => {
         const tagsFile = fs.readFileSync(path.join(testOutputDir, 'tags.ts'), 'utf-8');
         expect(tagsFile).toContain('API_TAGS');
         expect(tagsFile).toContain('User management');
+
+        const examplesFile = fs.readFileSync(path.join(testOutputDir, 'examples.ts'), 'utf-8');
+        expect(examplesFile).toContain('API_EXAMPLES');
+
+        const mediaTypesFile = fs.readFileSync(path.join(testOutputDir, 'media-types.ts'), 'utf-8');
+        expect(mediaTypesFile).toContain('API_MEDIA_TYPES');
+
+        const pathItemsFile = fs.readFileSync(path.join(testOutputDir, 'path-items.ts'), 'utf-8');
+        expect(pathItemsFile).toContain('API_PATH_ITEMS');
     });
 
     it('should derive controller names from path segments when tags are missing', async () => {

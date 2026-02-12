@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import { Project, VariableDeclarationKind } from 'ts-morph';
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../core/constants.js';
 import { SwaggerParser } from '@src/core/parser.js';
-import { LinkObject, PathInfo } from '@src/core/types/index.js';
+import { LinkObject, PathInfo, SpecOperation } from '@src/core/types/index.js';
 
 /**
  * Generates the `links.ts` file.
@@ -35,8 +35,16 @@ export class LinkGenerator {
                     Object.entries(response.links).forEach(([linkName, linkOrRef]) => {
                         const link = this.parser.resolve(linkOrRef) as LinkObject;
                         if (link) {
+                            const resolvedOperationId =
+                                !link.operationId && link.operationRef
+                                    ? this.resolveOperationRef(link.operationRef)
+                                    : undefined;
                             const cleanLink: LinkObject = {
-                                ...(link.operationId ? { operationId: link.operationId } : {}),
+                                ...(link.operationId
+                                    ? { operationId: link.operationId }
+                                    : resolvedOperationId
+                                      ? { operationId: resolvedOperationId }
+                                      : {}),
                                 ...(link.operationRef ? { operationRef: link.operationRef } : {}),
                                 ...(link.parameters ? { parameters: link.parameters } : {}),
                                 ...(link.requestBody ? { requestBody: link.requestBody } : {}),
@@ -82,5 +90,41 @@ export class LinkGenerator {
 
         sourceFile.formatText();
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
+    }
+
+    private decodePointerToken(token: string): string {
+        try {
+            return decodeURIComponent(token).replace(/~1/g, '/').replace(/~0/g, '~');
+        } catch {
+            return token.replace(/~1/g, '/').replace(/~0/g, '~');
+        }
+    }
+
+    private resolveOperationRef(operationRef: string): string | undefined {
+        const resolved = this.parser.resolveReference<SpecOperation>(operationRef);
+        if (resolved && typeof resolved.operationId === 'string') {
+            return resolved.operationId;
+        }
+
+        const fragment = operationRef.split('#', 2)[1];
+        if (!fragment) return undefined;
+
+        const tokens = fragment
+            .split('/')
+            .filter(Boolean)
+            .map(token => this.decodePointerToken(token));
+
+        if (tokens.length < 3) return undefined;
+
+        const root = tokens[0];
+        if (root !== 'paths' && root !== 'webhooks') return undefined;
+
+        const path = tokens[1];
+        const methodIndex = tokens[2] === 'additionalOperations' && tokens.length >= 4 ? 3 : 2;
+        const method = tokens[methodIndex];
+
+        const pool = root === 'webhooks' ? this.parser.webhooks : this.parser.operations;
+        const op = pool.find(entry => entry.path === path && entry.method.toLowerCase() === method.toLowerCase());
+        return op?.operationId;
     }
 }

@@ -50,6 +50,62 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
         expect(docs[0].getText()).toContain('Doc string');
     });
 
+    it('should emit @response tags when responses are defined', () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const parser = new SwaggerParser(
+            { openapi: '3.0.0', info: { title: 'T', version: '1' }, paths: {} } as any,
+            config,
+        );
+        const generator = new ServiceMethodGenerator(config, parser);
+
+        const model: ServiceMethodModel = {
+            methodName: 'withResponses',
+            httpMethod: 'GET',
+            urlTemplate: '/with-responses',
+            docs: 'Doc string',
+            isDeprecated: false,
+            parameters: [],
+            responseType: 'string',
+            responseSerialization: 'json',
+            responseVariants: [
+                { mediaType: 'application/json', type: 'string', serialization: 'json', isDefault: true },
+            ],
+            errorResponses: [],
+            pathParams: [],
+            queryParams: [],
+            headerParams: [],
+            cookieParams: [],
+            security: [],
+            extensions: {},
+            hasServers: false,
+        };
+
+        const sourceFile = project.createSourceFile('/out/service.ts', '', { overwrite: true });
+        const classDeclaration = sourceFile.addClass({ name: 'TestService' });
+
+        vi.spyOn((generator as any).analyzer, 'analyze').mockReturnValue(model);
+        generator.addServiceMethod(classDeclaration, {
+            methodName: 'withResponses',
+            responses: {
+                '200': {
+                    description: 'OK',
+                    content: {
+                        'application/json': { schema: { type: 'string' } },
+                        'text/plain': { schema: { type: 'string' } },
+                    },
+                },
+                '404': {
+                    description: 'Not found',
+                },
+            },
+        } as any);
+
+        const docText = classDeclaration.getMethodOrThrow('withResponses').getJsDocs()[0].getText();
+        expect(docText).toContain('@response 200 application/json OK');
+        expect(docText).toContain('@response 200 text/plain OK');
+        expect(docText).toContain('@response 404 Not found');
+    });
+
     it('should omit docs when none are provided', () => {
         const project = new Project({ useInMemoryFileSystem: true });
         const parser = new SwaggerParser(
@@ -317,6 +373,43 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
         const rawOp = { path: '/weird', method: 'POST' } as any;
         const body = (generator as any).emitMethodBody(model, rawOp, false, false);
         expect(body).toContain('this.http.post<any>(url, null, requestOptions as any)');
+    });
+
+    it('should set Content-Type when requestContentType is provided', () => {
+        const parser = new SwaggerParser(
+            { openapi: '3.0.0', info: { title: 'T', version: '1' }, paths: {} } as any,
+            config,
+        );
+        const generator = new ServiceMethodGenerator(config, parser);
+
+        const model: ServiceMethodModel = {
+            methodName: 'sendText',
+            httpMethod: 'POST',
+            urlTemplate: '/text',
+            isDeprecated: false,
+            parameters: [{ name: 'payload', type: 'string' }],
+            responseType: 'string',
+            responseSerialization: 'json',
+            responseVariants: [
+                { mediaType: 'application/json', type: 'string', serialization: 'json', isDefault: true },
+            ],
+            errorResponses: [],
+            pathParams: [],
+            queryParams: [],
+            headerParams: [],
+            cookieParams: [],
+            body: { type: 'raw', paramName: 'payload' },
+            requestContentType: 'text/plain',
+            security: [],
+            extensions: {},
+            hasServers: false,
+        };
+
+        const rawOp = { path: '/text', method: 'POST' } as any;
+        const body = (generator as any).emitMethodBody(model, rawOp, false, false);
+
+        expect(body).toContain("headers = headers.set('Content-Type', 'text/plain')");
+        expect(body).toContain('requestOptions = { ...requestOptions, headers };');
     });
 
     it('should fall back to unknown when responseType is empty', () => {

@@ -29,13 +29,14 @@ export class XmlParserGenerator {
                 },
                 { name: 'properties', type: 'Record<string, XmlPropertyConfig>', hasQuestionToken: true },
                 { name: 'items', type: 'XmlPropertyConfig', hasQuestionToken: true },
+                { name: 'prefixItems', type: 'XmlPropertyConfig[]', hasQuestionToken: true },
             ],
         });
 
         const classDeclaration = sourceFile.addClass({
             name: 'XmlParser',
             isExported: true,
-            docs: ['Utility to parse XML responses into typed objects based on OpenAPI metadata.'],
+            docs: ['Utility to parse XML responses into typed objects based on OpenAPI metadata (including prefixItems ordering).'],
         });
 
         classDeclaration.addMethod({
@@ -75,6 +76,36 @@ export class XmlParserGenerator {
         if (node.hasAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'nil') && 
             node.getAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'nil') === 'true') { 
             return null; 
+        } 
+
+        const prefixItems = Array.isArray(config.prefixItems) ? config.prefixItems : undefined; 
+        if (prefixItems && prefixItems.length > 0) { 
+            const nodes = this.collectArrayNodes(node); 
+            const result: any[] = []; 
+            let cursor = 0; 
+
+            for (let i = 0; i < prefixItems.length; i++) { 
+                const cfg = prefixItems[i] || {}; 
+                const child = nodes[cursor]; 
+                if (!child) { 
+                    result.push(undefined); 
+                    continue; 
+                } 
+                result.push(this.parseArrayNode(child, cfg)); 
+                cursor++; 
+            } 
+
+            if (config.items) { 
+                const itemsConfig = config.items || {}; 
+                for (; cursor < nodes.length; cursor++) { 
+                    const child = nodes[cursor]; 
+                    if (child.nodeType === 1 && itemsConfig.name && !this.nodeMatchesName(child as Element, itemsConfig.name)) { 
+                        continue; 
+                    } 
+                    result.push(this.parseArrayNode(child, itemsConfig)); 
+                } 
+            } 
+            return result; 
         } 
 
         if (config.items || config.wrapped) { 
@@ -142,6 +173,39 @@ export class XmlParserGenerator {
         } 
 
         return node.textContent;`,
+        });
+
+        classDeclaration.addMethod({
+            name: 'collectArrayNodes',
+            isStatic: true,
+            scope: Scope.Private,
+            parameters: [{ name: 'node', type: 'Element' }],
+            returnType: 'ChildNode[]',
+            statements: `
+        const nodes = Array.from(node.childNodes);
+        return nodes.filter(child => {
+            if (child.nodeType === 1) return true; // Element
+            if (child.nodeType === 3 || child.nodeType === 4) {
+                return (child.textContent || '').trim().length > 0;
+            }
+            return false;
+        });`,
+        });
+
+        classDeclaration.addMethod({
+            name: 'parseArrayNode',
+            isStatic: true,
+            scope: Scope.Private,
+            parameters: [
+                { name: 'node', type: 'ChildNode' },
+                { name: 'config', type: 'XmlPropertyConfig' },
+            ],
+            returnType: 'any',
+            statements: `
+        if (node.nodeType === 3 || node.nodeType === 4) { 
+            return node.textContent ?? ''; 
+        } 
+        return this.parseNode(node as Element, config);`,
         });
 
         classDeclaration.addMethod({

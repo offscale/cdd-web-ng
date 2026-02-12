@@ -25,6 +25,53 @@ describe('Core Utils: Spec Extractor', () => {
             expect(paths[0].requestBody?.content?.['application/json'].schema).toEqual({ type: 'string' });
         });
 
+        it('should map Swagger 2.0 consumes to requestBody content types', () => {
+            const swaggerPaths = {
+                '/upload': {
+                    post: {
+                        consumes: ['application/xml', 'multipart/form-data'],
+                        responses: {},
+                        parameters: [{ name: 'body', in: 'body', schema: { type: 'object' } }],
+                    },
+                },
+            };
+            const [pathInfo] = utils.extractPaths(swaggerPaths as any);
+            const content = pathInfo.requestBody?.content || {};
+            expect(Object.keys(content)).toContain('application/xml');
+            expect(Object.keys(content)).toContain('multipart/form-data');
+        });
+
+        it('should map Swagger 2.0 produces to response content types', () => {
+            const swaggerPaths = {
+                '/data': {
+                    get: {
+                        produces: ['text/plain'],
+                        responses: { '200': { description: 'ok', schema: { type: 'string' } } },
+                    },
+                },
+            };
+            const [pathInfo] = utils.extractPaths(swaggerPaths as any);
+            expect(pathInfo.responses?.['200'].content?.['text/plain']?.schema).toEqual({ type: 'string' });
+        });
+
+        it('should fall back to Swagger 2.0 default consumes/produces when operation omits them', () => {
+            const swaggerPaths = {
+                '/defaults': {
+                    post: {
+                        responses: { '200': { description: 'ok', schema: { type: 'string' } } },
+                        parameters: [{ name: 'body', in: 'body', schema: { type: 'string' } }],
+                    },
+                },
+            };
+            const [pathInfo] = utils.extractPaths(swaggerPaths as any, undefined, undefined, {
+                isOpenApi3: false,
+                defaultConsumes: ['application/xml'],
+                defaultProduces: ['application/xml'],
+            });
+            expect(pathInfo.requestBody?.content?.['application/xml']?.schema).toEqual({ type: 'string' });
+            expect(pathInfo.responses?.['200'].content?.['application/xml']?.schema).toEqual({ type: 'string' });
+        });
+
         it('should prefer explicit requestBody over body parameter if both exist (OAS 3 priority)', () => {
             const swaggerPaths = {
                 '/conflict': {
@@ -278,6 +325,7 @@ describe('Core Utils: Spec Extractor', () => {
                         parameters: [
                             { name: 'c', in: 'query', collectionFormat: 'csv' },
                             { name: 's', in: 'query', collectionFormat: 'ssv' },
+                            { name: 't', in: 'query', collectionFormat: 'tsv' },
                             { name: 'p', in: 'query', collectionFormat: 'pipes' },
                             { name: 'm', in: 'query', collectionFormat: 'multi' },
                         ],
@@ -292,6 +340,8 @@ describe('Core Utils: Spec Extractor', () => {
             expect(ps.find(p => p.name === 'c')?.explode).toBe(false);
 
             expect(ps.find(p => p.name === 's')?.style).toBe('spaceDelimited');
+
+            expect(ps.find(p => p.name === 't')?.style).toBe('tabDelimited');
 
             expect(ps.find(p => p.name === 'p')?.style).toBe('pipeDelimited');
 

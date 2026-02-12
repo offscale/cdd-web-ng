@@ -29,16 +29,37 @@ const isDynamicRefObject = (obj: unknown): obj is DynamicRefObject =>
  * Resolves OpenAPI references ($ref and $dynamicRef) including context-aware resolution for OAS 3.1.
  */
 export class ReferenceResolver {
+    private static baseUriMap = new WeakMap<object, string>();
+    private static documentUriMap = new WeakMap<object, string>();
+
     constructor(
         private specCache: Map<string, SwaggerSpec>,
         private entryDocumentUri: string,
     ) {}
 
+    public static getBaseUri(obj: object): string | undefined {
+        return ReferenceResolver.baseUriMap.get(obj);
+    }
+
+    /**
+     * Returns the retrieval URI of the document that defined the object.
+     * This is used for resolving API URLs (e.g., Server Objects) which
+     * must ignore `$self` and instead use the retrieval URI per OAS 3.2.
+     */
+    public static getDocumentUri(obj: object): string | undefined {
+        return ReferenceResolver.documentUriMap.get(obj);
+    }
+
     /**
      * Indexes any `$id`, `$anchor`, and `$dynamicAnchor` properties within a spec object
      * and adds them to the cache for direct lookup.
      */
-    public static indexSchemaIds(spec: any, baseUri: string, cache: Map<string, SwaggerSpec>): void {
+    public static indexSchemaIds(
+        spec: any,
+        baseUri: string,
+        cache: Map<string, SwaggerSpec>,
+        documentUri: string = baseUri,
+    ): void {
         if (!spec || typeof spec !== 'object') return;
 
         const traverse = (obj: any, currentBase: string, visited: Set<any>) => {
@@ -58,6 +79,10 @@ export class ReferenceResolver {
                     /* Ignore invalid $id */
                 }
             }
+
+            // Track the effective base URI for this object (nearest $id or document base).
+            ReferenceResolver.baseUriMap.set(obj, nextBase);
+            ReferenceResolver.documentUriMap.set(obj, documentUri);
 
             // $anchor
             if ('$anchor' in obj && typeof obj.$anchor === 'string') {
@@ -129,10 +154,12 @@ export class ReferenceResolver {
         let refObj: RefObject | DynamicRefObject | null = null;
 
         if (isRefObject(obj)) {
-            resolved = this.resolveReference<T>(obj.$ref, this.entryDocumentUri, resolutionStack);
+            const baseUri = ReferenceResolver.getBaseUri(obj as object) ?? this.entryDocumentUri;
+            resolved = this.resolveReference<T>(obj.$ref, baseUri, resolutionStack);
             refObj = obj;
         } else if (isDynamicRefObject(obj)) {
-            resolved = this.resolveReference<T>(obj.$dynamicRef, this.entryDocumentUri, resolutionStack);
+            const baseUri = ReferenceResolver.getBaseUri(obj as object) ?? this.entryDocumentUri;
+            resolved = this.resolveReference<T>(obj.$dynamicRef, baseUri, resolutionStack);
             refObj = obj;
         } else {
             return obj as T;
@@ -227,10 +254,12 @@ export class ReferenceResolver {
             const newStack = [...resolutionStack, fullUriKey];
 
             if (isRefObject(result)) {
-                return this.resolveReference(result.$ref, targetUri, newStack);
+                const nestedBase = ReferenceResolver.getBaseUri(result) ?? targetUri;
+                return this.resolveReference(result.$ref, nestedBase, newStack);
             }
             if (isDynamicRefObject(result)) {
-                return this.resolveReference(result.$dynamicRef, targetUri, newStack);
+                const nestedBase = ReferenceResolver.getBaseUri(result) ?? targetUri;
+                return this.resolveReference(result.$dynamicRef, nestedBase, newStack);
             }
         }
 

@@ -149,6 +149,36 @@ describe('Emitter: SecurityGenerator', () => {
         expect(text).toContain('"openIdConnectUrl": "https://example.com/.well-known/openid-configuration"');
     });
 
+    it('should emit global security requirements when present', () => {
+        const project = runGenerator({
+            openapi: '3.2.0',
+            info: { title: 'Security', version: '1.0' },
+            paths: {},
+            security: [{ ApiKeyAuth: [] }, { OAuth2: ['read:users'] }],
+            components: {
+                securitySchemes: {
+                    ApiKeyAuth: { type: 'apiKey', in: 'header', name: 'X-API-KEY' },
+                    OAuth2: {
+                        type: 'oauth2',
+                        flows: {
+                            implicit: {
+                                authorizationUrl: 'https://example.com/auth',
+                                scopes: { 'read:users': 'Read Users' },
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        const sourceFile = project.getSourceFileOrThrow('/out/security.ts');
+        const text = sourceFile.getText();
+
+        expect(text).toContain('API_SECURITY_REQUIREMENTS');
+        expect(text).toContain('"ApiKeyAuth"');
+        expect(text).toContain('"read:users"');
+    });
+
     it('should support Legacy Swagger 2.0 securityDefinitions', () => {
         const project = runGenerator({
             swagger: '2.0',
@@ -173,5 +203,45 @@ describe('Emitter: SecurityGenerator', () => {
         expect(text).toContain('"type": "basic"');
         expect(text).toContain('LegacyApiKey');
         expect(text).toContain('"name": "X-Auth"');
+    });
+
+    it('should resolve security schemes referenced by URI in security requirements', () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const config: GeneratorConfig = { input: '', output: '/out', options: {} };
+
+        const entryUri = 'file://entry.json';
+        const schemeUri = 'https://example.com/schemes.json';
+
+        const spec: SwaggerSpec = {
+            openapi: '3.2.0',
+            info: { title: 'URI Schemes', version: '1.0' },
+            paths: {
+                '/secure': {
+                    get: {
+                        security: [{ [`${schemeUri}#/ApiKey`]: [] }],
+                        responses: { '200': { description: 'ok' } },
+                    },
+                },
+            },
+        };
+
+        const externalSchemes = {
+            ApiKey: { type: 'apiKey', in: 'header', name: 'X-API-KEY' },
+        };
+
+        const cache = new Map<string, SwaggerSpec>([
+            [entryUri, spec],
+            [schemeUri, externalSchemes as any],
+        ]);
+
+        const parser = new SwaggerParser(spec as any, config, cache, entryUri);
+        new SecurityGenerator(parser, project).generate('/out');
+
+        const sourceFile = project.getSourceFileOrThrow('/out/security.ts');
+        const text = sourceFile.getText();
+
+        expect(text).toContain('ApiKey');
+        expect(text).toContain('"type": "apiKey"');
+        expect(text).toContain('"name": "X-API-KEY"');
     });
 });

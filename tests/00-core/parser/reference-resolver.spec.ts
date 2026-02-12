@@ -175,6 +175,35 @@ describe('Core: ReferenceResolver', () => {
             const obj = { type: 'number' };
             expect(resolver.resolve(obj)).toBe(obj);
         });
+
+        it('should resolve relative $ref using nearest $id base URI', () => {
+            const spec = {
+                components: {
+                    schemas: {
+                        Foo: {
+                            $id: 'http://example.com/schemas/foo',
+                            type: 'object',
+                            properties: {
+                                bar: { $ref: 'bar' },
+                            },
+                        },
+                        Bar: {
+                            $id: 'http://example.com/schemas/bar',
+                            type: 'string',
+                        },
+                    },
+                },
+            };
+
+            cache.set(rootUri, spec as any);
+            ReferenceResolver.indexSchemaIds(spec, rootUri, cache);
+
+            const refObj = (spec as any).components.schemas.Foo.properties.bar;
+            const resolved = resolver.resolve(refObj as any) as any;
+
+            expect(resolved).toBeDefined();
+            expect(resolved.type).toBe('string');
+        });
     });
 
     describe('$dynamicRef Resolution', () => {

@@ -72,7 +72,7 @@ export class ServiceGenerator extends AbstractServiceGenerator {
 
         sourceFile.addImportDeclaration({
             moduleSpecifier: '../utils/server-url',
-            namedImports: ['getServerUrl'],
+            namedImports: ['getServerUrl', 'resolveServerUrl'],
         });
 
         if (

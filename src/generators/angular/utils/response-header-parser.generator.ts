@@ -52,9 +52,14 @@ export class ResponseHeaderParserGenerator {
         Object.entries(headerConfig).forEach(([headerName, typeHint]) => {
             if (!headers.has(headerName)) return;
 
-            if (typeHint === 'array') {
-                const values = headers.getAll(headerName);
-                result[headerName] = values;
+            if (typeHint === 'array' || typeHint === 'set-cookie') {
+                const values = headers.getAll(headerName) ?? [];
+                if (values.length === 0) {
+                    const fallback = headers.get(headerName);
+                    result[headerName] = fallback !== null ? [fallback] : [];
+                } else {
+                    result[headerName] = values;
+                }
             } else {
                 const val = headers.get(headerName);
                 if (val !== null) {

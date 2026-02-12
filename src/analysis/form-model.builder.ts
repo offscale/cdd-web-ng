@@ -197,7 +197,7 @@ export class FormModelBuilder {
             }
             // 2c. Form Array
             else if (schema.type === 'array') {
-                const itemSchema = schema.items as SwaggerDefinition;
+                const itemSchema = (schema.items ?? schema.unevaluatedItems ?? {}) as SwaggerDefinition | boolean;
 
                 if (itemSchema?.properties) {
                     this.result.hasFormArrays = true;

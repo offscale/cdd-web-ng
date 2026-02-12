@@ -34,16 +34,34 @@ export class WebhookGenerator {
             name: string;
             interfaceName: string;
             method: string;
+            pathItem: PathItem;
             requestType: string;
             responseType: string;
+            scope?: 'root' | 'component';
         }[] = [];
-        const webhooks = this.parser.spec.webhooks || {};
+        const declaredTypeAliases = new Set<string>();
 
-        Object.entries(webhooks).forEach(([webhookName, pathItemOrRef]) => {
+        const addTypeAliasOnce = (name: string, type: string, docs: string[]) => {
+            if (declaredTypeAliases.has(name)) return;
+            declaredTypeAliases.add(name);
+            sourceFile.addTypeAlias({
+                isExported: true,
+                name,
+                type,
+                docs,
+            });
+        };
+
+        const processWebhookEntry = (
+            webhookName: string,
+            pathItemOrRef: PathItem | { $ref: string },
+            scope: 'root' | 'component',
+        ) => {
             const resolved = this.parser.resolve(pathItemOrRef) as PathItem;
             if (!resolved) return;
 
-            const subPaths = this.processWebhookPathItem(webhookName, resolved);
+            const webhookPathItem = resolved;
+            const subPaths = this.processWebhookPathItem(webhookName, webhookPathItem);
 
             subPaths.forEach(sub => {
                 const requestType = getRequestBodyType(
@@ -65,17 +83,26 @@ export class WebhookGenerator {
                     name: webhookName,
                     method: sub.method,
                     interfaceName,
+                    pathItem: webhookPathItem,
                     requestType,
                     responseType,
+                    scope,
                 });
 
-                sourceFile.addTypeAlias({
-                    isExported: true,
-                    name: interfaceName,
-                    type: requestType,
-                    docs: [`Payload definition for webhook '${webhookName}' (${sub.method}).`],
-                });
+                addTypeAliasOnce(interfaceName, requestType, [
+                    `Payload definition for webhook '${webhookName}' (${sub.method}).`,
+                ]);
             });
+        };
+
+        const rootWebhooks = this.parser.spec.webhooks || {};
+        Object.entries(rootWebhooks).forEach(([webhookName, pathItemOrRef]) => {
+            processWebhookEntry(webhookName, pathItemOrRef as any, 'root');
+        });
+
+        const componentWebhooks = this.parser.spec.components?.webhooks || {};
+        Object.entries(componentWebhooks).forEach(([webhookName, pathItemOrRef]) => {
+            processWebhookEntry(webhookName, pathItemOrRef as any, 'component');
         });
 
         if (webhooksFound.length > 0) {
@@ -98,6 +125,8 @@ export class WebhookGenerator {
                                 name: c.name,
                                 method: c.method,
                                 interfaceName: c.interfaceName,
+                                pathItem: c.pathItem,
+                                ...(c.scope ? { scope: c.scope } : {}),
                             })),
                             null,
                             2,

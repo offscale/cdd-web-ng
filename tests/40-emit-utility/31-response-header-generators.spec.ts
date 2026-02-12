@@ -42,6 +42,7 @@ describe('Emitter: Response Header Utilities', () => {
                                         'X-Str': { schema: { type: 'string' } },
                                         'X-Date': { schema: { type: 'string', format: 'date-time' } },
                                         'X-Json': { content: { 'application/json': { schema: { type: 'object' } } } },
+                                        'Content-Type': { schema: { type: 'string' } },
                                     },
                                 },
                             },
@@ -69,6 +70,39 @@ describe('Emitter: Response Header Utilities', () => {
                 'X-Date': 'date',
                 'X-Json': 'json',
             });
+            expect(API_RESPONSE_HEADERS['getHeaders']['200']).not.toHaveProperty('Content-Type');
+        });
+
+        it('should mark Set-Cookie headers as multi-value (set-cookie)', () => {
+            const project = createTestProject();
+            const spec = {
+                paths: {
+                    '/cookies': {
+                        get: {
+                            operationId: 'getCookies',
+                            responses: {
+                                '200': {
+                                    headers: {
+                                        'Set-Cookie': { schema: { type: 'string' } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+
+            const parser = createParser(spec);
+            new ResponseHeaderRegistryGenerator(parser, project).generate('/out');
+
+            const file = project.getSourceFileOrThrow('/out/response-headers.ts');
+            const text = file.getText().replace(/import.*;/g, '');
+            const jsCode = ts.transpile(text, { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS });
+            const moduleScope = { exports: {} as any };
+            new Function('exports', jsCode)(moduleScope.exports);
+
+            const API_RESPONSE_HEADERS = moduleScope.exports.API_RESPONSE_HEADERS;
+            expect(API_RESPONSE_HEADERS['getCookies']['200']['Set-Cookie']).toBe('set-cookie');
         });
 
         it('should generate registry with String type hint for dates when Date config is disabled', () => {
@@ -513,6 +547,55 @@ describe('Emitter: Response Header Utilities', () => {
 
             // Verify LinkSetParser was called correctly and result integration worked
             expect(result['Link']).toEqual([{ href: '<http://example.com>; rel="next"' }]);
+        });
+
+        it('should parse Set-Cookie headers as a string array', () => {
+            const project = createTestProject();
+            new ResponseHeaderParserGenerator(project).generate('/out');
+
+            const sourceFile = project.getSourceFileOrThrow('/out/utils/response-header.service.ts');
+            const code = sourceFile.getText().replace(/import.*;/g, '');
+            const jsCode = ts.transpile(code, {
+                target: ts.ScriptTarget.ES2020,
+                module: ts.ModuleKind.CommonJS,
+                experimentalDecorators: true,
+            });
+
+            const API_RESPONSE_HEADERS = {
+                op1: {
+                    '200': {
+                        'Set-Cookie': 'set-cookie',
+                    },
+                },
+            };
+            const API_HEADER_XML_CONFIGS = {};
+            const XmlParser = { parse: () => null };
+            const LinkSetParser = { parseHeader: () => null };
+
+            const values = ['a=1; Path=/', 'b=2; Path=/'];
+            const mockHeaders = {
+                has: (k: string) => k === 'Set-Cookie',
+                get: (k: string) => (k === 'Set-Cookie' ? values[0] : null),
+                getAll: (k: string) => (k === 'Set-Cookie' ? values : []),
+            };
+
+            const moduleScope = { exports: {} as any };
+            const mockInjectable = () => (target: any) => target;
+            const wrappedCode = `
+                const API_RESPONSE_HEADERS = ${JSON.stringify(API_RESPONSE_HEADERS)};
+                const API_HEADER_XML_CONFIGS = ${JSON.stringify(API_HEADER_XML_CONFIGS)};
+                const XmlParser = { parse: ${XmlParser.parse.toString()} };
+                const LinkSetParser = { parseHeader: ${LinkSetParser.parseHeader.toString()} };
+                ${jsCode}
+            `;
+
+            new Function('exports', 'Injectable', wrappedCode)(moduleScope.exports, mockInjectable);
+
+            const ServiceClass = moduleScope.exports.ResponseHeaderService;
+            const service = new ServiceClass();
+            const result = service.parse(mockHeaders as any, 'op1', 200);
+
+            expect(result['Set-Cookie']).toEqual(values);
         });
     });
 });

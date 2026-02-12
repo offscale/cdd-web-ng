@@ -122,6 +122,34 @@ const specParamTests = {
                 responses: { '200': {} },
             },
         },
+        '/query-content': {
+            get: {
+                operationId: 'getWithContentQueryParam',
+                parameters: [
+                    {
+                        name: 'payload',
+                        in: 'query',
+                        content: {
+                            'application/x-www-form-urlencoded': {
+                                schema: {
+                                    type: 'object',
+                                    properties: {
+                                        tags: {
+                                            type: 'array',
+                                            items: { type: 'string' },
+                                        },
+                                    },
+                                },
+                                encoding: {
+                                    tags: { style: 'pipeDelimited', explode: false },
+                                },
+                            },
+                        },
+                    },
+                ],
+                responses: { '200': {} },
+            },
+        },
         '/search/{filter}': {
             get: {
                 operationId: 'search',
@@ -351,6 +379,21 @@ describe('Emitter: ServiceMethodGenerator (Parameters)', () => {
 
         methodGen.addServiceMethod(serviceClass, op);
         const body = serviceClass.getMethodOrThrow('getInfo').getBodyText()!;
-        expect(body).toContain("ParameterSerializer.serializeHeaderParam(xMeta, false, 'json')");
+        expect(body).toContain("ParameterSerializer.serializeHeaderParam(xMeta, false, 'json', 'application/json')");
+    });
+
+    it('should pass contentType and encoding for query params with content', () => {
+        const { methodGen, serviceClass } = createTestEnvironment(specParamTests);
+        const op: PathInfo = {
+            method: 'GET',
+            path: '/query-content',
+            methodName: 'getWithContentQueryParam',
+            parameters: specParamTests.paths['/query-content'].get.parameters,
+        } as any;
+
+        methodGen.addServiceMethod(serviceClass, op);
+        const body = serviceClass.getMethodOrThrow('getWithContentQueryParam').getBodyText()!;
+        expect(body).toContain('"contentType":"application/x-www-form-urlencoded"');
+        expect(body).toContain('"encoding":{"tags":{"style":"pipeDelimited","explode":false}}');
     });
 });

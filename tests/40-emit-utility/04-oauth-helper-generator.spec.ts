@@ -60,7 +60,14 @@ describe('Emitter: OAuthHelperGenerator', () => {
     it('should generate service and component if openIdConnect scheme is present', () => {
         const specWithOidc = {
             ...securitySpec,
-            components: { securitySchemes: { OIDC: { type: 'openIdConnect', openIdConnectUrl: '...' } } },
+            components: {
+                securitySchemes: {
+                    OIDC: {
+                        type: 'openIdConnect',
+                        openIdConnectUrl: 'https://example.com/.well-known/openid-configuration',
+                    },
+                },
+            },
         };
         const project = runGenerator(specWithOidc);
         expect(project.getSourceFile('/out/auth/oauth.service.ts')).toBeDefined();
@@ -189,8 +196,12 @@ describe('Emitter: OAuthHelperGenerator', () => {
                     Mixed: {
                         type: 'oauth2',
                         flows: {
-                            password: { tokenUrl: 't', scopes: {} },
-                            authorizationCode: { authorizationUrl: 'a', tokenUrl: 't', scopes: {} },
+                            password: { tokenUrl: 'https://auth.example.com/token', scopes: {} },
+                            authorizationCode: {
+                                authorizationUrl: 'https://auth.example.com/authorize',
+                                tokenUrl: 'https://auth.example.com/token',
+                                scopes: {},
+                            },
                         },
                     },
                 },
@@ -207,14 +218,22 @@ describe('Emitter: OAuthHelperGenerator', () => {
         expect(project.getSourceFile('/out/auth/oauth-redirect/oauth-redirect.component.ts')).toBeDefined();
     });
 
-    it('should handle oauth2 scheme without flows', () => {
+    it('should generate service for oauth2 scheme with non-redirect flows', () => {
         const noFlowSpec = {
             openapi: '3.0.0',
             info: { title: 'No Flow', version: '1' },
             paths: {},
             components: {
                 securitySchemes: {
-                    NoFlow: { type: 'oauth2' },
+                    NoFlow: {
+                        type: 'oauth2',
+                        flows: {
+                            clientCredentials: {
+                                tokenUrl: 'https://auth.example.com/token',
+                                scopes: {},
+                            },
+                        },
+                    },
                 },
             },
         };

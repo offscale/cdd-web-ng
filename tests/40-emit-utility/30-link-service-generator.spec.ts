@@ -103,7 +103,7 @@ describe('Emitter: LinkServiceGenerator', () => {
         const spec = {
             openapi: '3.0.0',
             info: { title: 'Header Test', version: '1.0' },
-            components: { links: { Test: {} } },
+            components: { links: { Test: { operationId: 'noop' } } },
             paths: {},
         };
         const parser = createParser(spec);
@@ -161,7 +161,7 @@ describe('Emitter: LinkServiceGenerator', () => {
             openapi: '3.0.0',
             info: { title: 'T', version: '1' },
             paths: {},
-            components: { links: { L: {} } },
+            components: { links: { L: { operationId: 'noop' } } },
         };
         const parser = createParser(spec);
         new LinkServiceGenerator(parser, project).generate('/out');
@@ -232,7 +232,7 @@ describe('Emitter: LinkServiceGenerator', () => {
             openapi: '3.0.0',
             info: { title: 'T', version: '1' },
             paths: {},
-            components: { links: { L: {} } },
+            components: { links: { L: { operationId: 'noop' } } },
         };
         const parser = createParser(spec);
         new LinkServiceGenerator(parser, project).generate('/out');
@@ -282,7 +282,7 @@ describe('Emitter: LinkServiceGenerator', () => {
             openapi: '3.0.0',
             info: { title: 'T', version: '1' },
             paths: {},
-            components: { links: { L: {} } },
+            components: { links: { L: { operationId: 'noop' } } },
         };
         const parser = createParser(spec);
         new LinkServiceGenerator(parser, project).generate('/out');

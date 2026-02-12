@@ -20,7 +20,16 @@ export const securitySpec = {
             ApiKeyHeader: { type: 'apiKey', in: 'header', name: 'X-API-KEY' },
             ApiKeyQuery: { type: 'apiKey', in: 'query', name: 'api_key_query' },
             BearerAuth: { type: 'http', scheme: 'bearer' },
-            OAuth2Flow: { type: 'oauth2', flows: {} },
+            OAuth2Flow: {
+                type: 'oauth2',
+                flows: {
+                    authorizationCode: {
+                        authorizationUrl: 'https://auth.example.com/authorize',
+                        tokenUrl: 'https://auth.example.com/token',
+                        scopes: {},
+                    },
+                },
+            },
         },
     },
 };

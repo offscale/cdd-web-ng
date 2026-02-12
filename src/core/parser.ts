@@ -13,7 +13,7 @@ import {
     SwaggerDefinition,
     SwaggerSpec,
 } from './types/index.js';
-import { extractPaths, pascalCase } from './utils/index.js';
+import { extractPaths, normalizeSecurityKey, pascalCase } from './utils/index.js';
 import { validateSpec } from './validator.js';
 import { OAS_3_1_DIALECT } from './constants.js';
 import { SpecLoader } from './parser/spec-loader.js';
@@ -72,16 +72,13 @@ export class SwaggerParser {
             if (baseUri !== documentUri) {
                 this.specCache.set(baseUri, spec);
             }
-            ReferenceResolver.indexSchemaIds(spec, baseUri, this.specCache);
+            ReferenceResolver.indexSchemaIds(spec, baseUri, this.specCache, this.documentUri);
         }
 
         this.resolver = new ReferenceResolver(this.specCache, this.documentUri);
 
         // Analysis Logic (Extracting simplified views)
-        this.schemas = Object.entries(this.getDefinitions()).map(([name, definition]) => ({
-            name: pascalCase(name),
-            definition,
-        }));
+        this.schemas = this.collectSchemas();
 
         // OAS 3.2 Requirement:
         // 1. If the servers field is not provided (or empty), default to a single server with url '/'.
@@ -92,9 +89,23 @@ export class SwaggerParser {
         const resolveRef = (ref: string) => this.resolveReference(ref);
 
         // Pass components context to extractPaths for strict security matching
-        const extractOptions = { isOpenApi3: !!this.spec.openapi };
-        this.operations = extractPaths(this.spec.paths, resolveRef, this.spec.components, extractOptions);
-        this.webhooks = extractPaths(this.spec.webhooks, resolveRef, this.spec.components, extractOptions);
+        const extractOptions = {
+            isOpenApi3: !!this.spec.openapi,
+            defaultConsumes: this.spec.swagger ? this.spec.consumes : undefined,
+            defaultProduces: this.spec.swagger ? this.spec.produces : undefined,
+        };
+        const operations = extractPaths(this.spec.paths, resolveRef, this.spec.components, extractOptions);
+        const webhooks = extractPaths(this.spec.webhooks, resolveRef, this.spec.components, extractOptions);
+
+        // Resolve operation/path-level server URLs relative to retrieval URI (OAS 3.2).
+        const resolveOpServers = (items: PathInfo[]): PathInfo[] =>
+            items.map(item => {
+                if (!item.servers || item.servers.length === 0) return item;
+                return { ...item, servers: this.resolveServerUrls(item.servers, this.documentUri) };
+            });
+
+        this.operations = resolveOpServers(operations);
+        this.webhooks = resolveOpServers(webhooks);
 
         this.security = this.getSecuritySchemes();
         this.links = this.getLinks();
@@ -110,9 +121,9 @@ export class SwaggerParser {
      * Handles OAS 3.x defaults and Swagger 2.0 exclusions.
      */
     private resolveServers(servers?: ServerObject[]): ServerObject[] {
-        // Swagger 2.0 compatibility: Do not apply OAS 3 defaults.
+        // Swagger 2.0 compatibility: Derive servers from host/basePath/schemes when present.
         if (this.spec.swagger) {
-            return servers || [];
+            return this.resolveSwagger2Servers(servers);
         }
 
         // OAS 3.x Default behavior for missing servers
@@ -120,18 +131,15 @@ export class SwaggerParser {
             return [{ url: '/' }];
         }
 
-        // Determine the Base URI for resolution
-        // Priority: $self property > documentUri (retrieval location)
-        let baseUri = this.documentUri;
-        if (this.spec.$self) {
-            try {
-                // $self can be relative to documentUri
-                baseUri = new URL(this.spec.$self, this.documentUri).href;
-            } catch (e) {
-                // Fallback to documentUri if $self is malformed
-                // (ReferenceResolver usually handles this, but we do it defensively here)
-            }
-        }
+        return this.resolveServerUrls(servers, this.documentUri);
+    }
+
+    /**
+     * Resolves relative server URLs against the retrieval URI (documentUri).
+     * OAS 3.2: `$self` is ignored for API URLs; the retrieval URI is the base.
+     */
+    private resolveServerUrls(servers: ServerObject[] | undefined, baseUri: string): ServerObject[] {
+        if (!servers || servers.length === 0) return servers ?? [];
 
         return servers.map(server => {
             if (!server.url) return server;
@@ -145,21 +153,72 @@ export class SwaggerParser {
             }
 
             try {
+                const serverBaseUri = ReferenceResolver.getDocumentUri(server as object) ?? baseUri;
                 // new URL() resolves relative paths against baseUri.
                 // It also normalizes the path (e.g., 'https://example.com' -> 'https://example.com/')
-                const resolvedUrl = new URL(rawUrl, baseUri).href;
+                const resolvedUrl = new URL(rawUrl, serverBaseUri).href;
 
                 // The URL constructor percent-encodes braces (e.g., {id} -> %7Bid%7D).
                 // We must revert this to preserve OAS Server Variables syntax.
                 const decodedUrl = resolvedUrl.replace(/%7B/g, '{').replace(/%7D/g, '}');
 
                 return { ...server, url: decodedUrl };
-            } catch (e) {
+            } catch {
                 // If URL parsing fails (e.g., complex variables inside the authority part),
                 // fallback to returning the original string.
                 return server;
             }
         });
+    }
+
+    /**
+     * Resolves Swagger 2.0 host/basePath/schemes into OAS-style servers.
+     * Falls back to the document URI's host/scheme when available.
+     */
+    private resolveSwagger2Servers(servers?: ServerObject[]): ServerObject[] {
+        // If users supplied servers via extensions, respect them.
+        if (servers && servers.length > 0) {
+            return servers;
+        }
+
+        const swaggerSpec = this.spec as SwaggerSpec;
+        const documentUrl = this.getHttpDocumentUrl();
+
+        const host = swaggerSpec.host || documentUrl?.host || undefined;
+        const basePathRaw = swaggerSpec.basePath ?? '/';
+        const basePath = basePathRaw === '' ? '/' : basePathRaw.startsWith('/') ? basePathRaw : `/${basePathRaw}`;
+
+        const schemes =
+            swaggerSpec.schemes && swaggerSpec.schemes.length > 0
+                ? swaggerSpec.schemes
+                : documentUrl
+                  ? [documentUrl.protocol.replace(':', '')]
+                  : ['http'];
+
+        if (!host) {
+            // Without a host, we cannot build an absolute URL. Preserve relative basePath if meaningful.
+            if (basePath && basePath !== '/') {
+                return [{ url: basePath }];
+            }
+            return [];
+        }
+
+        const uniqueSchemes = Array.from(new Set(schemes));
+        return uniqueSchemes.map(scheme => ({
+            url: `${scheme}://${host}${basePath}`,
+        }));
+    }
+
+    private getHttpDocumentUrl(): URL | undefined {
+        try {
+            const url = new URL(this.documentUri);
+            if (url.protocol === 'http:' || url.protocol === 'https:') {
+                return url;
+            }
+        } catch {
+            // Ignore invalid URI
+        }
+        return undefined;
     }
 
     public getSpec(): SwaggerSpec {
@@ -193,11 +252,163 @@ export class SwaggerParser {
         return this.getDefinitions()[name];
     }
 
+    private collectSchemas(): { name: string; definition: SwaggerDefinition | boolean }[] {
+        const definitions = new Map<string, SwaggerDefinition | boolean>();
+        const definitionValues = new Set<SwaggerDefinition | boolean>();
+        const seenDocs = new Set<object>();
+        let syntheticCount = 0;
+
+        const addDefinitions = (
+            defs: Record<string, SwaggerDefinition | boolean> | undefined,
+            origin: string,
+        ): void => {
+            if (!defs) return;
+            Object.entries(defs).forEach(([name, definition]) => {
+                const normalizedName = pascalCase(name);
+                if (!definitions.has(normalizedName)) {
+                    definitions.set(normalizedName, definition);
+                    definitionValues.add(definition);
+                    return;
+                }
+                const existing = definitions.get(normalizedName);
+                if (existing !== definition) {
+                    console.warn(
+                        `[Parser] Duplicate schema name "${normalizedName}" encountered in ${origin}. Keeping first occurrence.`,
+                    );
+                }
+            });
+        };
+
+        // Always start with the entry document's explicit schemas/definitions.
+        addDefinitions(this.getDefinitions(), this.documentUri);
+
+        // Collect schemas from any referenced OpenAPI/Swagger documents and standalone schema documents.
+        for (const [uri, doc] of this.specCache.entries()) {
+            if (!doc || typeof doc !== 'object') continue;
+            if (seenDocs.has(doc)) continue;
+            seenDocs.add(doc);
+
+            const asSpec = doc as SwaggerSpec;
+            const docDefinitions = asSpec.definitions || asSpec.components?.schemas;
+            if (docDefinitions) {
+                addDefinitions(docDefinitions, uri);
+                continue;
+            }
+
+            // Standalone JSON Schema document support (no OpenAPI root, just a Schema Object).
+            if (this.isSchemaDocument(doc)) {
+                if (definitionValues.has(doc as SwaggerDefinition)) {
+                    continue;
+                }
+                const schemaName = this.deriveSchemaName(uri, doc as SwaggerDefinition, ++syntheticCount);
+                if (!definitions.has(schemaName)) {
+                    definitions.set(schemaName, doc as SwaggerDefinition);
+                    definitionValues.add(doc as SwaggerDefinition);
+                } else {
+                    const existing = definitions.get(schemaName);
+                    if (existing !== doc) {
+                        console.warn(
+                            `[Parser] Duplicate standalone schema name "${schemaName}" encountered in ${uri}. Keeping first occurrence.`,
+                        );
+                    }
+                }
+            }
+        }
+
+        return Array.from(definitions.entries()).map(([name, definition]) => ({ name, definition }));
+    }
+
+    private isSchemaDocument(candidate: unknown): candidate is SwaggerDefinition {
+        if (!candidate || typeof candidate !== 'object') return false;
+        const doc = candidate as Record<string, unknown>;
+
+        if ('openapi' in doc || 'swagger' in doc || 'info' in doc || 'paths' in doc) {
+            return false;
+        }
+
+        const schemaKeys = [
+            '$id',
+            '$schema',
+            'type',
+            'properties',
+            'items',
+            'allOf',
+            'anyOf',
+            'oneOf',
+            'enum',
+            'const',
+            'additionalProperties',
+            'patternProperties',
+            'prefixItems',
+            'contentMediaType',
+            'contentSchema',
+        ];
+
+        return schemaKeys.some(key => key in doc);
+    }
+
+    private deriveSchemaName(uri: string, schema: SwaggerDefinition, fallbackIndex: number): string {
+        const source = typeof schema.$id === 'string' ? schema.$id : uri;
+        const withoutFragment = source.split('#')[0].split('?')[0];
+        const lastSegment = withoutFragment.split('/').filter(Boolean).pop();
+        const base = lastSegment ? lastSegment.replace(/\.[^/.]+$/, '') : `Schema${fallbackIndex}`;
+        const name = pascalCase(base);
+        return name || `Schema${fallbackIndex}`;
+    }
+
     public getSecuritySchemes(): Record<string, SecurityScheme> {
-        return (this.spec.components?.securitySchemes || this.spec.securityDefinitions || {}) as Record<
-            string,
-            SecurityScheme
-        >;
+        const schemes = {
+            ...(this.spec.components?.securitySchemes || {}),
+            ...(this.spec.securityDefinitions || {}),
+        } as Record<string, SecurityScheme>;
+
+        const knownNames = new Set(Object.keys(schemes));
+
+        const addSchemeFromRef = (key: string) => {
+            if (!key || knownNames.has(key)) return;
+            const normalized = normalizeSecurityKey(key);
+            if (knownNames.has(normalized)) return;
+            const resolved = this.resolveReference<SecurityScheme>(key);
+            if (resolved) {
+                schemes[normalized] = resolved;
+                knownNames.add(normalized);
+            }
+        };
+
+        const scanSecurityRequirements = (security?: Record<string, string[]>[]) => {
+            if (!security) return;
+            security.forEach(req => {
+                if (!req || typeof req !== 'object') return;
+                Object.keys(req).forEach(key => {
+                    if (!knownNames.has(key)) {
+                        addSchemeFromRef(key);
+                    }
+                });
+            });
+        };
+
+        const scanPathSecurity = (paths?: Record<string, any>) => {
+            if (!paths) return;
+            const methods = ['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'trace', 'query'];
+            Object.values(paths).forEach(pathItem => {
+                if (!pathItem || typeof pathItem !== 'object') return;
+                methods.forEach(method => {
+                    const op = (pathItem as any)[method];
+                    if (op?.security) scanSecurityRequirements(op.security);
+                });
+                if ((pathItem as any).additionalOperations) {
+                    Object.values((pathItem as any).additionalOperations as Record<string, any>).forEach(op => {
+                        if (op?.security) scanSecurityRequirements(op.security);
+                    });
+                }
+            });
+        };
+
+        scanSecurityRequirements(this.spec.security);
+        scanPathSecurity(this.spec.paths as Record<string, any>);
+        scanPathSecurity(this.spec.webhooks as Record<string, any>);
+
+        return schemes;
     }
 
     public getLinks(): Record<string, LinkObject> {
@@ -223,14 +434,19 @@ export class SwaggerParser {
     }
 
     /**
-     * Retrieves the possible options for a polymorphic schema based on `oneOf` and `discriminator`.
+     * Retrieves the possible options for a polymorphic schema based on `oneOf`/`anyOf` and `discriminator`.
      * Supports strict mapping, explicit enum values, and implicit mapping (OAS 3.2).
      */
     public getPolymorphicSchemaOptions(schema: SwaggerDefinition): PolymorphicOption[] {
-        if (!schema.oneOf || !schema.discriminator) {
+        if (!schema.discriminator) {
             return [];
         }
         const dPropName = schema.discriminator.propertyName;
+
+        const variants = schema.oneOf ?? schema.anyOf;
+        if (!variants) {
+            return [];
+        }
 
         const mapping = schema.discriminator.mapping || {};
         if (Object.keys(mapping).length > 0) {
@@ -242,7 +458,7 @@ export class SwaggerParser {
                 .filter((opt): opt is PolymorphicOption => !!opt);
         }
 
-        return schema.oneOf
+        return variants
             .map(refSchema => {
                 let ref: string | undefined;
                 if (refSchema.$ref) ref = refSchema.$ref;

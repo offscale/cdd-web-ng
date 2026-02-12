@@ -53,7 +53,16 @@ describe('Emitter: AuthInterceptorGenerator', () => {
             components: {
                 securitySchemes: {
                     BearerAuth: { type: 'http', scheme: 'bearer' },
-                    OAuth2Flow: { type: 'oauth2', flows: {} },
+                    OAuth2Flow: {
+                        type: 'oauth2',
+                        flows: {
+                            authorizationCode: {
+                                authorizationUrl: 'https://auth.example.com/authorize',
+                                tokenUrl: 'https://auth.example.com/token',
+                                scopes: {},
+                            },
+                        },
+                    },
                 },
             },
         });

@@ -19,6 +19,48 @@ export class MainIndexGenerator {
 
         sourceFile.addExportDeclaration({ moduleSpecifier: './models' });
         sourceFile.addExportDeclaration({ moduleSpecifier: './info' });
+        const hasComponentExamples = !!(
+            this.parser.spec.components?.examples &&
+            Object.keys(this.parser.spec.components.examples).length > 0
+        );
+        const hasComponentMediaTypes = !!(
+            this.parser.spec.components?.mediaTypes &&
+            Object.keys(this.parser.spec.components.mediaTypes).length > 0
+        );
+        const hasComponentPathItems = !!(
+            this.parser.spec.components?.pathItems &&
+            Object.keys(this.parser.spec.components.pathItems).length > 0
+        );
+        const hasComponentParameters = !!(
+            this.parser.spec.components?.parameters &&
+            Object.keys(this.parser.spec.components.parameters).length > 0
+        );
+        const hasComponentRequestBodies = !!(
+            this.parser.spec.components?.requestBodies &&
+            Object.keys(this.parser.spec.components.requestBodies).length > 0
+        );
+        const hasComponentResponses = !!(
+            this.parser.spec.components?.responses &&
+            Object.keys(this.parser.spec.components.responses).length > 0
+        );
+        if (hasComponentExamples) {
+            sourceFile.addExportDeclaration({ moduleSpecifier: './examples' });
+        }
+        if (hasComponentMediaTypes) {
+            sourceFile.addExportDeclaration({ moduleSpecifier: './media-types' });
+        }
+        if (hasComponentPathItems) {
+            sourceFile.addExportDeclaration({ moduleSpecifier: './path-items' });
+        }
+        if (hasComponentParameters) {
+            sourceFile.addExportDeclaration({ moduleSpecifier: './parameters' });
+        }
+        if (hasComponentRequestBodies) {
+            sourceFile.addExportDeclaration({ moduleSpecifier: './request-bodies' });
+        }
+        if (hasComponentResponses) {
+            sourceFile.addExportDeclaration({ moduleSpecifier: './responses' });
+        }
 
         if (this.config.options.generateServices !== false) {
             sourceFile.addExportDeclarations([
@@ -50,6 +92,21 @@ export class MainIndexGenerator {
             if (hasLinks || hasOpLinks) {
                 sourceFile.addExportDeclaration({ moduleSpecifier: './links' });
                 sourceFile.addExportDeclaration({ moduleSpecifier: './utils/link.service' });
+            }
+
+            const hasCallbacks = this.parser.operations.some(
+                op => op.callbacks && Object.keys(op.callbacks).length > 0,
+            );
+            if (hasCallbacks) {
+                sourceFile.addExportDeclaration({ moduleSpecifier: './callbacks' });
+            }
+
+            const hasWebhooks =
+                (this.parser.webhooks && this.parser.webhooks.length > 0) ||
+                (this.parser.spec.webhooks && Object.keys(this.parser.spec.webhooks).length > 0);
+            if (hasWebhooks) {
+                sourceFile.addExportDeclaration({ moduleSpecifier: './webhooks' });
+                sourceFile.addExportDeclaration({ moduleSpecifier: './utils/webhook.service' });
             }
 
             if (this.config.options.dateType === 'Date') {

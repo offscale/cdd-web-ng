@@ -163,7 +163,7 @@ describe('Admin: discoverAdminResources', () => {
                 '/items/{id}': {
                     query: {
                         tags: ['Items'],
-                        parameters: [{ name: 'id', in: 'path' }],
+                        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
                         responses: { '200': { description: 'ok' } },
                     },
                 },

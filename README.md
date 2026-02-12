@@ -26,31 +26,52 @@ esoteric parts of the modern OpenAPI specification. If it's in the spec, we supp
   compositions, `oneOf`/`anyOf` unions, and `readOnly`/`writeOnly` filtering (generating distinct request vs. response
   models).
 - **JSON Schema 2020-12 Support:** Handles OAS 3.1 specific keywords like `$dynamicRef`, `dependentSchemas`,
-  `unevaluatedProperties`, `prefixItems` (tuples), and boolean schemas (`true` / `false`).
+  `unevaluatedProperties`, `patternProperties`, `prefixItems` (tuples), and boolean schemas (`true` / `false`).
 - **Advanced Serialization:**
     - **XML:** Full support for the `xml` object, including `nodeType`, namespaces, prefixes, and attribute wrapping.
     - **Multipart:** Nested `multipart/mixed` and `multipart/form-data` with specific header encodings.
     - **Streaming:** Native support for sequential media types like `application/json-seq`, `application/x-ndjson`, and
       `text/event-stream` (Server-Sent Events).
-    - **Form-URL-Encoding:** WHATWG-compliant `application/x-www-form-urlencoded` encoding (spaces as `+`) with per-field
-      encoding hints.
-- **Reference Resolution:** Resolves `$ref` for parameters, request bodies, and responses before analysis and generation.
-- **Runtime Features:** Implements
-  dynamic [Runtime Expressions](https://spec.openapis.org/oas/v3.2.0.html#runtime-expressions) for resolving **Links**
-  and **Callbacks** directly from HTTP responses.
+- **Form-URL-Encoding:** WHATWG-compliant `application/x-www-form-urlencoded` encoding (spaces as `+`) with per-field
+  encoding hints, plus contentEncoding-aware preprocessing for urlencoded bodies.
+- **Querystring Content:** RFC3986 percent-encoding for non-form media types, with encoding hints preserved in
+  reverse-generation for `in: querystring` parameters.
+    - **Request Body Media Types:** Typed support and explicit `Content-Type` handling for `text/*`, `application/*+xml`,
+      and binary payloads like `application/octet-stream`.
+    - **Response Headers:** Special-case `Set-Cookie` multi-value parsing and `Link`/`linkset` header decoding.
+- **Reference Resolution:** Resolves `$ref` for parameters, request bodies, and responses before analysis and generation, including multi-document component schemas for type generation.
+- **Runtime Features:** Implements dynamic
+  [Runtime Expressions](https://spec.openapis.org/oas/v3.2.0.html#runtime-expressions) for resolving **Links**
+  and **Callbacks** directly from HTTP responses, including `operationRef` → `operationId` resolution when available
+  (now also for webhook targets). Also exports typed **Callbacks**/**Webhooks** registries (including component-level
+  definitions for round-trip reverse generation) and a `WebhookService` helper for downstream consumers.
 - **Strict Parameter Serialization:** Correctly implements `style` and `explode` logic for all parameter locations (
-  path, query, header, cookie), including "deepObject" and space/pipe delimited styles, plus `querystring` content
+  path, query, header, cookie), including "deepObject" and space/pipe delimited styles, plus RFC6570 comma delimiter
+  handling for non-exploded arrays/objects and path-safe `allowReserved` encoding. Also includes `querystring` content
   serialization for `application/x-www-form-urlencoded`.
-- **Spec Validation:** Enforces OAS rules such as unique `operationId` values, path-template parameter matching,
-  strict 3.2 parameter constraints, server template-variable integrity, reserved header-parameter ignores
-  (`Accept`, `Content-Type`, `Authorization`), plus Link/Header/MediaType object consistency checks.
+- **Content-Based Parameters:** Honors `content` media types for query/header/cookie parameters (including
+  `application/x-www-form-urlencoded` value serialization) and preserves per-property `encoding` hints for round-trip
+  OpenAPI generation.
+- **Security Scheme URI References:** Resolves security schemes referenced by URI inside Security Requirement objects,
+  including externally-defined schemes, without breaking Swagger 2.0 compatibility.
+- **Security Requirements Round-Trip:** Exports document-level security requirements alongside schemes so reverse
+  OpenAPI generation preserves global security defaults.
+- **Spec Validation:** Enforces OAS rules such as unique `operationId` values, duplicate-parameter detection,
+  tag name uniqueness, path-template parameter matching, strict 3.2 parameter constraints, server template-variable
+  integrity, reserved header-parameter ignores (`Accept`, `Content-Type`, `Authorization`), server variable defaults
+  (including enum type checks), parameter location/style matrix validation, XML Object constraints (`nodeType`,
+  `wrapped`, namespace IRIs), license name requirements, security scheme field requirements (OAuth2/OpenID TLS URLs,
+  apiKey/http fields), `externalDocs` URI validation, response status-code key validation, response `Content-Type`
+  header ignores, Encoding Object header/contentType/style constraints and media-type compatibility checks (including
+  sequential `itemSchema` guards), plus Link/Header/MediaType object consistency checks.
 
 ### 📚 Legacy Swagger 2.0 Support
 
 Don't leave your legacy APIs behind. `cdd-web-ng` includes a robust compatibility layer that works with Swagger 2:
 
-- Maps legacy `collectionFormat` (csv, ssv, pipes) to modern `style`/`explode` serialization.
+- Maps legacy `collectionFormat` (csv, ssv, tsv, pipes) to modern `style`/`explode` serialization.
 - Normalizes `definitions` and `securityDefinitions` to the OpenAPI 3.0 component model.
+- Derives `servers` from Swagger 2.0 `host`/`basePath`/`schemes`, and maps `consumes`/`produces` to request/response media types.
 - Ensures your legacy services utilize the same modern Angular features (Signals, Standalone Components) as your new
   ones.
 
@@ -212,6 +233,16 @@ cdd_web_ng from_openapi --input <path-or-url-to-spec> --output <output-directory
 | `--dateType <type>`      |       | How to type `format: "date"` or `"date-time"`. Choices: `string`, `Date`. | `Date`        |
 | `--enumStyle <style>`    |       | How to generate enums. Choices: `enum`, `union`.                          | `enum`        |
 
+### Generated Service Options
+
+Generated Angular service methods accept an `options` object that extends Angular `RequestOptions` and includes
+server selection:
+
+- `server?: number | string` - Selects a server by index or by matching `name` or `description`.
+- `serverVariables?: Record<string, string>` - Overrides server template variables.
+
+If an operation defines its own `servers`, that list is used for the request; otherwise the top-level servers apply.
+
 ### Reverse Generation (to_openapi)
 
 `from_openapi` now writes OpenAPI snapshot files to the output directory:
@@ -225,8 +256,43 @@ Use these snapshots to reconstruct the spec:
 cdd_web_ng to_openapi --file <output-directory> --format yaml > openapi.yaml
 ```
 
-This reverse flow is snapshot-based today (intended for codebases generated by `cdd-web-ng`). A full TypeScript AST
-scanner is planned to make `to_openapi` work on hand-written clients.
+This reverse flow is snapshot-based today (intended for codebases generated by `cdd-web-ng`). If no snapshot is found,
+`to_openapi` will fall back to parsing generated service files to reconstruct paths, operations, parameters, and media
+types, and generated models to rebuild `components.schemas`. If those artifacts are missing, an AST-based TypeScript
+scanner is used for hand-written clients; it recognizes `QUERY` and common non-standard HTTP methods (mapped to
+`additionalOperations`).
+
+Fallback reverse generation now emits **OpenAPI 3.2.0** (or the original `openapi` version when `document.ts` is present)
+and preserves **querystring** parameters using
+content-based serialization (defaulting to `application/x-www-form-urlencoded`), and places non-standard HTTP methods
+under `additionalOperations`. It also rehydrates metadata from generated helper files (`info.ts`, `servers.ts` /
+`utils/server-url.ts`, `security.ts`, and `document.ts`) to restore `info`, `tags`, `externalDocs`, `servers`,
+`components.securitySchemes`, `$self`, and `jsonSchemaDialect` when available. Response header/link registries
+(`response-headers.ts`, `links.ts`) are
+also folded back into operation responses. Callback and webhook metadata from generated `callbacks.ts` / `webhooks.ts`
+rehydrate full PathItem definitions (including runtime expressions and request/response content) when present, and a
+best-effort `components` map is rebuilt for non-schema objects such as parameters, request bodies, responses, headers,
+links, callbacks, and webhooks.
+
+Reverse model reconstruction now maps tuple types to JSON Schema `prefixItems` (with `minItems`/`maxItems`, plus
+rest-tuple support via `items`), converts multiple `@example` tags into JSON Schema `examples`, and supports
+`@contentMediaType` / `@contentEncoding` tags for binary payload metadata.
+
+Fallback reverse generation now also infers request/response schema references from generated method signatures
+(`Observable<T>` return types and body parameter types), and emits `itemSchema` for sequential media types such as
+`application/jsonl` and `text/event-stream` when possible.
+
+Operation-level tags are preserved via generated JSDoc `@tags` hints, and top-level `tags` are reconstructed from
+those hints when metadata is not present. Per-operation server overrides are
+reconstructed from the generated `operationServers` constants inside service methods.
+
+Generated services now emit JSDoc `@response` tags (status + optional media type), which the reverse pass
+uses to restore status-specific responses when snapshots are missing.
+
+Components registries for `examples`, `mediaTypes`, reusable `pathItems`, `parameters`, `requestBodies`, and
+`responses` are now emitted as `examples.ts`, `media-types.ts`, `path-items.ts`, `parameters.ts`,
+`request-bodies.ts`, and `responses.ts`, and are rehydrated back into `components` during `to_openapi` when snapshots
+are not present.
 
 ## Acknowledgement
 

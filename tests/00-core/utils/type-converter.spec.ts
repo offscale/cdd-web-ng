@@ -235,6 +235,30 @@ describe('Core Utils: Type Converter', () => {
             expect(utils.getTypeScriptType(schema, config, [])).toBe('[string, number, ...(string | number)[]]');
         });
 
+        it('should use unevaluatedItems as rest type for prefixItems tuples', () => {
+            const schema: SwaggerDefinition = {
+                prefixItems: [{ type: 'string' }, { type: 'number' }],
+                unevaluatedItems: { type: 'boolean' },
+            };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('[string, number, ...boolean[]]');
+        });
+
+        it('should use unevaluatedItems when items are absent', () => {
+            const schema: SwaggerDefinition = {
+                type: 'array',
+                unevaluatedItems: { type: 'string' },
+            };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('string[]');
+        });
+
+        it('should translate unevaluatedItems=false into never[]', () => {
+            const schema: SwaggerDefinition = {
+                type: 'array',
+                unevaluatedItems: false,
+            };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('never[]');
+        });
+
         it('should correctly wrap union types in arrays with parentheses', () => {
             const schema: SwaggerDefinition = {
                 type: 'array',
@@ -277,6 +301,32 @@ describe('Core Utils: Type Converter', () => {
         it('should handle `unevaluatedProperties: true`', () => {
             const schema: SwaggerDefinition = { type: 'object', unevaluatedProperties: true };
             expect(utils.getTypeScriptType(schema, config, [])).toBe('{ [key: string]: any }');
+        });
+
+        it('should include patternProperties in index signature', () => {
+            const schema: SwaggerDefinition = {
+                type: 'object',
+                patternProperties: {
+                    '^S_': { type: 'string' },
+                    '^I_': { type: 'integer' },
+                },
+            };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('{ [key: string]: string | number }');
+        });
+
+        it('should merge patternProperties with explicit properties', () => {
+            const schema: SwaggerDefinition = {
+                type: 'object',
+                properties: {
+                    fixed: { type: 'string' },
+                },
+                patternProperties: {
+                    '^x-': { type: 'number' },
+                },
+            };
+            const res = utils.getTypeScriptType(schema, config, []);
+            expect(res).toContain('fixed?: string');
+            expect(res).toContain('[key: string]: number | any');
         });
 
         it('should return closed object when additionalProperties and unevaluatedProperties are false', () => {

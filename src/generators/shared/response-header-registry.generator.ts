@@ -37,6 +37,16 @@ export class ResponseHeaderRegistryGenerator {
                         if (!headerDef) return;
 
                         const humanReadableName = headerName.toLowerCase();
+                        // OAS 3.2: "Content-Type" response header definitions SHALL be ignored.
+                        if (humanReadableName === 'content-type') {
+                            return;
+                        }
+                        // OAS 3.2: "Set-Cookie" is a special-case header that cannot be comma-joined.
+                        // Treat it as a multi-value header regardless of schema.
+                        if (humanReadableName === 'set-cookie') {
+                            headerConfig[headerName] = 'set-cookie';
+                            return;
+                        }
                         // Special case: OAS 3.2 explicitly mentions HTTP Link header implies linkset semantics
                         if (humanReadableName === 'link') {
                             headerConfig[headerName] = 'linkset';
@@ -157,6 +167,15 @@ export class ResponseHeaderRegistryGenerator {
         if (resolved.xml?.prefix) config.prefix = resolved.xml.prefix;
         if (resolved.xml?.namespace) config.namespace = resolved.xml.namespace;
         if (resolved.xml?.nodeType) config.nodeType = resolved.xml.nodeType;
+
+        if (resolved.items) {
+            config.items = this.getXmlConfig(resolved.items as SwaggerDefinition, depth - 1);
+        }
+        if (Array.isArray(resolved.prefixItems)) {
+            config.prefixItems = resolved.prefixItems.map(item =>
+                this.getXmlConfig(item as SwaggerDefinition, depth - 1),
+            );
+        }
 
         if (resolved.properties) {
             config.properties = {};

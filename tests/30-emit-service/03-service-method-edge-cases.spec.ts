@@ -40,7 +40,18 @@ const specEdgeTests = {
         },
     },
     components: {
-        securitySchemes: { OAuth2: { type: 'oauth2', flows: {} } },
+        securitySchemes: {
+            OAuth2: {
+                type: 'oauth2',
+                flows: {
+                    authorizationCode: {
+                        authorizationUrl: 'https://auth.example.com/authorize',
+                        tokenUrl: 'https://auth.example.com/token',
+                        scopes: {},
+                    },
+                },
+            },
+        },
     },
 };
 

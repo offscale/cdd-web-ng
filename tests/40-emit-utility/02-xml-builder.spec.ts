@@ -76,6 +76,27 @@ describe('Utility: XmlBuilder', () => {
             const xml = XmlBuilder.serialize(data, 'Root', config);
             expect(xml).toBe('<Root><tags>a</tags><tags>b</tags></Root>');
         });
+
+        it('should default wrapped array item names to the parent name when none specified', () => {
+            const data = { list: ['a', 'b'] };
+            const config = {
+                properties: {
+                    list: { nodeType: 'element' },
+                },
+            };
+            const xml = XmlBuilder.serialize(data, 'Root', config);
+            expect(xml).toBe('<Root><list><list>a</list><list>b</list></list></Root>');
+        });
+
+        it('should serialize prefixItems in order with text nodes', () => {
+            const data = ['start', 42, 'end'];
+            const config = {
+                nodeType: 'element',
+                prefixItems: [{ nodeType: 'text' }, { name: 'data' }, { nodeType: 'text' }],
+            };
+            const xml = XmlBuilder.serialize(data, 'Report', config);
+            expect(xml).toBe('<Report>start<data>42</data>end</Report>');
+        });
     });
 
     describe('OAS 3.2 Null Handling (Appendix G)', () => {

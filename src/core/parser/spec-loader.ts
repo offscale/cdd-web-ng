@@ -54,7 +54,7 @@ export class SpecLoader {
         }
 
         // Index internal IDs via helper to ensure internal refs can be resolved in the next recursion step
-        ReferenceResolver.indexSchemaIds(spec, baseUri, cache);
+        ReferenceResolver.indexSchemaIds(spec, baseUri, cache, uri);
 
         // Find external refs to load next
         const refs = ReferenceResolver.findRefs(spec);
@@ -91,10 +91,18 @@ export class SpecLoader {
     private static parseSpecContent(content: string, pathOrUrl: string): SwaggerSpec {
         try {
             const extension = path.extname(pathOrUrl).toLowerCase();
-            if (['.yaml', '.yml'].includes(extension) || (!extension && content.trim().startsWith('openapi:'))) {
+            const isYamlExt = ['.yaml', '.yml'].includes(extension);
+            const isJsonExt = extension === '.json';
+            if (isYamlExt || (!extension && content.trim().startsWith('openapi:'))) {
                 return yaml.load(content) as SwaggerSpec;
-            } else {
+            } else if (isJsonExt) {
                 return JSON.parse(content);
+            } else {
+                try {
+                    return JSON.parse(content);
+                } catch (jsonError) {
+                    return yaml.load(content) as SwaggerSpec;
+                }
             }
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);

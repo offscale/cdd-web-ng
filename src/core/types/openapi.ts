@@ -215,6 +215,7 @@ export interface SwaggerDefinition {
         | ('string' | 'number' | 'integer' | 'boolean' | 'object' | 'array' | 'null')[];
     format?: string;
     description?: string;
+    title?: string;
     default?: unknown;
     deprecated?: boolean;
     const?: unknown;
@@ -229,9 +230,14 @@ export interface SwaggerDefinition {
     minItems?: number;
     uniqueItems?: boolean;
     multipleOf?: number;
+    minProperties?: number;
+    maxProperties?: number;
     enum?: (string | number)[];
     items?: SwaggerDefinition | boolean | (SwaggerDefinition | boolean)[];
     prefixItems?: (SwaggerDefinition | boolean)[];
+    contains?: SwaggerDefinition | boolean;
+    minContains?: number;
+    maxContains?: number;
     if?: SwaggerDefinition | boolean;
     then?: SwaggerDefinition | boolean;
     else?: SwaggerDefinition | boolean;
@@ -240,6 +246,10 @@ export interface SwaggerDefinition {
     contentMediaType?: string;
     contentSchema?: SwaggerDefinition | boolean;
     unevaluatedProperties?: SwaggerDefinition | boolean;
+    unevaluatedItems?: SwaggerDefinition | boolean;
+    $schema?: string;
+    $id?: string;
+    $anchor?: string;
     $ref?: string;
     $dynamicRef?: string;
     $dynamicAnchor?: string;
@@ -249,7 +259,9 @@ export interface SwaggerDefinition {
     additionalProperties?: SwaggerDefinition | boolean;
     properties?: { [propertyName: string]: SwaggerDefinition | boolean };
     patternProperties?: { [pattern: string]: SwaggerDefinition | boolean };
+    propertyNames?: SwaggerDefinition | boolean;
     dependentSchemas?: Record<string, SwaggerDefinition | boolean>;
+    dependentRequired?: Record<string, string[]>;
     discriminator?: DiscriminatorObject;
     readOnly?: boolean;
     writeOnly?: boolean;
@@ -321,10 +333,21 @@ export interface PathItem {
 export interface SwaggerSpec {
     openapi?: string;
     swagger?: string;
+    /** Swagger 2.0: Hostname (and optional port) serving the API. */
+    host?: string;
+    /** Swagger 2.0: Base path prefix for all API endpoints. */
+    basePath?: string;
+    /** Swagger 2.0: Transfer protocols (e.g., http, https). */
+    schemes?: string[];
+    /** Swagger 2.0: Default request body media types. */
+    consumes?: string[];
+    /** Swagger 2.0: Default response media types. */
+    produces?: string[];
     $self?: string;
     info: InfoObject;
     externalDocs?: ExternalDocumentationObject;
     tags?: TagObject[];
+    security?: Record<string, string[]>[];
     paths: { [pathName: string]: PathItem };
     webhooks?: { [name: string]: PathItem };
     jsonSchemaDialect?: string;

@@ -64,6 +64,20 @@ describe('Core: Types & Interfaces Coverage', () => {
         expect(schema.exclusiveMaximum).toBe(true);
     });
 
+    it('should support JSON Schema meta keywords on Schema Object (OAS 3.1+)', () => {
+        const schema: SwaggerDefinition = {
+            $id: 'https://example.com/schemas/User',
+            $schema: 'https://spec.openapis.org/oas/3.1/dialect/base',
+            $anchor: 'UserAnchor',
+            unevaluatedItems: false,
+        };
+
+        expect(schema.$id).toBe('https://example.com/schemas/User');
+        expect(schema.$schema).toBe('https://spec.openapis.org/oas/3.1/dialect/base');
+        expect(schema.$anchor).toBe('UserAnchor');
+        expect(schema.unevaluatedItems).toBe(false);
+    });
+
     it('should support webhooks in components (OAS 3.1+)', () => {
         const spec: SwaggerSpec = {
             openapi: '3.1.0',
@@ -123,7 +137,12 @@ describe('Core: Types & Interfaces Coverage', () => {
                     OAuth: {
                         type: 'oauth2',
                         oauth2MetadataUrl: 'https://example.com/.well-known/oauth-authorization-server',
-                        flows: {},
+                        flows: {
+                            clientCredentials: {
+                                tokenUrl: 'https://example.com/token',
+                                scopes: {},
+                            },
+                        },
                     },
                 },
             },

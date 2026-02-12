@@ -41,55 +41,84 @@ export class CallbackGenerator {
             name: string;
             interfaceName: string;
             method: string;
+            expression: string;
+            pathItem: PathItem;
             requestType: string;
             responseType: string;
+            scope?: 'component' | 'operation';
         }[] = [];
+        const declaredTypeAliases = new Set<string>();
+
+        const addTypeAliasOnce = (name: string, type: string, docs: string[]) => {
+            if (declaredTypeAliases.has(name)) return;
+            declaredTypeAliases.add(name);
+            sourceFile.addTypeAlias({
+                isExported: true,
+                name,
+                type,
+                docs,
+            });
+        };
+
+        const processCallbackMap = (
+            callbackName: string,
+            callbackMapOrRef: PathItem | { $ref: string } | Record<string, PathItem>,
+            scope: 'component' | 'operation',
+        ) => {
+            const resolved = this.parser.resolve(callbackMapOrRef as any) as Record<string, PathItem>;
+            if (!resolved) return;
+
+            // A callback Map is URL Expression -> Path Item.
+            Object.entries(resolved).forEach(([urlExpression, pathItemObj]) => {
+                const callbackPathItem = pathItemObj as PathItem;
+                const subPaths = this.processCallbackPathItem(urlExpression, callbackPathItem);
+
+                subPaths.forEach(sub => {
+                    const requestType = getRequestBodyType(
+                        sub.requestBody,
+                        this.parser.config,
+                        this.parser.schemas.map(s => s.name),
+                    );
+                    const responseKeys = Object.keys(sub.responses!);
+                    const responseType = getResponseType(
+                        sub.responses![responseKeys[0]],
+                        this.parser.config,
+                        this.parser.schemas.map(s => s.name),
+                    );
+
+                    registerModel(requestType);
+
+                    const interfaceName = `${pascalCase(callbackName)}${pascalCase(sub.method)}Payload`;
+                    callbacksFound.push({
+                        name: callbackName,
+                        method: sub.method,
+                        interfaceName,
+                        expression: urlExpression,
+                        pathItem: callbackPathItem,
+                        requestType,
+                        responseType,
+                        scope,
+                    });
+
+                    addTypeAliasOnce(interfaceName, requestType, [
+                        `Payload definition for callback '${callbackName}' (${sub.method}).`,
+                    ]);
+                });
+            });
+        };
 
         // Iterate all operations to find callbacks
         this.parser.operations.forEach(op => {
-            if (op.callbacks) {
-                Object.entries(op.callbacks).forEach(([callbackName, pathItemOrRef]) => {
-                    const resolved = this.parser.resolve(pathItemOrRef) as PathItem;
-                    if (!resolved) return;
+            if (!op.callbacks) return;
+            Object.entries(op.callbacks).forEach(([callbackName, pathItemOrRef]) => {
+                processCallbackMap(callbackName, pathItemOrRef as any, 'operation');
+            });
+        });
 
-                    // A callback Map is URL Expression -> Path Item.
-                    Object.entries(resolved).forEach(([urlExpression, pathItemObj]) => {
-                        const subPaths = this.processCallbackPathItem(urlExpression, pathItemObj as PathItem);
-
-                        subPaths.forEach(sub => {
-                            const requestType = getRequestBodyType(
-                                sub.requestBody,
-                                this.parser.config,
-                                this.parser.schemas.map(s => s.name),
-                            );
-                            const responseKeys = Object.keys(sub.responses!);
-                            const responseType = getResponseType(
-                                sub.responses![responseKeys[0]],
-                                this.parser.config,
-                                this.parser.schemas.map(s => s.name),
-                            );
-
-                            registerModel(requestType);
-
-                            const interfaceName = `${pascalCase(callbackName)}${pascalCase(sub.method)}Payload`;
-                            callbacksFound.push({
-                                name: callbackName,
-                                method: sub.method,
-                                interfaceName,
-                                requestType,
-                                responseType,
-                            });
-
-                            sourceFile.addTypeAlias({
-                                isExported: true,
-                                name: interfaceName,
-                                type: requestType,
-                                docs: [`Payload definition for callback '${callbackName}' (${sub.method}).`],
-                            });
-                        });
-                    });
-                });
-            }
+        // Include component-level callbacks (OAS 3.2)
+        const componentCallbacks = this.parser.spec.components?.callbacks ?? {};
+        Object.entries(componentCallbacks).forEach(([callbackName, callbackOrRef]) => {
+            processCallbackMap(callbackName, callbackOrRef as any, 'component');
         });
 
         if (callbacksFound.length > 0) {
@@ -112,6 +141,9 @@ export class CallbackGenerator {
                                 name: c.name,
                                 method: c.method,
                                 interfaceName: c.interfaceName,
+                                expression: c.expression,
+                                pathItem: c.pathItem,
+                                ...(c.scope ? { scope: c.scope } : {}),
                             })),
                             null,
                             2,

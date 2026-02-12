@@ -32,7 +32,9 @@ describe('Emitter: TypeGenerator (Coverage Edges)', () => {
                             emptyCallback: {
                                 '{$request.query.empty}': {
                                     post: {
-                                        requestBody: {},
+                                        requestBody: {
+                                            content: { 'application/json': {} },
+                                        },
                                     },
                                 },
                             },
@@ -64,7 +66,9 @@ describe('Emitter: TypeGenerator (Coverage Edges)', () => {
             webhooks: {
                 webhookNoContent: {
                     post: {
-                        requestBody: {},
+                        requestBody: {
+                            content: { 'application/json': {} },
+                        },
                     },
                 },
                 webhookWildcard: {

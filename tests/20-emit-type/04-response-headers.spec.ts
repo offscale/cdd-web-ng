@@ -146,4 +146,54 @@ describe('Emitter: Response Header Type Generation', () => {
         const headersInterface = sourceFile.getInterfaceOrThrow('GetLegacy200Headers');
         expect(headersInterface.getProperty("'X-Legacy'")?.getType().getText()).toBe('string');
     });
+
+    it('should model Set-Cookie as a string array', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Cookie API', version: '1.0' },
+            paths: {
+                '/cookies': {
+                    get: {
+                        operationId: 'getCookies',
+                        responses: {
+                            '200': {
+                                headers: {
+                                    'Set-Cookie': { schema: { type: 'string' } },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        };
+        const sourceFile = runGenerator(spec);
+        const headersInterface = sourceFile.getInterfaceOrThrow('GetCookies200Headers');
+        expect(headersInterface.getProperty("'Set-Cookie'")?.getType().getText()).toBe('string[]');
+    });
+
+    it('should ignore Content-Type response headers', () => {
+        const spec = {
+            openapi: '3.2.0',
+            info: { title: 'Content-Type API', version: '1.0' },
+            paths: {
+                '/content': {
+                    get: {
+                        operationId: 'getContent',
+                        responses: {
+                            '200': {
+                                headers: {
+                                    'Content-Type': { schema: { type: 'string' } },
+                                    'X-Status': { schema: { type: 'string' } },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        };
+        const sourceFile = runGenerator(spec);
+        const headersInterface = sourceFile.getInterfaceOrThrow('GetContent200Headers');
+        expect(headersInterface.getProperty("'Content-Type'")).toBeUndefined();
+        expect(headersInterface.getProperty("'X-Status'")).toBeDefined();
+    });
 });

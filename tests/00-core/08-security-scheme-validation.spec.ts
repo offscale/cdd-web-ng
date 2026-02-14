@@ -16,7 +16,9 @@ describe('Core: Security Scheme Validation', () => {
             },
         };
 
-        expect(() => validateSpec(spec as any)).toThrow(/apiKey security scheme "BadApiKey" must define non-empty 'name'/);
+        expect(() => validateSpec(spec as any)).toThrow(
+            /apiKey security scheme "BadApiKey" must define non-empty 'name'/,
+        );
     });
 
     it('should require scheme for http schemes', () => {
@@ -31,7 +33,9 @@ describe('Core: Security Scheme Validation', () => {
             },
         };
 
-        expect(() => validateSpec(spec as any)).toThrow(/http security scheme "BadHttp" must define non-empty 'scheme'/);
+        expect(() => validateSpec(spec as any)).toThrow(
+            /http security scheme "BadHttp" must define non-empty 'scheme'/,
+        );
     });
 
     it('should require valid oauth2 flows with URLs and scopes', () => {
@@ -56,7 +60,10 @@ describe('Core: Security Scheme Validation', () => {
             paths: {},
             components: {
                 securitySchemes: {
-                    OIDC: { type: 'openIdConnect', openIdConnectUrl: 'http://example.com/.well-known/openid-configuration' },
+                    OIDC: {
+                        type: 'openIdConnect',
+                        openIdConnectUrl: 'http://example.com/.well-known/openid-configuration',
+                    },
                 },
             },
         };

@@ -11,7 +11,11 @@ describe('Service Parser: groupPathsByController', () => {
         const spec = {
             openapi: '3.0.0',
             info,
-            paths: { '/untagged/resource': { get: { operationId: 'getUntagged' } } },
+            paths: {
+                '/untagged/resource': {
+                    get: { operationId: 'getUntagged', responses: { '200': { description: 'ok' } } },
+                },
+            },
         };
         const groups = groupPathsByController(createParser(spec));
         expect(groups).toHaveProperty('Untagged');
@@ -22,7 +26,7 @@ describe('Service Parser: groupPathsByController', () => {
         const spec = {
             openapi: '3.0.0',
             info,
-            paths: { '/': { get: { operationId: 'getRoot' } } },
+            paths: { '/': { get: { operationId: 'getRoot', responses: { '200': { description: 'ok' } } } } },
         };
         const groups = groupPathsByController(createParser(spec));
         expect(groups).toHaveProperty('Default');

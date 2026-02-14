@@ -25,6 +25,7 @@ const oas3Spec: SwaggerSpec = {
                         dog_obj: '#/components/schemas/Dog',
                     },
                 },
+                oneOf: [{ $ref: '#/components/schemas/Cat' }, { $ref: '#/components/schemas/Dog' }],
                 properties: {
                     name: { type: 'string' },
                     petType: { type: 'string' },
@@ -150,6 +151,9 @@ describe('Emitter: DiscriminatorGenerator', () => {
                                 external: 'https://schemas.example.com/models/ExternalModel',
                             },
                         },
+                        oneOf: [{ $ref: '#/components/schemas/ExternalModel' }],
+                        properties: { type: { type: 'string' } },
+                        required: ['type'],
                     },
                     ExternalModel: {
                         type: 'object',
@@ -188,12 +192,16 @@ describe('Emitter: DiscriminatorGenerator', () => {
             components: {
                 schemas: {
                     Item: {
+                        type: 'object',
                         discriminator: {
                             propertyName: 'k',
                             mapping: {
                                 remote: 'https://remote.org/definitions/weird-name.json',
                             },
                         },
+                        oneOf: [{ $ref: 'https://remote.org/definitions/weird-name.json' }],
+                        properties: { k: { type: 'string' } },
+                        required: ['k'],
                     },
                 },
             },
@@ -219,6 +227,13 @@ describe('Emitter: DiscriminatorGenerator', () => {
                                 bad: '',
                             },
                         },
+                        oneOf: [{ $ref: '#/components/schemas/ThingVariant' }],
+                        properties: { kind: { type: 'string' } },
+                        required: ['kind'],
+                    },
+                    ThingVariant: {
+                        type: 'object',
+                        properties: { kind: { type: 'string' } },
                     },
                 },
             },
@@ -229,7 +244,7 @@ describe('Emitter: DiscriminatorGenerator', () => {
         expect(API_DISCRIMINATORS['Thing'].mapping).toBeUndefined();
     });
 
-    it('should not register discriminators without a propertyName', () => {
+    it('should throw for discriminators without a propertyName', () => {
         const spec: SwaggerSpec = {
             openapi: '3.0.0',
             info: { title: 'No Property', version: '1' },
@@ -242,10 +257,7 @@ describe('Emitter: DiscriminatorGenerator', () => {
                 },
             },
         } as any;
-
-        const project = runGenerator(spec);
-        const sourceFile = project.getSourceFileOrThrow('/out/discriminators.ts');
-        expect(sourceFile.getText()).toContain('export { };');
+        expect(() => runGenerator(spec)).toThrow(/propertyName/i);
     });
 
     it('should fall back when resolved schema is not in parser.schemas', () => {
@@ -263,6 +275,9 @@ describe('Emitter: DiscriminatorGenerator', () => {
                                 external: 'https://example.com/models/ExternalModel',
                             },
                         },
+                        oneOf: [{ $ref: 'https://example.com/models/ExternalModel' }],
+                        properties: { type: { type: 'string' } },
+                        required: ['type'],
                     },
                 },
             },
@@ -293,6 +308,7 @@ describe('Emitter: DiscriminatorGenerator', () => {
                             propertyName: 'type',
                             defaultMapping: '#/components/schemas/UnknownPet',
                         },
+                        oneOf: [{ $ref: '#/components/schemas/UnknownPet' }],
                         properties: { type: { type: 'string' } },
                     },
                     UnknownPet: {

@@ -111,20 +111,37 @@ export interface MultiExample {
   id: number;
 }
 
+/**
+ * @x-entity "internal"
+ * @x-meta {"tier":1}
+ */
+export interface ExtensionModel {
+  /** @x-prop true */
+  value?: string;
+}
+
 export interface BinaryPayload {
   /** @contentMediaType image/png @contentEncoding base64 */
+  data: string;
+}
+
+export interface EventPayload {
+  /** @contentMediaType application/json @contentSchema {"type":"object","properties":{"id":{"type":"string"}}} */
   data: string;
 }
 
 /**
  * @minProperties 1
  * @maxProperties 5
+ * @propertyNames {"pattern":"^[a-z]+$"}
  */
 export interface Constraints {
   /** @minimum 1 @maximum 10 @pattern ^[a-z]+$ @format uuid @minLength 2 @maxLength 5 */
   name: string;
   /** @minItems 1 @maxItems 3 @uniqueItems true */
   tags: string[];
+  /** @contains {"type":"string"} @minContains 1 @maxContains 2 */
+  values: string[];
   /** @multipleOf 0.5 */
   ratio?: number;
   /** @exclusiveMinimum 0 */
@@ -134,6 +151,69 @@ export interface Constraints {
   /** @readOnly @writeOnly */
   secret?: string;
 }
+
+export interface XmlDoc {
+  /** @xml {"name":"doc","namespace":"https://example.com","prefix":"ex"} */
+  value: string;
+}
+
+/** @additionalProperties false */
+export interface ClosedMap {
+  id: string;
+}
+
+/**
+ * @patternProperties {"^x-":{"type":"string"}}
+ * @dependentSchemas {"paymentMethod":{"properties":{"cardNumber":{"type":"string"}},"required":["cardNumber"]}}
+ * @dependentRequired {"paymentMethod":["cardNumber"]}
+ * @unevaluatedProperties false
+ * @unevaluatedItems {"type":"string"}
+ * @schemaDialect https://spec.openapis.org/oas/3.1/dialect/base
+ * @schemaId https://example.com/schemas/Tagged
+ * @schemaAnchor TaggedAnchor
+ * @schemaDynamicAnchor TaggedDynamic
+ * @see https://example.com/docs - Tagged docs
+ */
+export interface TaggedSchema {
+  paymentMethod?: string;
+}
+
+/**
+ * @const {"status":"fixed","count":1}
+ * @if {"properties":{"kind":{"const":"A"}}}
+ * @then {"required":["a"]}
+ * @else {"required":["b"]}
+ * @not {"properties":{"banned":{"type":"string"}}}
+ */
+export interface ConditionalTagged {
+  kind?: string;
+  a?: string;
+  b?: string;
+}
+
+/** @oneOf [{"type":"string"},{"type":"number"}] */
+export type TaggedUnion = string | number;
+
+/**
+ * @discriminator {"propertyName":"kind","mapping":{"cat":"Cat","dog":"Dog"}}
+ */
+export interface Discriminated {
+  kind: string;
+}
+
+export interface Cat {
+  kind: 'cat';
+  name: string;
+}
+
+export interface Dog {
+  kind: 'dog';
+  bark: boolean;
+}
+
+export type Pet = Cat | Dog;
+
+export type InlinePet = { kind: 'cat'; name: string } | { kind: 'dog'; bark: boolean };
 `;
 
 describe('Core Utils: OpenAPI Reverse Models', () => {
@@ -154,14 +234,14 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         expect(schemas.AnyAlias).toBeDefined();
         expect(schemas.UnknownAlias).toBeDefined();
         expect(schemas.ObjAlias).toBeDefined();
-        expect((schemas.LiteralNum as any).enum).toEqual([42]);
-        expect((schemas.LiteralTrue as any).enum).toEqual([true]);
-        expect((schemas.LiteralFalse as any).enum).toEqual([false]);
-        expect((schemas.LiteralNull as any).nullable).toBe(true);
+        expect((schemas.LiteralNum as any).const).toBe(42);
+        expect((schemas.LiteralTrue as any).const).toBe(true);
+        expect((schemas.LiteralFalse as any).const).toBe(false);
+        expect((schemas.LiteralNull as any).type).toBe('null');
+        expect((schemas.LiteralNull as any).const).toBe(null);
         expect((schemas.ParenAlias as any).type).toBe('string');
 
-        expect((schemas.NullableName as any).type).toBe('string');
-        expect((schemas.NullableName as any).nullable).toBe(true);
+        expect((schemas.NullableName as any).type).toEqual(['string', 'null']);
         expect((schemas.OptionalName as any).type).toBe('string');
         expect((schemas.UnionAnyOf as any).anyOf.length).toBe(2);
 
@@ -191,6 +271,15 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         expect((schemas.BlobAlias as any).format).toBe('binary');
         expect((schemas.FileAlias as any).format).toBe('binary');
 
+        const extensionModel = schemas.ExtensionModel as any;
+        expect(extensionModel['x-entity']).toBe('internal');
+        expect(extensionModel['x-meta']).toEqual({ tier: 1 });
+        expect(extensionModel.properties.value['x-prop']).toBe(true);
+
+        const eventPayload = schemas.EventPayload as any;
+        expect(eventPayload.properties.data.contentMediaType).toBe('application/json');
+        expect(eventPayload.properties.data.contentSchema.properties.id.type).toBe('string');
+
         expect((schemas.RefAlias as any).$ref).toBe('#/components/schemas/Base');
         expect((schemas.IntersectionAlias as any).allOf.length).toBe(2);
 
@@ -211,6 +300,25 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         expect(derivedIndexOnly.allOf.length).toBe(2);
         expect(derivedIndexOnly.allOf[1].additionalProperties.type).toBe('string');
 
+        const discriminated = schemas.Discriminated as any;
+        expect(discriminated.discriminator).toEqual({
+            propertyName: 'kind',
+            mapping: { cat: 'Cat', dog: 'Dog' },
+        });
+
+        const pet = schemas.Pet as any;
+        expect(pet.discriminator).toEqual({
+            propertyName: 'kind',
+            mapping: { cat: '#/components/schemas/Cat', dog: '#/components/schemas/Dog' },
+        });
+        expect(pet.oneOf?.length).toBe(2);
+        expect(pet.anyOf).toBeUndefined();
+
+        const inlinePet = schemas.InlinePet as any;
+        expect(inlinePet.discriminator).toEqual({ propertyName: 'kind' });
+        expect(inlinePet.oneOf?.length).toBe(2);
+        expect(inlinePet.anyOf).toBeUndefined();
+
         const withDocs = schemas.WithDocs as any;
         expect(withDocs.description).toBe('With docs.');
         expect(withDocs.example).toEqual({ flag: true });
@@ -229,6 +337,7 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         const constraints = schemas.Constraints as any;
         expect(constraints.minProperties).toBe(1);
         expect(constraints.maxProperties).toBe(5);
+        expect(constraints.propertyNames).toEqual({ pattern: '^[a-z]+$' });
         expect(constraints.properties.name.minimum).toBe(1);
         expect(constraints.properties.name.maximum).toBe(10);
         expect(constraints.properties.name.pattern).toBe('^[a-z]+$');
@@ -238,11 +347,46 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         expect(constraints.properties.tags.minItems).toBe(1);
         expect(constraints.properties.tags.maxItems).toBe(3);
         expect(constraints.properties.tags.uniqueItems).toBe(true);
+        expect(constraints.properties.values.contains).toEqual({ type: 'string' });
+        expect(constraints.properties.values.minContains).toBe(1);
+        expect(constraints.properties.values.maxContains).toBe(2);
         expect(constraints.properties.ratio.multipleOf).toBe(0.5);
         expect(constraints.properties.positive.exclusiveMinimum).toBe(0);
         expect(constraints.properties.below.exclusiveMaximum).toBe(true);
         expect(constraints.properties.secret.readOnly).toBe(true);
         expect(constraints.properties.secret.writeOnly).toBe(true);
+
+        const xmlDoc = schemas.XmlDoc as any;
+        expect(xmlDoc.properties.value.xml.name).toBe('doc');
+        expect(xmlDoc.properties.value.xml.namespace).toBe('https://example.com');
+        expect(xmlDoc.properties.value.xml.prefix).toBe('ex');
+
+        const closedMap = schemas.ClosedMap as any;
+        expect(closedMap.additionalProperties).toBe(false);
+
+        const tagged = schemas.TaggedSchema as any;
+        expect(tagged.patternProperties).toEqual({ '^x-': { type: 'string' } });
+        expect(tagged.dependentSchemas.paymentMethod.properties.cardNumber.type).toBe('string');
+        expect(tagged.dependentSchemas.paymentMethod.required).toEqual(['cardNumber']);
+        expect(tagged.dependentRequired.paymentMethod).toEqual(['cardNumber']);
+        expect(tagged.unevaluatedProperties).toBe(false);
+        expect(tagged.unevaluatedItems).toEqual({ type: 'string' });
+        expect(tagged.$schema).toBe('https://spec.openapis.org/oas/3.1/dialect/base');
+        expect(tagged.$id).toBe('https://example.com/schemas/Tagged');
+        expect(tagged.$anchor).toBe('TaggedAnchor');
+        expect(tagged.$dynamicAnchor).toBe('TaggedDynamic');
+        expect(tagged.externalDocs).toEqual({ url: 'https://example.com/docs', description: 'Tagged docs' });
+
+        const conditional = schemas.ConditionalTagged as any;
+        expect(conditional.const).toEqual({ status: 'fixed', count: 1 });
+        expect(conditional.if).toEqual({ properties: { kind: { const: 'A' } } });
+        expect(conditional.then).toEqual({ required: ['a'] });
+        expect(conditional.else).toEqual({ required: ['b'] });
+        expect(conditional.not).toEqual({ properties: { banned: { type: 'string' } } });
+
+        const taggedUnion = schemas.TaggedUnion as any;
+        expect(taggedUnion.oneOf).toEqual([{ type: 'string' }, { type: 'number' }]);
+        expect(taggedUnion.anyOf).toBeUndefined();
     });
 
     it('should parse models from disk and handle errors', () => {

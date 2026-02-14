@@ -43,7 +43,7 @@ const validAndInvalidWebhooksSpec: SwaggerSpec = {
             ValidWebhook: {
                 post: {
                     requestBody: { content: { 'application/json': { schema: { type: 'string' } } } },
-                    responses: { '200': {} },
+                    responses: { '200': { description: 'ok' } },
                 },
             },
         },
@@ -61,11 +61,35 @@ const webhookWithModelSpec: SwaggerSpec = {
                 requestBody: {
                     content: { 'application/json': { schema: { $ref: '#/components/schemas/Pet' } } },
                 },
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
     },
     components: {
+        schemas: {
+            Pet: { type: 'object', properties: { name: { type: 'string' } } },
+        },
+    },
+};
+
+const webhookWithRequestBodyRefSpec: SwaggerSpec = {
+    openapi: '3.2.0',
+    info: { title: 'Webhook Body Ref', version: '1.0' },
+    paths: {},
+    webhooks: {
+        refHook: {
+            post: {
+                requestBody: { $ref: '#/components/requestBodies/PetBody' },
+                responses: { '200': { description: 'ok' } },
+            },
+        },
+    },
+    components: {
+        requestBodies: {
+            PetBody: {
+                content: { 'application/json': { schema: { $ref: '#/components/schemas/Pet' } } },
+            },
+        },
         schemas: {
             Pet: { type: 'object', properties: { name: { type: 'string' } } },
         },
@@ -128,6 +152,13 @@ describe('Emitter: WebhookGenerator', () => {
         expect(imports.length).toBe(0);
     });
 
+    it('should resolve requestBody $ref inside webhooks', () => {
+        const project = runGenerator(webhookWithRequestBodyRefSpec);
+        const sourceFile = project.getSourceFileOrThrow('/out/webhooks.ts');
+        const typeAlias = sourceFile.getTypeAliasOrThrow('RefHookPostPayload');
+        expect(typeAlias.getTypeNode()?.getText()).toBe('Pet');
+    });
+
     it('should generate registry skipping invalid hooks', () => {
         const project = runGenerator(validAndInvalidWebhooksSpec);
         const { API_WEBHOOKS } = compileGeneratedFile(project);
@@ -181,7 +212,7 @@ describe('Emitter: WebhookGenerator', () => {
                                 },
                             },
                         },
-                        responses: {},
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             },

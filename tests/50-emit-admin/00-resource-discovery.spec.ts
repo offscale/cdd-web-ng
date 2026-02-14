@@ -119,6 +119,7 @@ describe('Admin: discoverAdminResources', () => {
                 method: 'GET',
                 responses: {
                     '200': {
+                        description: 'ok',
                         content: {
                             'application/json': { schema: schemaWithInline.properties!.inline },
                         },
@@ -192,6 +193,7 @@ describe('Admin: discoverAdminResources', () => {
                         tags: ['PureQuery'],
                         responses: {
                             '200': {
+                                description: 'ok',
                                 content: {
                                     'application/json': { schema: { $ref: '#/components/schemas/QueryResult' } },
                                 },

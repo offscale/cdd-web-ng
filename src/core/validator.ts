@@ -45,6 +45,39 @@ function getPathTemplateParams(path: string): string[] {
     return params;
 }
 
+function validateTemplateBraces(value: string, location: string, label: string): void {
+    if (typeof value !== 'string' || value.length === 0) return;
+    if (!value.includes('{') && !value.includes('}')) return;
+
+    let index = 0;
+    while (index < value.length) {
+        const char = value[index];
+        if (char === '{') {
+            const closeIndex = value.indexOf('}', index + 1);
+            if (closeIndex === -1) {
+                throw new SpecValidationError(
+                    `${label} at '${location}' contains an opening "{" without a matching "}".`,
+                );
+            }
+            if (closeIndex === index + 1) {
+                throw new SpecValidationError(`${label} at '${location}' contains an empty template expression "{}".`);
+            }
+            const inner = value.slice(index + 1, closeIndex);
+            if (inner.includes('{')) {
+                throw new SpecValidationError(
+                    `${label} at '${location}' contains nested "{" characters, which is not allowed.`,
+                );
+            }
+            index = closeIndex + 1;
+            continue;
+        }
+        if (char === '}') {
+            throw new SpecValidationError(`${label} at '${location}' contains a closing "}" without a matching "{".`);
+        }
+        index += 1;
+    }
+}
+
 function isUriReference(value: string): boolean {
     if (!value || typeof value !== 'string') return false;
     if (/\s/.test(value)) return false;
@@ -65,6 +98,7 @@ function isAbsoluteIri(value: string): boolean {
 }
 
 const RUNTIME_HEADER_TOKEN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
+const HTTP_METHOD_TOKEN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
 
 /**
  * Validates a JSON Pointer fragment (RFC 6901) without the leading '#'.
@@ -113,9 +147,16 @@ function isValidRuntimeExpression(expression: string): boolean {
 /**
  * Validates Callback Object expression keys (runtime expressions or templates).
  */
-function validateCallbackExpression(expression: string, location: string): void {
+type RuntimeExpressionMode = 'required' | 'optional';
+
+function validateRuntimeExpressionTemplate(
+    expression: string,
+    location: string,
+    mode: RuntimeExpressionMode,
+    label = 'Runtime expression',
+): void {
     if (typeof expression !== 'string' || expression.length === 0) {
-        throw new SpecValidationError(`Callback expression at '${location}' must be a non-empty string.`);
+        throw new SpecValidationError(`${label} at '${location}' must be a non-empty string.`);
     }
 
     const hasOpen = expression.includes('{');
@@ -124,14 +165,14 @@ function validateCallbackExpression(expression: string, location: string): void 
         const matches = [...expression.matchAll(/\{([^}]+)\}/g)];
         if (matches.length === 0) {
             throw new SpecValidationError(
-                `Callback expression at '${location}' contains unmatched braces and cannot be evaluated.`,
+                `${label} at '${location}' contains unmatched braces and cannot be evaluated.`,
             );
         }
         for (const match of matches) {
             const inner = match[1]?.trim() ?? '';
             if (!isValidRuntimeExpression(inner)) {
                 throw new SpecValidationError(
-                    `Callback expression at '${location}' contains invalid runtime expression '{${inner}}'.`,
+                    `${label} at '${location}' contains invalid runtime expression '{${inner}}'.`,
                 );
             }
         }
@@ -139,17 +180,21 @@ function validateCallbackExpression(expression: string, location: string): void 
         const stripped = expression.replace(/\{[^}]*\}/g, '');
         if (stripped.includes('{') || stripped.includes('}')) {
             throw new SpecValidationError(
-                `Callback expression at '${location}' contains unmatched braces and cannot be evaluated.`,
+                `${label} at '${location}' contains unmatched braces and cannot be evaluated.`,
             );
         }
         return;
     }
 
-    if (!isValidRuntimeExpression(expression)) {
-        throw new SpecValidationError(
-            `Callback expression at '${location}' must be a valid runtime expression.`,
-        );
+    if (mode === 'required' || expression.startsWith('$')) {
+        if (!isValidRuntimeExpression(expression)) {
+            throw new SpecValidationError(`${label} at '${location}' must be a valid runtime expression.`);
+        }
     }
+}
+
+function validateCallbackExpression(expression: string, location: string): void {
+    validateRuntimeExpressionTemplate(expression, location, 'required', 'Callback expression');
 }
 
 type SchemaTypeKind = 'primitive' | 'array' | 'object' | 'unknown';
@@ -198,9 +243,7 @@ function validateExternalDocsObject(externalDocs: unknown, location: string): vo
     }
     const url = (externalDocs as { url?: unknown }).url;
     if (typeof url !== 'string' || !isUriReference(url)) {
-        throw new SpecValidationError(
-            `ExternalDocs.url must be a valid URI at '${location}'. Value: "${String(url)}"`,
-        );
+        throw new SpecValidationError(`ExternalDocs.url must be a valid URI at '${location}'. Value: "${String(url)}"`);
     }
 }
 
@@ -215,6 +258,56 @@ function validateSchemaExternalDocs(
     const obj = schema as Record<string, unknown>;
     if (seen.has(obj)) return;
     seen.add(obj);
+
+    if ('$schema' in obj) {
+        const value = obj.$schema;
+        if (typeof value !== 'string' || !isUriReference(value)) {
+            throw new SpecValidationError(
+                `Schema Object at '${location}' has invalid '$schema'. It must be a valid URI reference.`,
+            );
+        }
+    }
+
+    if ('$id' in obj) {
+        const value = obj.$id;
+        if (typeof value !== 'string' || !isUriReference(value)) {
+            throw new SpecValidationError(
+                `Schema Object at '${location}' has invalid '$id'. It must be a valid URI reference.`,
+            );
+        }
+    }
+
+    if ('$anchor' in obj) {
+        const value = obj.$anchor;
+        if (typeof value !== 'string' || value.trim().length === 0) {
+            throw new SpecValidationError(`Schema Object at '${location}' has invalid '$anchor'.`);
+        }
+    }
+
+    if ('$dynamicAnchor' in obj) {
+        const value = obj.$dynamicAnchor;
+        if (typeof value !== 'string' || value.trim().length === 0) {
+            throw new SpecValidationError(`Schema Object at '${location}' has invalid '$dynamicAnchor'.`);
+        }
+    }
+
+    if ('$ref' in obj) {
+        const value = obj.$ref;
+        if (typeof value !== 'string' || !isUriReference(value)) {
+            throw new SpecValidationError(
+                `Schema Object at '${location}' has invalid '$ref'. It must be a valid URI reference.`,
+            );
+        }
+    }
+
+    if ('$dynamicRef' in obj) {
+        const value = obj.$dynamicRef;
+        if (typeof value !== 'string' || !isUriReference(value)) {
+            throw new SpecValidationError(
+                `Schema Object at '${location}' has invalid '$dynamicRef'. It must be a valid URI reference.`,
+            );
+        }
+    }
 
     if ('externalDocs' in obj) {
         validateExternalDocsObject((obj as { externalDocs?: unknown }).externalDocs, `${location}.externalDocs`);
@@ -302,23 +395,24 @@ function isPropertyRequired(schema: unknown, propName: string, seen: WeakSet<obj
 function validateDiscriminatorObject(schema: Record<string, unknown>, location: string): void {
     const discriminator = schema.discriminator;
     if (discriminator === undefined || discriminator === null) return;
+
+    // Swagger 2.0 allows discriminator as a string (property name).
+    if (typeof discriminator === 'string') {
+        if (location.startsWith('definitions.')) return;
+        throw new SpecValidationError(`Discriminator at '${location}' must be an object.`);
+    }
     if (typeof discriminator !== 'object' || Array.isArray(discriminator)) {
         throw new SpecValidationError(`Discriminator at '${location}' must be an object.`);
     }
 
     const propName = (discriminator as { propertyName?: unknown }).propertyName;
     if (typeof propName !== 'string' || propName.trim().length === 0) {
-        throw new SpecValidationError(
-            `Discriminator at '${location}' must define a non-empty string 'propertyName'.`,
-        );
+        throw new SpecValidationError(`Discriminator at '${location}' must define a non-empty string 'propertyName'.`);
     }
 
-    const hasComposite =
-        Array.isArray(schema.oneOf) || Array.isArray(schema.anyOf) || Array.isArray(schema.allOf);
+    const hasComposite = Array.isArray(schema.oneOf) || Array.isArray(schema.anyOf) || Array.isArray(schema.allOf);
     if (!hasComposite) {
-        throw new SpecValidationError(
-            `Discriminator at '${location}' is only valid alongside oneOf/anyOf/allOf.`,
-        );
+        throw new SpecValidationError(`Discriminator at '${location}' is only valid alongside oneOf/anyOf/allOf.`);
     }
 
     const mapping = (discriminator as { mapping?: unknown }).mapping;
@@ -366,9 +460,7 @@ function validateXmlObject(schema: Record<string, unknown>, location: string): v
 
     if (xmlObj.nodeType !== undefined) {
         if (typeof xmlObj.nodeType !== 'string' || !XML_NODE_TYPES.has(xmlObj.nodeType)) {
-            throw new SpecValidationError(
-                `XML Object at '${location}' has invalid 'nodeType'.`,
-            );
+            throw new SpecValidationError(`XML Object at '${location}' has invalid 'nodeType'.`);
         }
         if (xmlObj.attribute !== undefined) {
             throw new SpecValidationError(
@@ -421,9 +513,7 @@ function validateParameterStyle(param: Parameter, location: string): void {
 
     if (param.style === undefined) return;
     if (typeof param.style !== 'string') {
-        throw new SpecValidationError(
-            `Parameter '${param.name}' in '${location}' has non-string 'style'.`,
-        );
+        throw new SpecValidationError(`Parameter '${param.name}' in '${location}' has non-string 'style'.`);
     }
 
     const allowedStyles = PARAM_STYLE_BY_IN[param.in];
@@ -442,6 +532,12 @@ function validateParameterStyle(param: Parameter, location: string): void {
     if ((param.style === 'spaceDelimited' || param.style === 'pipeDelimited') && schemaType === 'primitive') {
         throw new SpecValidationError(
             `Parameter '${param.name}' in '${location}' uses '${param.style}' style but schema is not an array or object.`,
+        );
+    }
+
+    if ((param.style === 'spaceDelimited' || param.style === 'pipeDelimited') && param.explode === true) {
+        throw new SpecValidationError(
+            `Parameter '${param.name}' in '${location}' uses '${param.style}' style with explode=true, which is not permitted.`,
         );
     }
 }
@@ -472,6 +568,7 @@ function validateServers(servers: ServerObject[] | undefined, location: string):
         if (typeof url !== 'string' || url.length === 0) {
             throw new SpecValidationError(`Server url must be a non-empty string at ${location}[${index}].`);
         }
+        validateTemplateBraces(url, `${location}[${index}].url`, 'Server url');
         if (url.includes('?') || url.includes('#')) {
             throw new SpecValidationError(
                 `Server url MUST NOT include query or fragment at ${location}[${index}]. Value: "${url}"`,
@@ -546,9 +643,7 @@ function validateHttpsUrl(value: unknown, location: string, fieldName: string): 
     }
     const parsed = new URL(value);
     if (parsed.protocol !== 'https:') {
-        throw new SpecValidationError(
-            `${fieldName} must use https (TLS required) at ${location}. Value: "${value}"`,
-        );
+        throw new SpecValidationError(`${fieldName} must use https (TLS required) at ${location}. Value: "${value}"`);
     }
 }
 
@@ -654,11 +749,7 @@ function validateSecuritySchemes(
                 break;
             }
             case 'openIdConnect': {
-                validateHttpsUrl(
-                    scheme.openIdConnectUrl,
-                    `${location}.${name}`,
-                    'openIdConnectUrl',
-                );
+                validateHttpsUrl(scheme.openIdConnectUrl, `${location}.${name}`, 'openIdConnectUrl');
                 break;
             }
             case 'mutualTLS': {
@@ -714,15 +805,6 @@ function validateReferenceObject(refObj: unknown, location: string): void {
             `Reference Object at '${location}' has non-string 'description'. Value: "${String(obj.description)}"`,
         );
     }
-
-    const allowedKeys = new Set(['$ref', '$dynamicRef', 'summary', 'description']);
-    Object.keys(obj).forEach(key => {
-        if (!allowedKeys.has(key)) {
-            throw new SpecValidationError(
-                `Reference Object at '${location}' contains unsupported field '${key}'.`,
-            );
-        }
-    });
 }
 
 function validateUniqueParameters(params: unknown, location: string): void {
@@ -733,7 +815,8 @@ function validateUniqueParameters(params: unknown, location: string): void {
         const name = (param as { name?: unknown }).name;
         const loc = (param as { in?: unknown }).in;
         if (typeof name !== 'string' || typeof loc !== 'string') continue;
-        const key = `${name}:${loc}`;
+        const normalizedName = loc.toLowerCase() === 'header' ? name.toLowerCase() : name;
+        const key = `${normalizedName}:${loc}`;
         if (seen.has(key)) {
             throw new SpecValidationError(
                 `Duplicate parameter '${name}' in '${location}'. Parameter names must be unique per location.`,
@@ -838,6 +921,14 @@ function isSequentialMediaType(mediaType: string | undefined): boolean {
         if (normalized.endsWith(suffix)) return true;
     }
     return false;
+}
+
+function isCustomSequentialJsonMediaType(mediaType: string | undefined): boolean {
+    const normalized = normalizeMediaType(mediaType);
+    if (!normalized) return false;
+    if (normalized === 'application/json' || normalized === '*/*') return false;
+    if (normalized.startsWith('multipart/')) return false;
+    return normalized.includes('json') || normalized.endsWith('+json');
 }
 
 function isFormUrlEncodedMediaType(mediaType: string | undefined): boolean {
@@ -1010,7 +1101,12 @@ function validateMediaTypeObject(mediaObj: unknown, location: string, mediaType?
         validateSchemaExternalDocs(media.schema, `${location}.schema`);
     }
     if (media.itemSchema !== undefined) {
-        if (mediaType && !isSequentialMediaType(mediaType)) {
+        const allowsItemSchema =
+            mediaType &&
+            (isSequentialMediaType(mediaType) ||
+                // Allow custom JSON-based sequential media types when itemSchema is present.
+                isCustomSequentialJsonMediaType(mediaType));
+        if (mediaType && !allowsItemSchema) {
             throw new SpecValidationError(
                 `Media Type Object at '${location}' defines 'itemSchema' but media type "${mediaType}" is not sequential.`,
             );
@@ -1026,19 +1122,19 @@ function validateContentMap(content: Record<string, unknown> | undefined, locati
     }
 }
 
-function validateHeaderObject(headerObj: unknown, location: string): void {
+function validateHeaderObject(headerObj: unknown, location: string, isOpenApi3: boolean): void {
     if (!headerObj || typeof headerObj !== 'object') return;
     if (isRefLike(headerObj)) {
         validateReferenceObject(headerObj, location);
         return;
     }
     const header = headerObj as {
+        schema?: unknown;
+        content?: Record<string, unknown>;
         name?: unknown;
         in?: unknown;
         style?: unknown;
         allowEmptyValue?: unknown;
-        schema?: unknown;
-        content?: Record<string, unknown>;
         example?: unknown;
         examples?: unknown;
     };
@@ -1067,6 +1163,9 @@ function validateHeaderObject(headerObj: unknown, location: string): void {
             validateExampleObject(example, `${location}.examples.${name}`);
         });
     }
+    if (isOpenApi3 && header.schema === undefined && header.content === undefined) {
+        throw new SpecValidationError(`Header Object at '${location}' must define either 'schema' or 'content'.`);
+    }
     if (header.schema !== undefined && header.content !== undefined) {
         throw new SpecValidationError(
             `Header Object at '${location}' contains both 'schema' and 'content'. These fields are mutually exclusive.`,
@@ -1085,14 +1184,14 @@ function validateHeaderObject(headerObj: unknown, location: string): void {
     }
 }
 
-function validateHeadersMap(headers: Record<string, unknown> | undefined, location: string): void {
+function validateHeadersMap(headers: Record<string, unknown> | undefined, location: string, isOpenApi3: boolean): void {
     if (!headers) return;
     for (const [headerName, headerObj] of Object.entries(headers)) {
         if (headerName.toLowerCase() === 'content-type') {
             // OAS 3.2: Response header definitions named "Content-Type" are ignored.
             continue;
         }
-        validateHeaderObject(headerObj, `${location}.${headerName}`);
+        validateHeaderObject(headerObj, `${location}.${headerName}`, isOpenApi3);
     }
 }
 
@@ -1102,7 +1201,13 @@ function validateLinkObject(linkObj: unknown, location: string): void {
         validateReferenceObject(linkObj, location);
         return;
     }
-    const link = linkObj as { operationId?: unknown; operationRef?: unknown };
+    const link = linkObj as {
+        operationId?: unknown;
+        operationRef?: unknown;
+        parameters?: unknown;
+        requestBody?: unknown;
+        server?: unknown;
+    };
     const hasOperationId = typeof link.operationId === 'string' && link.operationId.length > 0;
     const hasOperationRef = typeof link.operationRef === 'string' && link.operationRef.length > 0;
 
@@ -1121,6 +1226,27 @@ function validateLinkObject(linkObj: unknown, location: string): void {
             `Link Object at '${location}' has invalid 'operationRef'. It must be a valid URI reference.`,
         );
     }
+
+    if (link.parameters !== undefined) {
+        if (typeof link.parameters !== 'object' || Array.isArray(link.parameters) || link.parameters === null) {
+            throw new SpecValidationError(
+                `Link Object at '${location}' has invalid 'parameters'. It must be an object map.`,
+            );
+        }
+        Object.entries(link.parameters as Record<string, unknown>).forEach(([name, value]) => {
+            if (typeof value === 'string') {
+                validateRuntimeExpressionTemplate(value, `${location}.parameters.${name}`, 'optional');
+            }
+        });
+    }
+
+    if (typeof link.requestBody === 'string') {
+        validateRuntimeExpressionTemplate(link.requestBody, `${location}.requestBody`, 'optional');
+    }
+
+    if (link.server !== undefined) {
+        validateServers([link.server as ServerObject], `${location}.server`);
+    }
 }
 
 function validateLinksMap(links: Record<string, unknown> | undefined, location: string): void {
@@ -1138,24 +1264,17 @@ function validateRequestBody(requestBody: unknown, location: string): void {
     }
     const body = requestBody as { content?: Record<string, unknown> };
     if (body.content === undefined) {
-        throw new SpecValidationError(
-            `RequestBody Object at '${location}' must define 'content'.`,
-        );
+        throw new SpecValidationError(`RequestBody Object at '${location}' must define 'content'.`);
     }
     if (typeof body.content !== 'object' || Array.isArray(body.content)) {
         throw new SpecValidationError(
             `RequestBody Object at '${location}' has invalid 'content'. It must be an object.`,
         );
     }
-    if (Object.keys(body.content).length === 0) {
-        throw new SpecValidationError(
-            `RequestBody Object at '${location}' has empty 'content'. At least one media type is required.`,
-        );
-    }
     validateContentMap(body.content, `${location}.content`);
 }
 
-function validateResponseObject(responseObj: unknown, location: string): void {
+function validateResponseObject(responseObj: unknown, location: string, isOpenApi3: boolean): void {
     if (!responseObj || typeof responseObj !== 'object') return;
     if (isRefLike(responseObj)) {
         validateReferenceObject(responseObj, location);
@@ -1163,12 +1282,19 @@ function validateResponseObject(responseObj: unknown, location: string): void {
     }
 
     const response = responseObj as {
+        description?: unknown;
         headers?: Record<string, unknown>;
         content?: Record<string, unknown>;
         links?: Record<string, unknown>;
     };
+    if (response.description === undefined) {
+        throw new SpecValidationError(`Response Object at '${location}' must define a 'description' field.`);
+    }
+    if (typeof response.description !== 'string') {
+        throw new SpecValidationError(`Response Object at '${location}' has non-string 'description'.`);
+    }
     if (response.headers) {
-        validateHeadersMap(response.headers, `${location}.headers`);
+        validateHeadersMap(response.headers, `${location}.headers`, isOpenApi3);
     }
     if (response.content) {
         validateContentMap(response.content, `${location}.content`);
@@ -1178,22 +1304,31 @@ function validateResponseObject(responseObj: unknown, location: string): void {
     }
 }
 
-function validateResponses(responses: Record<string, unknown> | undefined, location: string): void {
+function validateResponses(
+    responses: Record<string, unknown> | undefined,
+    location: string,
+    isOpenApi3: boolean,
+): void {
     if (!responses) return;
+    if (Object.keys(responses).length === 0) {
+        throw new SpecValidationError(`Responses Object at '${location}' must define at least one response code.`);
+    }
     for (const [status, responseObj] of Object.entries(responses)) {
         if (!isValidResponseCode(status)) {
-            throw new SpecValidationError(
-                `Responses Object at '${location}' has invalid status code '${status}'.`,
-            );
+            throw new SpecValidationError(`Responses Object at '${location}' has invalid status code '${status}'.`);
         }
-        validateResponseObject(responseObj, `${location}.${status}`);
+        validateResponseObject(responseObj, `${location}.${status}`, isOpenApi3);
     }
 }
 
-function validateComponentResponses(responses: Record<string, unknown> | undefined, location: string): void {
+function validateComponentResponses(
+    responses: Record<string, unknown> | undefined,
+    location: string,
+    isOpenApi3: boolean,
+): void {
     if (!responses) return;
     for (const [name, responseObj] of Object.entries(responses)) {
-        validateResponseObject(responseObj, `${location}.${name}`);
+        validateResponseObject(responseObj, `${location}.${name}`, isOpenApi3);
     }
 }
 
@@ -1205,51 +1340,69 @@ function isValidResponseCode(status: string): boolean {
     return false;
 }
 
-function validateOperationsContent(paths: Record<string, unknown> | undefined, locationPrefix: string): void {
-    if (!paths) return;
+function validatePathItemOperations(pathItem: unknown, location: string, isOpenApi3: boolean): void {
+    if (!pathItem || typeof pathItem !== 'object') return;
+    if (isRefLike(pathItem)) {
+        validateReferenceObject(pathItem, location);
+        return;
+    }
+
     const operationKeys = ['get', 'post', 'put', 'delete', 'options', 'head', 'patch', 'trace', 'query'];
+
+    for (const method of operationKeys) {
+        const operation = (pathItem as any)[method];
+        if (operation) {
+            if (operation.responses === undefined) {
+                throw new SpecValidationError(`Operation Object at '${location}.${method}' must define 'responses'.`);
+            }
+            if (operation.externalDocs) {
+                validateExternalDocsObject(operation.externalDocs, `${location}.${method}.externalDocs`);
+            }
+            validateRequestBody(operation.requestBody, `${location}.${method}.requestBody`);
+            validateResponses(
+                operation.responses as Record<string, unknown>,
+                `${location}.${method}.responses`,
+                isOpenApi3,
+            );
+        }
+    }
+
+    if ((pathItem as any).additionalOperations) {
+        for (const [method, operation] of Object.entries((pathItem as any).additionalOperations)) {
+            if ((operation as any)?.responses === undefined) {
+                throw new SpecValidationError(
+                    `Operation Object at '${location}.additionalOperations.${method}' must define 'responses'.`,
+                );
+            }
+            if ((operation as any)?.externalDocs) {
+                validateExternalDocsObject(
+                    (operation as any).externalDocs,
+                    `${location}.additionalOperations.${method}.externalDocs`,
+                );
+            }
+            validateRequestBody(
+                (operation as any)?.requestBody,
+                `${location}.additionalOperations.${method}.requestBody`,
+            );
+            validateResponses(
+                (operation as any)?.responses as Record<string, unknown>,
+                `${location}.additionalOperations.${method}.responses`,
+                isOpenApi3,
+            );
+        }
+    }
+}
+
+function validateOperationsContent(
+    paths: Record<string, unknown> | undefined,
+    locationPrefix: string,
+    isOpenApi3: boolean,
+): void {
+    if (!paths) return;
 
     for (const [pathKey, pathItem] of Object.entries(paths)) {
         if (!pathItem || typeof pathItem !== 'object') continue;
-
-        for (const method of operationKeys) {
-            const operation = (pathItem as any)[method];
-            if (operation) {
-                if (operation.externalDocs) {
-                    validateExternalDocsObject(
-                        operation.externalDocs,
-                        `${locationPrefix}${pathKey}.${method}.externalDocs`,
-                    );
-                }
-                validateRequestBody(
-                    operation.requestBody,
-                    `${locationPrefix}${pathKey}.${method}.requestBody`,
-                );
-                validateResponses(
-                    operation.responses as Record<string, unknown>,
-                    `${locationPrefix}${pathKey}.${method}.responses`,
-                );
-            }
-        }
-
-        if ((pathItem as any).additionalOperations) {
-            for (const [method, operation] of Object.entries((pathItem as any).additionalOperations)) {
-                if ((operation as any)?.externalDocs) {
-                    validateExternalDocsObject(
-                        (operation as any).externalDocs,
-                        `${locationPrefix}${pathKey}.additionalOperations.${method}.externalDocs`,
-                    );
-                }
-                validateRequestBody(
-                    (operation as any)?.requestBody,
-                    `${locationPrefix}${pathKey}.additionalOperations.${method}.requestBody`,
-                );
-                validateResponses(
-                    (operation as any)?.responses as Record<string, unknown>,
-                    `${locationPrefix}${pathKey}.additionalOperations.${method}.responses`,
-                );
-            }
-        }
+        validatePathItemOperations(pathItem, `${locationPrefix}${pathKey}`, isOpenApi3);
     }
 }
 
@@ -1303,6 +1456,15 @@ export function validateSpec(spec: SwaggerSpec): void {
         throw new SpecValidationError("Specification info object must contain a required string field: 'version'.");
     }
 
+    // 2a. OpenAPI 3.2 $self validation (URI reference)
+    if (isOpenApi3 && spec.$self !== undefined) {
+        if (typeof spec.$self !== 'string' || !isUriReference(spec.$self)) {
+            throw new SpecValidationError(
+                `OpenAPI Object $self must be a valid URI reference. Value: "${String(spec.$self)}"`,
+            );
+        }
+    }
+
     // 2b. Info Object URI/email fields
     if (spec.info.termsOfService !== undefined) {
         if (typeof spec.info.termsOfService !== 'string' || !isUriReference(spec.info.termsOfService)) {
@@ -1315,9 +1477,7 @@ export function validateSpec(spec: SwaggerSpec): void {
         const contact = spec.info.contact as { url?: unknown; email?: unknown };
         if (contact.url !== undefined) {
             if (typeof contact.url !== 'string' || !isUriReference(contact.url)) {
-                throw new SpecValidationError(
-                    `Info.contact.url must be a valid URI. Value: "${String(contact.url)}"`,
-                );
+                throw new SpecValidationError(`Info.contact.url must be a valid URI. Value: "${String(contact.url)}"`);
             }
         }
         if (contact.email !== undefined) {
@@ -1419,9 +1579,11 @@ export function validateSpec(spec: SwaggerSpec): void {
                 }
                 for (const [expression, callbackPathItem] of Object.entries(callbackObj as Record<string, any>)) {
                     if (!callbackPathItem || typeof callbackPathItem !== 'object') continue;
-                    validateCallbackExpression(
-                        expression,
+                    validateCallbackExpression(expression, `${opLocation}.callbacks.${callbackName}.${expression}`);
+                    validatePathItemOperations(
+                        callbackPathItem,
                         `${opLocation}.callbacks.${callbackName}.${expression}`,
+                        isOpenApi3,
                     );
                     callbacks[`${opLocation}.callbacks.${callbackName}.${expression}`] = callbackPathItem;
                 }
@@ -1456,12 +1618,21 @@ export function validateSpec(spec: SwaggerSpec): void {
             const templateParams = getPathTemplateParams(pathKey);
             const templateParamSet = new Set(templateParams);
             const hasTemplateParams = templateParams.length > 0;
-            const skipPathTemplateValidation = !!(pathItem as any)?.$ref;
+            const hasOperations =
+                operationKeys.some(method => (pathItem as any)[method]) ||
+                ((pathItem as any).additionalOperations &&
+                    Object.keys((pathItem as any).additionalOperations as Record<string, unknown>).length > 0);
+            const hasPathParams = Array.isArray(pathItem.parameters) && pathItem.parameters.length > 0;
+            // OAS 3.2: If the Path Item is empty (e.g., ACL constraints), template params are not required.
+            const isEmptyPathItem = !hasOperations && !hasPathParams;
+            const skipPathTemplateValidation = !!(pathItem as any)?.$ref || isEmptyPathItem;
 
             // 4a. Paths Object field pattern: keys MUST start with "/"
             if (!pathKey.startsWith('/')) {
                 throw new SpecValidationError(`Path key "${pathKey}" must start with "/".`);
             }
+
+            validateTemplateBraces(pathKey, `paths.${pathKey}`, 'Path template');
 
             // 4a. Template Variable Uniqueness (OAS 3.2 Requirement)
             // Each template expression MUST NOT appear more than once in a single path template.
@@ -1478,6 +1649,11 @@ export function validateSpec(spec: SwaggerSpec): void {
             if (isOpenApi3 && (pathItem as any)?.additionalOperations) {
                 const additionalOps = (pathItem as any).additionalOperations;
                 for (const methodKey of Object.keys(additionalOps)) {
+                    if (!HTTP_METHOD_TOKEN.test(methodKey)) {
+                        throw new SpecValidationError(
+                            `Path '${pathKey}' defines additionalOperations method "${methodKey}" which is not a valid HTTP method token.`,
+                        );
+                    }
                     const normalized = methodKey.toLowerCase();
                     if (operationKeys.includes(normalized)) {
                         throw new SpecValidationError(
@@ -1488,6 +1664,11 @@ export function validateSpec(spec: SwaggerSpec): void {
                 }
                 for (const [methodKey, operation] of Object.entries(additionalOps)) {
                     if (operation && typeof operation === 'object') {
+                        if ((operation as any).responses === undefined) {
+                            throw new SpecValidationError(
+                                `Operation Object at 'paths.${pathKey}.additionalOperations.${methodKey}' must define 'responses'.`,
+                            );
+                        }
                         if ((operation as any).externalDocs) {
                             validateExternalDocsObject(
                                 (operation as any).externalDocs,
@@ -1542,11 +1723,13 @@ export function validateSpec(spec: SwaggerSpec): void {
             for (const method of operationKeys) {
                 const operation = (pathItem as any)[method];
                 if (operation) {
-                    if (operation.externalDocs) {
-                        validateExternalDocsObject(
-                            operation.externalDocs,
-                            `${pathKey}.${method}.externalDocs`,
+                    if (isOpenApi3 && operation.responses === undefined) {
+                        throw new SpecValidationError(
+                            `Operation Object at 'paths.${pathKey}.${method}' must define 'responses'.`,
                         );
+                    }
+                    if (operation.externalDocs) {
+                        validateExternalDocsObject(operation.externalDocs, `${pathKey}.${method}.externalDocs`);
                     }
                     const opParams = (operation.parameters || []) as Parameter[];
                     validateUniqueParameters(opParams, `${pathKey}.${method}.parameters`);
@@ -1557,7 +1740,11 @@ export function validateSpec(spec: SwaggerSpec): void {
                     if (hasTemplateParams && !skipPathTemplateValidation) {
                         for (const name of templateParamSet) {
                             const hasParam = allParams.some(
-                                p => !!p && typeof p === 'object' && (p as any).in === 'path' && (p as any).name === name,
+                                p =>
+                                    !!p &&
+                                    typeof p === 'object' &&
+                                    (p as any).in === 'path' &&
+                                    (p as any).name === name,
                             );
                             if (!hasParam) {
                                 throw new SpecValidationError(
@@ -1587,13 +1774,24 @@ export function validateSpec(spec: SwaggerSpec): void {
                     }
 
                     for (const [index, param] of allParams.entries()) {
-                        if (!param || typeof param !== 'object') continue;
-                        if (isRefLike(param)) {
-                            validateReferenceObject(
-                                param,
-                                `${method.toUpperCase()} ${pathKey}.parameters[${index}]`,
+                        if (!param || typeof param !== 'object') {
+                            throw new SpecValidationError(
+                                `Parameter in '${method.toUpperCase()} ${pathKey}' must be an object or Reference Object.`,
                             );
+                        }
+                        if (isRefLike(param)) {
+                            validateReferenceObject(param, `${method.toUpperCase()} ${pathKey}.parameters[${index}]`);
                             continue;
+                        }
+                        if (typeof (param as any).name !== 'string' || (param as any).name.trim().length === 0) {
+                            throw new SpecValidationError(
+                                `Parameter in '${method.toUpperCase()} ${pathKey}' must define a non-empty string 'name'.`,
+                            );
+                        }
+                        if (typeof (param as any).in !== 'string' || (param as any).in.trim().length === 0) {
+                            throw new SpecValidationError(
+                                `Parameter '${(param as any).name}' in '${method.toUpperCase()} ${pathKey}' must define a non-empty string 'in'.`,
+                            );
                         }
                         if (
                             param.in === 'header' &&
@@ -1709,13 +1907,11 @@ export function validateSpec(spec: SwaggerSpec): void {
                     }
 
                     if (isOpenApi3) {
-                        validateRequestBody(
-                            (operation as any).requestBody,
-                            `paths.${pathKey}.${method}.requestBody`,
-                        );
+                        validateRequestBody((operation as any).requestBody, `paths.${pathKey}.${method}.requestBody`);
                         validateResponses(
                             (operation as any).responses as Record<string, unknown>,
                             `paths.${pathKey}.${method}.responses`,
+                            isOpenApi3,
                         );
                     }
                 }
@@ -1729,9 +1925,9 @@ export function validateSpec(spec: SwaggerSpec): void {
     };
 
     if (isOpenApi3) {
-        validateOperationsContent(spec.webhooks as Record<string, unknown> | undefined, 'webhooks.');
+        validateOperationsContent(spec.webhooks as Record<string, unknown> | undefined, 'webhooks.', isOpenApi3);
         if (Object.keys(callbackPaths).length > 0) {
-            validateOperationsContent(callbackPaths, 'callbacks.');
+            validateOperationsContent(callbackPaths, 'callbacks.', isOpenApi3);
         }
     }
 
@@ -1785,6 +1981,19 @@ export function validateSpec(spec: SwaggerSpec): void {
     if (Object.keys(callbackPaths).length > 0) {
         collectOperationIds(callbackPaths, 'callbacks:');
     }
+    if (isOpenApi3 && spec.components?.pathItems) {
+        collectOperationIds(spec.components.pathItems as Record<string, any>, 'components.pathItems:');
+    }
+    if (isOpenApi3 && spec.components?.webhooks) {
+        collectOperationIds(spec.components.webhooks as Record<string, any>, 'components.webhooks:');
+    }
+    if (isOpenApi3 && spec.components?.callbacks) {
+        for (const [name, callbackObj] of Object.entries(spec.components.callbacks as Record<string, any>)) {
+            if (!callbackObj || typeof callbackObj !== 'object') continue;
+            if (isRefLike(callbackObj)) continue;
+            collectOperationIds(callbackObj as Record<string, any>, `components.callbacks.${name}:`);
+        }
+    }
 
     for (const [operationId, locations] of operationIdLocations.entries()) {
         if (locations.length > 1) {
@@ -1797,10 +2006,18 @@ export function validateSpec(spec: SwaggerSpec): void {
     // 7. Check Components Parameters Exclusivity (OAS 3.x)
     if (isOpenApi3 && spec.components?.parameters) {
         for (const [name, param] of Object.entries(spec.components.parameters)) {
-            if (!param || typeof param !== 'object') continue;
+            if (!param || typeof param !== 'object') {
+                throw new SpecValidationError(`Component parameter '${name}' must be an object or Reference Object.`);
+            }
             if (isRefLike(param)) {
                 validateReferenceObject(param, `components.parameters.${name}`);
                 continue;
+            }
+            if (typeof (param as any).name !== 'string' || (param as any).name.trim().length === 0) {
+                throw new SpecValidationError(`Component parameter '${name}' must define a non-empty string 'name'.`);
+            }
+            if (typeof (param as any).in !== 'string' || (param as any).in.trim().length === 0) {
+                throw new SpecValidationError(`Component parameter '${name}' must define a non-empty string 'in'.`);
             }
             if (
                 (param as any).in === 'header' &&
@@ -1887,17 +2104,14 @@ export function validateSpec(spec: SwaggerSpec): void {
             }
 
             if (param.content) {
-                validateContentMap(
-                    param.content as Record<string, unknown>,
-                    `components.parameters.${name}.content`,
-                );
+                validateContentMap(param.content as Record<string, unknown>, `components.parameters.${name}.content`);
             }
         }
     }
 
     if (isOpenApi3 && spec.components) {
         if (spec.components.headers) {
-            validateHeadersMap(spec.components.headers as Record<string, unknown>, 'components.headers');
+            validateHeadersMap(spec.components.headers as Record<string, unknown>, 'components.headers', isOpenApi3);
         }
         if (spec.components.links) {
             validateLinksMap(spec.components.links as Record<string, unknown>, 'components.links');
@@ -1917,10 +2131,42 @@ export function validateSpec(spec: SwaggerSpec): void {
                 validateRequestBody(requestBody, `components.requestBodies.${name}`);
             }
         }
+        if (spec.components.callbacks) {
+            for (const [name, callbackObj] of Object.entries(spec.components.callbacks as Record<string, unknown>)) {
+                if (!callbackObj || typeof callbackObj !== 'object') continue;
+                if (isRefLike(callbackObj)) {
+                    validateReferenceObject(callbackObj, `components.callbacks.${name}`);
+                    continue;
+                }
+                Object.entries(callbackObj as Record<string, unknown>).forEach(([expression, callbackPathItem]) => {
+                    validateCallbackExpression(expression, `components.callbacks.${name}.${expression}`);
+                    validatePathItemOperations(
+                        callbackPathItem,
+                        `components.callbacks.${name}.${expression}`,
+                        isOpenApi3,
+                    );
+                });
+            }
+        }
+        if (spec.components.pathItems) {
+            validateOperationsContent(
+                spec.components.pathItems as Record<string, unknown>,
+                'components.pathItems.',
+                isOpenApi3,
+            );
+        }
+        if (spec.components.webhooks) {
+            validateOperationsContent(
+                spec.components.webhooks as Record<string, unknown>,
+                'components.webhooks.',
+                isOpenApi3,
+            );
+        }
         if (spec.components.responses) {
             validateComponentResponses(
                 spec.components.responses as Record<string, unknown>,
                 'components.responses',
+                isOpenApi3,
             );
         }
     }
@@ -1983,7 +2229,11 @@ export function validateSpec(spec: SwaggerSpec): void {
 
         // 9c. Security Scheme validation (OAS 3.x)
         if (spec.components?.securitySchemes) {
-            validateSecuritySchemes(spec.components.securitySchemes as Record<string, unknown>, 'components.securitySchemes', true);
+            validateSecuritySchemes(
+                spec.components.securitySchemes as Record<string, unknown>,
+                'components.securitySchemes',
+                true,
+            );
         }
 
         // 9b. Tag parent + uniqueness validation (OAS 3.2)
@@ -2003,9 +2253,7 @@ export function validateSpec(spec: SwaggerSpec): void {
             });
 
             if (duplicates.size > 0) {
-                throw new SpecValidationError(
-                    `Duplicate tag name(s) detected: ${Array.from(duplicates).join(', ')}`,
-                );
+                throw new SpecValidationError(`Duplicate tag name(s) detected: ${Array.from(duplicates).join(', ')}`);
             }
 
             spec.tags.forEach((tag: TagObject) => {

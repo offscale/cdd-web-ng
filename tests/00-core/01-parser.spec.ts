@@ -182,6 +182,28 @@ describe('Core: SwaggerParser', () => {
             expect(op?.servers?.[0].url).toBe('https://example.com/api/op-level');
         });
 
+        it('should treat empty operation servers as default "/" and override global servers', () => {
+            const spec = {
+                openapi: '3.2.0',
+                info: validInfo,
+                servers: [{ url: 'https://api.example.com/v1' }],
+                paths: {
+                    '/users/{id}': {
+                        get: {
+                            operationId: 'getUser',
+                            servers: [],
+                            parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+                            responses: { '200': { description: 'ok' } },
+                        },
+                    },
+                },
+            } as any;
+
+            const parser = new SwaggerParser(spec, config, undefined, 'https://example.com/openapi.json');
+            const op = parser.operations.find(item => item.operationId === 'getUser');
+            expect(op?.servers?.[0].url).toBe('https://example.com/');
+        });
+
         it('should resolve referenced path-item servers against their document URI', () => {
             const entryUri = 'https://example.com/root/openapi.yaml';
             const refUri = 'https://example.com/shared/paths.yaml';
@@ -308,6 +330,52 @@ describe('Core: SwaggerParser', () => {
         });
     });
 
+    describe('OAS 3.2 Compliance: Resolved operationId uniqueness', () => {
+        it('should throw when duplicate operationId appears after resolving $ref path items', () => {
+            const entryUri = 'https://example.com/openapi.json';
+            const externalUri = 'https://example.com/other.json';
+
+            const entrySpec: SwaggerSpec = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/local': {
+                        get: {
+                            operationId: 'dupOperation',
+                            responses: { '200': { description: 'ok' } },
+                        },
+                    },
+                    '/remote': {
+                        $ref: 'other.json#/paths/~1external',
+                    },
+                },
+            } as any;
+
+            const externalSpec: SwaggerSpec = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/external': {
+                        get: {
+                            operationId: 'dupOperation',
+                            responses: { '200': { description: 'ok' } },
+                        },
+                    },
+                },
+            } as any;
+
+            const cache = new Map<string, SwaggerSpec>([
+                [entryUri, entrySpec],
+                [externalUri, externalSpec],
+            ]);
+
+            ReferenceResolver.indexSchemaIds(entrySpec, entryUri, cache, entryUri);
+            ReferenceResolver.indexSchemaIds(externalSpec, externalUri, cache, externalUri);
+
+            expect(() => new SwaggerParser(entrySpec, config, cache, entryUri)).toThrow(/Duplicate operationId/);
+        });
+    });
+
     describe('Reference Resolution (`resolve()` and `resolveReference()`)', () => {
         const spec = {
             openapi: '3.1.0',
@@ -398,6 +466,7 @@ describe('Core: SwaggerParser', () => {
                         get: {
                             responses: {
                                 '200': {
+                                    description: 'ok',
                                     content: {
                                         'application/json': {
                                             schema: { $ref: './schemas.json#/components/schemas/User' },
@@ -447,6 +516,7 @@ describe('Core: SwaggerParser', () => {
                         get: {
                             responses: {
                                 '200': {
+                                    description: 'ok',
                                     content: {
                                         'application/json': {
                                             schema: { $ref: 'schemas.json#/components/schemas/User' },
@@ -914,10 +984,7 @@ describe('Core: SwaggerParser', () => {
                 schemes: ['https', 'http'],
             };
             const p = new SwaggerParser(spec as any, config);
-            expect(p.servers).toEqual([
-                { url: 'https://api.example.com/v1' },
-                { url: 'http://api.example.com/v1' },
-            ]);
+            expect(p.servers).toEqual([{ url: 'https://api.example.com/v1' }, { url: 'http://api.example.com/v1' }]);
         });
 
         it('should fall back to document URI host/scheme when Swagger 2.0 host/schemes are missing', () => {

@@ -25,6 +25,16 @@ const isDynamicRefObject = (obj: unknown): obj is DynamicRefObject =>
         }
     ).$dynamicRef === 'string';
 
+const safeDecodeFragment = (value: string): string => {
+    try {
+        return decodeURIComponent(value);
+    } catch {
+        return value;
+    }
+};
+
+const stripFragment = (value: string): string => value.split('#', 1)[0] ?? value;
+
 /**
  * Resolves OpenAPI references ($ref and $dynamicRef) including context-aware resolution for OAS 3.1.
  */
@@ -194,6 +204,7 @@ export class ReferenceResolver {
         }
 
         const [filePath, jsonPointer] = ref.split('#', 2);
+        const fragment = jsonPointer !== undefined ? safeDecodeFragment(jsonPointer) : undefined;
         const currentDocSpec = this.specCache.get(currentDocUri);
         const logicalBaseUri = currentDocSpec?.$self
             ? new URL(currentDocSpec.$self, currentDocUri).href
@@ -203,9 +214,10 @@ export class ReferenceResolver {
         // 1. Dynamic Anchor Resolution (OAS 3.1)
         // Dynamic resolution traverses the stack from the outermost (start of resolution)
         // to find the first context that defines this anchor.
-        if (jsonPointer && !jsonPointer.includes('/')) {
+        if (fragment && !fragment.startsWith('/')) {
             for (const scopeUri of resolutionStack) {
-                const dynamicKey = `${scopeUri}#${jsonPointer}`;
+                const scopeBase = stripFragment(scopeUri);
+                const dynamicKey = `${scopeBase}#${fragment}`;
                 if (this.specCache.has(dynamicKey)) {
                     return this.specCache.get(dynamicKey) as unknown as T;
                 }
@@ -213,7 +225,7 @@ export class ReferenceResolver {
         }
 
         // 2. Direct Cache Lookup ($id/$anchor - static)
-        const fullUriKey = jsonPointer ? `${targetUri}#${jsonPointer}` : targetUri;
+        const fullUriKey = fragment ? `${targetUri}#${fragment}` : targetUri;
         if (this.specCache.has(fullUriKey)) {
             return this.specCache.get(fullUriKey) as unknown as T;
         }
@@ -229,8 +241,8 @@ export class ReferenceResolver {
 
         // 4. JSON Pointer Traversal
         let result: any = targetSpec;
-        if (jsonPointer) {
-            const pointerParts = jsonPointer.split('/').filter(p => p !== '');
+        if (fragment && fragment.startsWith('/')) {
+            const pointerParts = fragment.split('/').filter(p => p !== '');
             for (const part of pointerParts) {
                 const decodedPart = part.replace(/~1/g, '/').replace(/~0/g, '~');
                 if (

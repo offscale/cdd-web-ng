@@ -60,6 +60,30 @@ describe('Emitter: ServerUrlGenerator', () => {
         expect(text).toContain('"name": "production"');
     });
 
+    it('should preserve x- extensions and allow them in server metadata types', () => {
+        const project = runGenerator([
+            {
+                url: 'https://api.example.com',
+                name: 'prod',
+                'x-server': 'alpha',
+                variables: {
+                    env: {
+                        default: 'dev',
+                        'x-var': 'meta',
+                    },
+                },
+            },
+        ]);
+
+        const { API_SERVERS } = compileHelper(project);
+        expect(API_SERVERS[0]['x-server']).toBe('alpha');
+        expect(API_SERVERS[0].variables?.env['x-var']).toBe('meta');
+
+        const sourceFile = project.getSourceFileOrThrow('/out/utils/server-url.ts');
+        expect(sourceFile.getInterfaceOrThrow('ServerConfiguration').getIndexSignatures().length).toBe(1);
+        expect(sourceFile.getInterfaceOrThrow('ServerVariable').getIndexSignatures().length).toBe(1);
+    });
+
     it('should generate logic to substitute simple variables', () => {
         const project = runGenerator([
             {
@@ -117,9 +141,7 @@ describe('Emitter: ServerUrlGenerator', () => {
     });
 
     it('should resolve server URLs from a custom server list', () => {
-        const project = runGenerator([
-            { url: 'https://global.api.com', name: 'global' },
-        ]);
+        const project = runGenerator([{ url: 'https://global.api.com', name: 'global' }]);
 
         const { resolveServerUrl } = compileHelper(project);
         const customServers = [

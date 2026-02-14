@@ -73,6 +73,14 @@ describe('Core: Runtime Expression Evaluator', () => {
             expect(evaluateJsonPointer(data, '/tilde~0prop')).toBe('ok');
         });
 
+        it('should decode percent-encoded pointer tokens', () => {
+            const extended = {
+                'a/b': { 'c d': 42 },
+            };
+            expect(evaluateJsonPointer(extended, '/a%2Fb')).toEqual({ 'c d': 42 });
+            expect(evaluateJsonPointer(extended, '/a%2Fb/c%20d')).toBe(42);
+        });
+
         it('should return undefined for non-existent paths', () => {
             expect(evaluateJsonPointer(data, '/baz')).toBeUndefined();
             expect(evaluateJsonPointer(data, '/nested/foo')).toBeUndefined();

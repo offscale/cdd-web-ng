@@ -14,6 +14,7 @@ const xmlResponseSpec = {
                 operationId: 'getXmlData',
                 responses: {
                     '200': {
+                        description: 'ok',
                         content: {
                             'application/xml': {
                                 schema: {

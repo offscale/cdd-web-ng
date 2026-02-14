@@ -14,6 +14,7 @@ const sequentialSpec = {
                 operationId: 'getJsonSeq',
                 responses: {
                     '200': {
+                        description: 'ok',
                         content: {
                             'application/json-seq': {
                                 itemSchema: {
@@ -27,11 +28,30 @@ const sequentialSpec = {
                 },
             },
         },
+        '/geo-json-seq': {
+            get: {
+                operationId: 'getGeoJsonSeq',
+                responses: {
+                    '200': {
+                        description: 'ok',
+                        content: {
+                            'application/geo+json-seq': {
+                                itemSchema: {
+                                    type: 'object',
+                                    properties: { type: { type: 'string' }, coordinates: { type: 'array' } },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
         '/json-lines': {
             get: {
                 operationId: 'getJsonLines',
                 responses: {
                     '200': {
+                        description: 'ok',
                         content: {
                             'application/jsonl': {
                                 // Common alias for ndjson
@@ -51,9 +71,25 @@ const sequentialSpec = {
                 operationId: 'getNdJson',
                 responses: {
                     '200': {
+                        description: 'ok',
                         content: {
                             'application/x-ndjson': {
                                 schema: { type: 'array', items: { type: 'boolean' } },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+        '/custom-json': {
+            get: {
+                operationId: 'getCustomJson',
+                responses: {
+                    '200': {
+                        description: 'ok',
+                        content: {
+                            'application/vnd.acme+json': {
+                                itemSchema: { type: 'string' },
                             },
                         },
                     },
@@ -116,6 +152,20 @@ describe('Emitter: ServiceMethodGenerator (Sequential Media Types)', () => {
         expect(body).toContain('JSON.parse(item)');
     });
 
+    it('should treat structured +json-seq media types as json-seq', () => {
+        const { methodGen, serviceClass, parser } = createTestEnv();
+        const op = parser.operations.find(o => o.operationId === 'getGeoJsonSeq')!;
+        op.methodName = 'getGeoJsonSeq';
+
+        methodGen.addServiceMethod(serviceClass, op);
+
+        const body = serviceClass.getMethodOrThrow('getGeoJsonSeq').getBodyText()!;
+
+        expect(body).toContain(`responseType: 'text'`);
+        expect(body).toContain("response.split('\\x1e')");
+        expect(body).toContain('JSON.parse(item)');
+    });
+
     it('should generate jsonl parsing logic splitting by Newline', () => {
         const { methodGen, serviceClass, parser } = createTestEnv();
         const op = parser.operations.find(o => o.operationId === 'getJsonLines')!;
@@ -141,5 +191,17 @@ describe('Emitter: ServiceMethodGenerator (Sequential Media Types)', () => {
         const body = serviceClass.getMethodOrThrow('getNdJson').getBodyText()!;
 
         expect(body).toContain("response.split('\\n')");
+    });
+
+    it('should treat custom JSON media types with itemSchema as json-lines', () => {
+        const { methodGen, serviceClass, parser } = createTestEnv();
+        const op = parser.operations.find(o => o.operationId === 'getCustomJson')!;
+        op.methodName = 'getCustomJson';
+
+        methodGen.addServiceMethod(serviceClass, op);
+
+        const body = serviceClass.getMethodOrThrow('getCustomJson').getBodyText()!;
+        expect(body).toContain("response.split('\\n')");
+        expect(body).toContain(`responseType: 'text'`);
     });
 });

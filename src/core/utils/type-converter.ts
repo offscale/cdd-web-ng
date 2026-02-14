@@ -1,4 +1,4 @@
-import { GeneratorConfig, RequestBody, SwaggerDefinition, SwaggerResponse } from '../types/index.js';
+import { GeneratorConfig, MediaTypeObject, RequestBody, SwaggerDefinition, SwaggerResponse } from '../types/index.js';
 import { pascalCase } from './string.js';
 
 export function isDataTypeInterface(type: string): boolean {
@@ -44,6 +44,110 @@ function formatLiteralValue(val: unknown): string {
     return 'any';
 }
 
+function normalizeMediaType(value: string | undefined): string | undefined {
+    if (!value || typeof value !== 'string') return undefined;
+    return value.split(';')[0]?.trim().toLowerCase();
+}
+
+type MediaTypeEntry = {
+    raw: string;
+    normalized: string;
+    specificity: number;
+    index: number;
+    media: MediaTypeObject;
+};
+
+function mediaTypeSpecificity(normalized: string): number {
+    const [type, subtype] = normalized.split('/');
+    if (!type || !subtype) return 0;
+    if (type.includes('*') || subtype.includes('*')) return 1;
+    return 2;
+}
+
+function matchesMediaType(range: string, candidate: string): boolean {
+    const [rangeType, rangeSubtype] = range.split('/');
+    const [candType, candSubtype] = candidate.split('/');
+    if (!rangeType || !rangeSubtype || !candType || !candSubtype) return false;
+    if (rangeType !== '*' && rangeType !== candType) return false;
+
+    if (rangeSubtype === '*') return true;
+    if (!rangeSubtype.includes('*')) return rangeSubtype === candSubtype;
+
+    const escaped = rangeSubtype.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '.*');
+    const regex = new RegExp(`^${escaped}$`);
+    return regex.test(candSubtype);
+}
+
+function filterMediaTypeEntries(entries: MediaTypeEntry[]): MediaTypeEntry[] {
+    return entries.filter(candidate => {
+        if (candidate.specificity === 2) return true;
+        return !entries.some(
+            other =>
+                other !== candidate &&
+                other.specificity > candidate.specificity &&
+                matchesMediaType(candidate.normalized, other.normalized),
+        );
+    });
+}
+
+function getMediaTypePriority(normalized: string): number {
+    if (normalized === 'application/json') return 0;
+    if (normalized === 'application/x-json') return 1;
+    if (normalized.includes('/json') || normalized.endsWith('+json')) return 2;
+    if (normalized === 'multipart/form-data') return 3;
+    if (normalized === 'application/x-www-form-urlencoded') return 4;
+    if (normalized.startsWith('text/')) return 5;
+    return 6;
+}
+
+function pickPreferredMediaType(content: Record<string, MediaTypeObject | undefined>): MediaTypeObject | undefined {
+    const entries: MediaTypeEntry[] = [];
+
+    Object.entries(content).forEach(([raw, media], index) => {
+        if (!media) return;
+        const normalized = normalizeMediaType(raw);
+        if (!normalized) return;
+        entries.push({
+            raw,
+            normalized,
+            specificity: mediaTypeSpecificity(normalized),
+            index,
+            media,
+        });
+    });
+
+    if (entries.length === 0) return undefined;
+
+    const filtered = filterMediaTypeEntries(entries);
+    if (filtered.length === 0) return undefined;
+
+    const sorted = [...filtered].sort((a, b) => {
+        const priorityDiff = getMediaTypePriority(a.normalized) - getMediaTypePriority(b.normalized);
+        if (priorityDiff !== 0) return priorityDiff;
+        const specificityDiff = b.specificity - a.specificity;
+        if (specificityDiff !== 0) return specificityDiff;
+        return a.index - b.index;
+    });
+
+    return sorted[0]?.media;
+}
+
+function isTextualMediaType(mediaType: string | undefined): boolean {
+    if (!mediaType) return false;
+    if (mediaType.startsWith('text/')) return true;
+    if (mediaType === 'application/x-www-form-urlencoded') return true;
+    if (mediaType === 'application/json' || mediaType.endsWith('+json') || mediaType.includes('json')) return true;
+    if (mediaType === 'application/xml' || mediaType.endsWith('+xml') || mediaType.includes('xml')) return true;
+    return false;
+}
+
+function isBinaryMediaType(mediaType: string | undefined): boolean {
+    if (!mediaType) return false;
+    if (mediaType.startsWith('image/') || mediaType.startsWith('audio/') || mediaType.startsWith('video/')) return true;
+    if (mediaType === 'application/octet-stream') return true;
+    return false;
+}
+
 export function getTypeScriptType(
     schema: SwaggerDefinition | boolean | undefined,
     config: GeneratorConfig,
@@ -53,23 +157,52 @@ export function getTypeScriptType(
     if (schema === false) return 'never';
     if (!schema) return 'any';
 
-    // JSON Schema 2020-12: dependentSchemas support
-    if (schema.dependentSchemas) {
-        // Generate the base type without the dependentSchemas property to avoid infinite recursion
-        const { dependentSchemas, ...restSchema } = schema;
+    // OAS 3.0 nullable support: add a null union when explicitly requested.
+    if (schema.nullable) {
+        const { nullable: _ignored, ...rest } = schema;
+        const baseType = getTypeScriptType(rest as SwaggerDefinition, config, knownTypes);
+        if (baseType === 'any' || /\bnull\b/.test(baseType)) {
+            return baseType;
+        }
+        return `${baseType} | null`;
+    }
+
+    const hasDependentSchemas = !!schema.dependentSchemas;
+    const hasDependentRequired = !!schema.dependentRequired;
+    if (hasDependentSchemas || hasDependentRequired) {
+        const { dependentSchemas, dependentRequired, ...restSchema } = schema;
         const baseType = getTypeScriptType(restSchema, config, knownTypes);
+        const dependencies: string[] = [];
 
-        const dependencies = Object.entries(dependentSchemas).map(([propName, titleOrSchema]) => {
-            const depSchema = titleOrSchema as SwaggerDefinition | boolean;
-            const depType = getTypeScriptType(depSchema, config, knownTypes);
-            const safeKey = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(propName) ? propName : `'${propName}'`;
+        if (dependentSchemas) {
+            Object.entries(dependentSchemas).forEach(([propName, titleOrSchema]) => {
+                const depSchema = titleOrSchema as SwaggerDefinition | boolean;
+                const depType = getTypeScriptType(depSchema, config, knownTypes);
+                const safeKey = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(propName) ? propName : `'${propName}'`;
 
-            // Schema: If 'propName' key exists in the object, then the object must ALSO satisfy 'depType'.
-            // TS Intersection: ( { prop: any } & DepType ) | { prop?: never }
-            return `(({ ${safeKey}: any } & ${depType}) | { ${safeKey}?: never })`;
-        });
+                // Schema: If 'propName' key exists in the object, then the object must ALSO satisfy 'depType'.
+                // TS Intersection: ( { prop: any } & DepType ) | { prop?: never }
+                dependencies.push(`(({ ${safeKey}: any } & ${depType}) | { ${safeKey}?: never })`);
+            });
+        }
 
-        return `${baseType} & ${dependencies.join(' & ')}`;
+        if (dependentRequired) {
+            Object.entries(dependentRequired).forEach(([propName, requiredList]) => {
+                if (!Array.isArray(requiredList) || requiredList.length === 0) return;
+                const safeKey = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(propName) ? propName : `'${propName}'`;
+                const requiredFields = requiredList
+                    .filter((req): req is string => typeof req === 'string')
+                    .map(req => (/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(req) ? req : `'${req}'`))
+                    .map(req => `${req}: unknown`)
+                    .join('; ');
+                if (!requiredFields) return;
+                dependencies.push(`(({ ${safeKey}: unknown } & { ${requiredFields} }) | { ${safeKey}?: never })`);
+            });
+        }
+
+        if (dependencies.length > 0) {
+            return `${baseType} & ${dependencies.join(' & ')}`;
+        }
     }
 
     if (schema.$ref) {
@@ -112,9 +245,25 @@ export function getTypeScriptType(
         return getTypeScriptType(schema.contentSchema, config, knownTypes);
     }
 
-    if (schema.type === 'string') {
-        if (schema.contentMediaType && !schema.contentMediaType.includes('json')) {
+    const normalizedMediaType = normalizeMediaType(schema.contentMediaType);
+    const hasContentEncoding = typeof schema.contentEncoding === 'string' && schema.contentEncoding.length > 0;
+    const isStringLike =
+        schema.type === 'string' ||
+        (schema.type === undefined &&
+            !schema.properties &&
+            !schema.additionalProperties &&
+            !schema.unevaluatedProperties);
+
+    if (hasContentEncoding && isStringLike) {
+        return 'string';
+    }
+
+    if (normalizedMediaType && isStringLike) {
+        if (isBinaryMediaType(normalizedMediaType)) {
             return 'Blob';
+        }
+        if (isTextualMediaType(normalizedMediaType)) {
+            return 'string';
         }
     }
 
@@ -149,13 +298,13 @@ export function getTypeScriptType(
 }
 
 function getNumberType(schema: SwaggerDefinition, config: GeneratorConfig): string {
-    if (schema.enum) return schema.enum.join(' | ');
+    if (schema.enum) return schema.enum.map(val => formatLiteralValue(val)).join(' | ');
     if (schema.format === 'int64' && config.options.int64Type) return config.options.int64Type;
     return 'number';
 }
 
 function getStringType(schema: SwaggerDefinition, config: GeneratorConfig): string {
-    if (schema.enum) return schema.enum.map(s => `'${s}'`).join(' | ');
+    if (schema.enum) return schema.enum.map(val => formatLiteralValue(val)).join(' | ');
     if (schema.format === 'date' || schema.format === 'date-time')
         return config.options.dateType === 'Date' ? 'Date' : 'string';
     if (schema.format === 'binary') return 'Blob';
@@ -183,8 +332,7 @@ function getArrayType(schema: SwaggerDefinition, config: GeneratorConfig, knownT
                 restType = '';
             } else {
                 const innerType = getTypeScriptType(unevaluated as SwaggerDefinition, config, knownTypes);
-                const safeInnerType =
-                    innerType.includes('|') || innerType.includes('&') ? `(${innerType})` : innerType;
+                const safeInnerType = innerType.includes('|') || innerType.includes('&') ? `(${innerType})` : innerType;
                 restType = `, ...${safeInnerType}[]`;
             }
         }
@@ -214,9 +362,7 @@ function getObjectType(schema: SwaggerDefinition, config: GeneratorConfig, known
     // 1b. patternProperties (JSON Schema 2020-12)
     if (schema.patternProperties && typeof schema.patternProperties === 'object') {
         const patternTypes = Object.values(schema.patternProperties)
-            .map(patternSchema =>
-                getTypeScriptType(patternSchema as SwaggerDefinition | boolean, config, knownTypes),
-            )
+            .map(patternSchema => getTypeScriptType(patternSchema as SwaggerDefinition | boolean, config, knownTypes))
             .filter(Boolean);
         if (patternTypes.length > 0) {
             indexSignatureTypes.push(...patternTypes);
@@ -282,27 +428,13 @@ export function getRequestBodyType(
 ): string {
     if (!requestBody || !requestBody.content) return 'any';
 
-    const content = requestBody.content;
-    const priority = [
-        'application/json',
-        'application/x-json',
-        'multipart/form-data',
-        'application/x-www-form-urlencoded',
-        'text/plain',
-    ];
-    for (const key of priority) {
-        if (content[key] && content[key].schema !== undefined)
-            return getTypeScriptType(content[key].schema!, config, knownTypes);
-        if (content[key] && content[key].schema === undefined && content[key].itemSchema !== undefined) {
-            const itemType = getTypeScriptType(content[key].itemSchema!, config, knownTypes);
-            return `(${itemType})[]`;
-        }
+    const content = requestBody.content as Record<string, MediaTypeObject>;
+    const preferred = pickPreferredMediaType(content);
+    if (preferred?.schema !== undefined) {
+        return getTypeScriptType(preferred.schema, config, knownTypes);
     }
-    const anyKey = Object.keys(content)[0];
-    if (anyKey && content[anyKey].schema !== undefined)
-        return getTypeScriptType(content[anyKey].schema!, config, knownTypes);
-    if (anyKey && content[anyKey].schema === undefined && content[anyKey].itemSchema !== undefined) {
-        const itemType = getTypeScriptType(content[anyKey].itemSchema!, config, knownTypes);
+    if (preferred?.itemSchema !== undefined) {
+        const itemType = getTypeScriptType(preferred.itemSchema, config, knownTypes);
         return `(${itemType})[]`;
     }
 
@@ -315,18 +447,13 @@ export function getResponseType(
     knownTypes: string[],
 ): string {
     if (!response || !response.content) return 'void';
-    const content = response.content;
-    if (content['application/json']?.schema !== undefined)
-        return getTypeScriptType(content['application/json'].schema!, config, knownTypes);
-    if (content['application/json']?.schema === undefined && content['application/json']?.itemSchema !== undefined) {
-        const itemType = getTypeScriptType(content['application/json'].itemSchema!, config, knownTypes);
-        return `(${itemType})[]`;
+    const content = response.content as Record<string, MediaTypeObject>;
+    const preferred = pickPreferredMediaType(content);
+    if (preferred?.schema !== undefined) {
+        return getTypeScriptType(preferred.schema, config, knownTypes);
     }
-    const keys = Object.keys(content);
-    if (keys.length > 0 && content[keys[0]].schema !== undefined)
-        return getTypeScriptType(content[keys[0]].schema!, config, knownTypes);
-    if (keys.length > 0 && content[keys[0]].schema === undefined && content[keys[0]].itemSchema !== undefined) {
-        const itemType = getTypeScriptType(content[keys[0]].itemSchema!, config, knownTypes);
+    if (preferred?.itemSchema !== undefined) {
+        const itemType = getTypeScriptType(preferred.itemSchema, config, knownTypes);
         return `(${itemType})[]`;
     }
     return 'void';

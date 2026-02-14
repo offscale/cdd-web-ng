@@ -3,7 +3,7 @@ import yaml from 'js-yaml';
 import { SwaggerSpec } from '../types/index.js';
 
 type SnapshotFileSystem = {
-    existsSync: (filePath: string) => boolean;
+    existsSync?: (filePath: string) => boolean;
     mkdirSync: (dirPath: string, options?: { recursive?: boolean }) => void;
     writeFileSync: (filePath: string, data: string) => void;
     readFileSync: (filePath: string, encoding: string) => string;
@@ -23,6 +23,18 @@ export type SnapshotReadResult = {
 const SNAPSHOT_JSON = 'openapi.snapshot.json';
 const SNAPSHOT_YAML = 'openapi.snapshot.yaml';
 const SNAPSHOT_YML = 'openapi.snapshot.yml';
+
+function fileExists(fileSystem: SnapshotFileSystem, filePath: string): boolean {
+    if (typeof fileSystem.existsSync === 'function') {
+        return fileSystem.existsSync(filePath);
+    }
+    try {
+        fileSystem.statSync(filePath);
+        return true;
+    } catch {
+        return false;
+    }
+}
 
 /**
  * Parses a snapshot payload into a Swagger/OpenAPI spec object.
@@ -58,13 +70,13 @@ function resolveSnapshotFile(
     }
 
     const jsonPath = path.join(inputPath, SNAPSHOT_JSON);
-    if (fileSystem.existsSync(jsonPath)) return { filePath: jsonPath, format: 'json' };
+    if (fileExists(fileSystem, jsonPath)) return { filePath: jsonPath, format: 'json' };
 
     const yamlPath = path.join(inputPath, SNAPSHOT_YAML);
-    if (fileSystem.existsSync(yamlPath)) return { filePath: yamlPath, format: 'yaml' };
+    if (fileExists(fileSystem, yamlPath)) return { filePath: yamlPath, format: 'yaml' };
 
     const ymlPath = path.join(inputPath, SNAPSHOT_YML);
-    if (fileSystem.existsSync(ymlPath)) return { filePath: ymlPath, format: 'yaml' };
+    if (fileExists(fileSystem, ymlPath)) return { filePath: ymlPath, format: 'yaml' };
 
     throw new Error(
         `No OpenAPI snapshot found in directory. Expected ${SNAPSHOT_JSON} or ${SNAPSHOT_YAML}. Path: ${inputPath}`,
@@ -75,10 +87,7 @@ function resolveSnapshotFile(
  * Reads an OpenAPI snapshot from a file path or directory.
  * Accepts either a direct snapshot file or a directory containing snapshot files.
  */
-export function readOpenApiSnapshot(
-    inputPath: string,
-    fileSystem: SnapshotFileSystem,
-): SnapshotReadResult {
+export function readOpenApiSnapshot(inputPath: string, fileSystem: SnapshotFileSystem): SnapshotReadResult {
     const resolved = resolveSnapshotFile(inputPath, fileSystem);
     const contents = fileSystem.readFileSync(resolved.filePath, 'utf-8');
     const spec = parseSnapshot(contents, resolved.format);
@@ -93,7 +102,7 @@ export function writeOpenApiSnapshot(
     outputDir: string,
     fileSystem: SnapshotFileSystem,
 ): { jsonPath: string; yamlPath: string } {
-    if (!fileSystem.existsSync(outputDir)) {
+    if (!fileExists(fileSystem, outputDir)) {
         fileSystem.mkdirSync(outputDir, { recursive: true });
     }
 

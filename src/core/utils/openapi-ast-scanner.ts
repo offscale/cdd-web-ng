@@ -1,29 +1,25 @@
 import path from 'node:path';
 import { Node, Project, SyntaxKind } from 'ts-morph';
-import type { CallExpression, Expression, FunctionLikeDeclaration, SourceFile } from 'ts-morph';
+import type { CallExpression, Expression, FunctionLikeDeclaration, SourceFile, TypeNode } from 'ts-morph';
 import { camelCase } from './string.js';
 import {
+    ExternalDocumentationObject,
+    ExampleObject,
     InfoObject,
     Parameter,
     RequestBody,
+    ServerObject,
     SwaggerDefinition,
     SwaggerResponse,
     SwaggerSpec,
+    TagObject,
 } from '../types/index.js';
-import { parseGeneratedModelSource, ReverseSchemaMap } from './openapi-reverse-models.js';
+import { parseGeneratedModelSource, ReverseSchemaMap, schemaFromTypeNode } from './openapi-reverse-models.js';
 import { OAS_3_1_DIALECT } from '../constants.js';
 
 const STANDARD_HTTP_METHODS = new Set(['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'trace', 'query']);
-const EXTRA_HTTP_METHODS = new Set([
-    'copy',
-    'move',
-    'lock',
-    'unlock',
-    'propfind',
-    'proppatch',
-    'mkcol',
-    'report',
-]);
+const RESERVED_HEADER_NAMES = new Set(['accept', 'content-type', 'authorization']);
+const EXTRA_HTTP_METHODS = new Set(['copy', 'move', 'lock', 'unlock', 'propfind', 'proppatch', 'mkcol', 'report']);
 const HTTP_METHODS = new Set([...STANDARD_HTTP_METHODS, ...EXTRA_HTTP_METHODS]);
 const DECORATOR_METHODS: Record<string, string> = {
     Get: 'GET',
@@ -48,7 +44,7 @@ export type CodeScanFileSystem = {
 };
 
 /** Supported locations for parameters discovered in scanned code. */
-export type CodeScanParamLocation = 'path' | 'query' | 'header' | 'cookie';
+export type CodeScanParamLocation = 'path' | 'query' | 'header' | 'cookie' | 'querystring';
 
 /** Describes a parameter reconstructed from an AST scan. */
 export interface CodeScanParam {
@@ -57,19 +53,27 @@ export interface CodeScanParam {
     required?: boolean;
     description?: string;
     schema?: SwaggerDefinition | boolean;
+    contentType?: string;
+    encoding?: Record<string, any>;
+    example?: unknown;
 }
 
 /** Describes a reconstructed request body. */
 export interface CodeScanRequestBody {
     required?: boolean;
     contentTypes: string[];
+    schema?: SwaggerDefinition | boolean;
+    examples?: Record<string, unknown>;
 }
 
 /** Describes a reconstructed response. */
 export interface CodeScanResponse {
     status: string;
+    summary?: string;
     description?: string;
     contentTypes: string[];
+    schema?: SwaggerDefinition | boolean;
+    examples?: Record<string, unknown>;
 }
 
 /** Describes a reconstructed API operation discovered in source code. */
@@ -85,7 +89,27 @@ export interface CodeScanOperation {
     description?: string;
     deprecated?: boolean;
     tags?: string[];
+    tagObjects?: TagObject[];
+    externalDocs?: ExternalDocumentationObject;
+    servers?: ServerObject[];
+    security?: Record<string, string[]>[];
+    extensions?: Record<string, any>;
 }
+
+type QuerystringMeta = {
+    name: string;
+    contentType?: string;
+    encoding?: Record<string, any>;
+    required?: boolean;
+    description?: string;
+};
+
+type ResponseDocMeta = {
+    status: string;
+    summary?: string;
+    description?: string;
+    contentTypes?: string[];
+};
 
 /** Intermediate representation produced by the AST scanner. */
 export interface CodeScanIr {
@@ -201,6 +225,26 @@ export function buildOpenApiSpecFromScan(ir: CodeScanIr, infoOverrides: Partial<
     const standardMethods = STANDARD_HTTP_METHODS;
     const tagNames: string[] = [];
     const tagSet = new Set<string>();
+    const tagObjects = new Map<string, TagObject>();
+
+    const trackTagName = (name: string) => {
+        if (!name || tagSet.has(name)) return;
+        tagSet.add(name);
+        tagNames.push(name);
+    };
+
+    const mergeTagObject = (tag: TagObject) => {
+        const name = tag.name?.trim();
+        if (!name) return;
+        const normalized = { ...tag, name };
+        const existing = tagObjects.get(name);
+        if (!existing) {
+            tagObjects.set(name, normalized);
+            return;
+        }
+        // Preserve existing fields, but fill gaps with new metadata.
+        tagObjects.set(name, { ...normalized, ...existing });
+    };
 
     for (const op of ir.operations) {
         const parameters = buildParameters(op.params);
@@ -215,6 +259,10 @@ export function buildOpenApiSpecFromScan(ir: CodeScanIr, infoOverrides: Partial<
             ...(op.description ? { description: op.description } : {}),
             ...(op.deprecated ? { deprecated: op.deprecated } : {}),
             ...(op.tags && op.tags.length > 0 ? { tags: op.tags } : {}),
+            ...(op.externalDocs ? { externalDocs: op.externalDocs } : {}),
+            ...(op.servers && op.servers.length > 0 ? { servers: op.servers } : {}),
+            ...(op.security && op.security.length > 0 ? { security: op.security } : {}),
+            ...(op.extensions ? op.extensions : {}),
             ...(parameters.length > 0 ? { parameters } : {}),
             ...(requestBody ? { requestBody } : {}),
             responses,
@@ -230,13 +278,16 @@ export function buildOpenApiSpecFromScan(ir: CodeScanIr, infoOverrides: Partial<
 
         paths[op.path] = pathItem;
 
-        if (op.tags && op.tags.length > 0) {
-            op.tags.forEach(tag => {
-                if (!tagSet.has(tag)) {
-                    tagSet.add(tag);
-                    tagNames.push(tag);
-                }
+        if (op.tagObjects && op.tagObjects.length > 0) {
+            op.tagObjects.forEach(tag => {
+                if (!tag || typeof tag.name !== 'string') return;
+                trackTagName(tag.name);
+                mergeTagObject(tag);
             });
+        }
+
+        if (op.tags && op.tags.length > 0) {
+            op.tags.forEach(trackTagName);
         }
     }
 
@@ -248,7 +299,7 @@ export function buildOpenApiSpecFromScan(ir: CodeScanIr, infoOverrides: Partial<
     };
 
     if (tagNames.length > 0) {
-        spec.tags = tagNames.map(name => ({ name }));
+        spec.tags = tagNames.map(name => tagObjects.get(name) ?? { name });
     }
 
     if (Object.keys(ir.schemas).length > 0) {
@@ -354,17 +405,44 @@ function scanDecoratedControllers(sourceFile: SourceFile): CodeScanOperation[] {
                 addPathParams(fullPath, paramMap);
 
                 const docMeta = extractDocMeta(method);
+                applyQuerystringMeta(docMeta, paramMap);
+                applyParamDocs(paramMap, docMeta.paramDocs);
+                applyParamExamples(paramMap, docMeta.paramExamples);
+                applyParamSchemas(paramMap, docMeta.paramSchemas);
                 const statusCode = extractHttpCode(method) ?? '200';
+                const responseSchema = inferReturnSchemaFromSignature(method);
+
+                const responses = mergeResponseHints(
+                    [
+                        {
+                            status: statusCode,
+                            description: 'Response',
+                            contentTypes: ['application/json'],
+                            ...(responseSchema ? { schema: responseSchema } : {}),
+                        },
+                    ],
+                    docMeta.responses,
+                ).map(response =>
+                    responseSchema && response.contentTypes.length > 0 && !response.schema
+                        ? { ...response, schema: responseSchema }
+                        : response,
+                );
+
+                applyResponseExamples(responses, docMeta.responseExamples);
 
                 operations.push({
-                    operationId: method.getName(),
+                    operationId: docMeta.operationId ?? method.getName(),
                     method: entry.method,
                     path: fullPath,
                     filePath: sourceFile.getFilePath(),
                     params: Array.from(paramMap.values()),
-                    requestBody: buildRequestBodyFromDecoratorParams(method),
-                    responses: [{ status: statusCode, description: 'Response', contentTypes: ['application/json'] }],
-                    ...docMeta,
+                    requestBody: (() => {
+                        const requestBody = buildRequestBodyFromDecoratorParams(method);
+                        applyRequestExamples(requestBody, docMeta.requestExamples);
+                        return requestBody;
+                    })(),
+                    responses,
+                    ...stripInternalDocMeta(docMeta),
                 });
             }
         }
@@ -478,35 +556,55 @@ function buildExpressOperation(
 
     const operationId = inferOperationId(handler, method, pathValue);
     const docMeta = handler ? extractDocMeta(handler) : {};
+    applyQuerystringMeta(docMeta, paramMap);
+    applyParamDocs(paramMap, docMeta.paramDocs);
+    applyParamExamples(paramMap, docMeta.paramExamples);
 
     const analysis = handler
         ? analyzeExpressHandler(handler, paramMap)
         : {
               requestBody: undefined,
               responses: [{ status: '200', description: 'Response', contentTypes: [] }],
+              responseSchema: undefined,
           };
 
+    applyParamSchemas(paramMap, docMeta.paramSchemas);
+
+    applyRequestExamples(analysis.requestBody, docMeta.requestExamples);
+
+    const responses = mergeResponseHints(analysis.responses, docMeta.responses).map(response =>
+        analysis.responseSchema && response.contentTypes.length > 0 && !response.schema
+            ? { ...response, schema: analysis.responseSchema }
+            : response,
+    );
+    applyResponseExamples(responses, docMeta.responseExamples);
+
     return {
-        operationId,
+        operationId: docMeta.operationId ?? operationId,
         method,
         path: pathValue,
         filePath,
         params: Array.from(paramMap.values()),
         requestBody: analysis.requestBody,
-        responses: analysis.responses,
-        ...docMeta,
+        responses,
+        ...stripInternalDocMeta(docMeta),
     };
 }
 
-function analyzeExpressHandler(handler: FunctionLikeDeclaration, paramMap: Map<string, CodeScanParam>): {
+function analyzeExpressHandler(
+    handler: FunctionLikeDeclaration,
+    paramMap: Map<string, CodeScanParam>,
+): {
     requestBody?: CodeScanRequestBody;
     responses: CodeScanResponse[];
+    responseSchema?: SwaggerDefinition | boolean;
 } {
     const bindings = extractRequestBindings(handler);
     const body = getFunctionBody(handler);
     const requestContentTypes = new Set<string>();
     let bodyUsed = Boolean(bindings.bodyName);
     const responseIndex = new Map<string, Set<string>>();
+    const inferredSchemas = inferExpressSchemaHints(handler);
 
     if (body) {
         const visit = (node: Node) => {
@@ -554,16 +652,28 @@ function analyzeExpressHandler(handler: FunctionLikeDeclaration, paramMap: Map<s
         body.forEachDescendant(descendant => visit(descendant));
     }
 
+    if (inferredSchemas.requestSchema) {
+        bodyUsed = true;
+    }
+
     const responses = finalizeResponses(responseIndex, '200', false);
+    if (inferredSchemas.responseSchema) {
+        responses.forEach(response => {
+            if (response.contentTypes.length > 0) {
+                response.schema = inferredSchemas.responseSchema;
+            }
+        });
+    }
 
     const requestBody = bodyUsed
         ? {
               required: true,
               contentTypes: requestContentTypes.size > 0 ? Array.from(requestContentTypes) : ['application/json'],
+              ...(inferredSchemas.requestSchema ? { schema: inferredSchemas.requestSchema } : {}),
           }
         : undefined;
 
-    return { requestBody, responses };
+    return { requestBody, responses, responseSchema: inferredSchemas.responseSchema };
 }
 
 function getFunctionBody(handler: FunctionLikeDeclaration): Node | undefined {
@@ -685,7 +795,10 @@ function extractDestructuredParams(
     return { params, bodyUsed };
 }
 
-function resolveRequestLocation(expression: Expression, bindings: RequestBindings): CodeScanParamLocation | 'body' | undefined {
+function resolveRequestLocation(
+    expression: Expression,
+    bindings: RequestBindings,
+): CodeScanParamLocation | 'body' | undefined {
     if (Node.isIdentifier(expression)) {
         const name = expression.getText();
         if (name === bindings.paramsName) return 'path';
@@ -879,13 +992,18 @@ function addParam(paramMap: Map<string, CodeScanParam>, param: CodeScanParam): v
     if (param.required && !existing.required) {
         existing.required = true;
     }
+    if (param.description && !existing.description) {
+        existing.description = param.description;
+    }
+    if (param.contentType && !existing.contentType) {
+        existing.contentType = param.contentType;
+    }
+    if (param.encoding && !existing.encoding) {
+        existing.encoding = param.encoding;
+    }
 }
 
-function inferOperationId(
-    handler: FunctionLikeDeclaration | undefined,
-    method: string,
-    pathValue: string,
-): string {
+function inferOperationId(handler: FunctionLikeDeclaration | undefined, method: string, pathValue: string): string {
     if (handler) {
         const name = getFunctionLikeName(handler);
         if (name) return name;
@@ -916,7 +1034,10 @@ function extractDecoratorPath(decorator: import('ts-morph').Decorator): string |
     return arg ? extractPathFromExpression(arg) : undefined;
 }
 
-function extractDecoratorParams(method: import('ts-morph').MethodDeclaration, paramMap: Map<string, CodeScanParam>): void {
+function extractDecoratorParams(
+    method: import('ts-morph').MethodDeclaration,
+    paramMap: Map<string, CodeScanParam>,
+): void {
     for (const param of method.getParameters()) {
         const required = !param.hasQuestionToken();
         for (const decorator of param.getDecorators()) {
@@ -954,9 +1075,11 @@ function buildRequestBodyFromDecoratorParams(
     for (const param of method.getParameters()) {
         for (const decorator of param.getDecorators()) {
             if (decorator.getName() === 'Body' || decorator.getName() === 'BodyParam') {
+                const schema = inferSchemaFromTypeNode(param.getTypeNode());
                 return {
                     required: !param.hasQuestionToken(),
                     contentTypes: ['application/json'],
+                    ...(schema ? { schema } : {}),
                 };
             }
         }
@@ -965,9 +1088,7 @@ function buildRequestBodyFromDecoratorParams(
 }
 
 function extractHttpCode(method: import('ts-morph').MethodDeclaration): string | undefined {
-    const decorator = method
-        .getDecorators()
-        .find(dec => ['HttpCode', 'Status', 'Code'].includes(dec.getName()));
+    const decorator = method.getDecorators().find(dec => ['HttpCode', 'Status', 'Code'].includes(dec.getName()));
     if (!decorator) return undefined;
     return extractLiteralText(decorator.getArguments()[0]);
 }
@@ -1020,6 +1141,19 @@ function extractDocMeta(node: Node): {
     description?: string;
     deprecated?: boolean;
     tags?: string[];
+    tagObjects?: TagObject[];
+    externalDocs?: ExternalDocumentationObject;
+    servers?: ServerObject[];
+    security?: Record<string, string[]>[];
+    extensions?: Record<string, any>;
+    querystring?: QuerystringMeta;
+    operationId?: string;
+    responses?: ResponseDocMeta[];
+    paramDocs?: Record<string, string>;
+    paramExamples?: Record<string, unknown>;
+    paramSchemas?: Record<string, SwaggerDefinition | boolean>;
+    requestExamples?: Record<string, unknown>;
+    responseExamples?: Record<string, Record<string, unknown>>;
 } {
     const docs = getJsDocs(node);
     if (!docs.length) return {};
@@ -1038,16 +1172,538 @@ function extractDocMeta(node: Node): {
     const deprecated =
         tags.some(tag => tag.getTagName() === 'deprecated') || rawComment.toLowerCase().includes('@deprecated');
 
-    const tagNames = tags
+    const parsedTags = tags
         .filter(tag => tag.getTagName() === 'tag' || tag.getTagName() === 'tags')
-        .flatMap(tag => parseTagList(normalizeDocComment(tag.getComment())));
+        .map(tag => parseTagInput(normalizeDocComment(tag.getComment())))
+        .reduce(
+            (acc, next) => {
+                acc.names.push(...next.names);
+                acc.objects.push(...next.objects);
+                return acc;
+            },
+            { names: [] as string[], objects: [] as TagObject[] },
+        );
+
+    const tagNames = Array.from(new Set(parsedTags.names));
+    const tagObjects = parsedTags.objects;
+
+    const externalDocs = extractExternalDocs(tags);
+    const servers = extractServers(tags);
+    const security = extractSecurity(tags);
+    const querystring = extractQuerystringParam(tags);
+    const extensions: Record<string, any> = {};
+    const responseHints: ResponseDocMeta[] = [];
+    const responseSummaries: Record<string, string> = {};
+    const paramDocs: Record<string, string> = {};
+    const paramExamples: Record<string, unknown> = {};
+    const paramSchemas: Record<string, SwaggerDefinition | boolean> = {};
+    const requestExamples: Record<string, unknown> = {};
+    const responseExamples: Record<string, Record<string, unknown>> = {};
+    let operationId: string | undefined;
+    tags.forEach(tag => {
+        const tagName = tag.getTagName();
+        if (tagName === 'operationId') {
+            const raw = normalizeDocComment(tag.getComment()).trim();
+            if (raw) {
+                const [value] = raw.split(/\s+/).filter(Boolean);
+                if (value) operationId = value;
+            }
+            return;
+        }
+        if (tagName === 'response') {
+            const raw = normalizeDocComment(tag.getComment()).trim();
+            const parsed = parseResponseDocMeta(raw);
+            if (parsed) responseHints.push(parsed);
+            return;
+        }
+        if (tagName === 'responseSummary') {
+            const raw = normalizeDocComment(tag.getComment()).trim();
+            const parsed = parseResponseSummary(raw);
+            if (parsed) responseSummaries[parsed.status] = parsed.summary;
+            return;
+        }
+        if (tagName === 'paramExample') {
+            const rawTagText = normalizeDocComment(tag.getComment()).trim();
+            if (!rawTagText) return;
+            const parts = rawTagText.split(/\s+/).filter(Boolean);
+            const name = parts.shift();
+            if (!name || parts.length === 0) return;
+            const valueText = parts.join(' ').trim();
+            if (!valueText) return;
+            paramExamples[name] = parseDocValue(valueText);
+            return;
+        }
+        if (tagName === 'paramSchema') {
+            const rawTagText = normalizeDocComment(tag.getComment()).trim();
+            if (!rawTagText) return;
+            const parts = rawTagText.split(/\s+/).filter(Boolean);
+            const name = parts.shift();
+            if (!name || parts.length === 0) return;
+            const valueText = parts.join(' ').trim();
+            if (!valueText) return;
+            const parsed = parseDocValue(valueText);
+            const normalized = normalizeParamSchemaOverride(parsed);
+            if (normalized !== undefined) paramSchemas[name] = normalized;
+            return;
+        }
+        if (tagName === 'requestExample') {
+            const rawTagText = normalizeDocComment(tag.getComment()).trim();
+            if (!rawTagText) return;
+            const parts = rawTagText.split(/\s+/).filter(Boolean);
+            if (parts.length === 0) return;
+            let mediaType: string | undefined;
+            if (parts[0].includes('/')) {
+                mediaType = parts.shift();
+            }
+            const valueText = parts.join(' ').trim();
+            if (!valueText) return;
+            requestExamples[mediaType ?? '*'] = parseDocValue(valueText);
+            return;
+        }
+        if (tagName === 'responseExample') {
+            const rawTagText = normalizeDocComment(tag.getComment()).trim();
+            if (!rawTagText) return;
+            const parts = rawTagText.split(/\s+/).filter(Boolean);
+            const status = parts.shift();
+            if (!status || parts.length === 0) return;
+            let mediaType: string | undefined;
+            if (parts[0].includes('/')) {
+                mediaType = parts.shift();
+            }
+            const valueText = parts.join(' ').trim();
+            if (!valueText) return;
+            if (!responseExamples[status]) responseExamples[status] = {};
+            responseExamples[status][mediaType ?? '*'] = parseDocValue(valueText);
+            return;
+        }
+        if (tagName === 'param') {
+            const parsed = parseParamDoc(tag);
+            if (parsed) {
+                paramDocs[parsed.name] = parsed.description;
+            }
+            return;
+        }
+        if (!tagName.startsWith('x-')) return;
+        const raw = normalizeDocComment(tag.getComment()).trim();
+        if (!raw) {
+            extensions[tagName] = true;
+            return;
+        }
+        try {
+            extensions[tagName] = JSON.parse(raw);
+        } catch {
+            extensions[tagName] = raw;
+        }
+    });
+
+    if (Object.keys(responseSummaries).length > 0) {
+        const responseIndex = new Map(responseHints.map(entry => [entry.status, entry]));
+        Object.entries(responseSummaries).forEach(([status, summary]) => {
+            const existing = responseIndex.get(status);
+            if (existing) {
+                existing.summary = existing.summary ?? summary;
+                return;
+            }
+            responseHints.push({ status, summary });
+        });
+    }
 
     return {
         ...(summary ? { summary } : {}),
         ...(description ? { description } : {}),
         ...(deprecated ? { deprecated } : {}),
         ...(tagNames.length > 0 ? { tags: tagNames } : {}),
+        ...(tagObjects.length > 0 ? { tagObjects } : {}),
+        ...(externalDocs ? { externalDocs } : {}),
+        ...(servers.length > 0 ? { servers } : {}),
+        ...(security.length > 0 ? { security } : {}),
+        ...(querystring ? { querystring } : {}),
+        ...(Object.keys(extensions).length > 0 ? { extensions } : {}),
+        ...(operationId ? { operationId } : {}),
+        ...(responseHints.length > 0 ? { responses: responseHints } : {}),
+        ...(Object.keys(paramDocs).length > 0 ? { paramDocs } : {}),
+        ...(Object.keys(paramExamples).length > 0 ? { paramExamples } : {}),
+        ...(Object.keys(paramSchemas).length > 0 ? { paramSchemas } : {}),
+        ...(Object.keys(requestExamples).length > 0 ? { requestExamples } : {}),
+        ...(Object.keys(responseExamples).length > 0 ? { responseExamples } : {}),
     };
+}
+
+function extractQuerystringParam(tags: import('ts-morph').JSDocTag[]): QuerystringMeta | undefined {
+    const qsTag = tags.find(tag => tag.getTagName() === 'querystring');
+    if (!qsTag) return undefined;
+    const raw = normalizeDocComment(qsTag.getComment()).trim();
+    if (!raw) return undefined;
+
+    if (raw.startsWith('{')) {
+        try {
+            const parsed = JSON.parse(raw) as QuerystringMeta;
+            if (parsed && typeof parsed === 'object' && typeof parsed.name === 'string' && parsed.name.trim()) {
+                const encoding =
+                    parsed.encoding && typeof parsed.encoding === 'object' && !Array.isArray(parsed.encoding)
+                        ? parsed.encoding
+                        : undefined;
+                return {
+                    name: parsed.name.trim(),
+                    ...(parsed.contentType ? { contentType: String(parsed.contentType) } : {}),
+                    ...(encoding ? { encoding } : {}),
+                    ...(typeof parsed.required === 'boolean' ? { required: parsed.required } : {}),
+                    ...(parsed.description ? { description: String(parsed.description) } : {}),
+                };
+            }
+        } catch {
+            // Ignore malformed JSON to avoid crashing scans
+        }
+        return undefined;
+    }
+
+    const parts = raw.split(/\s+/).filter(Boolean);
+    const name = parts.shift();
+    if (!name) return undefined;
+    let contentType: string | undefined;
+    let required: boolean | undefined;
+    const descriptionParts: string[] = [];
+
+    parts.forEach(part => {
+        const lower = part.toLowerCase();
+        if (lower === 'required') {
+            required = true;
+            return;
+        }
+        if (lower === 'optional') {
+            required = false;
+            return;
+        }
+        if (!contentType && part.includes('/')) {
+            contentType = part;
+            return;
+        }
+        descriptionParts.push(part);
+    });
+
+    const description = descriptionParts.length > 0 ? descriptionParts.join(' ') : undefined;
+    return {
+        name,
+        ...(contentType ? { contentType } : {}),
+        ...(required !== undefined ? { required } : {}),
+        ...(description ? { description } : {}),
+    };
+}
+
+function applyQuerystringMeta(docMeta: { querystring?: QuerystringMeta }, paramMap: Map<string, CodeScanParam>): void {
+    const querystring = docMeta.querystring;
+    if (!querystring) return;
+    addParam(paramMap, {
+        name: querystring.name,
+        in: 'querystring',
+        required: querystring.required,
+        description: querystring.description,
+        contentType: querystring.contentType,
+        ...(querystring.encoding ? { encoding: querystring.encoding } : {}),
+    });
+}
+
+function applyParamDocs(paramMap: Map<string, CodeScanParam>, paramDocs?: Record<string, string>): void {
+    if (!paramDocs) return;
+    for (const param of paramMap.values()) {
+        if (param.description) continue;
+        const direct = paramDocs[param.name];
+        const normalized = paramDocs[param.name.replace(/[{}]/g, '')];
+        const description = direct ?? normalized;
+        if (description) {
+            param.description = description;
+        }
+    }
+}
+
+function applyParamExamples(paramMap: Map<string, CodeScanParam>, paramExamples?: Record<string, unknown>): void {
+    if (!paramExamples) return;
+    for (const param of paramMap.values()) {
+        if (param.example !== undefined) continue;
+        const direct = paramExamples[param.name];
+        const normalized = paramExamples[param.name.replace(/[{}]/g, '')];
+        const example = direct ?? normalized;
+        if (example !== undefined) {
+            param.example = example;
+        }
+    }
+}
+
+function applyParamSchemas(
+    paramMap: Map<string, CodeScanParam>,
+    paramSchemas?: Record<string, SwaggerDefinition | boolean>,
+): void {
+    if (!paramSchemas) return;
+    for (const param of paramMap.values()) {
+        if (param.in === 'querystring') continue;
+        const direct = paramSchemas[param.name];
+        const normalized = paramSchemas[param.name.replace(/[{}]/g, '')];
+        const schema = direct ?? normalized;
+        if (schema !== undefined) {
+            param.schema = schema;
+        }
+    }
+}
+
+function applyRequestExamples(
+    requestBody: CodeScanRequestBody | undefined,
+    requestExamples?: Record<string, unknown>,
+): void {
+    if (!requestBody || !requestExamples || Object.keys(requestExamples).length === 0) return;
+    requestBody.examples = { ...requestExamples };
+}
+
+function applyResponseExamples(
+    responses: CodeScanResponse[],
+    responseExamples?: Record<string, Record<string, unknown>>,
+): void {
+    if (!responseExamples) return;
+    responses.forEach(response => {
+        const examples = responseExamples[response.status];
+        if (examples && Object.keys(examples).length > 0) {
+            response.examples = { ...examples };
+        }
+    });
+}
+
+function mergeResponseHints(responses: CodeScanResponse[], hints?: ResponseDocMeta[]): CodeScanResponse[] {
+    if (!hints || hints.length === 0) return responses;
+    const responseMap = new Map<string, CodeScanResponse>();
+    const ordered: string[] = [];
+
+    responses.forEach(response => {
+        responseMap.set(response.status, { ...response });
+        ordered.push(response.status);
+    });
+
+    hints.forEach(hint => {
+        const existing = responseMap.get(hint.status);
+        if (!existing) {
+            responseMap.set(hint.status, {
+                status: hint.status,
+                ...(hint.summary ? { summary: hint.summary } : {}),
+                ...(hint.description ? { description: hint.description } : {}),
+                contentTypes: hint.contentTypes ?? [],
+            });
+            ordered.push(hint.status);
+            return;
+        }
+        if (hint.summary) {
+            existing.summary = hint.summary;
+        }
+        if (hint.description) {
+            existing.description = hint.description;
+        }
+        if (hint.contentTypes && hint.contentTypes.length > 0) {
+            if (existing.contentTypes.length === 0) {
+                existing.contentTypes = [...hint.contentTypes];
+            } else {
+                const contentTypes = new Set(existing.contentTypes);
+                hint.contentTypes.forEach(entry => contentTypes.add(entry));
+                existing.contentTypes = Array.from(contentTypes);
+            }
+        }
+    });
+
+    return ordered.map(status => responseMap.get(status) as CodeScanResponse);
+}
+
+function parseResponseDocMeta(raw: string): ResponseDocMeta | undefined {
+    if (!raw) return undefined;
+    const parts = raw.split(/\s+/).filter(Boolean);
+    const status = parts.shift();
+    if (!status) return undefined;
+    let contentTypes: string[] | undefined;
+    if (parts.length > 0 && parts[0].includes('/')) {
+        const mediaRaw = parts.shift() as string;
+        contentTypes = mediaRaw
+            .split(',')
+            .map(entry => entry.trim())
+            .filter(Boolean);
+    }
+    const description = parts.join(' ').trim();
+    return {
+        status,
+        ...(contentTypes && contentTypes.length > 0 ? { contentTypes } : {}),
+        ...(description ? { description } : {}),
+    };
+}
+
+function parseResponseSummary(raw: string): { status: string; summary: string } | undefined {
+    if (!raw) return undefined;
+    const parts = raw.split(/\s+/).filter(Boolean);
+    const status = parts.shift();
+    if (!status) return undefined;
+    const summary = parts.join(' ').trim();
+    if (!summary) return undefined;
+    return { status, summary };
+}
+
+function parseParamDoc(tag: import('ts-morph').JSDocTag): { name: string; description: string } | undefined {
+    if (Node.isJSDocParameterTag(tag)) {
+        const name = tag.getName();
+        const description = normalizeDocComment(tag.getComment()).trim();
+        if (name && description) {
+            return { name, description };
+        }
+        return undefined;
+    }
+
+    const rawText = tag
+        .getText()
+        .replace(/^\s*\*?\s*@param\s+/i, '')
+        .trim();
+    let name: string | undefined;
+    let description = '';
+
+    if (rawText) {
+        const cleaned = rawText.replace(/\r?\n\s*\*\s?/g, ' ').trim();
+        const match = cleaned.match(/^(?:\{[^}]+\}\s*)?(\S+)\s*([\s\S]*)$/);
+        if (match) {
+            name = match[1];
+            description = (match[2] || '').trim();
+        }
+    }
+
+    if (!name) {
+        const fallback = normalizeDocComment(tag.getComment());
+        const parts = fallback.split(/\s+/).filter(Boolean);
+        if (parts.length === 0) return undefined;
+        name = parts.shift();
+        if (name && name.startsWith('{')) {
+            name = parts.shift();
+        }
+        description = parts.join(' ').trim();
+    }
+
+    if (!name || !description) return undefined;
+    return { name, description };
+}
+
+function stripInternalDocMeta<
+    T extends {
+        querystring?: QuerystringMeta;
+        responses?: ResponseDocMeta[];
+        paramDocs?: Record<string, string>;
+        paramExamples?: Record<string, unknown>;
+        paramSchemas?: Record<string, SwaggerDefinition | boolean>;
+        requestExamples?: Record<string, unknown>;
+        responseExamples?: Record<string, Record<string, unknown>>;
+        operationId?: string;
+    },
+>(
+    docMeta: T,
+): Omit<
+    T,
+    | 'querystring'
+    | 'responses'
+    | 'paramDocs'
+    | 'paramExamples'
+    | 'paramSchemas'
+    | 'requestExamples'
+    | 'responseExamples'
+    | 'operationId'
+> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const {
+        querystring: _ignored,
+        responses: _responses,
+        paramDocs: _paramDocs,
+        paramExamples: _paramExamples,
+        paramSchemas: _paramSchemas,
+        requestExamples: _requestExamples,
+        responseExamples: _responseExamples,
+        operationId: _operationId,
+        ...rest
+    } = docMeta;
+    return rest;
+}
+
+function extractExternalDocs(tags: import('ts-morph').JSDocTag[]): ExternalDocumentationObject | undefined {
+    const seeTag = tags.find(tag => tag.getTagName() === 'see');
+    if (!seeTag) return undefined;
+    let raw = normalizeDocComment(seeTag.getComment()).trim();
+    if (!raw || raw.startsWith('://')) {
+        const text = seeTag.getText();
+        const line = text.split(/\r?\n/)[0] ?? '';
+        const cleaned = line.replace(/^\s*\*?\s*@see\s+/i, '').trim();
+        if (cleaned) {
+            raw = cleaned;
+        }
+    }
+    if (!raw) return undefined;
+
+    const parts = raw.split(/\s+/);
+    const url = parts.shift();
+    if (!url) return undefined;
+    const description = parts.join(' ').trim();
+    return description ? { url, description } : { url };
+}
+
+function extractServers(tags: import('ts-morph').JSDocTag[]): ServerObject[] {
+    const serverTags = tags.filter(tag => tag.getTagName() === 'server');
+    const servers: ServerObject[] = [];
+
+    serverTags.forEach(tag => {
+        const raw = normalizeDocComment(tag.getComment()).trim();
+        if (!raw) return;
+        const jsonServers = parseServerJson(raw);
+        if (jsonServers) {
+            servers.push(...jsonServers);
+            return;
+        }
+        const parts = raw.split(/\s+/);
+        const url = parts.shift();
+        if (!url) return;
+        const description = parts.join(' ').trim();
+        servers.push(description ? { url, description } : { url });
+    });
+
+    return servers;
+}
+
+function extractSecurity(tags: import('ts-morph').JSDocTag[]): Record<string, string[]>[] {
+    const securityTags = tags.filter(tag => tag.getTagName() === 'security');
+    const requirements: Record<string, string[]>[] = [];
+
+    securityTags.forEach(tag => {
+        const raw = normalizeDocComment(tag.getComment()).trim();
+        if (!raw) return;
+
+        if (raw.startsWith('{') || raw.startsWith('[')) {
+            const parsed = parseSecurityJson(raw);
+            if (parsed.length > 0) {
+                requirements.push(...parsed);
+            }
+            return;
+        }
+
+        const [scheme, ...rest] = raw.split(/\s+/);
+        if (!scheme) return;
+        const scopes = rest
+            .join(' ')
+            .split(/[,\s]+/)
+            .map(scope => scope.trim())
+            .filter(Boolean);
+        requirements.push({ [scheme]: scopes });
+    });
+
+    return requirements;
+}
+
+function parseSecurityJson(raw: string): Record<string, string[]>[] {
+    try {
+        const parsed = JSON.parse(raw) as unknown;
+        if (Array.isArray(parsed)) {
+            return parsed.filter((entry): entry is Record<string, string[]> => !!entry && typeof entry === 'object');
+        }
+        if (parsed && typeof parsed === 'object') {
+            return [parsed as Record<string, string[]>];
+        }
+    } catch {
+        return [];
+    }
+    return [];
 }
 
 function getJsDocs(node: Node): import('ts-morph').JSDoc[] {
@@ -1069,12 +1725,126 @@ function parseTagList(comment: string): string[] {
         .filter(Boolean);
 }
 
+function parseTagInput(raw: string): { names: string[]; objects: TagObject[] } {
+    const trimmed = raw.trim();
+    if (!trimmed) return { names: [], objects: [] };
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+        const parsed = parseJsonMaybe(trimmed);
+        return normalizeTagJson(parsed);
+    }
+    return { names: parseTagList(trimmed), objects: [] };
+}
+
+function normalizeTagJson(parsed: unknown): { names: string[]; objects: TagObject[] } {
+    const names: string[] = [];
+    const objects: TagObject[] = [];
+    const pushTag = (entry: unknown) => {
+        if (typeof entry === 'string') {
+            if (entry.trim()) names.push(entry.trim());
+            return;
+        }
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return;
+        const tag = entry as TagObject;
+        if (typeof tag.name !== 'string' || !tag.name.trim()) return;
+        const normalized = { ...tag, name: tag.name.trim() };
+        names.push(normalized.name);
+        objects.push(normalized);
+    };
+
+    if (Array.isArray(parsed)) {
+        parsed.forEach(pushTag);
+    } else {
+        pushTag(parsed);
+    }
+
+    return { names, objects };
+}
+
+function parseServerJson(raw: string): ServerObject[] | null {
+    const trimmed = raw.trim();
+    if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return null;
+    const parsed = parseJsonMaybe(trimmed);
+    if (!parsed) return [];
+    const entries = Array.isArray(parsed) ? parsed : [parsed];
+    const servers: ServerObject[] = [];
+    entries.forEach(entry => {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return;
+        const candidate = entry as ServerObject;
+        if (typeof candidate.url !== 'string' || candidate.url.trim().length === 0) return;
+        servers.push({ ...candidate, url: candidate.url.trim() });
+    });
+    return servers;
+}
+
+function parseJsonMaybe(raw: string): unknown | undefined {
+    try {
+        return JSON.parse(raw);
+    } catch {
+        return undefined;
+    }
+}
+
 function normalizeDocComment(comment: unknown): string {
     if (!comment) return '';
     if (typeof comment === 'string') return comment;
     if (Array.isArray(comment)) return comment.map(part => normalizeDocComment(part)).join('');
     if (Node.isNode(comment)) return comment.getText();
     return String(comment);
+}
+
+const EXAMPLE_WRAPPER_KEY = '__oasExample';
+
+type ExampleCarrier = {
+    [EXAMPLE_WRAPPER_KEY]: ExampleObject;
+};
+
+function isExampleCarrier(value: unknown): value is ExampleCarrier {
+    if (!value || typeof value !== 'object') return false;
+    if (!(EXAMPLE_WRAPPER_KEY in (value as Record<string, unknown>))) return false;
+    const wrapped = (value as Record<string, unknown>)[EXAMPLE_WRAPPER_KEY];
+    return !!wrapped && typeof wrapped === 'object' && !Array.isArray(wrapped);
+}
+
+function unwrapExampleCarrier(value: unknown): ExampleObject | undefined {
+    if (!isExampleCarrier(value)) return undefined;
+    return (value as ExampleCarrier)[EXAMPLE_WRAPPER_KEY];
+}
+
+function parseDocValue(value: string): unknown {
+    try {
+        return JSON.parse(value);
+    } catch {
+        return value;
+    }
+}
+
+function normalizeParamSchemaOverride(value: unknown): SwaggerDefinition | boolean | undefined {
+    if (typeof value === 'boolean') return value;
+    if (value && typeof value === 'object' && !Array.isArray(value)) return value as SwaggerDefinition;
+    if (typeof value !== 'string') return undefined;
+
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+
+    const primitiveTypes = new Set(['string', 'number', 'integer', 'boolean', 'object', 'array', 'null']);
+    if (primitiveTypes.has(trimmed)) {
+        return { type: trimmed as SwaggerDefinition['type'] };
+    }
+
+    if (
+        trimmed.startsWith('#') ||
+        trimmed.startsWith('./') ||
+        trimmed.startsWith('../') ||
+        /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)
+    ) {
+        return { $ref: trimmed };
+    }
+
+    if (/^[A-Za-z0-9_.-]+$/.test(trimmed)) {
+        return { $ref: `#/components/schemas/${trimmed}` };
+    }
+
+    return undefined;
 }
 
 function extractLiteralText(expression?: Expression): string | undefined {
@@ -1098,22 +1868,85 @@ function trimQuotes(value: string): string {
     return value.replace(/^['"]|['"]$/g, '');
 }
 
+function isReservedHeaderParam(name?: string): boolean {
+    if (!name) return false;
+    return RESERVED_HEADER_NAMES.has(name.toLowerCase());
+}
+
 function buildParameters(params: CodeScanParam[]): Parameter[] {
-    return params.map(param => ({
-        name: param.name,
-        in: param.in,
-        required: param.in === 'path' ? true : param.required,
-        description: param.description,
-        schema: param.schema ?? { type: 'string' },
-    }));
+    return params
+        .filter(param => !(param.in === 'header' && isReservedHeaderParam(param.name)))
+        .map(param => {
+            if (param.in === 'querystring') {
+                const contentType = param.contentType ?? 'application/x-www-form-urlencoded';
+                const contentEntry: {
+                    schema: SwaggerDefinition;
+                    encoding?: Record<string, any>;
+                    example?: unknown;
+                    examples?: Record<string, ExampleObject>;
+                } = {
+                    schema: guessSchemaForContentType(contentType),
+                };
+                if (param.encoding) {
+                    contentEntry.encoding = param.encoding;
+                }
+                if (param.example !== undefined) {
+                    const wrapped = unwrapExampleCarrier(param.example);
+                    if (wrapped) {
+                        contentEntry.examples = { example: wrapped };
+                    } else {
+                        contentEntry.example = param.example;
+                    }
+                }
+                return {
+                    name: param.name,
+                    in: param.in,
+                    required: param.required,
+                    description: param.description,
+                    content: {
+                        [contentType]: contentEntry,
+                    },
+                };
+            }
+
+            return {
+                name: param.name,
+                in: param.in,
+                required: param.in === 'path' ? true : param.required,
+                description: param.description,
+                schema: param.schema ?? { type: 'string' },
+                ...(param.example !== undefined && !unwrapExampleCarrier(param.example)
+                    ? { example: param.example }
+                    : {}),
+                ...(param.example !== undefined && unwrapExampleCarrier(param.example)
+                    ? { examples: { example: unwrapExampleCarrier(param.example) as ExampleObject } }
+                    : {}),
+            };
+        });
 }
 
 function buildRequestBody(requestBody?: CodeScanRequestBody): RequestBody | undefined {
     if (!requestBody) return undefined;
     if (requestBody.contentTypes.length === 0) return undefined;
     const content = Object.fromEntries(
-        requestBody.contentTypes.map(contentType => [contentType, { schema: guessSchemaForContentType(contentType) }]),
+        requestBody.contentTypes.map(contentType => [
+            contentType,
+            { schema: requestBody.schema ?? guessSchemaForContentType(contentType) },
+        ]),
     );
+    if (requestBody.examples && Object.keys(requestBody.examples).length > 0) {
+        Object.entries(content).forEach(([contentType, entry]) => {
+            const example = requestBody.examples?.[contentType] ?? requestBody.examples?.['*'];
+            if (example !== undefined) {
+                const wrapped = unwrapExampleCarrier(example);
+                if (wrapped) {
+                    (entry as { examples?: Record<string, ExampleObject> }).examples = { example: wrapped };
+                } else {
+                    (entry as { example?: unknown }).example = example;
+                }
+            }
+        });
+    }
     return {
         required: requestBody.required ?? true,
         content,
@@ -1126,11 +1959,30 @@ function buildResponses(responses: CodeScanResponse[]): Record<string, SwaggerRe
 
     for (const response of normalized) {
         const description = response.description ?? (response.status === 'default' ? 'Default response' : 'Response');
-        const entry: SwaggerResponse = { description };
+        const entry: SwaggerResponse = {
+            description,
+            ...(response.summary ? { summary: response.summary } : {}),
+        };
         if (response.contentTypes.length > 0) {
             entry.content = Object.fromEntries(
-                response.contentTypes.map(contentType => [contentType, { schema: guessSchemaForContentType(contentType) }]),
+                response.contentTypes.map(contentType => [
+                    contentType,
+                    { schema: response.schema ?? guessSchemaForContentType(contentType) },
+                ]),
             );
+            if (response.examples && Object.keys(response.examples).length > 0) {
+                Object.entries(entry.content).forEach(([contentType, media]) => {
+                    const example = response.examples?.[contentType] ?? response.examples?.['*'];
+                    if (example !== undefined) {
+                        const wrapped = unwrapExampleCarrier(example);
+                        if (wrapped) {
+                            (media as { examples?: Record<string, ExampleObject> }).examples = { example: wrapped };
+                        } else {
+                            (media as { example?: unknown }).example = example;
+                        }
+                    }
+                });
+            }
         }
         responseMap[response.status] = entry;
     }
@@ -1152,8 +2004,140 @@ function guessSchemaForContentType(contentType: string): SwaggerDefinition {
     if (normalized === 'application/octet-stream') {
         return { type: 'string', format: 'binary' };
     }
+    if (normalized === 'application/x-www-form-urlencoded') {
+        return { type: 'object' };
+    }
     if (normalized === 'multipart/form-data') {
         return { type: 'object' };
     }
     return { type: 'string' };
+}
+
+function inferExpressSchemaHints(handler: FunctionLikeDeclaration): {
+    requestSchema?: SwaggerDefinition | boolean;
+    responseSchema?: SwaggerDefinition | boolean;
+} {
+    const params = handler.getParameters();
+    const reqParam = params[0];
+    const resParam = params[1];
+    let requestSchema: SwaggerDefinition | boolean | undefined;
+    let responseSchema: SwaggerDefinition | boolean | undefined;
+
+    if (reqParam) {
+        const reqTypeNode = reqParam.getTypeNode();
+        const extracted = extractSchemasFromRequestType(reqTypeNode);
+        if (extracted.requestSchema) {
+            requestSchema = extracted.requestSchema;
+        }
+        if (extracted.responseSchema) {
+            responseSchema = extracted.responseSchema;
+        }
+    }
+
+    if (resParam) {
+        const resTypeNode = resParam.getTypeNode();
+        const inferred = extractSchemaFromResponseType(resTypeNode);
+        if (inferred) {
+            responseSchema = inferred;
+        }
+    }
+
+    return { requestSchema, responseSchema };
+}
+
+function inferReturnSchemaFromSignature(handler: FunctionLikeDeclaration): SwaggerDefinition | boolean | undefined {
+    const returnTypeNode =
+        'getReturnTypeNode' in handler && typeof handler.getReturnTypeNode === 'function'
+            ? handler.getReturnTypeNode()
+            : undefined;
+    if (!returnTypeNode) return undefined;
+    const unwrapped = unwrapContainerTypeNode(returnTypeNode);
+    if (isVoidTypeNode(unwrapped)) return undefined;
+    if (isResponseTypeName(getTypeNodeName(unwrapped))) return undefined;
+    return inferSchemaFromTypeNode(unwrapped);
+}
+
+function extractSchemasFromRequestType(typeNode?: TypeNode): {
+    requestSchema?: SwaggerDefinition | boolean;
+    responseSchema?: SwaggerDefinition | boolean;
+} {
+    if (!typeNode || !Node.isTypeReference(typeNode)) return {};
+    if (!isRequestTypeName(getTypeNodeName(typeNode))) return {};
+    const args = typeNode.getTypeArguments();
+    const responseArg = args[1];
+    const requestArg = args[2];
+    return {
+        ...(requestArg ? { requestSchema: inferSchemaFromTypeNode(requestArg) } : {}),
+        ...(responseArg ? { responseSchema: inferSchemaFromTypeNode(responseArg) } : {}),
+    };
+}
+
+function extractSchemaFromResponseType(typeNode?: TypeNode): SwaggerDefinition | boolean | undefined {
+    if (!typeNode || !Node.isTypeReference(typeNode)) return undefined;
+    if (!isResponseTypeName(getTypeNodeName(typeNode))) return undefined;
+    const arg = typeNode.getTypeArguments()[0];
+    return inferSchemaFromTypeNode(arg);
+}
+
+function inferSchemaFromTypeNode(typeNode?: TypeNode): SwaggerDefinition | boolean | undefined {
+    if (!typeNode) return undefined;
+    const unwrapped = unwrapContainerTypeNode(typeNode);
+    if (isVoidTypeNode(unwrapped)) return undefined;
+
+    if (Node.isTypeReference(unwrapped)) {
+        const typeName = getTypeNodeName(unwrapped);
+        const primitiveSchema = schemaForPrimitiveReference(typeName);
+        if (primitiveSchema) return primitiveSchema;
+    }
+
+    const schema = schemaFromTypeNode(unwrapped);
+    return isEmptySchema(schema) ? undefined : schema;
+}
+
+function unwrapContainerTypeNode(typeNode: TypeNode): TypeNode {
+    if (!Node.isTypeReference(typeNode)) return typeNode;
+    const typeName = getTypeNodeName(typeNode);
+    if (typeName === 'Promise' || typeName === 'PromiseLike' || typeName === 'Observable') {
+        const arg = typeNode.getTypeArguments()[0];
+        if (arg) {
+            return unwrapContainerTypeNode(arg);
+        }
+    }
+    return typeNode;
+}
+
+function getTypeNodeName(typeNode: TypeNode): string {
+    if (!Node.isTypeReference(typeNode)) return '';
+    return typeNode.getTypeName().getText();
+}
+
+function schemaForPrimitiveReference(typeName: string): SwaggerDefinition | undefined {
+    switch (typeName) {
+        case 'String':
+            return { type: 'string' };
+        case 'Number':
+            return { type: 'number' };
+        case 'Boolean':
+            return { type: 'boolean' };
+        case 'Object':
+            return { type: 'object' };
+        default:
+            return undefined;
+    }
+}
+
+function isVoidTypeNode(typeNode: TypeNode): boolean {
+    return typeNode.getKind() === SyntaxKind.VoidKeyword || typeNode.getKind() === SyntaxKind.NeverKeyword;
+}
+
+function isRequestTypeName(typeName: string): boolean {
+    return typeName === 'Request' || typeName.endsWith('.Request');
+}
+
+function isResponseTypeName(typeName: string): boolean {
+    return typeName === 'Response' || typeName.endsWith('.Response');
+}
+
+function isEmptySchema(schema: SwaggerDefinition): boolean {
+    return Object.keys(schema).length === 0;
 }

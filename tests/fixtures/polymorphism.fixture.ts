@@ -5,11 +5,11 @@ export const polymorphismSpec = {
     info,
     paths: {
         '/pets': {
-            get: { tags: ['Pets'], responses: { '200': {} } },
+            get: { tags: ['Pets'], responses: { '200': { description: 'ok' } } },
             post: {
                 tags: ['Pets'],
                 requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/Pet' } } } },
-                responses: {},
+                responses: { '200': { description: 'ok' } },
             },
         },
     },

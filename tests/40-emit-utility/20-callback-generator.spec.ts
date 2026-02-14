@@ -47,7 +47,7 @@ const refCallbackSpec: SwaggerSpec = {
                     // This invalid one hits the 'resolved' check failure branch
                     brokenWebhook: { $ref: '#/components/callbacks/BrokenCallback' },
                 },
-                responses: {},
+                responses: { '200': { description: 'ok' } },
             },
         },
     },
@@ -59,12 +59,48 @@ const refCallbackSpec: SwaggerSpec = {
                         requestBody: {
                             content: { 'application/json': { schema: { $ref: '#/components/schemas/EventPayload' } } },
                         },
-                        responses: { '200': {} },
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             },
         },
         schemas: { EventPayload: { type: 'object', properties: { id: { type: 'string' } } } },
+    },
+};
+
+const refRequestBodyCallbackSpec: SwaggerSpec = {
+    openapi: '3.2.0',
+    info: { title: 'Ref Body Callback Test', version: '1.0' },
+    paths: {
+        '/notify': {
+            post: {
+                callbacks: {
+                    onEvent: {
+                        '{$request.body#/callbackUrl}': {
+                            post: {
+                                requestBody: { $ref: '#/components/requestBodies/EventBody' },
+                                responses: { '200': { description: 'ok' } },
+                            },
+                        },
+                    },
+                },
+                responses: { '200': { description: 'ok' } },
+            },
+        },
+    },
+    components: {
+        requestBodies: {
+            EventBody: {
+                content: {
+                    'application/json': {
+                        schema: { $ref: '#/components/schemas/EventPayload' },
+                    },
+                },
+            },
+        },
+        schemas: {
+            EventPayload: { type: 'object', properties: { id: { type: 'string' } } },
+        },
     },
 };
 
@@ -129,7 +165,14 @@ describe('Emitter: CallbackGenerator', () => {
         expect(typeAlias.getTypeNode()?.getText()).toBe('EventPayload');
     });
 
-    it('should handle callbacks with missing responses', () => {
+    it('should resolve requestBody $ref inside callbacks', () => {
+        const project = runGenerator(refRequestBodyCallbackSpec);
+        const sourceFile = project.getSourceFileOrThrow('/out/callbacks.ts');
+        const typeAlias = sourceFile.getTypeAliasOrThrow('OnEventPostPayload');
+        expect(typeAlias.getTypeNode()?.getText()).toBe('EventPayload');
+    });
+
+    it('should handle callbacks with inline request bodies', () => {
         const spec: SwaggerSpec = {
             openapi: '3.0.0',
             info: { title: 'Callback Missing Responses', version: '1.0' },
@@ -148,12 +191,12 @@ describe('Emitter: CallbackGenerator', () => {
                                                 },
                                             },
                                         },
-                                        // responses intentionally omitted
+                                        responses: { '200': { description: 'ok' } },
                                     },
                                 },
                             },
                         },
-                        responses: { '200': {} },
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             },

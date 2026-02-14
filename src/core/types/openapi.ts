@@ -37,6 +37,24 @@ export interface ExternalDocumentationObject {
     [key: string]: any;
 }
 
+export interface ReferenceObject {
+    $ref: string;
+    summary?: string;
+    description?: string;
+
+    [key: string]: any;
+}
+
+export interface DynamicReferenceObject {
+    $dynamicRef: string;
+    summary?: string;
+    description?: string;
+
+    [key: string]: any;
+}
+
+export type ReferenceLike = ReferenceObject | DynamicReferenceObject;
+
 export interface TagObject {
     name: string;
     summary?: string;
@@ -134,9 +152,9 @@ export interface HeaderObject {
     style?: string;
     explode?: boolean;
     allowReserved?: boolean;
-    content?: Record<string, MediaTypeObject | { $ref: string } | { $dynamicRef?: string }>;
+    content?: Record<string, MediaTypeObject | ReferenceLike>;
     example?: any;
-    examples?: Record<string, any>;
+    examples?: Record<string, ExampleObject | ReferenceLike>;
 
     [key: string]: any;
 }
@@ -153,8 +171,10 @@ export interface Parameter {
     explode?: boolean;
     allowReserved?: boolean;
     allowEmptyValue?: boolean;
-    content?: Record<string, MediaTypeObject | { $ref: string } | { $dynamicRef?: string }>;
+    content?: Record<string, MediaTypeObject | ReferenceLike>;
     deprecated?: boolean;
+    example?: any;
+    examples?: Record<string, ExampleObject | ReferenceLike>;
 
     [key: string]: any;
 }
@@ -175,7 +195,7 @@ export interface EncodingProperty {
 export interface RequestBody {
     description?: string;
     required?: boolean;
-    content?: Record<string, MediaTypeObject | { $ref: string } | { $dynamicRef?: string }>;
+    content?: Record<string, MediaTypeObject | ReferenceLike>;
 
     [key: string]: any;
 }
@@ -184,7 +204,7 @@ export interface MediaTypeObject {
     schema?: SwaggerDefinition | boolean | { $ref: string } | { $dynamicRef?: string };
     itemSchema?: SwaggerDefinition | boolean | { $ref: string } | { $dynamicRef?: string };
     example?: any;
-    examples?: Record<string, ExampleObject | { $ref: string }>;
+    examples?: Record<string, ExampleObject | ReferenceLike>;
     encoding?: Record<string, EncodingProperty>;
     prefixEncoding?: EncodingProperty[];
     itemEncoding?: EncodingProperty;
@@ -195,9 +215,9 @@ export interface MediaTypeObject {
 export interface SwaggerResponse {
     description?: string;
     summary?: string;
-    content?: Record<string, MediaTypeObject | { $ref: string } | { $dynamicRef?: string }>;
-    links?: Record<string, LinkObject | { $ref: string }>;
-    headers?: Record<string, HeaderObject | { $ref: string }>;
+    content?: Record<string, MediaTypeObject | ReferenceLike>;
+    links?: Record<string, LinkObject | ReferenceLike>;
+    headers?: Record<string, HeaderObject | ReferenceLike>;
 
     [key: string]: any;
 }
@@ -232,7 +252,7 @@ export interface SwaggerDefinition {
     multipleOf?: number;
     minProperties?: number;
     maxProperties?: number;
-    enum?: (string | number)[];
+    enum?: unknown[];
     items?: SwaggerDefinition | boolean | (SwaggerDefinition | boolean)[];
     prefixItems?: (SwaggerDefinition | boolean)[];
     contains?: SwaggerDefinition | boolean;
@@ -305,7 +325,7 @@ export interface SpecOperation {
     deprecated?: boolean;
     security?: Record<string, string[]>[];
     servers?: ServerObject[];
-    callbacks?: Record<string, PathItem | { $ref: string }>;
+    callbacks?: Record<string, PathItem | ReferenceLike>;
 
     [key: string]: any;
 }
@@ -348,24 +368,24 @@ export interface SwaggerSpec {
     externalDocs?: ExternalDocumentationObject;
     tags?: TagObject[];
     security?: Record<string, string[]>[];
-    paths: { [pathName: string]: PathItem };
+    paths?: { [pathName: string]: PathItem };
     webhooks?: { [name: string]: PathItem };
     jsonSchemaDialect?: string;
     servers?: ServerObject[];
     definitions?: { [definitionsName: string]: SwaggerDefinition | boolean };
     components?: {
         schemas?: Record<string, SwaggerDefinition | boolean>;
-        responses?: Record<string, SwaggerResponse | { $ref: string }>;
-        securitySchemes?: Record<string, SecurityScheme>;
+        responses?: Record<string, SwaggerResponse | ReferenceLike>;
+        securitySchemes?: Record<string, SecurityScheme | ReferenceLike>;
         pathItems?: Record<string, PathItem>;
-        callbacks?: Record<string, PathItem | { $ref: string }>;
-        links?: Record<string, LinkObject | { $ref: string }>;
-        headers?: Record<string, HeaderObject | { $ref: string }>;
-        parameters?: Record<string, Parameter | { $ref: string }>;
-        requestBodies?: Record<string, RequestBody | { $ref: string }>;
-        examples?: Record<string, ExampleObject | { $ref: string }>;
-        mediaTypes?: Record<string, MediaTypeObject | { $ref: string }>;
-        webhooks?: Record<string, PathItem | { $ref: string }>;
+        callbacks?: Record<string, PathItem | ReferenceLike>;
+        links?: Record<string, LinkObject | ReferenceLike>;
+        headers?: Record<string, HeaderObject | ReferenceLike>;
+        parameters?: Record<string, Parameter | ReferenceLike>;
+        requestBodies?: Record<string, RequestBody | ReferenceLike>;
+        examples?: Record<string, ExampleObject | ReferenceLike>;
+        mediaTypes?: Record<string, MediaTypeObject | ReferenceLike>;
+        webhooks?: Record<string, PathItem | ReferenceLike>;
     };
     securityDefinitions?: { [securityDefinitionName: string]: SecurityScheme };
 

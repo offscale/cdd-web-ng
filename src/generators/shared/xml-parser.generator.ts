@@ -36,7 +36,9 @@ export class XmlParserGenerator {
         const classDeclaration = sourceFile.addClass({
             name: 'XmlParser',
             isExported: true,
-            docs: ['Utility to parse XML responses into typed objects based on OpenAPI metadata (including prefixItems ordering).'],
+            docs: [
+                'Utility to parse XML responses into typed objects based on OpenAPI metadata (including prefixItems ordering).',
+            ],
         });
 
         classDeclaration.addMethod({

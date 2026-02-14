@@ -39,7 +39,7 @@ const encodingSpec = {
                         },
                     },
                 },
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/nested-encoding': {
@@ -65,7 +65,7 @@ const encodingSpec = {
                         },
                     },
                 },
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/base64-request': {
@@ -83,7 +83,7 @@ const encodingSpec = {
                         },
                     },
                 },
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
     },
@@ -139,7 +139,7 @@ describe('Emitter: ServiceMethodGenerator (Request Encoding)', () => {
         // Verify call to ContentEncoder
         expect(body).toContain('body = ContentEncoder.encode(body,');
         // Verify config structure
-        expect(body).toContain('"properties":{"config":{"encode":true}}');
+        expect(body).toContain('"properties":{"config":{"contentMediaType":"application/json","encode":true}}');
     });
 
     it('should apply ContentEncoder.encode recursively for nested arrays', () => {
@@ -158,7 +158,9 @@ describe('Emitter: ServiceMethodGenerator (Request Encoding)', () => {
 
         // Check nested structure
         expect(body).toContain('ContentEncoder.encode(body,');
-        expect(body).toContain('"properties":{"items":{"items":{"properties":{"raw":{"encode":true}}}}}');
+        expect(body).toContain(
+            '"properties":{"items":{"items":{"properties":{"raw":{"contentMediaType":"application/json","encode":true}}}}}',
+        );
     });
 
     it('should include contentEncoding in ContentEncoder config', () => {

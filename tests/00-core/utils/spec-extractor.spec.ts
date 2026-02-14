@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import * as utils from '@src/core/utils/spec-extractor.js';
 import { SwaggerDefinition } from '@src/core/types/index.js';
+import { ReferenceResolver } from '@src/core/parser/reference-resolver.js';
 
 describe('Core Utils: Spec Extractor', () => {
     describe('extractPaths', () => {
@@ -14,7 +15,7 @@ describe('Core Utils: Spec Extractor', () => {
             const swaggerPaths = {
                 '/test': {
                     post: {
-                        responses: {},
+                        responses: { '200': { description: 'ok' } },
                         parameters: [{ name: 'body', in: 'body', schema: { type: 'string' } }],
                     },
                 },
@@ -30,7 +31,7 @@ describe('Core Utils: Spec Extractor', () => {
                 '/upload': {
                     post: {
                         consumes: ['application/xml', 'multipart/form-data'],
-                        responses: {},
+                        responses: { '200': { description: 'ok' } },
                         parameters: [{ name: 'body', in: 'body', schema: { type: 'object' } }],
                     },
                 },
@@ -76,7 +77,7 @@ describe('Core Utils: Spec Extractor', () => {
             const swaggerPaths = {
                 '/conflict': {
                     post: {
-                        responses: {},
+                        responses: { '200': { description: 'ok' } },
                         requestBody: { content: { 'text/plain': { schema: { type: 'number' } } } },
                         // Legacy body param should be ignored if requestBody is present in OAS 3
                         parameters: [{ name: 'ignored', in: 'body', schema: { type: 'string' } }],
@@ -90,7 +91,7 @@ describe('Core Utils: Spec Extractor', () => {
 
         it('should extract the QUERY method', () => {
             const swaggerPaths = {
-                '/search': { query: { operationId: 'querySearch', responses: { '200': {} } } },
+                '/search': { query: { operationId: 'querySearch', responses: { '200': { description: 'ok' } } } },
             };
             const [pathInfo] = utils.extractPaths(swaggerPaths as any);
             expect(pathInfo.method).toBe('QUERY');
@@ -98,7 +99,7 @@ describe('Core Utils: Spec Extractor', () => {
 
         it('should extract the TRACE method', () => {
             const swaggerPaths = {
-                '/trace': { trace: { operationId: 'traceOp', responses: { '200': {} } } },
+                '/trace': { trace: { operationId: 'traceOp', responses: { '200': { description: 'ok' } } } },
             };
             const [pathInfo] = utils.extractPaths(swaggerPaths as any);
             expect(pathInfo.method).toBe('TRACE');
@@ -106,24 +107,28 @@ describe('Core Utils: Spec Extractor', () => {
 
         it('should extract additionalOperations (OAS 3.2)', () => {
             const swaggerPaths = {
-                '/res': { additionalOperations: { LOCK: { operationId: 'lock', responses: {} } } },
+                '/res': {
+                    additionalOperations: {
+                        LOCK: { operationId: 'lock', responses: { '200': { description: 'ok' } } },
+                    },
+                },
             };
             const [pathInfo] = utils.extractPaths(swaggerPaths as any);
             expect(pathInfo.method).toBe('LOCK');
         });
 
-        it('should normalize security pointers', () => {
+        it('should preserve security pointer URIs', () => {
             const swaggerPaths = {
                 '/sec': {
                     get: {
                         operationId: 'getSec',
                         security: [{ '#/components/securitySchemes/MyAuth': ['scope'] }],
-                        responses: {},
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             };
             const [pathInfo] = utils.extractPaths(swaggerPaths as any);
-            expect(pathInfo.security![0]).toHaveProperty('MyAuth');
+            expect(pathInfo.security![0]).toHaveProperty('#/components/securitySchemes/MyAuth');
         });
 
         it('should NOT normalize security pointers if key matches a component name (OAS 3.2 Precedence)', () => {
@@ -134,7 +139,7 @@ describe('Core Utils: Spec Extractor', () => {
                 '/secure': {
                     get: {
                         security: [{ 'http://auth.com': [] }],
-                        responses: {},
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             };
@@ -153,9 +158,31 @@ describe('Core Utils: Spec Extractor', () => {
             expect(Object.keys(pathInfo.security![0])[0]).toBe('http://auth.com');
         });
 
+        it('should preserve URI security keys that intentionally shadow component names', () => {
+            const swaggerPaths = {
+                '/secure': {
+                    get: {
+                        security: [{ './ApiKey': [] }],
+                        responses: { '200': { description: 'ok' } },
+                    },
+                },
+            };
+            const components = {
+                securitySchemes: {
+                    ApiKey: { type: 'apiKey', in: 'header', name: 'X-API-KEY' },
+                },
+            };
+
+            const [pathInfo] = utils.extractPaths(swaggerPaths as any, undefined, components as any);
+
+            expect(pathInfo.security).toBeDefined();
+            expect(pathInfo.security![0]).toHaveProperty('./ApiKey');
+            expect(Object.keys(pathInfo.security![0])[0]).toBe('./ApiKey');
+        });
+
         it('should merge Path Item $ref properties', () => {
             const resolveRef = (ref: string) => {
-                if (ref === 'Target') return { summary: 'Base', get: { responses: {} } };
+                if (ref === 'Target') return { summary: 'Base', get: { responses: { '200': { description: 'ok' } } } };
                 return undefined;
             };
             const swaggerPaths = {
@@ -187,7 +214,7 @@ describe('Core Utils: Spec Extractor', () => {
                                 description: 'override description',
                             },
                         ],
-                        responses: {},
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             };
@@ -224,6 +251,74 @@ describe('Core Utils: Spec Extractor', () => {
             expect(pathInfo.responses?.['200'].content?.['application/json'].schema).toEqual({ type: 'string' });
         });
 
+        it('should resolve $ref relative to the defining document when using resolveObj', () => {
+            const entryUri = 'file:///entry.yaml';
+            const externalUri = 'file:///external.yaml';
+
+            const entrySpec = {
+                openapi: '3.2.0',
+                info: { title: 'Entry', version: '1.0.0' },
+                paths: {
+                    '/items': { $ref: 'external.yaml#/paths/~1items' },
+                },
+                components: {
+                    parameters: {
+                        Limit: {
+                            name: 'limit',
+                            in: 'query',
+                            schema: { type: 'integer' },
+                            description: 'entry-limit',
+                        },
+                    },
+                },
+            };
+
+            const externalSpec = {
+                openapi: '3.2.0',
+                info: { title: 'External', version: '1.0.0' },
+                paths: {
+                    '/items': {
+                        get: {
+                            parameters: [{ $ref: '#/components/parameters/Limit' }],
+                            responses: { '200': { description: 'ok' } },
+                        },
+                    },
+                },
+                components: {
+                    parameters: {
+                        Limit: {
+                            name: 'limit',
+                            in: 'query',
+                            schema: { type: 'string' },
+                            description: 'external-limit',
+                        },
+                    },
+                },
+            };
+
+            const cache = new Map<string, any>([
+                [entryUri, entrySpec],
+                [externalUri, externalSpec],
+            ]);
+            ReferenceResolver.indexSchemaIds(entrySpec, entryUri, cache, entryUri);
+            ReferenceResolver.indexSchemaIds(externalSpec, externalUri, cache, externalUri);
+
+            const resolver = new ReferenceResolver(cache, entryUri);
+            const resolveRef = (ref: string) => resolver.resolveReference(ref, entryUri);
+            const resolveObj = (obj: unknown) => resolver.resolve(obj as any);
+
+            const [pathInfo] = utils.extractPaths(
+                entrySpec.paths as any,
+                resolveRef,
+                entrySpec.components as any,
+                { isOpenApi3: true },
+                resolveObj,
+            );
+
+            expect(pathInfo.parameters?.[0].description).toBe('external-limit');
+            expect(pathInfo.parameters?.[0].schema).toEqual({ type: 'string' });
+        });
+
         it('should ignore reserved header parameters in OpenAPI 3', () => {
             const swaggerPaths = {
                 '/headers': {
@@ -234,7 +329,7 @@ describe('Core Utils: Spec Extractor', () => {
                             { name: 'X-Trace', in: 'header', schema: { type: 'string' } },
                             { name: 'authorization', in: 'header', schema: { type: 'string' } },
                         ],
-                        responses: {},
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             };
@@ -261,7 +356,7 @@ describe('Core Utils: Spec Extractor', () => {
                 '/payload': {
                     post: {
                         requestBody: { $ref: '#/components/requestBodies/Payload' },
-                        responses: {},
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             };
@@ -281,6 +376,7 @@ describe('Core Utils: Spec Extractor', () => {
                         },
                         responses: {
                             '200': {
+                                description: 'ok',
                                 content: {
                                     'application/json': { $ref: '#/components/mediaTypes/JsonPayload' },
                                 },
@@ -329,7 +425,7 @@ describe('Core Utils: Spec Extractor', () => {
                             { name: 'p', in: 'query', collectionFormat: 'pipes' },
                             { name: 'm', in: 'query', collectionFormat: 'multi' },
                         ],
-                        responses: {},
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             };
@@ -360,7 +456,7 @@ describe('Core Utils: Spec Extractor', () => {
                                 content: { 'application/json': { schema: { type: 'string' } } },
                             },
                         ],
-                        responses: {},
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             };
@@ -381,7 +477,7 @@ describe('Core Utils: Spec Extractor', () => {
                                 format: 'uuid',
                             },
                         ],
-                        responses: {},
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             };
@@ -477,7 +573,7 @@ describe('Core Utils: Spec Extractor', () => {
                                 allowEmptyValue: true,
                             },
                         ],
-                        responses: {},
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             };
@@ -495,7 +591,7 @@ describe('Core Utils: Spec Extractor', () => {
                 '/desc': {
                     parameters: null,
                     description: 'Path description',
-                    get: { responses: {} },
+                    get: { responses: { '200': { description: 'ok' } } },
                 },
             };
             const [pathInfo] = utils.extractPaths(swaggerPaths as any);
@@ -508,7 +604,7 @@ describe('Core Utils: Spec Extractor', () => {
                     get: {
                         operationId: 'getDocs',
                         externalDocs: { url: 'https://example.com', description: 'More docs' },
-                        responses: {},
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             };
@@ -522,7 +618,7 @@ describe('Core Utils: Spec Extractor', () => {
                     parameters: [undefined, { name: 'shared', in: 'query', schema: { type: 'string' } }],
                     get: {
                         parameters: [null, { name: 'op', in: 'query', schema: { type: 'string' }, style: 'form' }],
-                        responses: {},
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             };
@@ -543,7 +639,7 @@ describe('Core Utils: Spec Extractor', () => {
                                 schema: { type: 'string' },
                             },
                         ],
-                        responses: {},
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             };

@@ -15,6 +15,8 @@ export class TagGenerator {
         const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
         const tagsFound = this.parser.spec.tags || [];
+        const extractExtensions = (tag: Record<string, unknown>) =>
+            Object.fromEntries(Object.entries(tag).filter(([key]) => key.startsWith('x-')));
 
         const registry: TagObject[] = tagsFound.map((t: any) => ({
             name: t.name,
@@ -23,6 +25,7 @@ export class TagGenerator {
             ...(t.externalDocs ? { externalDocs: t.externalDocs } : {}),
             ...(t.parent ? { parent: t.parent } : {}),
             ...(t.kind ? { kind: t.kind } : {}),
+            ...extractExtensions(t),
         }));
 
         const mapRegistry: Record<string, TagObject> = {};

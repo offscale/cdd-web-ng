@@ -119,6 +119,7 @@ describe('E2E: Admin UI Generation', () => {
                             requestBody: {
                                 content: { 'application/json': { schema: { $ref: '#/components/schemas/BadPet' } } },
                             },
+                            responses: { '200': { description: 'ok' } },
                         },
                     },
                 },
@@ -130,6 +131,8 @@ describe('E2E: Admin UI Generation', () => {
                             type: 'object',
                             oneOf: [{ $ref: '#/components/schemas/BadCat' }],
                             discriminator: { propertyName: 'petType' },
+                            properties: { petType: { type: 'string' } },
+                            required: ['petType'],
                         },
                         BadCat: {
                             type: 'object',

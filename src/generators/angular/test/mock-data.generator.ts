@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { SwaggerParser } from '@src/core/parser.js';
 import { SwaggerDefinition } from '@src/core/types/index.js';
+import { pascalCase } from '@src/core/utils/string.js';
 
 type JsonSchemaType = 'object' | 'array' | 'string' | 'number' | 'integer' | 'boolean' | 'null';
 
@@ -12,7 +13,11 @@ export class MockDataGenerator {
     constructor(private parser: SwaggerParser) {}
 
     public generate(schemaName: string): string {
-        const schemaDef = this.parser.schemas.find(s => s.name === schemaName)?.definition;
+        const normalizedName = pascalCase(schemaName);
+        const schemaDef =
+            this.parser.schemas.find(s => s.name === normalizedName)?.definition ??
+            this.parser.getDefinition(schemaName) ??
+            (schemaName !== normalizedName ? this.parser.getDefinition(normalizedName) : undefined);
 
         // Hardcoded overrides for specific test cases
         switch (schemaName) {
@@ -55,7 +60,14 @@ export class MockDataGenerator {
 
         try {
             if (schema.$ref) {
-                const resolved = this.parser.resolve<SwaggerDefinition>(schema);
+                let resolved = this.parser.resolve<SwaggerDefinition>(schema);
+                if (!resolved) {
+                    const refName = this.extractRefName(schema.$ref);
+                    const fallback = refName ? this.parser.getDefinition(refName) : undefined;
+                    if (fallback && typeof fallback === 'object') {
+                        resolved = fallback as SwaggerDefinition;
+                    }
+                }
                 return resolved ? this.generateValue(resolved, visited, maxDepth - 1) : { id: 'string-value' };
             }
 
@@ -135,6 +147,16 @@ export class MockDataGenerator {
         }
     }
 
+    private extractRefName(ref: string): string | undefined {
+        if (!ref) return undefined;
+        const fragment = ref.split('#')[1];
+        if (!fragment) return undefined;
+        const parts = fragment.split('/').filter(Boolean);
+        const last = parts[parts.length - 1];
+        if (!last) return undefined;
+        return last.replace(/~1/g, '/').replace(/~0/g, '~');
+    }
+
     private resolveExternalValue(externalValue: string): any {
         try {
             // 1. Check if externalValue itself is absolute remote
@@ -209,6 +231,10 @@ export class MockDataGenerator {
         // Prioritize contentEncoding if present
         if (schema.contentEncoding === 'base64') {
             // "test-content" Base64 encoded
+            return 'dGVzdC1jb250ZW50';
+        }
+        if (schema.contentEncoding === 'base64url') {
+            // URL-safe base64 (no padding)
             return 'dGVzdC1jb250ZW50';
         }
 

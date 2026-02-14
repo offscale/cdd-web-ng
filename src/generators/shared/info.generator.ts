@@ -19,6 +19,41 @@ export class InfoGenerator {
 
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
+        sourceFile.addInterface({
+            name: 'ApiContact',
+            isExported: true,
+            properties: [
+                { name: 'name', type: 'string', hasQuestionToken: true },
+                { name: 'url', type: 'string', hasQuestionToken: true },
+                { name: 'email', type: 'string', hasQuestionToken: true },
+            ],
+            indexSignatures: [{ keyName: 'key', keyType: 'string', returnType: 'unknown' }],
+            docs: ['Contact information for the API (OAS Contact Object).'],
+        });
+
+        sourceFile.addInterface({
+            name: 'ApiLicense',
+            isExported: true,
+            properties: [
+                { name: 'name', type: 'string' },
+                { name: 'url', type: 'string', hasQuestionToken: true },
+                { name: 'identifier', type: 'string', hasQuestionToken: true },
+            ],
+            indexSignatures: [{ keyName: 'key', keyType: 'string', returnType: 'unknown' }],
+            docs: ['License metadata for the API (OAS License Object).'],
+        });
+
+        sourceFile.addInterface({
+            name: 'ApiExternalDocs',
+            isExported: true,
+            properties: [
+                { name: 'description', type: 'string', hasQuestionToken: true },
+                { name: 'url', type: 'string' },
+            ],
+            indexSignatures: [{ keyName: 'key', keyType: 'string', returnType: 'unknown' }],
+            docs: ['External documentation metadata (OAS External Documentation Object).'],
+        });
+
         // Generate ApiInfo Interface
         sourceFile.addInterface({
             name: 'ApiInfo',
@@ -36,15 +71,16 @@ export class InfoGenerator {
                 { name: 'termsOfService', type: 'string', hasQuestionToken: true },
                 {
                     name: 'contact',
-                    type: '{ name?: string; url?: string; email?: string; }',
+                    type: 'ApiContact',
                     hasQuestionToken: true,
                 },
                 {
                     name: 'license',
-                    type: '{ name: string; url?: string; identifier?: string; }',
+                    type: 'ApiLicense',
                     hasQuestionToken: true,
                 },
             ],
+            indexSignatures: [{ keyName: 'key', keyType: 'string', returnType: 'unknown' }],
             docs: ['Interface representing the metadata of the API.'],
         });
 
@@ -70,10 +106,11 @@ export class InfoGenerator {
                 { name: 'kind', type: 'string', hasQuestionToken: true, docs: ['Tag categorization (Extensions).'] },
                 {
                     name: 'externalDocs',
-                    type: '{ description?: string; url: string; }',
+                    type: 'ApiExternalDocs',
                     hasQuestionToken: true,
                 },
             ],
+            indexSignatures: [{ keyName: 'key', keyType: 'string', returnType: 'unknown' }],
             docs: ['Interface representing a tag defined in the API.'],
         });
 
@@ -113,7 +150,7 @@ export class InfoGenerator {
             declarations: [
                 {
                     name: 'API_EXTERNAL_DOCS',
-                    type: '{ description?: string; url: string; } | undefined',
+                    type: 'ApiExternalDocs | undefined',
                     initializer: JSON.stringify(this.parser.getSpec().externalDocs, null, 2),
                 },
             ],

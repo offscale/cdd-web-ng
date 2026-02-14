@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { HttpParamsBuilderGenerator } from '@src/generators/angular/utils/http-params-builder.generator.js';
+import { ContentEncoderGenerator } from '@src/generators/shared/content-encoder.generator.js';
 import { createTestProject } from '../shared/helpers.js';
 import ts from 'typescript';
 
@@ -57,20 +58,30 @@ class MockHttpParams {
 
 function getBuilderContext() {
     const project = createTestProject();
+    new ContentEncoderGenerator(project).generate('/');
     new HttpParamsBuilderGenerator(project).generate('/');
     const sourceFile = project.getSourceFileOrThrow('/utils/http-params-builder.ts');
+    const encoderFile = project.getSourceFileOrThrow('/utils/content-encoder.ts');
 
     // Strip imports so we can evaluate in the test context
     const codeWithoutImports = sourceFile.getText().replace(/import\s+.*from\s+['"].*['"];?/g, '');
+    const encoderCodeWithoutImports = encoderFile.getText().replace(/import\s+.*from\s+['"].*['"];?/g, '');
 
     const jsCode = ts.transpile(codeWithoutImports, {
         target: ts.ScriptTarget.ES2020,
         module: ts.ModuleKind.CommonJS,
     });
+    const encoderJsCode = ts.transpile(encoderCodeWithoutImports, {
+        target: ts.ScriptTarget.ES2020,
+        module: ts.ModuleKind.CommonJS,
+    });
 
     const exportsMock = {};
+    const encoderExports: Record<string, any> = {};
 
-    new Function('exports', 'HttpParams', jsCode)(exportsMock, MockHttpParams);
+    new Function('exports', encoderJsCode)(encoderExports);
+    const ContentEncoder = encoderExports.ContentEncoder;
+    new Function('exports', 'HttpParams', 'ContentEncoder', jsCode)(exportsMock, MockHttpParams, ContentEncoder);
 
     return {
         Builder: (exportsMock as any).HttpParamsBuilder,
@@ -102,6 +113,20 @@ describe('Utility: HttpParamsBuilder', () => {
             const val = 'foo/bar:baz';
             const res = Builder.serializeQueryParam(params, { name: 'q', allowReserved: true }, val);
             expect(res.get('q')).toBe('foo/bar:baz');
+        });
+
+        it('should encode query delimiters even when allowReserved=true', () => {
+            const params = createParams();
+            const val = 'a?b#c&d=e+f';
+            const res = Builder.serializeQueryParam(params, { name: 'q', allowReserved: true }, val);
+            expect(res.get('q')).toBe('a%3Fb%23c%26d%3De%2Bf');
+        });
+
+        it('should preserve percent-encoded triples when allowReserved=true', () => {
+            const params = createParams();
+            const val = 'a%2Fb';
+            const res = Builder.serializeQueryParam(params, { name: 'q', allowReserved: true }, val);
+            expect(res.get('q')).toBe('a%2Fb');
         });
 
         it('should still encode unsafe characters when allowReserved=true', () => {
@@ -143,10 +168,40 @@ describe('Utility: HttpParamsBuilder', () => {
             expect(res.get('p')).toBe('a%7Cb');
         });
 
+        it('should serialize spaceDelimited objects in query params', () => {
+            const params = createParams();
+            const res = Builder.serializeQueryParam(
+                params,
+                { name: 'color', style: 'spaceDelimited', explode: false },
+                { R: 100, G: 200 },
+            );
+            expect(res.get('color')).toBe('R%20100%20G%20200');
+        });
+
+        it('should serialize pipeDelimited objects in query params', () => {
+            const params = createParams();
+            const res = Builder.serializeQueryParam(
+                params,
+                { name: 'color', style: 'pipeDelimited', explode: false },
+                { R: 100, G: 200 },
+            );
+            expect(res.get('color')).toBe('R%7C100%7CG%7C200');
+        });
+
         it('should serialize tabDelimited arrays with encoded tab', () => {
             const params = createParams();
             const res = Builder.serializeQueryParam(params, { name: 't', style: 'tabDelimited' }, ['a', 'b']);
             expect(res.get('t')).toBe('a%09b');
+        });
+
+        it('should apply contentEncoding before query serialization', () => {
+            const params = createParams();
+            const res = Builder.serializeQueryParam(
+                params,
+                { name: 'bin', contentEncoderConfig: { contentEncoding: 'base64' } },
+                'hi',
+            );
+            expect(res.get('bin')).toBe('aGk%3D');
         });
 
         // New OAS 3.2 allowEmptyValue Tests
@@ -173,6 +228,13 @@ describe('Utility: HttpParamsBuilder', () => {
             const params = createParams();
             const res = Builder.serializeQueryParam(params, { name: 'flag' }, null);
             expect(res.get('flag')).toBeNull();
+        });
+    });
+
+    describe('serializePathParam', () => {
+        it('should encode path delimiters when allowReserved=true', () => {
+            const result = Builder.serializePathParam('id', 'a/b?c#d', 'simple', false, true);
+            expect(result).toBe('a%2Fb%3Fc%23d');
         });
     });
 

@@ -115,7 +115,15 @@ describe('Generators (Angular): ListComponentGenerator', () => {
 
         it('should handle a resource with only read-only properties', () => {
             const project = createTestProject();
-            const parser = new SwaggerParser(branchCoverageSpec as any, { options: { admin: true } } as any);
+            const specClone = JSON.parse(JSON.stringify(branchCoverageSpec));
+            for (const pathItem of Object.values(specClone.paths ?? {})) {
+                if (!pathItem || typeof pathItem !== 'object') continue;
+                const operation = (pathItem as any).get;
+                if (operation && operation.responses === undefined) {
+                    operation.responses = { '200': { description: 'ok' } };
+                }
+            }
+            const parser = new SwaggerParser(specClone as any, { options: { admin: true } } as any);
             const resource = discoverAdminResources(parser).find((r: Resource) => r.name === 'readOnlyResource')!;
             const generator = new ListComponentGenerator(project);
             generator.generate(resource, '/admin');
@@ -206,10 +214,7 @@ describe('Generators (Angular): ListComponentGenerator', () => {
                 name: 'orphans',
                 modelName: 'Orphan',
                 isEditable: true,
-                operations: [
-                    { action: 'list', methodName: 'listOrphans' } as any,
-                    { action: 'delete' } as any,
-                ],
+                operations: [{ action: 'list', methodName: 'listOrphans' } as any, { action: 'delete' } as any],
                 formProperties: [{ name: 'id', schema: { type: 'string' } as any }],
                 listProperties: [{ name: 'id', schema: { type: 'string' } as any }],
             };

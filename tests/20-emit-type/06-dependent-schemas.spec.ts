@@ -83,3 +83,40 @@ describe('Emitter: TypeGenerator (dependentSchemas)', () => {
         expect(typeText).toContain("(({ 'my-prop': any } & { extra?: string }) | { 'my-prop'?: never })");
     });
 });
+
+describe('Emitter: TypeGenerator (dependentRequired)', () => {
+    const setup = (schema: any) => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const config: GeneratorConfig = { input: '', output: '/out', options: {} };
+        const spec = {
+            openapi: '3.1.0',
+            info: { title: 'Dependent', version: '1' },
+            paths: {},
+            components: { schemas: { DependentModel: schema } },
+        };
+        const parser = new SwaggerParser(spec as any, config);
+        new TypeGenerator(parser, project, config).generate('/out');
+        return project.getSourceFileOrThrow('/out/models/index.ts');
+    };
+
+    it('should generate an intersection type for dependentRequired', () => {
+        const sourceFile = setup({
+            type: 'object',
+            properties: {
+                hasPhone: { type: 'boolean' },
+                phoneNumber: { type: 'string' },
+                phoneExtension: { type: 'string' },
+            },
+            dependentRequired: {
+                hasPhone: ['phoneNumber', 'phoneExtension'],
+            },
+        });
+
+        const typeText = sourceFile.getTypeAliasOrThrow('DependentModel').getTypeNodeOrThrow().getText();
+
+        expect(typeText).toContain('hasPhone?: boolean');
+        expect(typeText).toContain(
+            '& (({ hasPhone: unknown } & { phoneNumber: unknown; phoneExtension: unknown }) | { hasPhone?: never })',
+        );
+    });
+});

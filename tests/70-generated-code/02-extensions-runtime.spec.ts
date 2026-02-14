@@ -14,7 +14,7 @@ const extensionsSpec = {
                 operationId: 'getCachedData',
                 'x-cache-ttl': 300,
                 'x-important': true,
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
     },

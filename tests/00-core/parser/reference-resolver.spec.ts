@@ -94,6 +94,20 @@ describe('Core: ReferenceResolver', () => {
             expect(res).toBe('extern');
         });
 
+        it('should resolve JSON pointers with percent-encoded tokens', () => {
+            const spec = {
+                openapi: '3.2.0',
+                paths: {
+                    '/2.0/repositories/{username}': {
+                        get: { operationId: 'getRepo', responses: { '200': { description: 'ok' } } },
+                    },
+                },
+            };
+            cache.set(rootUri, spec as any);
+            const res = resolver.resolveReference('#/paths/~12.0~1repositories~1%7Busername%7D/get') as any;
+            expect(res?.operationId).toBe('getRepo');
+        });
+
         it('should return undefined if external file missing from cache', () => {
             const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
             const res = resolver.resolveReference('http://missing.com/doc.json');
@@ -279,6 +293,27 @@ describe('Core: ReferenceResolver', () => {
             cache.set('http://base/generic', { openapi: '3.0.0', paths: {} } as any);
             const resolved = resolver.resolveReference('#missing', 'http://base/generic', ['http://base/generic']);
             expect(resolved).toBeUndefined();
+        });
+
+        it('should resolve dynamic anchors when scope URIs include fragments', () => {
+            const specificSchema = {
+                $id: 'http://base/specific',
+                $defs: {
+                    overrideItem: {
+                        $dynamicAnchor: 'item',
+                        type: 'number',
+                    },
+                },
+            };
+
+            cache.set('http://base/specific', specificSchema as any);
+            ReferenceResolver.indexSchemaIds(specificSchema, 'http://base/specific', cache);
+
+            const resolved = resolver.resolveReference('#item', 'http://base/specific', [
+                'http://base/specific#/defs/overrideItem',
+            ]) as any;
+
+            expect(resolved?.type).toBe('number');
         });
     });
 

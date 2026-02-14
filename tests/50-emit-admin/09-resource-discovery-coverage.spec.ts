@@ -7,9 +7,32 @@ import { FormProperty, GeneratorConfig, Resource, ResourceOperation } from '@src
 import { branchCoverageSpec } from '../shared/specs.js';
 
 describe('Admin: resource-discovery (Coverage)', () => {
+    const ensureResponses = (spec: any) => {
+        if (!spec?.paths) return spec;
+        const methods = ['get', 'post', 'put', 'delete', 'options', 'head', 'patch', 'trace', 'query'];
+        for (const pathItem of Object.values(spec.paths)) {
+            if (!pathItem || typeof pathItem !== 'object') continue;
+            for (const method of methods) {
+                const operation = (pathItem as any)[method];
+                if (operation && operation.responses === undefined) {
+                    operation.responses = { '200': { description: 'ok' } };
+                }
+            }
+            if ((pathItem as any).additionalOperations) {
+                for (const operation of Object.values((pathItem as any).additionalOperations)) {
+                    if (operation && (operation as any).responses === undefined) {
+                        (operation as any).responses = { '200': { description: 'ok' } };
+                    }
+                }
+            }
+        }
+        return spec;
+    };
+
     const runDiscovery = (spec: object) => {
         const config: GeneratorConfig = { options: { admin: true } } as any;
-        const parser = new SwaggerParser(spec as any, config);
+        const specClone = ensureResponses(JSON.parse(JSON.stringify(spec)));
+        const parser = new SwaggerParser(specClone as any, config);
         return discoverAdminResources(parser);
     };
 
@@ -23,6 +46,7 @@ describe('Admin: resource-discovery (Coverage)', () => {
                         tags: ['Items201'],
                         responses: {
                             '201': {
+                                description: 'ok',
                                 content: { 'application/json': { schema: { $ref: '#/components/schemas/Item' } } },
                             },
                         },
@@ -74,7 +98,7 @@ describe('Admin: resource-discovery (Coverage)', () => {
                         // collection path, no ID suffix
                         tags: ['Items'],
                         operationId: 'uploadItems', // has 'upload' keyword
-                        responses: { '200': {} },
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             },
@@ -96,6 +120,7 @@ describe('Admin: resource-discovery (Coverage)', () => {
                         tags: ['Items'],
                         responses: {
                             '200': {
+                                description: 'ok',
                                 content: { 'application/json': { schema: { $ref: '#/components/schemas/Item' } } },
                             },
                         },
@@ -127,6 +152,7 @@ describe('Admin: resource-discovery (Coverage)', () => {
                         tags: ['Items'],
                         responses: {
                             '200': {
+                                description: 'ok',
                                 content: {
                                     'application/json': {
                                         schema: {
@@ -232,7 +258,10 @@ describe('Admin: resource-discovery (Coverage)', () => {
                     get: {
                         tags: ['BadRef'],
                         responses: {
-                            '200': { content: { 'application/json': { schema: { $ref: '#/non/existent' } } } },
+                            '200': {
+                                description: 'ok',
+                                content: { 'application/json': { schema: { $ref: '#/non/existent' } } },
+                            },
                         },
                     },
                 },
@@ -261,6 +290,7 @@ describe('Admin: resource-discovery (Coverage)', () => {
                         tags: ['BadPropRef'],
                         responses: {
                             '200': {
+                                description: 'ok',
                                 content: {
                                     'application/json': {
                                         schema: {
@@ -284,7 +314,9 @@ describe('Admin: resource-discovery (Coverage)', () => {
         const specWithUntagged = {
             openapi: '3.0.0',
             info: { title: 'Test', version: '1.0' },
-            paths: { '/some-resource': { get: { operationId: 'getSome' } } },
+            paths: {
+                '/some-resource': { get: { operationId: 'getSome', responses: { '200': { description: 'ok' } } } },
+            },
         };
         const resources = runDiscovery(specWithUntagged);
         const resource = resources.find((r: Resource) => r.name === 'someResource');
@@ -302,7 +334,7 @@ describe('Admin: resource-discovery (Coverage)', () => {
                     post: {
                         tags: ['Items'],
                         operationId: 'customCol',
-                        responses: { '200': {} },
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
                 '/items/{id}/custom-item': {
@@ -311,7 +343,7 @@ describe('Admin: resource-discovery (Coverage)', () => {
                         tags: ['Items'],
                         operationId: 'customItem',
                         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-                        responses: { '200': {} },
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             },
@@ -339,6 +371,7 @@ describe('Admin: resource-discovery (Coverage)', () => {
                         tags: ['Configs'],
                         responses: {
                             '200': {
+                                description: 'ok',
                                 content: {
                                     'application/json': {
                                         schema: {

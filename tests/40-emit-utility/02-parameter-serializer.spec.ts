@@ -2,22 +2,33 @@ import { describe, expect, it } from 'vitest';
 import ts from 'typescript';
 
 import { ParameterSerializerGenerator } from '@src/generators/shared/parameter-serializer.generator.js';
+import { ContentEncoderGenerator } from '@src/generators/shared/content-encoder.generator.js';
 import { createTestProject } from '../shared/helpers.js';
 
 function getSerializerContext() {
     const project = createTestProject();
+    new ContentEncoderGenerator(project).generate('/');
     new ParameterSerializerGenerator(project).generate('/');
     const sourceFile = project.getSourceFileOrThrow('/utils/parameter-serializer.ts');
+    const encoderFile = project.getSourceFileOrThrow('/utils/content-encoder.ts');
 
     const codeWithoutImports = sourceFile.getText().replace(/import\s+.*from\s+['"].*['"];?/g, '');
+    const encoderCodeWithoutImports = encoderFile.getText().replace(/import\s+.*from\s+['"].*['"];?/g, '');
 
     const jsCode = ts.transpile(codeWithoutImports, {
         target: ts.ScriptTarget.ES2020,
         module: ts.ModuleKind.CommonJS,
     });
+    const encoderJsCode = ts.transpile(encoderCodeWithoutImports, {
+        target: ts.ScriptTarget.ES2020,
+        module: ts.ModuleKind.CommonJS,
+    });
 
     const exportsMock: Record<string, any> = {};
-    new Function('exports', jsCode)(exportsMock);
+    const encoderExports: Record<string, any> = {};
+    new Function('exports', encoderJsCode)(encoderExports);
+    const ContentEncoder = encoderExports.ContentEncoder;
+    new Function('exports', 'ContentEncoder', jsCode)(exportsMock, ContentEncoder);
 
     return {
         ParameterSerializer: (exportsMock as any).ParameterSerializer,
@@ -71,6 +82,14 @@ describe('Utility: ParameterSerializer', () => {
         ]);
     });
 
+    it('should support nested encoding maps for urlencoded bodies', () => {
+        const result = ParameterSerializer.serializeUrlEncodedBody(
+            { meta: { a: 1, b: 2 } },
+            { meta: { encoding: { a: { contentType: 'text/plain' }, b: { contentType: 'text/plain' } } } },
+        );
+        expect(result).toEqual([{ key: 'meta', value: 'a%3D1%26b%3D2' }]);
+    });
+
     it('should serialize spaceDelimited objects in query params', () => {
         const result = ParameterSerializer.serializeQueryParam(
             { name: 'color', style: 'spaceDelimited', explode: false },
@@ -98,10 +117,10 @@ describe('Utility: ParameterSerializer', () => {
     });
 
     it('should keep RFC6570 comma delimiters for form arrays', () => {
-        const result = ParameterSerializer.serializeQueryParam(
-            { name: 'color', style: 'form', explode: false },
-            ['blue', 'black'],
-        );
+        const result = ParameterSerializer.serializeQueryParam({ name: 'color', style: 'form', explode: false }, [
+            'blue',
+            'black',
+        ]);
         expect(result).toEqual([{ key: 'color', value: 'blue,black' }]);
     });
 
@@ -113,6 +132,22 @@ describe('Utility: ParameterSerializer', () => {
         expect(result).toEqual([{ key: 'color', value: 'R,100,G,200' }]);
     });
 
+    it('should preserve percent-encoded triples when allowReserved is true for query params', () => {
+        const result = ParameterSerializer.serializeQueryParam(
+            { name: 'q', style: 'form', explode: false, allowReserved: true },
+            'a%2Fb',
+        );
+        expect(result).toEqual([{ key: 'q', value: 'a%2Fb' }]);
+    });
+
+    it('should encode query delimiters when allowReserved is true for query params', () => {
+        const result = ParameterSerializer.serializeQueryParam(
+            { name: 'q', style: 'form', explode: false, allowReserved: true },
+            'a?b#c&d=e+f',
+        );
+        expect(result).toEqual([{ key: 'q', value: 'a%3Fb%23c%26d%3De%2Bf' }]);
+    });
+
     it('should serialize pipeDelimited objects in query params', () => {
         const result = ParameterSerializer.serializeQueryParam(
             { name: 'color', style: 'pipeDelimited', explode: false },
@@ -122,10 +157,10 @@ describe('Utility: ParameterSerializer', () => {
     });
 
     it('should serialize tabDelimited arrays in query params', () => {
-        const result = ParameterSerializer.serializeQueryParam(
-            { name: 'ids', style: 'tabDelimited', explode: false },
-            ['a', 'b'],
-        );
+        const result = ParameterSerializer.serializeQueryParam({ name: 'ids', style: 'tabDelimited', explode: false }, [
+            'a',
+            'b',
+        ]);
         expect(result).toEqual([{ key: 'ids', value: 'a%09b' }]);
     });
 
@@ -134,8 +169,35 @@ describe('Utility: ParameterSerializer', () => {
         expect(result).toBe('color=blue,black');
     });
 
+    it('should preserve percent-encoded triples when allowReserved is true for path params', () => {
+        const result = ParameterSerializer.serializePathParam('id', 'a%2Fb', 'simple', false, true);
+        expect(result).toBe('a%2Fb');
+    });
+
     it('should keep "/" "?" "#" percent-encoded in path params with allowReserved', () => {
         const result = ParameterSerializer.serializePathParam('id', 'a/b?c#d', 'simple', false, true);
         expect(result).toBe('a%2Fb%3Fc%23d');
+    });
+
+    it('should apply contentEncoding for query params before serialization', () => {
+        const result = ParameterSerializer.serializeQueryParam(
+            { name: 'bin', contentEncoderConfig: { contentEncoding: 'base64' } },
+            'hi',
+        );
+        expect(result).toEqual([{ key: 'bin', value: 'aGk%3D' }]);
+    });
+
+    it('should apply contentEncoding for path params before encoding', () => {
+        const result = ParameterSerializer.serializePathParam('id', 'hi', 'simple', false, false, undefined, {
+            contentEncoding: 'base64',
+        });
+        expect(result).toBe('aGk%3D');
+    });
+
+    it('should apply contentEncoding for header params without percent-encoding', () => {
+        const result = ParameterSerializer.serializeHeaderParam('hi', false, undefined, undefined, undefined, {
+            contentEncoding: 'base64',
+        });
+        expect(result).toBe('aGk=');
     });
 });

@@ -95,6 +95,12 @@ export class ResponseHeaderParserGenerator {
                 return new Date(value);
             case 'linkset':
                 return LinkSetParser.parseHeader(value);
+            case 'linkset+json':
+                try {
+                    return LinkSetParser.parseJson(JSON.parse(value));
+                } catch {
+                    return value;
+                }
             default: return value;
         }`,
         });

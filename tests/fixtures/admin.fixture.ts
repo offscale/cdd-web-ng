@@ -5,12 +5,12 @@ export const adminFormSpec = {
     info,
     paths: {
         '/widgets': {
-            get: { tags: ['Widgets'], responses: { '200': {} } },
+            get: { tags: ['Widgets'], responses: { '200': { description: 'ok' } } },
             post: {
                 tags: ['Widgets'],
                 operationId: 'postWidgets',
                 requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/Widget' } } } },
-                responses: {},
+                responses: { '200': { description: 'ok' } },
             },
         },
     },
@@ -74,29 +74,31 @@ export const listComponentSpec = {
     paths: {
         '/icon-tests': {
             get: { tags: ['IconTests'], responses: { '200': { description: 'ok' } } },
-            post: { tags: ['IconTests'], operationId: 'createItem', responses: {} },
+            post: { tags: ['IconTests'], operationId: 'createItem', responses: { '200': { description: 'ok' } } },
         },
         '/icon-tests/{id}': {
             put: {
                 tags: ['IconTests'],
                 operationId: 'updateItem',
                 parameters: [{ name: 'id', in: 'path' }],
-                responses: {},
+                responses: { '200': { description: 'ok' } },
             },
             delete: {
                 tags: ['IconTests'],
                 operationId: 'deleteItem',
                 parameters: [{ name: 'id', in: 'path' }],
-                responses: {},
+                responses: { '200': { description: 'ok' } },
             },
         },
-        '/icon-tests/add': { post: { tags: ['IconTests'], operationId: 'addItem', responses: {} } },
+        '/icon-tests/add': {
+            post: { tags: ['IconTests'], operationId: 'addItem', responses: { '200': { description: 'ok' } } },
+        },
         '/icon-tests/{id}/remove': {
             post: {
                 tags: ['IconTests'],
                 operationId: 'removeItem',
                 parameters: [{ name: 'id', in: 'path' }],
-                responses: {},
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/icon-tests/{id}/start': {
@@ -104,7 +106,7 @@ export const listComponentSpec = {
                 tags: ['IconTests'],
                 operationId: 'startItem',
                 parameters: [{ name: 'id', in: 'path' }],
-                responses: {},
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/icon-tests/{id}/pause': {
@@ -112,16 +114,18 @@ export const listComponentSpec = {
                 tags: ['IconTests'],
                 operationId: 'pauseProcess',
                 parameters: [{ name: 'id', in: 'path' }],
-                responses: {},
+                responses: { '200': { description: 'ok' } },
             },
         },
-        '/icon-tests/sync-all': { post: { tags: ['IconTests'], operationId: 'syncAll', responses: {} } },
+        '/icon-tests/sync-all': {
+            post: { tags: ['IconTests'], operationId: 'syncAll', responses: { '200': { description: 'ok' } } },
+        },
         '/icon-tests/{id}/approve': {
             post: {
                 tags: ['IconTests'],
                 operationId: 'approveItem',
                 parameters: [{ name: 'id', in: 'path' }],
-                responses: {},
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/icon-tests/{id}/block': {
@@ -129,15 +133,18 @@ export const listComponentSpec = {
                 tags: ['IconTests'],
                 operationId: 'blockUser',
                 parameters: [{ name: 'id', in: 'path' }],
-                responses: {},
+                responses: { '200': { description: 'ok' } },
             },
         },
-        '/no-list': { post: { tags: ['NoListResource'], responses: { '200': {} } } },
+        '/no-list': { post: { tags: ['NoListResource'], responses: { '200': { description: 'ok' } } } },
         '/no-props': {
             get: {
                 tags: ['NoPropsResource'],
                 responses: {
-                    '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/NoProps' } } } },
+                    '200': {
+                        description: 'ok',
+                        content: { 'application/json': { schema: { $ref: '#/components/schemas/NoProps' } } },
+                    },
                 },
             },
         },
@@ -146,6 +153,7 @@ export const listComponentSpec = {
                 tags: ['NoListablePropsResource'],
                 responses: {
                     '200': {
+                        description: 'ok',
                         content: { 'application/json': { schema: { $ref: '#/components/schemas/NoListableProps' } } },
                     },
                 },

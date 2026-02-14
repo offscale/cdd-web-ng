@@ -14,6 +14,7 @@ describe('Core Utils: SpecLoader', () => {
     global.fetch = mockFetch;
 
     beforeEach(() => {
+        vi.clearAllMocks();
         // Mock validation to pass by default
         (validateSpec as Mock).mockImplementation(() => {});
         (fs.existsSync as Mock).mockReturnValue(true);
@@ -58,9 +59,7 @@ describe('Core Utils: SpecLoader', () => {
         (fs.readFileSync as Mock).mockImplementation(() => {
             throw 'string failure';
         });
-        await expect(SpecLoader.load('weird.json')).rejects.toThrow(
-            'Failed to read content from "file://',
-        );
+        await expect(SpecLoader.load('weird.json')).rejects.toThrow('Failed to read content from "file://');
         await expect(SpecLoader.load('weird.json')).rejects.toThrow('string failure');
     });
 
@@ -155,6 +154,152 @@ properties:
         const result = await SpecLoader.load('http://internal.com/spec.json');
         expect(result.entrySpec).toBeDefined();
         expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('should preload external specs referenced by Link operationRef', async () => {
+        const entrySpec = JSON.stringify({
+            openapi: '3.2.0',
+            info: { title: 'Entry', version: '1.0' },
+            paths: {
+                '/entry': {
+                    get: {
+                        operationId: 'getEntry',
+                        responses: {
+                            '200': {
+                                description: 'ok',
+                                links: {
+                                    ExternalLink: {
+                                        operationRef: 'other.json#/paths/~1external/get',
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        const externalSpec = JSON.stringify({
+            openapi: '3.2.0',
+            info: { title: 'External', version: '1.0' },
+            paths: {
+                '/external': {
+                    get: {
+                        operationId: 'getExternal',
+                        responses: { '200': { description: 'ok' } },
+                    },
+                },
+            },
+        });
+
+        mockFetch.mockImplementation((url: string) => {
+            if (url === 'http://api.com/spec.json') {
+                return Promise.resolve({ ok: true, text: () => Promise.resolve(entrySpec) });
+            }
+            if (url === 'http://api.com/other.json') {
+                return Promise.resolve({ ok: true, text: () => Promise.resolve(externalSpec) });
+            }
+            return Promise.resolve({ ok: false, statusText: 'Not Found' });
+        });
+
+        const result = await SpecLoader.load('http://api.com/spec.json');
+
+        expect(result.entrySpec).toBeDefined();
+        expect(mockFetch).toHaveBeenCalledTimes(2);
+        expect(result.cache.has('http://api.com/other.json')).toBe(true);
+    });
+
+    it('should throw when duplicate operationId values exist across documents in the OAD', async () => {
+        const entrySpec = JSON.stringify({
+            openapi: '3.2.0',
+            info: { title: 'Entry', version: '1.0' },
+            paths: {
+                '/entry': {
+                    get: {
+                        operationId: 'duplicateOp',
+                        responses: { '200': { description: 'ok' } },
+                    },
+                },
+            },
+            components: {
+                schemas: {
+                    Foo: {
+                        $ref: 'external.json#/components/schemas/Foo',
+                    },
+                },
+            },
+        });
+
+        const externalSpec = JSON.stringify({
+            openapi: '3.2.0',
+            info: { title: 'External', version: '1.0' },
+            paths: {
+                '/external': {
+                    get: {
+                        operationId: 'duplicateOp',
+                        responses: { '200': { description: 'ok' } },
+                    },
+                },
+            },
+            components: {
+                schemas: {
+                    Foo: { type: 'string' },
+                },
+            },
+        });
+
+        mockFetch.mockImplementation((url: string) => {
+            if (url === 'http://api.com/spec.json') {
+                return Promise.resolve({ ok: true, text: () => Promise.resolve(entrySpec) });
+            }
+            if (url === 'http://api.com/external.json') {
+                return Promise.resolve({ ok: true, text: () => Promise.resolve(externalSpec) });
+            }
+            return Promise.resolve({ ok: false, statusText: 'Not Found' });
+        });
+
+        await expect(SpecLoader.load('http://api.com/spec.json')).rejects.toThrow(
+            /Duplicate operationId .* across OpenAPI documents/,
+        );
+    });
+
+    it('should validate referenced OpenAPI documents in the cache', async () => {
+        const entrySpec = JSON.stringify({
+            openapi: '3.2.0',
+            info: { title: 'Entry', version: '1.0' },
+            paths: {
+                '/entry': {
+                    $ref: 'other.json#/paths/~1external',
+                },
+            },
+        });
+
+        const externalSpec = JSON.stringify({
+            openapi: '3.2.0',
+            info: { title: 'External', version: '1.0' },
+            paths: {
+                '/external': {
+                    get: {
+                        operationId: 'getExternal',
+                        responses: { '200': { description: 'ok' } },
+                    },
+                },
+            },
+        });
+
+        mockFetch.mockImplementation((url: string) => {
+            if (url === 'http://api.com/spec.json') {
+                return Promise.resolve({ ok: true, text: () => Promise.resolve(entrySpec) });
+            }
+            if (url === 'http://api.com/other.json') {
+                return Promise.resolve({ ok: true, text: () => Promise.resolve(externalSpec) });
+            }
+            return Promise.resolve({ ok: false, statusText: 'Not Found' });
+        });
+
+        await SpecLoader.load('http://api.com/spec.json');
+
+        expect(validateSpec).toHaveBeenCalledTimes(2);
     });
 
     it('should throw if load does not populate entry spec', async () => {

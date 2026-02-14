@@ -22,6 +22,18 @@ export class ServerUrlGenerator {
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
         sourceFile.addInterface({
+            name: 'ServerVariable',
+            isExported: true,
+            properties: [
+                { name: 'enum', type: 'string[]', hasQuestionToken: true },
+                { name: 'default', type: 'string' },
+                { name: 'description', type: 'string', hasQuestionToken: true },
+            ],
+            indexSignatures: [{ keyName: 'key', keyType: 'string', returnType: 'unknown' }],
+            docs: ['Server variable definition (OAS Server Variable Object).'],
+        });
+
+        sourceFile.addInterface({
             name: 'ServerConfiguration',
             isExported: true,
             properties: [
@@ -31,9 +43,11 @@ export class ServerUrlGenerator {
                 {
                     name: 'variables',
                     hasQuestionToken: true,
-                    type: 'Record<string, { enum?: string[]; default: string; description?: string; }>',
+                    type: 'Record<string, ServerVariable>',
                 },
             ],
+            indexSignatures: [{ keyName: 'key', keyType: 'string', returnType: 'unknown' }],
+            docs: ['Server configuration entries declared in the OpenAPI document.'],
         });
 
         sourceFile.addVariableStatement({

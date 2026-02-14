@@ -140,6 +140,46 @@ describe('Emitter: InfoGenerator', () => {
         expect(API_EXTERNAL_DOCS.description).toBe('Full Documentation');
     });
 
+    it('should preserve x- extensions and allow them in metadata types', () => {
+        const spec = {
+            openapi: '3.2.0',
+            info: {
+                title: 'Extensions API',
+                version: '1.0',
+                'x-info': true,
+                contact: {
+                    name: 'Support',
+                    'x-contact': 123,
+                },
+                license: {
+                    name: 'MIT',
+                    'x-license': 'meta',
+                },
+            },
+            tags: [{ name: 'beta', 'x-tag': 'flag' }],
+            externalDocs: {
+                url: 'https://example.com/docs',
+                'x-doc': 'extra',
+            },
+            paths: {},
+        };
+        const project = runGenerator(spec);
+        const { API_INFO, API_TAGS, API_EXTERNAL_DOCS } = compileGeneratedFile(project);
+
+        expect(API_INFO['x-info']).toBe(true);
+        expect(API_INFO.contact['x-contact']).toBe(123);
+        expect(API_INFO.license['x-license']).toBe('meta');
+        expect(API_TAGS[0]['x-tag']).toBe('flag');
+        expect(API_EXTERNAL_DOCS['x-doc']).toBe('extra');
+
+        const sourceFile = project.getSourceFileOrThrow('/out/info.ts');
+        expect(sourceFile.getInterfaceOrThrow('ApiInfo').getIndexSignatures().length).toBe(1);
+        expect(sourceFile.getInterfaceOrThrow('ApiTag').getIndexSignatures().length).toBe(1);
+        expect(sourceFile.getInterfaceOrThrow('ApiContact').getIndexSignatures().length).toBe(1);
+        expect(sourceFile.getInterfaceOrThrow('ApiLicense').getIndexSignatures().length).toBe(1);
+        expect(sourceFile.getInterfaceOrThrow('ApiExternalDocs').getIndexSignatures().length).toBe(1);
+    });
+
     it('should handle missing optional root metadata (Swagger 2.0 compatibility)', () => {
         const spec = {
             swagger: '2.0',

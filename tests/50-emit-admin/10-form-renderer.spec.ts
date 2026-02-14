@@ -34,6 +34,9 @@ describe('Admin: FormRenderer', () => {
                 { type: 'uniqueItems' },
                 { type: 'minItems', value: 1 },
                 { type: 'maxItems', value: 10 },
+                { type: 'minProperties', value: 2 },
+                { type: 'maxProperties', value: 5 },
+                { type: 'contains', schema: { type: 'string' }, min: 1, max: 2 },
                 { type: 'const', value: 'val' },
                 { type: 'const', value: 123 },
             ];
@@ -41,6 +44,9 @@ describe('Admin: FormRenderer', () => {
             // Ensure const renders correctly with quotes for string and none for number
             expect(result).toContain("CustomValidators.constValidator('val')");
             expect(result).toContain('CustomValidators.constValidator(123)');
+            expect(result).toContain('CustomValidators.minProperties(2)');
+            expect(result).toContain('CustomValidators.maxProperties(5)');
+            expect(result).toContain('CustomValidators.contains({\"type\":\"string\"}, 1, 2)');
         });
 
         it('should render nested `not` validator recursively', () => {
@@ -267,7 +273,7 @@ describe('Admin: FormRenderer', () => {
             expect(result).toContain(`new FormControl<string | null>(item?.name ?? null, [Validators.required])`);
         });
 
-        it('should render map item initializer with key pattern validators', () => {
+        it('should render map item initializer with key pattern and length validators', () => {
             const valueControl: FormControlModel = {
                 name: 'val',
                 propertyName: 'val',
@@ -276,10 +282,10 @@ describe('Admin: FormRenderer', () => {
                 validationRules: [],
                 controlType: 'control',
             };
-            const result = FormInitializerRenderer.renderMapItemInitializer(valueControl, '^[a-z]+$');
+            const result = FormInitializerRenderer.renderMapItemInitializer(valueControl, '^[a-z]+$', 2, 8);
 
             expect(result).toContain(
-                "new FormGroup({ 'key': new FormControl<string>(item?.key ?? '', [Validators.required, Validators.pattern(/^[a-z]+$/)])",
+                "new FormGroup({ 'key': new FormControl<string>(item?.key ?? '', [Validators.required, Validators.pattern(/^[a-z]+$/), Validators.minLength(2), Validators.maxLength(8)])",
             );
         });
 

@@ -38,14 +38,15 @@ describe('Generated Code: Service Test Generators', () => {
      * Setup function that always sets methodName on operations as needed.
      */
     const setupTestGen = (specPart: any) => {
+        const specClone = JSON.parse(JSON.stringify(specPart));
         const spec = {
             openapi: '3.0.0',
             info: { title: 'Test Gen', version: '1.0' },
             paths: {
                 '/dummy': { get: { responses: { '204': { description: 'ok' } } } },
-                ...specPart.paths,
+                ...specClone.paths,
             },
-            components: specPart.components || {},
+            components: specClone.components || {},
         };
         const parser = new SwaggerParser(spec as any, config);
         const analyzer = new ServiceMethodAnalyzer(config, parser);
@@ -123,13 +124,23 @@ describe('Generated Code: Service Test Generators', () => {
                     '/return-string': {
                         get: {
                             operationId: 'returnString',
-                            responses: { '200': { content: { 'application/json': { schema: { type: 'string' } } } } },
+                            responses: {
+                                '200': {
+                                    description: 'ok',
+                                    content: { 'application/json': { schema: { type: 'string' } } },
+                                },
+                            },
                         },
                     },
                     '/return-bool': {
                         get: {
                             operationId: 'returnBool',
-                            responses: { '200': { content: { 'application/json': { schema: { type: 'boolean' } } } } },
+                            responses: {
+                                '200': {
+                                    description: 'ok',
+                                    content: { 'application/json': { schema: { type: 'boolean' } } },
+                                },
+                            },
                         },
                     },
                     '/return-model-array': {
@@ -137,6 +148,7 @@ describe('Generated Code: Service Test Generators', () => {
                             operationId: 'returnModelArray',
                             responses: {
                                 '200': {
+                                    description: 'ok',
                                     content: {
                                         'application/json': {
                                             schema: {
@@ -159,7 +171,7 @@ describe('Generated Code: Service Test Generators', () => {
                                     },
                                 },
                             },
-                            responses: { '200': {} },
+                            responses: { '200': { description: 'ok' } },
                         },
                     },
                 },
@@ -220,7 +232,7 @@ describe('Generated Code: Service Test Generators', () => {
                                     example: 'user-123',
                                 },
                             ],
-                            responses: { '200': {} },
+                            responses: { '200': { description: 'ok' } },
                         },
                     },
                 },
@@ -257,7 +269,7 @@ describe('Generated Code: Service Test Generators', () => {
                                     },
                                 },
                             ],
-                            responses: { '200': {} },
+                            responses: { '200': { description: 'ok' } },
                         },
                     },
                 },
@@ -297,7 +309,7 @@ describe('Generated Code: Service Test Generators', () => {
                                     },
                                 },
                             ],
-                            responses: { '200': {} },
+                            responses: { '200': { description: 'ok' } },
                         },
                     },
                 },
@@ -327,7 +339,7 @@ describe('Generated Code: Service Test Generators', () => {
                             parameters: [
                                 { name: 'filter', in: 'query', schema: { $ref: '#/components/schemas/Filter' } },
                             ],
-                            responses: { '200': {} },
+                            responses: { '200': { description: 'ok' } },
                         },
                     },
                 },
@@ -664,7 +676,7 @@ describe('Generated Code: Service Test Generators', () => {
                     methodName: 'doThing',
                     method: 'GET',
                     path: '/things/{id}',
-                    responses: { '200': {} },
+                    responses: { '200': { description: 'ok' } },
                     parameters: undefined,
                 },
             ]);
@@ -675,7 +687,7 @@ describe('Generated Code: Service Test Generators', () => {
                 {
                     method: 'GET',
                     path: '/things/{id}',
-                    responses: { '200': {} },
+                    responses: { '200': { description: 'ok' } },
                     parameters: undefined,
                 },
             ]);
@@ -708,7 +720,10 @@ describe('Generated Code: Service Test Generators', () => {
                                 },
                             },
                             responses: {
-                                '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/Resp' } } } },
+                                '200': {
+                                    description: 'ok',
+                                    content: { 'application/json': { schema: { $ref: '#/components/schemas/Resp' } } },
+                                },
                             },
                         },
                     },

@@ -28,7 +28,7 @@ describe('Emitter: ServiceMethodGenerator (Multipart Defaults)', () => {
                                 },
                             },
                         },
-                        responses: { '200': {} },
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             },
@@ -92,7 +92,7 @@ describe('Emitter: ServiceMethodGenerator (Multipart Defaults)', () => {
                     },
                 },
             },
-            responses: { '200': {} },
+            responses: { '200': { description: 'ok' } },
         };
 
         methodGen.addServiceMethod(serviceClass, op);
@@ -121,7 +121,7 @@ describe('Emitter: ServiceMethodGenerator (Multipart Defaults)', () => {
                     },
                 },
             },
-            responses: { '200': {} },
+            responses: { '200': { description: 'ok' } },
         };
 
         methodGen.addServiceMethod(serviceClass, op);

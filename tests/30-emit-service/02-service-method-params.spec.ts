@@ -34,24 +34,51 @@ const specParamTests = {
                         content: { 'application/xml': { schema: { type: 'string' } } },
                     },
                 ],
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
+            },
+        },
+        '/xml-plus-params/{soapId}': {
+            get: {
+                operationId: 'getSoapParams',
+                parameters: [
+                    {
+                        name: 'soapFilter',
+                        in: 'query',
+                        content: {
+                            'application/soap+xml': {
+                                schema: {
+                                    type: 'object',
+                                    xml: { name: 'SoapFilter' },
+                                    properties: { active: { type: 'boolean', xml: { attribute: true } } },
+                                },
+                            },
+                        },
+                    },
+                    {
+                        name: 'soapId',
+                        in: 'path',
+                        required: true,
+                        content: { 'text/xml': { schema: { type: 'string' } } },
+                    },
+                ],
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/deprecated-endpoint': {
-            get: { operationId: 'getDeprecated', deprecated: true, responses: { '200': {} } },
+            get: { operationId: 'getDeprecated', deprecated: true, responses: { '200': { description: 'ok' } } },
         },
         '/deprecated-param': {
             get: {
                 operationId: 'getDeprecatedParam',
                 parameters: [{ name: 'id', in: 'query', deprecated: true, schema: { type: 'string' } }],
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/cookie-test': {
             get: {
                 operationId: 'getWithCookies',
                 parameters: [{ name: 'session_id', in: 'cookie', schema: { type: 'string' } }],
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/cookie-strict-defaults': {
@@ -60,12 +87,12 @@ const specParamTests = {
                 parameters: [
                     // Should default to explode: true (default style: form)
                     { name: 'default_cookie', in: 'cookie', schema: { type: 'string' } },
-                    // Explicit style: simple should default to explode: false
-                    { name: 'simple_cookie', in: 'cookie', style: 'simple', schema: { type: 'string' } },
+                    // Explicit style: cookie should default to explode: true
+                    { name: 'simple_cookie', in: 'cookie', style: 'cookie', schema: { type: 'string' } },
                     // Allow Reserved test
                     { name: 'reserved_cookie', in: 'cookie', schema: { type: 'string' }, allowReserved: true },
                 ],
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/query-string': {
@@ -78,7 +105,7 @@ const specParamTests = {
                         content: { 'application/json': { schema: { type: 'object' } } },
                     },
                 ],
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/query-form': {
@@ -91,7 +118,7 @@ const specParamTests = {
                         content: { 'application/x-www-form-urlencoded': { schema: { type: 'object' } } },
                     },
                 ],
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/query-form-encoded': {
@@ -119,7 +146,7 @@ const specParamTests = {
                         },
                     },
                 ],
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/query-content': {
@@ -147,7 +174,7 @@ const specParamTests = {
                         },
                     },
                 ],
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/search/{filter}': {
@@ -161,7 +188,7 @@ const specParamTests = {
                         content: { 'application/json': { schema: { type: 'object' } } },
                     },
                 ],
-                responses: {},
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/info': {
@@ -174,7 +201,7 @@ const specParamTests = {
                         content: { 'application/json': { schema: { type: 'object' } } },
                     },
                 ],
-                responses: {},
+                responses: { '200': { description: 'ok' } },
             },
         },
     },
@@ -231,6 +258,25 @@ describe('Emitter: ServiceMethodGenerator (Parameters)', () => {
         expect(body).toContain(`xmlIdSerialized = XmlBuilder.serialize(xmlId, 'xmlId',`);
     });
 
+    it('should detect +xml and text/xml parameters and generate xml serialization logic', () => {
+        const { methodGen, serviceClass } = createTestEnvironment(specParamTests);
+        const opKey = '/xml-plus-params/{soapId}';
+        const op: PathInfo = {
+            ...specParamTests.paths[opKey].get,
+            method: 'GET',
+            path: opKey,
+            methodName: 'getSoapParams',
+        } as any;
+
+        methodGen.addServiceMethod(serviceClass, op);
+        const body = serviceClass.getMethodOrThrow('getSoapParams').getBodyText()!;
+
+        expect(body).toContain(`let soapFilterSerialized: any = soapFilter;`);
+        expect(body).toContain(`soapFilterSerialized = XmlBuilder.serialize(soapFilter, 'SoapFilter',`);
+        expect(body).toContain(`let soapIdSerialized: any = soapId;`);
+        expect(body).toContain(`soapIdSerialized = XmlBuilder.serialize(soapId, 'soapId',`);
+    });
+
     it('should generate @deprecated JSDoc for deprecated operations', () => {
         const { methodGen, serviceClass } = createTestEnvironment(specParamTests);
         const op: PathInfo = {
@@ -244,6 +290,64 @@ describe('Emitter: ServiceMethodGenerator (Parameters)', () => {
         const method = serviceClass.getMethodOrThrow('getDeprecated');
         const docs = method.getJsDocs().map(doc => doc.getInnerText());
         expect(docs[0]).toContain('@deprecated');
+    });
+
+    it('should emit @param tags for parameter descriptions', () => {
+        const spec = {
+            openapi: '3.1.0',
+            info: { title: 'Param Docs', version: '1.0' },
+            paths: {
+                '/users/{id}': {
+                    post: {
+                        operationId: 'updateUser',
+                        parameters: [
+                            {
+                                name: 'id',
+                                in: 'path',
+                                required: true,
+                                description: 'User id.',
+                                schema: { type: 'string' },
+                            },
+                            {
+                                name: 'verbose',
+                                in: 'query',
+                                description: 'Verbose flag.',
+                                schema: { type: 'boolean' },
+                            },
+                        ],
+                        requestBody: {
+                            description: 'User payload.',
+                            content: {
+                                'application/json': {
+                                    schema: {
+                                        type: 'object',
+                                        properties: { name: { type: 'string' } },
+                                    },
+                                },
+                            },
+                        },
+                        responses: { '200': { description: 'ok' } },
+                    },
+                },
+            },
+        };
+
+        const { methodGen, serviceClass } = createTestEnvironment(spec);
+        const op: PathInfo = {
+            ...(spec as any).paths['/users/{id}'].post,
+            path: '/users/{id}',
+            method: 'POST',
+            methodName: 'updateUser',
+        } as any;
+
+        methodGen.addServiceMethod(serviceClass, op);
+        const docs = serviceClass
+            .getMethodOrThrow('updateUser')
+            .getJsDocs()
+            .map(doc => doc.getInnerText());
+        expect(docs[0]).toContain('@param id User id.');
+        expect(docs[0]).toContain('@param verbose Verbose flag.');
+        expect(docs[0]).toContain('@param body User payload.');
     });
 
     it('should generate @deprecated JSDoc override for deprecated parameters', () => {
@@ -294,9 +398,9 @@ describe('Emitter: ServiceMethodGenerator (Parameters)', () => {
             "ParameterSerializer.serializeCookieParam('default_cookie', defaultCookie, 'form', true, false",
         );
 
-        // Explicit simple style should be explode: false, allowReserved: false
+        // Explicit cookie style should be explode: true, allowReserved: false
         expect(body).toContain(
-            "ParameterSerializer.serializeCookieParam('simple_cookie', simpleCookie, 'simple', false, false",
+            "ParameterSerializer.serializeCookieParam('simple_cookie', simpleCookie, 'cookie', true, false",
         );
 
         // allowReserved explicitly true matching allowReserved parameter
@@ -348,7 +452,7 @@ describe('Emitter: ServiceMethodGenerator (Parameters)', () => {
         methodGen.addServiceMethod(serviceClass, op);
         const body = serviceClass.getMethodOrThrow('getWithFormQuerystringEncoding').getBodyText()!;
         expect(body).toContain(
-            "const queryString = ParameterSerializer.serializeRawQuerystring(filter, undefined, 'application/x-www-form-urlencoded', {\"tags\":{\"style\":\"pipeDelimited\",\"explode\":false}});",
+            'const queryString = ParameterSerializer.serializeRawQuerystring(filter, undefined, \'application/x-www-form-urlencoded\', {"tags":{"style":"pipeDelimited","explode":false}});',
         );
     });
 

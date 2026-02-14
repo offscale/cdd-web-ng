@@ -20,28 +20,33 @@ export class MainIndexGenerator {
         sourceFile.addExportDeclaration({ moduleSpecifier: './models' });
         sourceFile.addExportDeclaration({ moduleSpecifier: './info' });
         const hasComponentExamples = !!(
-            this.parser.spec.components?.examples &&
-            Object.keys(this.parser.spec.components.examples).length > 0
+            this.parser.spec.components?.examples && Object.keys(this.parser.spec.components.examples).length > 0
         );
         const hasComponentMediaTypes = !!(
-            this.parser.spec.components?.mediaTypes &&
-            Object.keys(this.parser.spec.components.mediaTypes).length > 0
+            this.parser.spec.components?.mediaTypes && Object.keys(this.parser.spec.components.mediaTypes).length > 0
         );
         const hasComponentPathItems = !!(
-            this.parser.spec.components?.pathItems &&
-            Object.keys(this.parser.spec.components.pathItems).length > 0
+            this.parser.spec.components?.pathItems && Object.keys(this.parser.spec.components.pathItems).length > 0
+        );
+        const hasPathMetadata = Object.entries(this.parser.spec.paths ?? {}).some(([_, pathItem]) => {
+            if (!pathItem || typeof pathItem !== 'object') return false;
+            if (pathItem.$ref || pathItem.summary || pathItem.description) return true;
+            if (Array.isArray(pathItem.parameters) && pathItem.parameters.length > 0) return true;
+            if (Array.isArray(pathItem.servers) && pathItem.servers.length > 0) return true;
+            return Object.keys(pathItem).some(key => key.startsWith('x-'));
+        });
+        const hasComponentHeaders = !!(
+            this.parser.spec.components?.headers && Object.keys(this.parser.spec.components.headers).length > 0
         );
         const hasComponentParameters = !!(
-            this.parser.spec.components?.parameters &&
-            Object.keys(this.parser.spec.components.parameters).length > 0
+            this.parser.spec.components?.parameters && Object.keys(this.parser.spec.components.parameters).length > 0
         );
         const hasComponentRequestBodies = !!(
             this.parser.spec.components?.requestBodies &&
             Object.keys(this.parser.spec.components.requestBodies).length > 0
         );
         const hasComponentResponses = !!(
-            this.parser.spec.components?.responses &&
-            Object.keys(this.parser.spec.components.responses).length > 0
+            this.parser.spec.components?.responses && Object.keys(this.parser.spec.components.responses).length > 0
         );
         if (hasComponentExamples) {
             sourceFile.addExportDeclaration({ moduleSpecifier: './examples' });
@@ -51,6 +56,12 @@ export class MainIndexGenerator {
         }
         if (hasComponentPathItems) {
             sourceFile.addExportDeclaration({ moduleSpecifier: './path-items' });
+        }
+        if (hasPathMetadata) {
+            sourceFile.addExportDeclaration({ moduleSpecifier: './paths' });
+        }
+        if (hasComponentHeaders) {
+            sourceFile.addExportDeclaration({ moduleSpecifier: './headers' });
         }
         if (hasComponentParameters) {
             sourceFile.addExportDeclaration({ moduleSpecifier: './parameters' });
@@ -94,16 +105,19 @@ export class MainIndexGenerator {
                 sourceFile.addExportDeclaration({ moduleSpecifier: './utils/link.service' });
             }
 
-            const hasCallbacks = this.parser.operations.some(
-                op => op.callbacks && Object.keys(op.callbacks).length > 0,
-            );
+            const hasCallbacks =
+                this.parser.operations.some(op => op.callbacks && Object.keys(op.callbacks).length > 0) ||
+                (!!this.parser.spec.components?.callbacks &&
+                    Object.keys(this.parser.spec.components.callbacks).length > 0);
             if (hasCallbacks) {
                 sourceFile.addExportDeclaration({ moduleSpecifier: './callbacks' });
             }
 
             const hasWebhooks =
                 (this.parser.webhooks && this.parser.webhooks.length > 0) ||
-                (this.parser.spec.webhooks && Object.keys(this.parser.spec.webhooks).length > 0);
+                (this.parser.spec.webhooks && Object.keys(this.parser.spec.webhooks).length > 0) ||
+                (!!this.parser.spec.components?.webhooks &&
+                    Object.keys(this.parser.spec.components.webhooks).length > 0);
             if (hasWebhooks) {
                 sourceFile.addExportDeclaration({ moduleSpecifier: './webhooks' });
                 sourceFile.addExportDeclaration({ moduleSpecifier: './utils/webhook.service' });

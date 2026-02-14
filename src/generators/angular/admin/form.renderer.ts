@@ -50,6 +50,16 @@ export class ValidationRenderer {
                 return `Validators.minLength(${rule.value})`;
             case 'maxItems':
                 return `Validators.maxLength(${rule.value})`;
+            case 'minProperties':
+                return `CustomValidators.minProperties(${rule.value})`;
+            case 'maxProperties':
+                return `CustomValidators.maxProperties(${rule.value})`;
+            case 'contains': {
+                const schemaLiteral = JSON.stringify(rule.schema ?? true);
+                const minArg = rule.min !== undefined ? `${rule.min}` : 'undefined';
+                const maxArg = rule.max !== undefined ? `${rule.max}` : 'undefined';
+                return `CustomValidators.contains(${schemaLiteral}, ${minArg}, ${maxArg})`;
+            }
             case 'const':
                 // If rule.value is a string, wrap in quotes. Otherwise stringify JSON.
                 const val = typeof rule.value === 'string' ? `'${rule.value}'` : JSON.stringify(rule.value);
@@ -141,12 +151,23 @@ export class FormInitializerRenderer {
         return `new FormGroup({\n      ${formControls}\n    })`;
     }
 
-    public static renderMapItemInitializer(valueControl: FormControlModel, keyPattern?: string): string {
+    public static renderMapItemInitializer(
+        valueControl: FormControlModel,
+        keyPattern?: string,
+        keyMinLength?: number,
+        keyMaxLength?: number,
+    ): string {
         // Create validators for the key control
         let keyValidators = ['Validators.required'];
         if (keyPattern) {
             // Escape keyPattern if necessary for regex literal
             keyValidators.push(`Validators.pattern(/${keyPattern}/)`);
+        }
+        if (typeof keyMinLength === 'number') {
+            keyValidators.push(`Validators.minLength(${keyMinLength})`);
+        }
+        if (typeof keyMaxLength === 'number') {
+            keyValidators.push(`Validators.maxLength(${keyMaxLength})`);
         }
         const keyValidatorString = `[${keyValidators.join(', ')}]`;
 

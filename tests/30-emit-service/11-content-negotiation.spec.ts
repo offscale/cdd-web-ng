@@ -15,6 +15,7 @@ const negotiationSpec = {
                 operationId: 'getNegotiatedData',
                 responses: {
                     '200': {
+                        description: 'ok',
                         content: {
                             'application/json': {
                                 schema: {
@@ -42,14 +43,14 @@ const negotiationSpec = {
 };
 
 describe('Emitter: ServiceMethodGenerator (Content Negotiation)', () => {
-    const createTestEnv = () => {
+    const createTestEnv = (spec: object = negotiationSpec) => {
         const config: GeneratorConfig = {
             input: '',
             output: '/out',
             options: { enumStyle: 'enum', framework: 'angular' },
         };
         const project = new Project({ useInMemoryFileSystem: true });
-        const parser = new SwaggerParser(negotiationSpec as any, config);
+        const parser = new SwaggerParser(spec as any, config);
 
         new TypeGenerator(parser, project, config).generate('/out');
         new XmlBuilderGenerator(project).generate('/out');
@@ -114,5 +115,50 @@ describe('Emitter: ServiceMethodGenerator (Content Negotiation)', () => {
         // Logic should attempt to parse XML
         expect(body).toContain("if (acceptHeader?.includes('application/xml')) {");
         expect(body).toContain('return XmlParser.parse(response,');
+    });
+
+    it('should drop wildcard media types when more specific types exist', () => {
+        const wildcardSpec = {
+            openapi: '3.2.0',
+            info: { title: 'Wildcard API', version: '1.0' },
+            paths: {
+                '/wildcards': {
+                    get: {
+                        operationId: 'getWildcardData',
+                        responses: {
+                            '200': {
+                                description: 'ok',
+                                content: {
+                                    '*/*': { schema: { type: 'string' } },
+                                    'text/*': { schema: { type: 'string' } },
+                                    'text/plain': { schema: { type: 'string' } },
+                                    'application/json': {
+                                        schema: {
+                                            type: 'object',
+                                            properties: { id: { type: 'number' } },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            components: {},
+        };
+
+        const { methodGen, serviceClass, parser } = createTestEnv(wildcardSpec);
+        const op = parser.operations.find(o => o.operationId === 'getWildcardData')!;
+        op.methodName = 'getWildcardData';
+
+        methodGen.addServiceMethod(serviceClass, op);
+
+        const method = serviceClass.getMethodOrThrow('getWildcardData');
+        const overloads = method.getOverloads().map(o => o.getText());
+
+        expect(overloads.some(text => text.includes("'Accept': 'application/json'"))).toBe(true);
+        expect(overloads.some(text => text.includes("'Accept': 'text/plain'"))).toBe(true);
+        expect(overloads.some(text => text.includes("'Accept': 'text/*'"))).toBe(false);
+        expect(overloads.some(text => text.includes("'Accept': '*/*'"))).toBe(false);
     });
 });

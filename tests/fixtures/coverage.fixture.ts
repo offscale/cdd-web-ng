@@ -26,15 +26,15 @@ export const coverageSpec = {
                 requestBody: {
                     content: { 'application/json': { schema: { $ref: '#/components/schemas/Publication' } } },
                 },
-                responses: { '201': {} },
+                responses: { '201': { description: 'ok' } },
             },
         },
         '/configs/{id}': {
             put: {
                 tags: ['Configs'],
                 operationId: 'updateConfig',
-                parameters: [{ name: 'id', in: 'path' }],
-                responses: { '200': {} },
+                parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/servers': {
@@ -44,21 +44,23 @@ export const coverageSpec = {
                 responses: { '200': { description: 'ok' } },
             },
         },
-        '/servers/reboot-all': { post: { tags: ['Servers'], operationId: 'rebootAllServers', responses: {} } },
+        '/servers/reboot-all': {
+            post: { tags: ['Servers'], operationId: 'rebootAllServers', responses: { '200': { description: 'ok' } } },
+        },
         '/servers/{id}/start': {
             post: {
                 tags: ['Servers'],
                 operationId: 'startServer',
-                parameters: [{ name: 'id', in: 'path', schema: { type: 'string' } }],
-                responses: {},
+                parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/servers/{id}/reboot-item': {
             post: {
                 tags: ['Servers'],
                 operationId: 'rebootServerItem',
-                parameters: [{ name: 'id', in: 'path', schema: { type: 'string' } }],
-                responses: {},
+                parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/string-array': {
@@ -67,6 +69,7 @@ export const coverageSpec = {
                 operationId: 'getStringArray',
                 responses: {
                     '200': {
+                        description: 'ok',
                         content: {
                             'application/json': {
                                 schema: {
@@ -79,25 +82,30 @@ export const coverageSpec = {
                 },
             },
         },
-        '/custom-name': { get: { tags: ['CustomName'], operationId: 'get-custom-name', responses: {} } },
+        '/custom-name': {
+            get: { tags: ['CustomName'], operationId: 'get-custom-name', responses: { '200': { description: 'ok' } } },
+        },
         '/duplicate-name': {
-            get: { tags: ['DuplicateName'], operationId: 'getName', responses: {} },
-            post: { tags: ['DuplicateName'], operationId: 'postName', responses: {} },
+            get: { tags: ['DuplicateName'], operationId: 'getName', responses: { '200': { description: 'ok' } } },
+            post: { tags: ['DuplicateName'], operationId: 'postName', responses: { '200': { description: 'ok' } } },
         },
         '/action-test/{id}': {
             head: {
                 tags: ['ActionTest'],
-                parameters: [{ name: 'id', in: 'path', schema: { type: 'string' } }],
-                responses: {},
+                parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+                responses: { '200': { description: 'ok' } },
             },
         },
-        '/users-search': { post: { tags: ['UsersSearch'], operationId: 'searchUsers', responses: {} } },
+        '/users-search': {
+            post: { tags: ['UsersSearch'], operationId: 'searchUsers', responses: { '200': { description: 'ok' } } },
+        },
         '/events': {
             get: {
                 operationId: 'getEvents',
                 tags: ['Events'],
                 responses: {
                     '200': {
+                        description: 'ok',
                         content: {
                             'application/json': {
                                 schema: {
@@ -110,7 +118,13 @@ export const coverageSpec = {
                 },
             },
         },
-        '/no-content': { delete: { tags: ['NoContent'], operationId: 'deleteNoContent', responses: { '204': {} } } },
+        '/no-content': {
+            delete: {
+                tags: ['NoContent'],
+                operationId: 'deleteNoContent',
+                responses: { '204': { description: 'ok' } },
+            },
+        },
     },
     components: {
         ...fullCRUD_Users.components,
@@ -127,48 +141,66 @@ export const coverageSpecPart2 = {
     info,
     paths: {
         '/no-id-opid': {
-            head: { tags: ['NoIdOpId'], responses: { '200': {} } },
+            head: { tags: ['NoIdOpId'], responses: { '200': { description: 'ok' } } },
         },
         '/no-schema-resource': {
-            delete: { tags: ['NoSchemaResource'], responses: { '204': {} } },
+            delete: { tags: ['NoSchemaResource'], responses: { '204': { description: 'ok' } } },
         },
         '/form-data-test': {
             post: {
                 tags: ['FormData'],
                 operationId: 'postWithFormData',
-                consumes: ['multipart/form-data'],
-                parameters: [
-                    { name: 'file', in: 'formData', type: 'file', required: true },
-                    { name: 'description', in: 'formData', type: 'string' },
-                ],
-                responses: {},
+                requestBody: {
+                    required: true,
+                    content: {
+                        'multipart/form-data': {
+                            schema: {
+                                type: 'object',
+                                required: ['file'],
+                                properties: {
+                                    file: { type: 'string', format: 'binary' },
+                                    description: { type: 'string' },
+                                },
+                            },
+                        },
+                    },
+                },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/url-encoded-test': {
             post: {
                 tags: ['UrlEncoded'],
                 operationId: 'postWithUrlEncoded',
-                consumes: ['application/x-www-form-urlencoded'],
-                parameters: [
-                    { name: 'grant_type', in: 'formData', type: 'string' },
-                    { name: 'code', in: 'formData', type: 'string' },
-                ],
-                responses: {},
+                requestBody: {
+                    content: {
+                        'application/x-www-form-urlencoded': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    grant_type: { type: 'string' },
+                                    code: { type: 'string' },
+                                },
+                            },
+                        },
+                    },
+                },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/primitive-response': {
             get: {
                 tags: ['PrimitiveResponse'],
                 operationId: 'getHealthCheck',
-                responses: { '200': { content: { 'text/plain': { schema: { type: 'string' } } } } },
+                responses: { '200': { description: 'ok', content: { 'text/plain': { schema: { type: 'string' } } } } },
             },
         },
         '/no-create-update/{id}': {
             delete: {
                 tags: ['NoCreateUpdate'],
                 operationId: 'deleteNoCreateUpdate',
-                parameters: [{ name: 'id', in: 'path' }],
-                responses: {},
+                parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+                responses: { '200': { description: 'ok' } },
             },
         },
     },
@@ -189,7 +221,7 @@ export const finalCoverageSpec = {
                 operationId: 'allParams',
                 parameters: [{ name: 'pathParam', in: 'path', required: true, schema: { type: 'string' } }],
                 requestBody: { content: { 'application/octet-stream': {} } },
-                responses: {},
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/with-query': {
@@ -197,7 +229,7 @@ export const finalCoverageSpec = {
                 tags: ['WithQuery'],
                 operationId: 'withQuery',
                 parameters: [{ name: 'search', in: 'query', schema: { type: 'string' } }],
-                responses: {},
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/primitive-body': {
@@ -211,7 +243,7 @@ export const finalCoverageSpec = {
                         },
                     },
                 },
-                responses: {},
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/with-header': {
@@ -219,7 +251,7 @@ export const finalCoverageSpec = {
                 tags: ['WithHeader'],
                 operationId: 'withHeader',
                 parameters: [{ name: 'X-Custom-Header', in: 'header', schema: { type: 'string' } }],
-                responses: {},
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/post-and-return': {
@@ -229,16 +261,28 @@ export const finalCoverageSpec = {
                 requestBody: {
                     content: { 'application/json': { schema: { $ref: '#/components/schemas/BodyModel' } } },
                 },
-                responses: {},
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/file-param': {
             post: {
                 tags: ['FileParam'],
                 operationId: 'uploadFile',
-                consumes: ['multipart/form-data'],
-                parameters: [{ name: 'file', in: 'formData', type: 'file' }],
-                responses: {},
+                requestBody: {
+                    required: true,
+                    content: {
+                        'multipart/form-data': {
+                            schema: {
+                                type: 'object',
+                                required: ['file'],
+                                properties: {
+                                    file: { type: 'string', format: 'binary' },
+                                },
+                            },
+                        },
+                    },
+                },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/patch-op': {
@@ -265,9 +309,9 @@ export const finalCoverageSpec = {
         '/patch-resource/{id}': {
             patch: {
                 tags: ['PatchResource'],
-                parameters: [{ name: 'id', in: 'path' }],
+                parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
                 requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
-                responses: {},
+                responses: { '200': { description: 'ok' } },
             },
         },
         // OAS 3.2 Support: GET with body
@@ -276,7 +320,7 @@ export const finalCoverageSpec = {
                 tags: ['OAS32'],
                 operationId: 'getWithBody',
                 requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         // OAS 3.2 Support: DELETE with body
@@ -285,7 +329,7 @@ export const finalCoverageSpec = {
                 tags: ['OAS32'],
                 operationId: 'deleteWithBody',
                 requestBody: { content: { 'application/json': { schema: { type: 'string' } } } },
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
     },
@@ -308,15 +352,15 @@ export const branchCoverageSpec = {
             get: {
                 tags: ['Default'],
                 operationId: 'getRoot',
-                responses: {},
+                responses: { '200': { description: 'ok' } },
             },
         },
         // For resource-discovery: getFormProperties & getModelName fallbacks
         '/no-schema-resource/{id}': {
             delete: {
                 tags: ['NoSchemaResource'],
-                parameters: [{ name: 'id', in: 'path', required: true }],
-                responses: {},
+                parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+                responses: { '200': { description: 'ok' } },
                 // Deliberately no requestBody or success response with a schema
             },
         },
@@ -324,7 +368,7 @@ export const branchCoverageSpec = {
             post: {
                 tags: ['MultiPath'],
                 operationId: 'multiPathComplexAction',
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/read-only-resource': {
@@ -333,6 +377,7 @@ export const branchCoverageSpec = {
                 operationId: 'getReadOnly',
                 responses: {
                     '200': {
+                        description: 'ok',
                         content: { 'application/json': { schema: { $ref: '#/components/schemas/ReadOnlyResource' } } },
                     },
                 },
@@ -342,26 +387,29 @@ export const branchCoverageSpec = {
             delete: {
                 tags: ['NoCreateUpdate'],
                 operationId: 'deleteNoCreateUpdate',
-                parameters: [{ name: 'id', in: 'path' }],
-                responses: {},
+                parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/update-only-no-get/{id}': {
             put: {
                 tags: ['UpdateOnlyNoGet'],
                 operationId: 'updateTheThing',
-                parameters: [{ name: 'id', in: 'path' }],
+                parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
                 requestBody: {
                     content: { 'application/json': { schema: { $ref: '#/components/schemas/UpdateOnlyNoGet' } } },
                 },
-                responses: {},
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/op-with-default-response': {
             get: {
                 tags: ['DefaultResponse'],
                 responses: {
-                    default: { content: { 'application/json': { schema: { $ref: '#/components/schemas/Base' } } } },
+                    default: {
+                        description: 'ok',
+                        content: { 'application/json': { schema: { $ref: '#/components/schemas/Base' } } },
+                    },
                 },
             },
         },
@@ -370,7 +418,7 @@ export const branchCoverageSpec = {
             post: {
                 tags: ['CollectionAction'],
                 operationId: 'triggerGlobalAction',
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/poly-readonly-discriminator': {
@@ -379,7 +427,7 @@ export const branchCoverageSpec = {
                 requestBody: {
                     content: { 'application/json': { schema: { $ref: '#/components/schemas/PolyReadonly' } } },
                 },
-                responses: {},
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/all-required/{id}': {
@@ -387,7 +435,7 @@ export const branchCoverageSpec = {
                 tags: ['AllRequired'],
                 operationId: 'getAllRequired',
                 parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-                responses: {},
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/body-no-schema': {
@@ -395,7 +443,7 @@ export const branchCoverageSpec = {
                 tags: ['BodyNoSchema'],
                 operationId: 'postBodyNoSchema',
                 requestBody: { content: { 'application/json': {} } },
-                responses: {},
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/no-body-at-all': {
@@ -416,21 +464,21 @@ export const branchCoverageSpec = {
             get: {
                 tags: ['NoParamsKey'],
                 operationId: 'getNoParamsKey',
-                responses: {},
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/param-is-ref': {
             get: {
                 tags: ['ParamIsRef'],
                 parameters: [{ name: 'user', in: 'query', schema: { $ref: '#/components/schemas/User' } }],
-                responses: {},
+                responses: { '200': { description: 'ok' } },
             },
         },
         // For service generator fallback test
         '/no-operation-id': {
             head: {
                 tags: ['NoOperationId'],
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         // For final resource-discovery coverage (custom collection action classification)
@@ -438,7 +486,7 @@ export const branchCoverageSpec = {
             post: {
                 tags: ['Widgets'],
                 operationId: 'addItemToWidget',
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/inline-schema-property': {
@@ -447,6 +495,7 @@ export const branchCoverageSpec = {
                 operationId: 'getInlineSchemaProperty',
                 responses: {
                     '200': {
+                        description: 'ok',
                         content: {
                             'application/json': { schema: { $ref: '#/components/schemas/InlineSchemaProperty' } },
                         },
@@ -457,9 +506,9 @@ export const branchCoverageSpec = {
         '/patch-resource/{id}': {
             patch: {
                 tags: ['PatchResource'],
-                parameters: [{ name: 'id', in: 'path' }],
+                parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
                 requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
-                responses: {},
+                responses: { '200': { description: 'ok' } },
             },
         },
     },
@@ -488,7 +537,7 @@ export const branchCoverageSpec = {
                 type: 'object',
                 properties: { petType: { type: 'string', readOnly: true } },
                 oneOf: [{ $ref: '#/components/schemas/Cat' }],
-                discriminator: { propertyName: 'petType' },
+                discriminator: { propertyName: 'petType', defaultMapping: '#/components/schemas/Cat' },
             },
             Cat: {
                 type: 'object',
@@ -538,7 +587,7 @@ export const finalCoveragePushSpec = {
                 LOCK: {
                     tags: ['CustomVerbs'],
                     operationId: 'lockResource',
-                    responses: { '200': {} },
+                    responses: { '200': { description: 'ok' } },
                 },
             },
         },
@@ -552,7 +601,12 @@ export const finalCoveragePushSpec = {
         '/external-ref': {
             get: {
                 tags: ['Refs'],
-                responses: { '200': { content: { 'application/json': { schema: { $ref: 'external.json#/User' } } } } },
+                responses: {
+                    '200': {
+                        description: 'ok',
+                        content: { 'application/json': { schema: { $ref: 'external.json#/User' } } },
+                    },
+                },
             },
         },
         '/content-no-schema': {
@@ -560,7 +614,7 @@ export const finalCoveragePushSpec = {
                 tags: ['ServiceMethods'],
                 operationId: 'getContentNoSchema',
                 requestBody: { content: { 'application/json': {} } }, // Body exists but has no schema property inside
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/only-required-params/{id}': {
@@ -568,13 +622,16 @@ export const finalCoveragePushSpec = {
                 tags: ['ServiceMethods'],
                 operationId: 'getOnlyRequired',
                 parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/primitive-return': {
             get: {
                 tags: ['ServiceTests'],
                 operationId: 'getPrimitive',
-                responses: { '200': { content: { 'application/json': { schema: { type: 'number' } } } } },
+                responses: {
+                    '200': { description: 'ok', content: { 'application/json': { schema: { type: 'number' } } } },
+                },
             },
         },
         '/primitive-body-post': {
@@ -582,7 +639,7 @@ export const finalCoveragePushSpec = {
                 tags: ['ServiceTests'],
                 operationId: 'postPrimitive',
                 requestBody: { content: { 'application/json': { schema: { type: 'string' } } } },
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/primitive-param/{id}': {
@@ -590,7 +647,7 @@ export const finalCoveragePushSpec = {
                 tags: ['ServiceTests'],
                 operationId: 'getWithPrimitiveParam',
                 parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/delete-only': {
@@ -599,6 +656,7 @@ export const finalCoveragePushSpec = {
                 operationId: 'getDeleteOnlyList',
                 responses: {
                     '200': {
+                        description: 'ok',
                         content: {
                             'application/json': {
                                 schema: {
@@ -616,7 +674,7 @@ export const finalCoveragePushSpec = {
                 tags: ['DeleteOnly'],
                 operationId: 'deleteTheItem',
                 parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-                responses: { '204': {} },
+                responses: { '204': { description: 'ok' } },
             },
         },
         '/unsupported-control': {
@@ -626,7 +684,7 @@ export const finalCoveragePushSpec = {
                 requestBody: {
                     content: { 'application/json': { schema: { $ref: '#/components/schemas/WithUnsupported' } } },
                 },
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/poly-no-prop': {
@@ -636,7 +694,7 @@ export const finalCoveragePushSpec = {
                 requestBody: {
                     content: { 'application/json': { schema: { $ref: '#/components/schemas/PolyNoProp' } } },
                 },
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/inline-model': {
@@ -645,6 +703,7 @@ export const finalCoveragePushSpec = {
                 operationId: 'getInlineModel',
                 responses: {
                     '200': {
+                        description: 'ok',
                         content: {
                             'application/json': {
                                 schema: { type: 'object', properties: { name: { type: 'string' } } },
@@ -661,15 +720,15 @@ export const finalCoveragePushSpec = {
                 requestBody: {
                     content: { 'application/json': { schema: { $ref: '#/components/schemas/PolyWithPrimitive' } } },
                 },
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/form-urlencoded-no-params': {
             post: {
                 tags: ['UrlencodedNoParams'],
                 operationId: 'postUrlencodedNoParams',
-                consumes: ['application/x-www-form-urlencoded'],
                 requestBody: { content: { 'application/x-www-form-urlencoded': {} } },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/poly-with-only-primitives': {
@@ -681,6 +740,7 @@ export const finalCoveragePushSpec = {
                         'application/json': { schema: { $ref: '#/components/schemas/PolyWithOnlyPrimitives' } },
                     },
                 },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/server-override': {
@@ -688,7 +748,7 @@ export const finalCoveragePushSpec = {
                 tags: ['ServerOverride'],
                 operationId: 'getWithServerOverride',
                 servers: [{ url: 'https://custom.api.com', description: 'Custom Server' }],
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         // OAS 3.2 Support: GET with body
@@ -697,7 +757,7 @@ export const finalCoveragePushSpec = {
                 tags: ['OAS32'],
                 operationId: 'getWithBody',
                 requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         // OAS 3.2 Support: DELETE with body
@@ -706,7 +766,7 @@ export const finalCoveragePushSpec = {
                 tags: ['OAS32'],
                 operationId: 'deleteWithBody',
                 requestBody: { content: { 'application/json': { schema: { type: 'string' } } } },
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
     },
@@ -722,7 +782,7 @@ export const finalCoveragePushSpec = {
             DeleteOnly: { type: 'object', properties: { id: { type: 'string' } } },
             PolyNoProp: {
                 oneOf: [{ $ref: '#/components/schemas/Sub' }],
-                discriminator: { propertyName: 'type' },
+                discriminator: { propertyName: 'type', defaultMapping: '#/components/schemas/Sub' },
             },
             Sub: {
                 type: 'object',
@@ -734,11 +794,10 @@ export const finalCoveragePushSpec = {
             },
             PolyWithPrimitive: {
                 oneOf: [{ type: 'string' }, { $ref: '#/components/schemas/Sub' }],
-                discriminator: { propertyName: 'type' },
+                discriminator: { propertyName: 'type', defaultMapping: '#/components/schemas/Sub' },
             },
             PolyWithOnlyPrimitives: {
                 oneOf: [{ type: 'string' }, { type: 'number' }],
-                discriminator: { propertyName: 'type' },
             },
         },
     },

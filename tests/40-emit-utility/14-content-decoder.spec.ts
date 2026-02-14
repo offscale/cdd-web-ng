@@ -16,7 +16,7 @@ function getContentDecoder() {
     });
 
     const moduleScope = { exports: {} as any };
-    const finalCode = `const XmlParser = { parse: (xml: string) => ({ xml }) }; ${jsCode}; exports.ContentDecoder = ContentDecoder;`;
+    const finalCode = `const XmlParser = { parse: (xml) => ({ xml }) }; ${jsCode}; exports.ContentDecoder = ContentDecoder;`;
 
     new Function('exports', finalCode)(moduleScope.exports);
     return moduleScope.exports.ContentDecoder;

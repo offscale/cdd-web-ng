@@ -9,7 +9,7 @@ import {
     TypeAliasDeclaration,
     TypeNode,
 } from 'ts-morph';
-import { SwaggerDefinition } from '../types/index.js';
+import { DiscriminatorObject, SwaggerDefinition } from '../types/index.js';
 
 /** Map of schema names to reconstructed schema definitions. */
 export type ReverseSchemaMap = Record<string, SwaggerDefinition | boolean>;
@@ -31,7 +31,9 @@ const MODEL_DECL_SUFFIX = '.d.ts';
 export function parseGeneratedModelSource(sourceText: string, filePath = 'models/index.ts'): ReverseSchemaMap {
     const project = new Project({ useInMemoryFileSystem: true, skipFileDependencyResolution: true });
     const sourceFile = project.createSourceFile(filePath, sourceText, { overwrite: true });
-    return parseModelSourceFile(sourceFile);
+    const schemas = parseModelSourceFile(sourceFile);
+    inferDiscriminators(schemas);
+    return schemas;
 }
 
 /**
@@ -69,6 +71,7 @@ export function parseGeneratedModels(inputPath: string, fileSystem: ReverseModel
         throw new Error(`No exported models could be reconstructed from: ${inputPath}`);
     }
 
+    inferDiscriminators(schemas);
     return schemas;
 }
 
@@ -91,6 +94,127 @@ function parseModelSourceFile(sourceFile: import('ts-morph').SourceFile): Revers
     });
 
     return schemas;
+}
+
+type DiscriminatorVariant = {
+    schema: SwaggerDefinition;
+    ref?: string;
+};
+
+function inferDiscriminators(schemas: ReverseSchemaMap): void {
+    Object.values(schemas).forEach(schemaEntry => {
+        if (!schemaEntry || typeof schemaEntry !== 'object') return;
+        if (Array.isArray(schemaEntry)) return;
+        const schema = schemaEntry as SwaggerDefinition;
+        if (schema.discriminator) return;
+
+        const union = Array.isArray(schema.oneOf)
+            ? schema.oneOf
+            : Array.isArray(schema.anyOf)
+              ? schema.anyOf
+              : undefined;
+        if (!union || union.length < 2) return;
+
+        const variants = union
+            .map(entry => resolveDiscriminatorVariant(entry, schemas))
+            .filter((entry): entry is DiscriminatorVariant => !!entry);
+        if (variants.length !== union.length) return;
+
+        const hasRefs = variants.every(variant => !!variant.ref);
+        const hasInline = variants.some(variant => !variant.ref);
+        if (hasRefs && hasInline) return;
+
+        const candidate = findDiscriminatorProperty(variants);
+        if (!candidate) return;
+
+        const mapping: Record<string, string> = {};
+        const seenValues = new Set<string>();
+        for (const variant of variants) {
+            const value = getDiscriminatorValue(variant.schema, candidate);
+            if (value === undefined) return;
+            const key = String(value);
+            if (seenValues.has(key)) return;
+            seenValues.add(key);
+            if (variant.ref) mapping[key] = variant.ref;
+        }
+
+        schema.discriminator = hasRefs ? { propertyName: candidate, mapping } : { propertyName: candidate };
+        if (schema.anyOf && !schema.oneOf) {
+            schema.oneOf = schema.anyOf;
+            delete schema.anyOf;
+        }
+    });
+}
+
+function resolveDiscriminatorVariant(
+    entry: SwaggerDefinition | boolean,
+    schemas: ReverseSchemaMap,
+): DiscriminatorVariant | undefined {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return undefined;
+    if ('$ref' in entry) {
+        const ref = String((entry as { $ref: string }).$ref);
+        const name = extractSchemaName(ref);
+        if (!name) return undefined;
+        const resolved = schemas[name];
+        if (!resolved || typeof resolved !== 'object' || Array.isArray(resolved)) return undefined;
+        return { schema: resolved as SwaggerDefinition, ref };
+    }
+    return { schema: entry as SwaggerDefinition };
+}
+
+function extractSchemaName(ref: string): string | undefined {
+    const match = ref.match(/#\/components\/schemas\/(.+)$/);
+    return match ? match[1] : undefined;
+}
+
+function findDiscriminatorProperty(variants: DiscriminatorVariant[]): string | undefined {
+    const candidateNames = new Set<string>();
+    variants.forEach(variant => {
+        const props = variant.schema.properties ?? {};
+        Object.keys(props).forEach(name => candidateNames.add(name));
+    });
+
+    const orderedCandidates = Array.from(candidateNames);
+    const preferredOrder = ['type', 'kind', 'petType', 'variant', 'discriminator'];
+    orderedCandidates.sort((a, b) => {
+        const ai = preferredOrder.indexOf(a);
+        const bi = preferredOrder.indexOf(b);
+        if (ai === -1 && bi === -1) return a.localeCompare(b);
+        if (ai === -1) return 1;
+        if (bi === -1) return -1;
+        return ai - bi;
+    });
+
+    for (const name of orderedCandidates) {
+        if (
+            variants.every(variant => {
+                const schema = variant.schema;
+                const props = schema.properties ?? {};
+                const propSchema = props[name];
+                const required = Array.isArray(schema.required) && schema.required.includes(name);
+                return required && !!propSchema && getDiscriminatorValueSchema(propSchema) !== undefined;
+            })
+        ) {
+            return name;
+        }
+    }
+
+    return undefined;
+}
+
+function getDiscriminatorValue(schema: SwaggerDefinition, propName: string): string | number | boolean | undefined {
+    const props = schema.properties ?? {};
+    const propSchema = props[propName];
+    if (!propSchema || typeof propSchema !== 'object' || Array.isArray(propSchema)) return undefined;
+    return getDiscriminatorValueSchema(propSchema as SwaggerDefinition);
+}
+
+function getDiscriminatorValueSchema(schema: SwaggerDefinition): string | number | boolean | undefined {
+    if (schema.const !== undefined) return schema.const as string | number | boolean;
+    if (Array.isArray(schema.enum) && schema.enum.length === 1) {
+        return schema.enum[0] as string | number | boolean;
+    }
+    return undefined;
 }
 
 function isModelFilePath(filePath: string): boolean {
@@ -166,7 +290,10 @@ function schemaFromEnum(enumDecl: EnumDeclaration): SwaggerDefinition {
 
 function schemaFromInterface(interfaceDecl: InterfaceDeclaration): SwaggerDefinition {
     const ownSchema = buildObjectSchema(interfaceDecl.getProperties(), interfaceDecl.getIndexSignatures());
-    const extendsTypes = interfaceDecl.getExtends().map(e => e.getExpression().getText()).filter(Boolean);
+    const extendsTypes = interfaceDecl
+        .getExtends()
+        .map(e => e.getExpression().getText())
+        .filter(Boolean);
 
     let schema: SwaggerDefinition = ownSchema;
     if (extendsTypes.length > 0) {
@@ -233,7 +360,7 @@ function normalizePropertyName(prop: PropertySignature): string {
     return prop.getName();
 }
 
-function schemaFromTypeNode(node: TypeNode): SwaggerDefinition {
+export function schemaFromTypeNode(node: TypeNode): SwaggerDefinition {
     switch (node.getKind()) {
         case SyntaxKind.StringKeyword:
             return { type: 'string' };
@@ -246,7 +373,7 @@ function schemaFromTypeNode(node: TypeNode): SwaggerDefinition {
         case SyntaxKind.ObjectKeyword:
             return {};
         case SyntaxKind.NullKeyword:
-            return { nullable: true };
+            return { type: 'null' };
         case SyntaxKind.LiteralType:
             return schemaFromLiteral(node as import('ts-morph').LiteralTypeNode);
         case SyntaxKind.ArrayType: {
@@ -265,12 +392,8 @@ function schemaFromTypeNode(node: TypeNode): SwaggerDefinition {
             return schemaFromIntersection(node as import('ts-morph').IntersectionTypeNode);
         case SyntaxKind.TypeLiteral:
             return buildObjectSchema(
-                (node as import('ts-morph').TypeLiteralNode)
-                    .getMembers()
-                    .filter(Node.isPropertySignature),
-                (node as import('ts-morph').TypeLiteralNode)
-                    .getMembers()
-                    .filter(Node.isIndexSignatureDeclaration),
+                (node as import('ts-morph').TypeLiteralNode).getMembers().filter(Node.isPropertySignature),
+                (node as import('ts-morph').TypeLiteralNode).getMembers().filter(Node.isIndexSignatureDeclaration),
             );
         case SyntaxKind.ParenthesizedType:
             return schemaFromTypeNode((node as import('ts-morph').ParenthesizedTypeNode).getTypeNode());
@@ -284,19 +407,19 @@ function schemaFromTypeNode(node: TypeNode): SwaggerDefinition {
 function schemaFromLiteral(node: import('ts-morph').LiteralTypeNode): SwaggerDefinition {
     const literal = node.getLiteral();
     if (Node.isStringLiteral(literal) || Node.isNoSubstitutionTemplateLiteral(literal)) {
-        return { type: 'string', enum: [literal.getLiteralText()] };
+        return { type: 'string', const: literal.getLiteralText() };
     }
     if (Node.isNumericLiteral(literal)) {
-        return { type: 'number', enum: [Number(literal.getText())] };
+        return { type: 'number', const: Number(literal.getText()) };
     }
     if (literal.getKind() === SyntaxKind.TrueKeyword) {
-        return { type: 'boolean', enum: [true] };
+        return { type: 'boolean', const: true };
     }
     if (literal.getKind() === SyntaxKind.FalseKeyword) {
-        return { type: 'boolean', enum: [false] };
+        return { type: 'boolean', const: false };
     }
     if (literal.getKind() === SyntaxKind.NullKeyword) {
-        return { nullable: true };
+        return { type: 'null', const: null };
     }
     return {};
 }
@@ -388,12 +511,12 @@ function schemaFromTupleType(tupleNode: import('ts-morph').TupleTypeNode): Swagg
 
 function schemaFromUnion(node: import('ts-morph').UnionTypeNode): SwaggerDefinition {
     const typeNodes = node.getTypeNodes();
-    let nullable = false;
+    let includesNull = false;
     const filtered: TypeNode[] = [];
 
     typeNodes.forEach(typeNode => {
         if (isNullTypeNode(typeNode)) {
-            nullable = true;
+            includesNull = true;
             return;
         }
         if (isUndefinedTypeNode(typeNode)) {
@@ -402,28 +525,36 @@ function schemaFromUnion(node: import('ts-morph').UnionTypeNode): SwaggerDefinit
         filtered.push(typeNode);
     });
 
+    if (filtered.length === 0) {
+        return includesNull ? { type: 'null' } : {};
+    }
+
     if (filtered.length === 1) {
         const schema = schemaFromTypeNode(filtered[0]);
-        if (nullable) schema.nullable = true;
-        return schema;
+        return includesNull ? applyNullability(schema) : schema;
     }
 
     if (allLiteralTypes(filtered)) {
         const literals = filtered.map(typeNode => schemaFromTypeNode(typeNode));
-        const enumValues = literals
-            .flatMap(schema => (schema.enum ? schema.enum : []))
-            .filter(value => value !== undefined);
-        const type = literals.find(schema => schema.type)?.type;
-        const schema: SwaggerDefinition = { enum: enumValues as (string | number)[] };
-        if (type) schema.type = type;
-        if (nullable) schema.nullable = true;
+        const enumValues = extractEnumValues(literals);
+        if (includesNull) enumValues.push(null);
+
+        const types = extractLiteralTypes(literals);
+        if (includesNull) types.add('null');
+
+        const schema: SwaggerDefinition = { enum: enumValues };
+        if (types.size === 1) {
+            const [onlyType] = Array.from(types);
+            if (onlyType) schema.type = onlyType as SwaggerDefinition['type'];
+        } else if (types.size > 1) {
+            schema.type = Array.from(types) as SwaggerDefinition['type'];
+        }
         return schema;
     }
 
     const anyOf = filtered.map(schemaFromTypeNode);
-    const schema: SwaggerDefinition = { anyOf };
-    if (nullable) schema.nullable = true;
-    return schema;
+    if (includesNull) anyOf.push({ type: 'null' });
+    return { anyOf };
 }
 
 function schemaFromIntersection(node: import('ts-morph').IntersectionTypeNode): SwaggerDefinition {
@@ -448,6 +579,56 @@ function allLiteralTypes(nodes: TypeNode[]): boolean {
     return nodes.every(node => node.getKind() === SyntaxKind.LiteralType);
 }
 
+function extractEnumValues(literals: SwaggerDefinition[]): unknown[] {
+    const values: unknown[] = [];
+    literals.forEach(schema => {
+        if (schema.const !== undefined) {
+            values.push(schema.const);
+        }
+        if (Array.isArray(schema.enum)) {
+            values.push(...schema.enum);
+        }
+    });
+    return values;
+}
+
+function extractLiteralTypes(literals: SwaggerDefinition[]): Set<string> {
+    const types = new Set<string>();
+    literals.forEach(schema => {
+        const type = schema.type;
+        if (typeof type === 'string') {
+            types.add(type);
+        } else if (Array.isArray(type)) {
+            type.forEach(entry => {
+                if (typeof entry === 'string') types.add(entry);
+            });
+        }
+    });
+    return types;
+}
+
+function applyNullability(schema: SwaggerDefinition): SwaggerDefinition {
+    if ('$ref' in schema || '$dynamicRef' in schema) {
+        return { anyOf: [schema, { type: 'null' }] };
+    }
+
+    if (schema.type) {
+        const existing = Array.isArray(schema.type) ? [...schema.type] : [schema.type];
+        if (!existing.includes('null')) existing.push('null');
+        return { ...schema, type: existing };
+    }
+
+    if (schema.anyOf) {
+        return { ...schema, anyOf: [...schema.anyOf, { type: 'null' }] };
+    }
+
+    if (schema.oneOf) {
+        return { ...schema, oneOf: [...schema.oneOf, { type: 'null' }] };
+    }
+
+    return { anyOf: [schema, { type: 'null' }] };
+}
+
 function applyDocs(schema: SwaggerDefinition, node: Node): void {
     const jsDocs = node.getJsDocs();
     if (jsDocs.length === 0) return;
@@ -467,6 +648,21 @@ function applyDocs(schema: SwaggerDefinition, node: Node): void {
             continue;
         }
 
+        if (tagName === 'see') {
+            const rawText = tag
+                .getText()
+                .replace(/^@see\s*/i, '')
+                .trim();
+            if (!rawText) continue;
+            const [rawUrl, ...rest] = rawText.split(' - ');
+            const url = rawUrl?.trim();
+            if (url) {
+                const description = rest.length > 0 ? rest.join(' - ').trim() : undefined;
+                schema.externalDocs = description ? { url, description } : { url };
+            }
+            continue;
+        }
+
         if (tagName === 'example' && text) {
             exampleValues.push(parseDocValue(text));
             continue;
@@ -474,6 +670,11 @@ function applyDocs(schema: SwaggerDefinition, node: Node): void {
 
         if (tagName === 'default' && text) {
             schema.default = parseDocValue(text);
+            continue;
+        }
+
+        if (tagName.startsWith('x-')) {
+            schema[tagName] = text ? parseDocValue(text) : true;
             continue;
         }
 
@@ -549,6 +750,18 @@ function applyDocs(schema: SwaggerDefinition, node: Node): void {
                 if (value !== undefined) schema.maxProperties = value;
                 break;
             }
+            case 'propertynames': {
+                if (typeof rawValue === 'object' || typeof rawValue === 'boolean') {
+                    schema.propertyNames = rawValue as SwaggerDefinition | boolean;
+                }
+                break;
+            }
+            case 'additionalproperties': {
+                if (typeof rawValue === 'object' || typeof rawValue === 'boolean') {
+                    schema.additionalProperties = rawValue as SwaggerDefinition | boolean;
+                }
+                break;
+            }
             case 'readonly': {
                 schema.readOnly = asBoolean(rawValue);
                 break;
@@ -565,12 +778,142 @@ function applyDocs(schema: SwaggerDefinition, node: Node): void {
                 if (typeof rawValue === 'string') schema.title = rawValue;
                 break;
             }
+            case 'const': {
+                if (text) schema.const = rawValue;
+                break;
+            }
+            case 'if': {
+                if (text && (typeof rawValue === 'object' || typeof rawValue === 'boolean')) {
+                    schema.if = rawValue as SwaggerDefinition | boolean;
+                }
+                break;
+            }
+            case 'then': {
+                if (text && (typeof rawValue === 'object' || typeof rawValue === 'boolean')) {
+                    schema.then = rawValue as SwaggerDefinition | boolean;
+                }
+                break;
+            }
+            case 'else': {
+                if (text && (typeof rawValue === 'object' || typeof rawValue === 'boolean')) {
+                    schema.else = rawValue as SwaggerDefinition | boolean;
+                }
+                break;
+            }
+            case 'not': {
+                if (text && (typeof rawValue === 'object' || typeof rawValue === 'boolean')) {
+                    schema.not = rawValue as SwaggerDefinition | boolean;
+                }
+                break;
+            }
+            case 'oneof': {
+                if (text && Array.isArray(rawValue)) {
+                    schema.oneOf = rawValue as (SwaggerDefinition | boolean)[];
+                    if (schema.anyOf) delete schema.anyOf;
+                }
+                break;
+            }
+            case 'anyof': {
+                if (text && Array.isArray(rawValue)) {
+                    schema.anyOf = rawValue as (SwaggerDefinition | boolean)[];
+                    if (schema.oneOf) delete schema.oneOf;
+                }
+                break;
+            }
+            case 'contains': {
+                if (typeof rawValue === 'object' || typeof rawValue === 'boolean') {
+                    schema.contains = rawValue as SwaggerDefinition | boolean;
+                }
+                break;
+            }
+            case 'mincontains': {
+                const value = asNumber(rawValue);
+                if (value !== undefined) schema.minContains = value;
+                break;
+            }
+            case 'maxcontains': {
+                const value = asNumber(rawValue);
+                if (value !== undefined) schema.maxContains = value;
+                break;
+            }
             case 'contentmediatype': {
                 if (typeof rawValue === 'string') schema.contentMediaType = rawValue;
                 break;
             }
             case 'contentencoding': {
                 if (typeof rawValue === 'string') schema.contentEncoding = rawValue;
+                break;
+            }
+            case 'contentschema': {
+                if (typeof rawValue === 'object' || typeof rawValue === 'boolean') {
+                    schema.contentSchema = rawValue as SwaggerDefinition | boolean;
+                }
+                break;
+            }
+            case 'patternproperties': {
+                if (typeof rawValue === 'object' && rawValue !== null) {
+                    schema.patternProperties = rawValue as SwaggerDefinition['patternProperties'];
+                }
+                break;
+            }
+            case 'dependentschemas': {
+                if (typeof rawValue === 'object' && rawValue !== null) {
+                    schema.dependentSchemas = rawValue as SwaggerDefinition['dependentSchemas'];
+                }
+                break;
+            }
+            case 'dependentrequired': {
+                if (typeof rawValue === 'object' && rawValue !== null) {
+                    schema.dependentRequired = rawValue as SwaggerDefinition['dependentRequired'];
+                }
+                break;
+            }
+            case 'unevaluatedproperties': {
+                if (typeof rawValue === 'object' || typeof rawValue === 'boolean') {
+                    schema.unevaluatedProperties = rawValue as SwaggerDefinition['unevaluatedProperties'];
+                }
+                break;
+            }
+            case 'unevaluateditems': {
+                if (typeof rawValue === 'object' || typeof rawValue === 'boolean') {
+                    schema.unevaluatedItems = rawValue as SwaggerDefinition['unevaluatedItems'];
+                }
+                break;
+            }
+            case 'schemadialect': {
+                if (typeof rawValue === 'string') {
+                    schema.$schema = rawValue;
+                }
+                break;
+            }
+            case 'schemaid': {
+                if (typeof rawValue === 'string') {
+                    schema.$id = rawValue;
+                }
+                break;
+            }
+            case 'schemaanchor': {
+                if (typeof rawValue === 'string') {
+                    schema.$anchor = rawValue;
+                }
+                break;
+            }
+            case 'schemadynamicanchor': {
+                if (typeof rawValue === 'string') {
+                    schema.$dynamicAnchor = rawValue;
+                }
+                break;
+            }
+            case 'xml': {
+                if (typeof rawValue === 'object' && rawValue !== null) {
+                    schema.xml = rawValue as SwaggerDefinition['xml'];
+                }
+                break;
+            }
+            case 'discriminator': {
+                if (typeof rawValue === 'object' && rawValue !== null) {
+                    schema.discriminator = rawValue as DiscriminatorObject;
+                }
                 break;
             }
         }

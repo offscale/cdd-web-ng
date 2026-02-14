@@ -19,7 +19,9 @@ export class LinkGenerator {
         const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
         const linksRegistry: Record<string, Record<string, Record<string, LinkObject>>> = {};
+        const componentLinks: Record<string, LinkObject> = {};
         let linkCount = 0;
+        let componentLinkCount = 0;
 
         this.parser.operations.forEach((op: PathInfo) => {
             if (!op.operationId || !op.responses) return;
@@ -39,18 +41,10 @@ export class LinkGenerator {
                                 !link.operationId && link.operationRef
                                     ? this.resolveOperationRef(link.operationRef)
                                     : undefined;
-                            const cleanLink: LinkObject = {
-                                ...(link.operationId
-                                    ? { operationId: link.operationId }
-                                    : resolvedOperationId
-                                      ? { operationId: resolvedOperationId }
-                                      : {}),
-                                ...(link.operationRef ? { operationRef: link.operationRef } : {}),
-                                ...(link.parameters ? { parameters: link.parameters } : {}),
-                                ...(link.requestBody ? { requestBody: link.requestBody } : {}),
-                                ...(link.description ? { description: link.description } : {}),
-                                ...(link.server ? { server: link.server } : {}),
-                            };
+                            const cleanLink: LinkObject = { ...(link as LinkObject) };
+                            if (!cleanLink.operationId && resolvedOperationId) {
+                                cleanLink.operationId = resolvedOperationId;
+                            }
 
                             responseLinks[linkName] = cleanLink;
                             linkCount++;
@@ -69,7 +63,19 @@ export class LinkGenerator {
             }
         });
 
-        if (linkCount > 0) {
+        Object.entries(this.parser.links).forEach(([name, link]) => {
+            const resolvedOperationId =
+                !link.operationId && link.operationRef ? this.resolveOperationRef(link.operationRef) : undefined;
+            const cleanLink: LinkObject = { ...(link as LinkObject) };
+            if (!cleanLink.operationId && resolvedOperationId) {
+                cleanLink.operationId = resolvedOperationId;
+            }
+            componentLinks[name] = cleanLink;
+        });
+
+        componentLinkCount = Object.keys(componentLinks).length;
+
+        if (linkCount > 0 || componentLinkCount > 0) {
             sourceFile.addVariableStatement({
                 isExported: true,
                 declarationKind: VariableDeclarationKind.Const,
@@ -84,6 +90,20 @@ export class LinkGenerator {
                     'Structure: operationId -> responseStatusCode -> linkName -> LinkObject',
                 ],
             });
+
+            if (componentLinkCount > 0) {
+                sourceFile.addVariableStatement({
+                    isExported: true,
+                    declarationKind: VariableDeclarationKind.Const,
+                    declarations: [
+                        {
+                            name: 'API_COMPONENT_LINKS',
+                            initializer: JSON.stringify(componentLinks, null, 2),
+                        },
+                    ],
+                    docs: ['Reusable Link Objects from components.links.'],
+                });
+            }
         } else {
             sourceFile.addStatements('export {};');
         }

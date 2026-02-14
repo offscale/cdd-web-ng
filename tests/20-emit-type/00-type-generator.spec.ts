@@ -22,6 +22,7 @@ const typeGenSpec = {
                         },
                     },
                 },
+                responses: { '200': { description: 'ok' } },
             },
         },
     },
@@ -38,6 +39,7 @@ const typeGenSpec = {
                         },
                     },
                 },
+                responses: { '200': { description: 'ok' } },
             },
         },
     },
@@ -60,6 +62,7 @@ const typeGenSpec = {
             QuotedProps: { type: 'object', properties: { 'with-hyphen': { type: 'string' } } },
             FreeObject: { type: 'object', additionalProperties: true },
             StringMap: { type: 'object', additionalProperties: { type: 'string' } },
+            ClosedMap: { type: 'object', additionalProperties: false, properties: { id: { type: 'string' } } },
             Description: { type: 'object', properties: { prop: { type: 'string', description: 'A test property.' } } },
             SimpleAlias: { type: 'string' },
             ComplexAlias: { anyOf: [{ type: 'string' }, { $ref: '#/components/schemas/Base' }] },
@@ -129,6 +132,14 @@ describe('Emitter: TypeGenerator', () => {
         const { getText } = runGenerator(typeGenSpec);
         expect(getText()).toContain('export interface FreeObject {\n    [key: string]: any;\n}');
         expect(getText()).toContain('export interface StringMap {\n    [key: string]: string;\n}');
+    });
+
+    it('should emit @additionalProperties for explicit false', () => {
+        const { sourceFile } = runGenerator(typeGenSpec);
+        const closedMap = sourceFile.getInterfaceOrThrow('ClosedMap');
+        const doc = closedMap.getJsDocs()[0];
+        const tag = doc.getTags().find(t => t.getTagName() === 'additionalProperties');
+        expect(tag?.getCommentText()).toBe('false');
     });
 
     it('should generate TSDoc comments from descriptions', () => {

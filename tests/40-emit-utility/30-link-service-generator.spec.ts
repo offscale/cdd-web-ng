@@ -226,6 +226,73 @@ describe('Emitter: LinkServiceGenerator', () => {
         expect(result.parameters.p).toBe('999'); // extracted path param
     });
 
+    it('should normalize qualified parameter keys and report locations', () => {
+        const project = createTestProject();
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'T', version: '1' },
+            paths: {},
+            components: { links: { L: { operationId: 'noop' } } },
+        };
+        const parser = createParser(spec);
+        new LinkServiceGenerator(parser, project).generate('/out');
+
+        const sourceFile = project.getSourceFileOrThrow('/out/utils/link.service.ts');
+        const code = sourceFile.getText().replace(/import.*;/g, '');
+        const jsCode = ts.transpile(code, {
+            target: ts.ScriptTarget.ES2020,
+            module: ts.ModuleKind.CommonJS,
+            experimentalDecorators: true,
+        });
+
+        const API_LINKS = {
+            op1: {
+                '200': {
+                    next: {
+                        operationId: 'op2',
+                        parameters: {
+                            'path.id': '$request.path.id',
+                            'query.filter': '$request.query.filter',
+                            'header.x-req-id': '$request.header.x-req-id',
+                        },
+                    },
+                },
+            },
+        };
+
+        const requestMock = {
+            url: 'https://api.com/v1/items/123?filter=active',
+            method: 'GET',
+            body: undefined,
+            headers: new Map([['x-req-id', 'req-1']]),
+            params: new Map([['filter', 'active']]),
+        };
+
+        const responseMock = { status: 200, headers: {}, body: {} };
+
+        const moduleScope = { exports: {} as any };
+        const mockInjectable = () => (target: any) => target;
+        const wrappedCode = `
+            const API_LINKS = ${JSON.stringify(API_LINKS)}; 
+            ${jsCode} 
+        `;
+
+        new Function('exports', 'Injectable', wrappedCode)(moduleScope.exports, mockInjectable);
+        const service = new moduleScope.exports.LinkService();
+
+        const result = service.resolveLink('op1', responseMock, 'next', requestMock, '/items/{id}');
+
+        expect(result).toBeDefined();
+        expect(result.parameters.id).toBe('123');
+        expect(result.parameters.filter).toBe('active');
+        expect(result.parameters['x-req-id']).toBe('req-1');
+        expect(result.parameterLocations).toEqual({
+            id: 'path',
+            filter: 'query',
+            'x-req-id': 'header',
+        });
+    });
+
     it('should resolve targetServer with variable substitution', () => {
         const project = createTestProject();
         const spec = {
@@ -274,6 +341,108 @@ describe('Emitter: LinkServiceGenerator', () => {
 
         expect(result).toBeDefined();
         expect(result.targetServer).toBe('https://eu-west.api.com/v1');
+    });
+
+    it('should omit parameters when runtime expression evaluation fails', () => {
+        const project = createTestProject();
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'T', version: '1' },
+            paths: {},
+            components: { links: { L: { operationId: 'noop' } } },
+        };
+        const parser = createParser(spec);
+        new LinkServiceGenerator(parser, project).generate('/out');
+
+        const sourceFile = project.getSourceFileOrThrow('/out/utils/link.service.ts');
+        const code = sourceFile.getText().replace(/import.*;/g, '');
+        const jsCode = ts.transpile(code, {
+            target: ts.ScriptTarget.ES2020,
+            module: ts.ModuleKind.CommonJS,
+            experimentalDecorators: true,
+        });
+
+        const API_LINKS = {
+            opMissing: {
+                '200': {
+                    next: {
+                        operationId: 'op2',
+                        parameters: {
+                            missing: '$response.body#/missing',
+                            templated: 'user-{$response.body#/missing}',
+                            ok: 'static',
+                        },
+                    },
+                },
+            },
+        };
+
+        const responseMock = { status: 200, headers: {}, body: {} };
+        const moduleScope = { exports: {} as any };
+        const mockInjectable = () => (target: any) => target;
+        const wrappedCode = `
+            const API_LINKS = ${JSON.stringify(API_LINKS)}; 
+            ${jsCode} 
+        `;
+
+        new Function('exports', 'Injectable', wrappedCode)(moduleScope.exports, mockInjectable);
+        const service = new moduleScope.exports.LinkService();
+
+        const result = service.resolveLink('opMissing', responseMock, 'next');
+
+        expect(result).toBeDefined();
+        expect(result.parameters.ok).toBe('static');
+        expect(Object.prototype.hasOwnProperty.call(result.parameters, 'missing')).toBe(false);
+        expect(Object.prototype.hasOwnProperty.call(result.parameters, 'templated')).toBe(false);
+    });
+
+    it('should decode percent-encoded JSON pointer segments in runtime expressions', () => {
+        const project = createTestProject();
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'T', version: '1' },
+            paths: {},
+            components: { links: { L: { operationId: 'noop' } } },
+        };
+        const parser = createParser(spec);
+        new LinkServiceGenerator(parser, project).generate('/out');
+
+        const sourceFile = project.getSourceFileOrThrow('/out/utils/link.service.ts');
+        const code = sourceFile.getText().replace(/import.*;/g, '');
+        const jsCode = ts.transpile(code, {
+            target: ts.ScriptTarget.ES2020,
+            module: ts.ModuleKind.CommonJS,
+            experimentalDecorators: true,
+        });
+
+        const API_LINKS = {
+            opPointer: {
+                '200': {
+                    next: {
+                        operationId: 'op2',
+                        parameters: {
+                            value: '$response.body#/a%2Fb',
+                        },
+                    },
+                },
+            },
+        };
+
+        const responseMock = { status: 200, headers: {}, body: { 'a/b': 42 } };
+        const moduleScope = { exports: {} as any };
+        const mockInjectable = () => (target: any) => target;
+        const wrappedCode = `
+            const API_LINKS = ${JSON.stringify(API_LINKS)}; 
+            ${jsCode} 
+        `;
+
+        new Function('exports', 'Injectable', wrappedCode)(moduleScope.exports, mockInjectable);
+        const service = new moduleScope.exports.LinkService();
+
+        const result = service.resolveLink('opPointer', responseMock, 'next');
+
+        expect(result).toBeDefined();
+        expect(result.parameters.value).toBe(42);
     });
 
     it('should throw validation error if link server variable default is invalid', () => {

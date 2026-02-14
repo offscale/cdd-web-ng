@@ -11,6 +11,7 @@ const linksSpec: SwaggerSpec = {
     info: { title: 'Link Test', version: '1.0' },
     paths: {
         '/users/{id}': {
+            parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
             get: {
                 operationId: 'getUserById',
                 responses: {
@@ -28,6 +29,7 @@ const linksSpec: SwaggerSpec = {
             },
         },
         '/users/{id}/address': {
+            parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
             get: { operationId: 'getUserAddress', responses: { '200': { description: 'ok' } } },
         },
     },
@@ -39,6 +41,7 @@ const refLinksSpec: SwaggerSpec = {
     info: { title: 'Ref Link Test', version: '1.0' },
     paths: {
         '/orders/{id}': {
+            parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
             get: {
                 operationId: 'getOrder',
                 responses: {
@@ -60,6 +63,40 @@ const refLinksSpec: SwaggerSpec = {
             },
         },
         schemas: {},
+    },
+};
+
+const componentOnlyLinksSpec: SwaggerSpec = {
+    openapi: '3.2.0',
+    info: { title: 'Component Links Only', version: '1.0' },
+    paths: {},
+    components: {
+        links: {
+            NextPage: {
+                operationId: 'listThings',
+                description: 'Next page link',
+            },
+        },
+    },
+};
+
+const componentOperationRefSpec: SwaggerSpec = {
+    openapi: '3.2.0',
+    info: { title: 'Component OperationRef', version: '1.0' },
+    paths: {
+        '/target': {
+            get: {
+                operationId: 'getTarget',
+                responses: { '200': { description: 'ok' } },
+            },
+        },
+    },
+    components: {
+        links: {
+            GoTarget: {
+                operationRef: '#/paths/~1target/get',
+            },
+        },
     },
 };
 
@@ -161,6 +198,44 @@ const webhookLinkSpec: SwaggerSpec = {
     components: {},
 };
 
+const extensionLinksSpec: SwaggerSpec = {
+    openapi: '3.2.0',
+    info: { title: 'Link Extensions', version: '1.0' },
+    paths: {
+        '/items/{id}': {
+            parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+            get: {
+                operationId: 'getItem',
+                responses: {
+                    '200': {
+                        description: 'ok',
+                        links: {
+                            Next: {
+                                operationId: 'getNext',
+                                'x-trace': 'keep-me',
+                                'x-meta': { level: 1 },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+        '/items/{id}/next': {
+            parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+            get: { operationId: 'getNext', responses: { '200': { description: 'ok' } } },
+        },
+    },
+    components: {
+        links: {
+            Paged: {
+                operationId: 'listThings',
+                'x-note': 'component-link',
+            },
+        },
+        schemas: {},
+    },
+};
+
 // Spec missing operationId or responses
 const sparseSpec: SwaggerSpec = {
     openapi: '3.0.0',
@@ -176,6 +251,7 @@ const sparseSpec: SwaggerSpec = {
         '/no-responses': {
             get: {
                 operationId: 'actionNoResp',
+                responses: { '200': { description: 'ok' } },
             } as any,
         },
     },
@@ -219,6 +295,26 @@ describe('Emitter: LinkGenerator', () => {
         expect(link.server).toBeUndefined();
     });
 
+    it('should emit component links registry when components.links is defined', () => {
+        const project = runGenerator(componentOnlyLinksSpec);
+        const { API_COMPONENT_LINKS } = compileGeneratedFile(project);
+
+        expect(API_COMPONENT_LINKS).toBeDefined();
+        expect(API_COMPONENT_LINKS.NextPage).toBeDefined();
+        expect(API_COMPONENT_LINKS.NextPage.operationId).toBe('listThings');
+        expect(API_COMPONENT_LINKS.NextPage.description).toBe('Next page link');
+    });
+
+    it('should resolve operationRef for component links', () => {
+        const project = runGenerator(componentOperationRefSpec);
+        const { API_COMPONENT_LINKS } = compileGeneratedFile(project);
+
+        expect(API_COMPONENT_LINKS).toBeDefined();
+        expect(API_COMPONENT_LINKS.GoTarget).toBeDefined();
+        expect(API_COMPONENT_LINKS.GoTarget.operationRef).toBe('#/paths/~1target/get');
+        expect(API_COMPONENT_LINKS.GoTarget.operationId).toBe('getTarget');
+    });
+
     it('should resolve referenced links', () => {
         const project = runGenerator(refLinksSpec);
         const { API_LINKS } = compileGeneratedFile(project);
@@ -251,6 +347,70 @@ describe('Emitter: LinkGenerator', () => {
         const link = API_LINKS['triggerWebhook']['200']['NotifyWebhook'];
         expect(link.operationRef).toBe('#/webhooks/user.created/post');
         expect(link.operationId).toBe('handleUserCreated');
+    });
+
+    it('should preserve x- extensions on operation and component links', () => {
+        const project = runGenerator(extensionLinksSpec);
+        const { API_LINKS, API_COMPONENT_LINKS } = compileGeneratedFile(project);
+
+        const link = API_LINKS['getItem']['200']['Next'];
+        expect(link['x-trace']).toBe('keep-me');
+        expect(link['x-meta']).toEqual({ level: 1 });
+
+        expect(API_COMPONENT_LINKS.Paged['x-note']).toBe('component-link');
+    });
+
+    it('should resolve external operationRef when the target document is cached', () => {
+        const entrySpec: SwaggerSpec = {
+            openapi: '3.2.0',
+            info: { title: 'Entry', version: '1.0' },
+            paths: {
+                '/entry': {
+                    get: {
+                        operationId: 'getEntry',
+                        responses: {
+                            '200': {
+                                description: 'ok',
+                                links: {
+                                    External: {
+                                        operationRef: 'other.json#/paths/~1external/get',
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const externalSpec: SwaggerSpec = {
+            openapi: '3.2.0',
+            info: { title: 'External', version: '1.0' },
+            paths: {
+                '/external': {
+                    get: {
+                        operationId: 'getExternal',
+                        responses: { '200': { description: 'ok' } },
+                    },
+                },
+            },
+        };
+
+        const project = createTestProject();
+        const config: GeneratorConfig = { output: '/out', options: {} } as any;
+        const entryUri = 'http://api.com/spec.json';
+        const externalUri = 'http://api.com/other.json';
+        const specCache = new Map<string, SwaggerSpec>([
+            [entryUri, entrySpec],
+            [externalUri, externalSpec],
+        ]);
+        const parser = new SwaggerParser(entrySpec, config, specCache, entryUri);
+        new LinkGenerator(parser, project).generate('/out');
+
+        const { API_LINKS } = compileGeneratedFile(project);
+        const link = API_LINKS['getEntry']['200']['External'];
+        expect(link.operationRef).toBe('other.json#/paths/~1external/get');
+        expect(link.operationId).toBe('getExternal');
     });
 
     it('should ignore operations without identifiers or links', () => {

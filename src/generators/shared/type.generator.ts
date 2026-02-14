@@ -151,14 +151,19 @@ export class TypeGenerator {
 
                         const type = isSetCookie
                             ? 'string[]'
-                            : getTypeScriptType(schema, this.config, this.parser.schemas.map(s => s.name));
+                            : getTypeScriptType(
+                                  schema,
+                                  this.config,
+                                  this.parser.schemas.map(s => s.name),
+                              );
                         const safeName = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(headerName) ? headerName : `'${headerName}'`;
 
                         // Updated logic: Build JSDoc structure explicitly
                         const jsDocs: OptionalKind<JSDocStructure>[] = [];
                         if (resolvedHeader.description || resolvedHeader.deprecated) {
                             const doc: OptionalKind<JSDocStructure> = {};
-                            if (resolvedHeader.description) doc.description = sanitizeComment(resolvedHeader.description);
+                            if (resolvedHeader.description)
+                                doc.description = sanitizeComment(resolvedHeader.description);
                             if (resolvedHeader.deprecated) doc.tags = [{ tagName: 'deprecated' }];
                             jsDocs.push(doc);
                         }
@@ -191,8 +196,8 @@ export class TypeGenerator {
     private shouldGenerateInterface(def: SwaggerDefinition | boolean): boolean {
         if (typeof def === 'boolean') return false;
         if (def.anyOf || def.oneOf) return false;
-        // dependentSchemas involve intersection/union types logic which can only be represented by type alias
-        if (def.dependentSchemas) return false;
+        // dependentSchemas/dependentRequired involve intersection/union logic which can only be represented by type alias
+        if (def.dependentSchemas || (def as any).dependentRequired) return false;
         return def.type === 'object' || !!def.properties || !!def.allOf || !!def.patternProperties;
     }
 
@@ -409,6 +414,21 @@ export class TypeGenerator {
         const description = sanitizeComment(def.description || '');
         const tags: OptionalKind<JSDocTagStructure>[] = [];
 
+        const pushTag = (tagName: string, value?: unknown, options?: { omitTrue?: boolean }) => {
+            if (value === undefined) return;
+            if (value === true && options?.omitTrue) {
+                tags.push({ tagName });
+                return;
+            }
+            const text =
+                typeof value === 'string'
+                    ? value
+                    : typeof value === 'number' || typeof value === 'boolean'
+                      ? String(value)
+                      : JSON.stringify(value);
+            tags.push({ tagName, text });
+        };
+
         if ((def as any).deprecated) tags.push({ tagName: 'deprecated' });
         if (def.example !== undefined) {
             tags.push({ tagName: 'example', text: JSON.stringify(def.example, null, 2) });
@@ -423,6 +443,63 @@ export class TypeGenerator {
             const desc = def.externalDocs.description ? ` - ${sanitizeComment(def.externalDocs.description)}` : '';
             tags.push({ tagName: 'see', text: `${def.externalDocs.url}${desc}` });
         }
+
+        pushTag('minimum', def.minimum);
+        pushTag('maximum', def.maximum);
+        pushTag('exclusiveMinimum', def.exclusiveMinimum);
+        pushTag('exclusiveMaximum', def.exclusiveMaximum);
+        pushTag('minLength', def.minLength);
+        pushTag('maxLength', def.maxLength);
+        pushTag('pattern', def.pattern);
+        pushTag('format', def.format);
+        pushTag('multipleOf', def.multipleOf);
+        pushTag('minItems', def.minItems);
+        pushTag('maxItems', def.maxItems);
+        pushTag('uniqueItems', def.uniqueItems);
+        pushTag('minProperties', def.minProperties);
+        pushTag('maxProperties', def.maxProperties);
+        pushTag('propertyNames', (def as any).propertyNames);
+        if (Object.prototype.hasOwnProperty.call(def as Record<string, unknown>, 'additionalProperties')) {
+            pushTag('additionalProperties', (def as any).additionalProperties);
+        }
+        pushTag('readOnly', def.readOnly, { omitTrue: true });
+        pushTag('writeOnly', def.writeOnly, { omitTrue: true });
+        pushTag('nullable', (def as any).nullable, { omitTrue: true });
+        pushTag('title', def.title);
+        pushTag('schemaDialect', (def as any).$schema);
+        pushTag('schemaId', (def as any).$id);
+        pushTag('schemaAnchor', (def as any).$anchor);
+        pushTag('schemaDynamicAnchor', (def as any).$dynamicAnchor);
+        pushTag('const', (def as any).const);
+        pushTag('if', (def as any).if);
+        pushTag('then', (def as any).then);
+        pushTag('else', (def as any).else);
+        pushTag('not', (def as any).not);
+        pushTag('oneOf', (def as any).oneOf);
+        pushTag('anyOf', (def as any).anyOf);
+        pushTag('contains', (def as any).contains);
+        pushTag('minContains', (def as any).minContains);
+        pushTag('maxContains', (def as any).maxContains);
+        pushTag('contentMediaType', (def as any).contentMediaType);
+        pushTag('contentEncoding', (def as any).contentEncoding);
+        pushTag('contentSchema', (def as any).contentSchema);
+        pushTag('patternProperties', (def as any).patternProperties);
+        pushTag('dependentSchemas', (def as any).dependentSchemas);
+        pushTag('dependentRequired', (def as any).dependentRequired);
+        pushTag('unevaluatedProperties', (def as any).unevaluatedProperties);
+        pushTag('unevaluatedItems', (def as any).unevaluatedItems);
+        pushTag('schemaDialect', (def as any).$schema);
+        pushTag('schemaId', (def as any).$id);
+        pushTag('schemaAnchor', (def as any).$anchor);
+        pushTag('schemaDynamicAnchor', (def as any).$dynamicAnchor);
+        pushTag('xml', (def as any).xml);
+        pushTag('discriminator', (def as any).discriminator);
+
+        const extensionEntries = Object.entries(def as Record<string, unknown>).filter(([key]) => key.startsWith('x-'));
+        extensionEntries.forEach(([key, value]) => {
+            if (value === undefined) return;
+            tags.push({ tagName: key, text: JSON.stringify(value) });
+        });
 
         if (!description && tags.length === 0) return [];
         return [{ description, tags }];

@@ -22,6 +22,9 @@ describe('Admin: CustomValidatorsGenerator', () => {
                 'exclusiveMaximum',
                 'multipleOf',
                 'uniqueItems',
+                'minProperties',
+                'maxProperties',
+                'contains',
                 'constValidator',
                 'notValidator',
             ]),
@@ -37,5 +40,10 @@ describe('Admin: CustomValidatorsGenerator', () => {
         const notBody = notValidatorMethod.getBodyText();
         expect(notBody).toContain('if (errors !== null) return null;');
         expect(notBody).toContain('return { not: true };');
+
+        const containsMethod = validatorClass.getStaticMethodOrThrow('contains');
+        const containsBody = containsMethod.getBodyText();
+        expect(containsBody).toContain('matchCount');
+        expect(containsBody).toContain('contains');
     });
 });

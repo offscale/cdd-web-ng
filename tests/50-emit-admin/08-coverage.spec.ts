@@ -29,14 +29,17 @@ const formGenCoverageSpec = {
                 requestBody: {
                     content: { 'application/json': { schema: { $ref: '#/components/schemas/UpdateOnly' } } },
                 },
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
             get: {
                 tags: ['UpdateOnly'],
                 operationId: 'getTheThing',
                 parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
                 responses: {
-                    '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/UpdateOnly' } } } },
+                    '200': {
+                        description: 'ok',
+                        content: { 'application/json': { schema: { $ref: '#/components/schemas/UpdateOnly' } } },
+                    },
                 },
             },
         },
@@ -47,20 +50,24 @@ const formGenCoverageSpec = {
                 requestBody: {
                     content: { 'application/json': { schema: { $ref: '#/components/schemas/PolyMixed' } } },
                 },
-                responses: { '201': {} },
+                responses: { '201': { description: 'ok' } },
             },
         },
         '/no-submit/{id}': {
             get: {
                 tags: ['NoSubmit'],
+                parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
                 responses: {
-                    '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/NoSubmit' } } } },
+                    '200': {
+                        description: 'ok',
+                        content: { 'application/json': { schema: { $ref: '#/components/schemas/NoSubmit' } } },
+                    },
                 },
             },
             delete: {
                 tags: ['NoSubmit'],
                 parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-                responses: { '204': {} },
+                responses: { '204': { description: 'ok' } },
             }, // isEditable = true if we add custom action
         },
         '/no-submit/{id}/custom': {
@@ -68,21 +75,25 @@ const formGenCoverageSpec = {
                 tags: ['NoSubmit'],
                 operationId: 'customAction',
                 parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/simple-form/{id}': {
             get: {
                 tags: ['SimpleForm'],
+                parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
                 responses: {
-                    '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/Simple' } } } },
+                    '200': {
+                        description: 'ok',
+                        content: { 'application/json': { schema: { $ref: '#/components/schemas/Simple' } } },
+                    },
                 },
             },
             put: {
                 tags: ['SimpleForm'],
                 parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
                 requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/Simple' } } } },
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/poly-primitive-only': {
@@ -91,7 +102,7 @@ const formGenCoverageSpec = {
                 requestBody: {
                     content: { 'application/json': { schema: { $ref: '#/components/schemas/PolyPrimitiveOnly' } } },
                 },
-                responses: { '201': {} },
+                responses: { '201': { description: 'ok' } },
             },
         },
     },
@@ -108,6 +119,8 @@ const formGenCoverageSpec = {
                     { type: 'string' }, // Will be skipped in patchForm and updateFormForPetType
                     { $ref: '#/components/schemas/SubObject' },
                 ],
+                properties: { type: { type: 'string' } },
+                required: ['type'],
             },
             SubObject: {
                 type: 'object',
@@ -122,6 +135,8 @@ const formGenCoverageSpec = {
                 type: 'object',
                 discriminator: { propertyName: 'type' },
                 oneOf: [{ type: 'string' }, { type: 'number' }],
+                properties: { type: { type: 'string' } },
+                required: ['type'],
             },
         },
     },
@@ -152,7 +167,7 @@ describe('Admin Generators (Coverage)', () => {
             info: { title: 'Default', version: '1.0' },
             paths: {
                 '/': {
-                    get: { responses: { '200': {} } },
+                    get: { responses: { '200': { description: 'ok' } } },
                 },
             },
         };
@@ -168,21 +183,26 @@ describe('Admin Generators (Coverage)', () => {
             paths: {
                 '/upload': {
                     post: {
-                        parameters: [
-                            {
-                                name: 'file',
-                                in: 'formData',
-                                schema: { type: 'string', format: 'binary' },
-                                description: 'Upload file',
-                            },
-                        ],
                         requestBody: {
                             content: {
+                                'multipart/form-data': {
+                                    schema: {
+                                        type: 'object',
+                                        properties: {
+                                            file: {
+                                                type: 'string',
+                                                format: 'binary',
+                                                description: 'Upload file',
+                                            },
+                                        },
+                                    },
+                                },
                                 'application/json': { schema: { $ref: '#/components/schemas/Combined' } },
                             },
                         },
                         responses: {
                             '200': {
+                                description: 'ok',
                                 content: {
                                     'application/json': {
                                         schema: { type: 'array', items: { $ref: '#/components/schemas/Base' } },
@@ -202,10 +222,7 @@ describe('Admin Generators (Coverage)', () => {
                     },
                     Combined: {
                         type: 'object',
-                        allOf: [
-                            { $ref: '#/components/schemas/Base' },
-                            { $ref: '#/components/schemas/Missing' },
-                        ],
+                        allOf: [{ $ref: '#/components/schemas/Base' }, { $ref: '#/components/schemas/Missing' }],
                         properties: { extra: { type: 'string' } },
                     },
                 },
@@ -228,16 +245,24 @@ describe('Admin Generators (Coverage)', () => {
             paths: {
                 '/upload': {
                     post: {
-                        parameters: [
-                            {
-                                name: 'meta',
-                                in: 'formData',
-                                schema: { type: ['string', 'null'] },
-                                description: 'metadata',
+                        requestBody: {
+                            content: {
+                                'multipart/form-data': {
+                                    schema: {
+                                        type: 'object',
+                                        properties: {
+                                            meta: {
+                                                type: ['string', 'null'],
+                                                description: 'metadata',
+                                            },
+                                        },
+                                    },
+                                },
                             },
-                        ],
+                        },
                         responses: {
                             '200': {
+                                description: 'ok',
                                 content: {
                                     'application/json': {
                                         schema: { type: 'array', items: { $ref: '#/components/schemas/Missing' } },
@@ -263,7 +288,7 @@ describe('Admin Generators (Coverage)', () => {
             path: '',
             method: '',
             tags: [],
-            responses: {},
+            responses: { '200': { description: 'ok' } },
             operationId: '',
             parameters: undefined,
         });
@@ -334,6 +359,7 @@ describe('Admin Generators (Coverage)', () => {
                         tags: ['Diagnostics'],
                         responses: {
                             '200': {
+                                description: 'ok',
                                 content: {
                                     'application/json': { schema: { $ref: '#/components/schemas/DiagnosticInfo' } },
                                 },

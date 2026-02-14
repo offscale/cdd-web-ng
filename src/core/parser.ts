@@ -8,13 +8,14 @@ import {
     GeneratorConfig,
     LinkObject,
     PathInfo,
+    PathItem,
     SecurityScheme,
     ServerObject,
     SwaggerDefinition,
     SwaggerSpec,
 } from './types/index.js';
-import { extractPaths, normalizeSecurityKey, pascalCase } from './utils/index.js';
-import { validateSpec } from './validator.js';
+import { extractPaths, isUriReference, normalizeSecurityKey, pascalCase } from './utils/index.js';
+import { SpecValidationError, validateSpec } from './validator.js';
 import { OAS_3_1_DIALECT } from './constants.js';
 import { SpecLoader } from './parser/spec-loader.js';
 import { ReferenceResolver } from './parser/reference-resolver.js';
@@ -87,6 +88,7 @@ export class SwaggerParser {
 
         // We bind resolveRef to this instance so extractPaths can call back into the parser
         const resolveRef = (ref: string) => this.resolveReference(ref);
+        const resolveObj = (obj: unknown) => this.resolve(obj as any);
 
         // Pass components context to extractPaths for strict security matching
         const extractOptions = {
@@ -94,18 +96,21 @@ export class SwaggerParser {
             defaultConsumes: this.spec.swagger ? this.spec.consumes : undefined,
             defaultProduces: this.spec.swagger ? this.spec.produces : undefined,
         };
-        const operations = extractPaths(this.spec.paths, resolveRef, this.spec.components, extractOptions);
-        const webhooks = extractPaths(this.spec.webhooks, resolveRef, this.spec.components, extractOptions);
+        const operations = extractPaths(this.spec.paths, resolveRef, this.spec.components, extractOptions, resolveObj);
+        const webhooks = extractPaths(this.spec.webhooks, resolveRef, this.spec.components, extractOptions, resolveObj);
 
         // Resolve operation/path-level server URLs relative to retrieval URI (OAS 3.2).
         const resolveOpServers = (items: PathInfo[]): PathInfo[] =>
             items.map(item => {
-                if (!item.servers || item.servers.length === 0) return item;
-                return { ...item, servers: this.resolveServerUrls(item.servers, this.documentUri) };
+                if (item.servers === undefined) return item;
+                const normalizedServers = item.servers.length === 0 ? [{ url: '/' }] : item.servers;
+                return { ...item, servers: this.resolveServerUrls(normalizedServers, this.documentUri) };
             });
 
         this.operations = resolveOpServers(operations);
         this.webhooks = resolveOpServers(webhooks);
+
+        this.assertUniqueResolvedOperationIds();
 
         this.security = this.getSecuritySchemes();
         this.links = this.getLinks();
@@ -366,6 +371,16 @@ export class SwaggerParser {
 
         const addSchemeFromRef = (key: string) => {
             if (!key || knownNames.has(key)) return;
+
+            if (isUriReference(key)) {
+                const resolved = this.resolveReference<SecurityScheme>(key);
+                if (resolved) {
+                    schemes[key] = resolved;
+                    knownNames.add(key);
+                }
+                return;
+            }
+
             const normalized = normalizeSecurityKey(key);
             if (knownNames.has(normalized)) return;
             const resolved = this.resolveReference<SecurityScheme>(key);
@@ -508,5 +523,102 @@ export class SwaggerParser {
         if (this.spec.swagger) return { type: 'swagger', version: this.spec.swagger };
         if (this.spec.openapi) return { type: 'openapi', version: this.spec.openapi };
         return null;
+    }
+
+    /**
+     * Ensures operationId uniqueness across resolved operations and webhooks.
+     * This complements input validation by considering $ref-resolved Path Items.
+     */
+    private assertUniqueResolvedOperationIds(): void {
+        const operationIdLocations = new Map<string, string[]>();
+        const operationKeys = ['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'trace', 'query'];
+
+        const record = (op: PathInfo, prefix: string) => {
+            if (!op.operationId) return;
+            const location = `${prefix}${op.method.toUpperCase()} ${op.path}`;
+            const existing = operationIdLocations.get(op.operationId);
+            if (existing) {
+                existing.push(location);
+            } else {
+                operationIdLocations.set(op.operationId, [location]);
+            }
+        };
+
+        const recordFromPathItem = (pathItem: any, pathKey: string, prefix: string) => {
+            if (!pathItem || typeof pathItem !== 'object') return;
+            for (const method of operationKeys) {
+                const operation = pathItem[method];
+                if (operation?.operationId) {
+                    const location = `${prefix}${method.toUpperCase()} ${pathKey}`;
+                    const existing = operationIdLocations.get(operation.operationId);
+                    if (existing) {
+                        existing.push(location);
+                    } else {
+                        operationIdLocations.set(operation.operationId, [location]);
+                    }
+                }
+            }
+            if (pathItem.additionalOperations) {
+                for (const [method, operation] of Object.entries(pathItem.additionalOperations)) {
+                    if ((operation as any)?.operationId) {
+                        const location = `${prefix}${method} ${pathKey}`;
+                        const existing = operationIdLocations.get((operation as any).operationId);
+                        if (existing) {
+                            existing.push(location);
+                        } else {
+                            operationIdLocations.set((operation as any).operationId, [location]);
+                        }
+                    }
+                }
+            }
+        };
+
+        this.operations.forEach(op => record(op, 'paths: '));
+        this.webhooks.forEach(op => record(op, 'webhooks: '));
+
+        const resolvedPaths = new Set(this.operations.map(op => op.path));
+        if (this.spec.paths) {
+            for (const [pathKey, pathItem] of Object.entries(this.spec.paths)) {
+                if (!pathItem || typeof pathItem !== 'object') continue;
+                if (!(pathItem as any).$ref) continue;
+                if (resolvedPaths.has(pathKey)) continue;
+                const resolved = this.resolveReference<PathItem>((pathItem as any).$ref, this.documentUri);
+                if (resolved) {
+                    recordFromPathItem(resolved, pathKey, 'paths: ');
+                }
+            }
+        }
+
+        if (this.spec.webhooks) {
+            const resolvedWebhookPaths = new Set(this.webhooks.map(op => op.path));
+            for (const [pathKey, pathItem] of Object.entries(this.spec.webhooks)) {
+                if (!pathItem || typeof pathItem !== 'object') continue;
+                if (!(pathItem as any).$ref) continue;
+                if (resolvedWebhookPaths.has(pathKey)) continue;
+                const resolved = this.resolveReference<PathItem>((pathItem as any).$ref, this.documentUri);
+                if (resolved) {
+                    recordFromPathItem(resolved, pathKey, 'webhooks: ');
+                }
+            }
+        }
+
+        for (const [operationId, locations] of operationIdLocations.entries()) {
+            if (locations.length > 1) {
+                const message = `Duplicate operationId "${operationId}" found in multiple operations: ${locations.join(
+                    ', ',
+                )}`;
+                let error: Error;
+                try {
+                    const candidate = new SpecValidationError(message);
+                    error =
+                        candidate instanceof Error && candidate.message
+                            ? candidate
+                            : Object.assign(new Error(message), { name: 'SpecValidationError' });
+                } catch {
+                    error = Object.assign(new Error(message), { name: 'SpecValidationError' });
+                }
+                throw error;
+            }
+        }
     }
 }

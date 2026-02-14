@@ -240,7 +240,7 @@ describe('Emitter: SecurityGenerator', () => {
         const sourceFile = project.getSourceFileOrThrow('/out/security.ts');
         const text = sourceFile.getText();
 
-        expect(text).toContain('ApiKey');
+        expect(text).toContain(`${schemeUri}#/ApiKey`);
         expect(text).toContain('"type": "apiKey"');
         expect(text).toContain('"name": "X-API-KEY"');
     });

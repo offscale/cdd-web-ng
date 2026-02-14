@@ -12,6 +12,7 @@ export const fullCRUD_Users = {
                 tags: ['Users'],
                 responses: {
                     '200': {
+                        description: 'ok',
                         content: {
                             'application/json': {
                                 schema: {
@@ -27,7 +28,7 @@ export const fullCRUD_Users = {
                 operationId: 'createUser',
                 tags: ['Users'],
                 requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/User' } } } },
-                responses: { '201': {} },
+                responses: { '201': { description: 'ok' } },
             },
         },
         '/users/{id}': {
@@ -36,7 +37,10 @@ export const fullCRUD_Users = {
                 tags: ['Users'],
                 parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
                 responses: {
-                    '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/User' } } } },
+                    '200': {
+                        description: 'ok',
+                        content: { 'application/json': { schema: { $ref: '#/components/schemas/User' } } },
+                    },
                 },
             },
             put: {
@@ -44,13 +48,13 @@ export const fullCRUD_Users = {
                 tags: ['Users'],
                 parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
                 requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/User' } } } },
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
             delete: {
                 operationId: 'deleteUser',
                 tags: ['Users'],
                 parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-                responses: { '204': {} },
+                responses: { '204': { description: 'ok' } },
             },
         },
     },

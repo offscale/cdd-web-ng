@@ -103,13 +103,11 @@ function getXmlParser() {
             const dataNode = createNode('data', {}, [], '42');
             return {
                 getElementsByTagName: () => parserError,
-                documentElement: createNode(
-                    'report',
-                    {},
-                    [dataNode],
-                    null,
-                    [createTextNode('start'), dataNode, createTextNode('end')],
-                ),
+                documentElement: createNode('report', {}, [dataNode], null, [
+                    createTextNode('start'),
+                    dataNode,
+                    createTextNode('end'),
+                ]),
             };
         }
         // Case 5: Null

@@ -82,6 +82,7 @@ describe('Emitter: Response Header Utilities', () => {
                             operationId: 'getCookies',
                             responses: {
                                 '200': {
+                                    description: 'ok',
                                     headers: {
                                         'Set-Cookie': { schema: { type: 'string' } },
                                     },
@@ -114,6 +115,7 @@ describe('Emitter: Response Header Utilities', () => {
                             operationId: 'getHeadersStringDate',
                             responses: {
                                 '200': {
+                                    description: 'ok',
                                     headers: {
                                         'X-Date': { schema: { type: 'string', format: 'date-time' } },
                                     },
@@ -139,6 +141,52 @@ describe('Emitter: Response Header Utilities', () => {
             expect(API_RESPONSE_HEADERS['getHeadersStringDate']['200']['X-Date']).toBe('string');
         });
 
+        it('should export full header objects for reverse generation', () => {
+            const project = createTestProject();
+            const spec = {
+                paths: {
+                    '/full': {
+                        get: {
+                            operationId: 'getFull',
+                            responses: {
+                                '200': {
+                                    description: 'ok',
+                                    headers: {
+                                        'X-Full': {
+                                            description: 'Full header',
+                                            schema: { type: 'string', pattern: '^a' },
+                                        },
+                                        'X-Ref': { $ref: '#/components/headers/TraceId' },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                components: {
+                    headers: {
+                        TraceId: { schema: { type: 'string' }, description: 'Trace header' },
+                    },
+                },
+            };
+
+            const parser = createParser(spec);
+            new ResponseHeaderRegistryGenerator(parser, project).generate('/out');
+
+            const file = project.getSourceFileOrThrow('/out/response-headers.ts');
+            const text = file.getText().replace(/import.*;/g, '');
+            const jsCode = ts.transpile(text, { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS });
+            const moduleScope = { exports: {} as any };
+            new Function('exports', jsCode)(moduleScope.exports);
+
+            const API_RESPONSE_HEADER_OBJECTS = moduleScope.exports.API_RESPONSE_HEADER_OBJECTS;
+
+            expect(API_RESPONSE_HEADER_OBJECTS['getFull']['200']['X-Full'].description).toBe('Full header');
+            expect(API_RESPONSE_HEADER_OBJECTS['getFull']['200']['X-Full'].schema.pattern).toBe('^a');
+            expect(API_RESPONSE_HEADER_OBJECTS['getFull']['200']['X-Ref'].description).toBe('Trace header');
+            expect(API_RESPONSE_HEADER_OBJECTS['getFull']['200']['X-Ref'].schema.type).toBe('string');
+        });
+
         it('should handle XML content in headers', () => {
             const project = createTestProject();
             const spec = {
@@ -148,6 +196,7 @@ describe('Emitter: Response Header Utilities', () => {
                             operationId: 'getXmlHeader',
                             responses: {
                                 '200': {
+                                    description: 'ok',
                                     headers: {
                                         'X-Xml': {
                                             content: {
@@ -183,6 +232,48 @@ describe('Emitter: Response Header Utilities', () => {
             expect(API_HEADER_XML_CONFIGS['getXmlHeader_200_X-Xml'].name).toBe('Data');
         });
 
+        it('should preserve application/linkset+json headers distinctly', () => {
+            const project = createTestProject();
+            const spec = {
+                paths: {
+                    '/linkset-json': {
+                        get: {
+                            operationId: 'getLinksetJson',
+                            responses: {
+                                '200': {
+                                    description: 'ok',
+                                    headers: {
+                                        'X-Linkset': {
+                                            content: {
+                                                'application/linkset+json': {
+                                                    schema: {
+                                                        type: 'array',
+                                                        items: { type: 'object' },
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+
+            const parser = createParser(spec);
+            new ResponseHeaderRegistryGenerator(parser, project).generate('/out');
+
+            const file = project.getSourceFileOrThrow('/out/response-headers.ts');
+            const text = file.getText().replace(/import.*;/g, '');
+            const jsCode = ts.transpile(text, { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS });
+            const moduleScope = { exports: {} as any };
+            new Function('exports', jsCode)(moduleScope.exports);
+
+            const API_RESPONSE_HEADERS = moduleScope.exports.API_RESPONSE_HEADERS;
+            expect(API_RESPONSE_HEADERS['getLinksetJson']['200']['X-Linkset']).toBe('linkset+json');
+        });
+
         it('should capture XML config fields and handle missing schema', () => {
             const project = createTestProject();
             const spec = {
@@ -192,6 +283,7 @@ describe('Emitter: Response Header Utilities', () => {
                             operationId: 'getXmlExtra',
                             responses: {
                                 '200': {
+                                    description: 'ok',
                                     headers: {
                                         'X-Xml-NoSchema': {
                                             content: { 'application/xml': {} },
@@ -203,10 +295,8 @@ describe('Emitter: Response Header Utilities', () => {
                                                         type: 'object',
                                                         xml: {
                                                             name: 'Root',
-                                                            attribute: true,
-                                                            wrapped: true,
                                                             prefix: 'p',
-                                                            namespace: 'ns',
+                                                            namespace: 'https://example.com/ns',
                                                             nodeType: 'element',
                                                         },
                                                         properties: {
@@ -217,8 +307,7 @@ describe('Emitter: Response Header Utilities', () => {
                                                 },
                                             },
                                         },
-                                        // Swagger-style header without schema wrapper to hit fallback
-                                        'X-Obj': { type: 'object', properties: { a: { type: 'string' } } },
+                                        'X-Obj': { schema: { type: 'object', properties: { a: { type: 'string' } } } },
                                     },
                                 },
                             },
@@ -243,10 +332,10 @@ describe('Emitter: Response Header Utilities', () => {
 
             const xmlConfig = API_HEADER_XML_CONFIGS['getXmlExtra_200_X-Xml-Config'];
             expect(xmlConfig.name).toBe('Root');
-            expect(xmlConfig.attribute).toBe(true);
-            expect(xmlConfig.wrapped).toBe(true);
+            expect(xmlConfig.attribute).toBeUndefined();
+            expect(xmlConfig.wrapped).toBeUndefined();
             expect(xmlConfig.prefix).toBe('p');
-            expect(xmlConfig.namespace).toBe('ns');
+            expect(xmlConfig.namespace).toBe('https://example.com/ns');
             expect(xmlConfig.nodeType).toBe('element');
             expect(xmlConfig.properties?.id).toBeDefined();
         });
@@ -260,6 +349,7 @@ describe('Emitter: Response Header Utilities', () => {
                             operationId: 'skipHeader',
                             responses: {
                                 '200': {
+                                    description: 'ok',
                                     headers: { 'X-Skip': { schema: { type: 'string' } } },
                                 },
                             },
@@ -273,7 +363,13 @@ describe('Emitter: Response Header Utilities', () => {
 
             generator.generate('/out');
             const file = project.getSourceFileOrThrow('/out/response-headers.ts');
-            expect(file.getText()).toContain('export { };');
+            const text = file.getText().replace(/import.*;/g, '');
+            const jsCode = ts.transpile(text, { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS });
+            const moduleScope = { exports: {} as any };
+            new Function('exports', jsCode)(moduleScope.exports);
+
+            expect(moduleScope.exports.API_RESPONSE_HEADERS).toEqual({});
+            expect(moduleScope.exports.API_RESPONSE_HEADER_OBJECTS['skipHeader']['200']['X-Skip']).toBeDefined();
         });
 
         it('should return empty XML config when schema is missing or depth limit is reached', () => {
@@ -547,6 +643,61 @@ describe('Emitter: Response Header Utilities', () => {
 
             // Verify LinkSetParser was called correctly and result integration worked
             expect(result['Link']).toEqual([{ href: '<http://example.com>; rel="next"' }]);
+        });
+
+        it('should parse application/linkset+json headers using LinkSetParser.parseJson', () => {
+            const project = createTestProject();
+            new ResponseHeaderParserGenerator(project).generate('/out');
+
+            const sourceFile = project.getSourceFileOrThrow('/out/utils/response-header.service.ts');
+            const code = sourceFile.getText().replace(/import.*;/g, '');
+            const jsCode = ts.transpile(code, {
+                target: ts.ScriptTarget.ES2020,
+                module: ts.ModuleKind.CommonJS,
+                experimentalDecorators: true,
+            });
+
+            const API_RESPONSE_HEADERS = {
+                op1: {
+                    '200': {
+                        'X-Linkset': 'linkset+json',
+                    },
+                },
+            };
+            const API_HEADER_XML_CONFIGS = {};
+            const XmlParser = { parse: () => null };
+            const LinkSetParser = {
+                parseHeader: () => null,
+                parseJson: (val: any) => [{ href: val?.[0]?.href ?? 'missing' }],
+            };
+
+            const headersMap = new Map<string, string>();
+            headersMap.set('X-Linkset', '[{"href":"https://example.com/next"}]');
+
+            const mockHeaders = {
+                has: (k: string) => headersMap.has(k),
+                get: (k: string) => headersMap.get(k),
+                getAll: (k: string) => [headersMap.get(k)],
+            };
+
+            const moduleScope = { exports: {} as any };
+            const mockInjectable = () => (target: any) => target;
+
+            const wrappedCode = `
+                const API_RESPONSE_HEADERS = ${JSON.stringify(API_RESPONSE_HEADERS)};
+                const API_HEADER_XML_CONFIGS = ${JSON.stringify(API_HEADER_XML_CONFIGS)};
+                const XmlParser = { parse: ${XmlParser.parse.toString()} };
+                const LinkSetParser = { parseHeader: ${LinkSetParser.parseHeader.toString()}, parseJson: ${LinkSetParser.parseJson.toString()} };
+                ${jsCode}
+            `;
+
+            new Function('exports', 'Injectable', wrappedCode)(moduleScope.exports, mockInjectable);
+
+            const ServiceClass = moduleScope.exports.ResponseHeaderService;
+            const service = new ServiceClass();
+
+            const result = service.parse(mockHeaders, 'op1', 200);
+            expect(result['X-Linkset']).toEqual([{ href: 'https://example.com/next' }]);
         });
 
         it('should parse Set-Cookie headers as a string array', () => {

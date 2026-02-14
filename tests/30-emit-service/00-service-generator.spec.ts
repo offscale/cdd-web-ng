@@ -15,6 +15,28 @@ import { AuthTokensGenerator } from '@src/generators/angular/utils/auth-tokens.g
 import { branchCoverageSpec, coverageSpec, fullCRUD_Users } from '../shared/specs.js';
 
 describe('Generators (Angular): ServiceGenerator', () => {
+    const ensureResponses = (spec: any) => {
+        if (!spec?.paths) return spec;
+        const methods = ['get', 'post', 'put', 'delete', 'options', 'head', 'patch', 'trace', 'query'];
+        for (const pathItem of Object.values(spec.paths)) {
+            if (!pathItem || typeof pathItem !== 'object') continue;
+            for (const method of methods) {
+                const operation = (pathItem as any)[method];
+                if (operation && operation.responses === undefined) {
+                    operation.responses = { '200': { description: 'ok' } };
+                }
+            }
+            if ((pathItem as any).additionalOperations) {
+                for (const operation of Object.values((pathItem as any).additionalOperations)) {
+                    if (operation && (operation as any).responses === undefined) {
+                        (operation as any).responses = { '200': { description: 'ok' } };
+                    }
+                }
+            }
+        }
+        return spec;
+    };
+
     const createTestEnvironment = (spec: any, configOverrides: Partial<GeneratorConfig['options']> = {}) => {
         const project = new Project({ useInMemoryFileSystem: true });
         const config: GeneratorConfig = {
@@ -24,10 +46,11 @@ describe('Generators (Angular): ServiceGenerator', () => {
             options: { dateType: 'string', enumStyle: 'enum', framework: 'angular', ...configOverrides },
         };
 
+        const specClone = ensureResponses(JSON.parse(JSON.stringify(spec)));
         const safeSpec = {
             openapi: '3.0.0',
             info: { title: 'Test', version: '1.0' },
-            ...spec,
+            ...specClone,
         };
 
         const parser = new SwaggerParser(safeSpec, config);
@@ -49,9 +72,7 @@ describe('Generators (Angular): ServiceGenerator', () => {
     it('should create utils directory for parameter serializer when missing', () => {
         const project = new Project({ useInMemoryFileSystem: true });
         const fsHost = project.getFileSystem();
-        const dirSpy = vi
-            .spyOn(fsHost, 'directoryExists')
-            .mockReturnValue(false as unknown as Promise<boolean>);
+        const dirSpy = vi.spyOn(fsHost, 'directoryExists').mockReturnValue(false as unknown as Promise<boolean>);
         const mkdirSpy = vi.spyOn(fsHost, 'mkdirSync');
 
         new ParameterSerializerGenerator(project).generate('/out');
@@ -101,9 +122,7 @@ describe('Generators (Angular): ServiceGenerator', () => {
         };
 
         const project = createTestEnvironment(specWithOpServer);
-        const serviceClass = project
-            .getSourceFileOrThrow('/out/services/op.service.ts')
-            .getClassOrThrow('OpService');
+        const serviceClass = project.getSourceFileOrThrow('/out/services/op.service.ts').getClassOrThrow('OpService');
         const method = serviceClass.getMethodOrThrow('getOp');
         const body = method.getBodyText() ?? '';
 
@@ -151,8 +170,16 @@ describe('Generators (Angular): ServiceGenerator', () => {
         const conflictSpec = {
             paths: {
                 '/duplicate-name': {
-                    get: { tags: ['DuplicateName'], operationId: 'getName', responses: {} },
-                    post: { tags: ['DuplicateName'], operationId: 'postName', responses: {} },
+                    get: {
+                        tags: ['DuplicateName'],
+                        operationId: 'getName',
+                        responses: { '200': { description: 'ok' } },
+                    },
+                    post: {
+                        tags: ['DuplicateName'],
+                        operationId: 'postName',
+                        responses: { '200': { description: 'ok' } },
+                    },
                 },
             },
         };
@@ -213,13 +240,13 @@ describe('Generators (Angular): ServiceGenerator', () => {
                     get: {
                         tags: ['Public'],
                         security: [],
-                        responses: { '200': {} },
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
                 '/protected': {
                     get: {
                         tags: ['Public'],
-                        responses: { '200': {} },
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             },
@@ -246,7 +273,7 @@ describe('Generators (Angular): ServiceGenerator', () => {
                     get: {
                         tags: ['Public'],
                         security: [],
-                        responses: { '200': {} },
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             },
@@ -275,7 +302,11 @@ describe('Generators (Angular): ServiceGenerator', () => {
                         requestBody: {
                             content: {
                                 'application/xml': {
-                                    schema: { type: 'object', xml: { name: 'Root' }, properties: { id: { type: 'string' } } },
+                                    schema: {
+                                        type: 'object',
+                                        xml: { name: 'Root' },
+                                        properties: { id: { type: 'string' } },
+                                    },
                                 },
                                 'application/json': {
                                     schema: {
@@ -287,6 +318,7 @@ describe('Generators (Angular): ServiceGenerator', () => {
                         },
                         responses: {
                             '200': {
+                                description: 'ok',
                                 content: {
                                     'application/xml': { schema: { type: 'string' } },
                                     'application/json': {
@@ -304,6 +336,7 @@ describe('Generators (Angular): ServiceGenerator', () => {
                     get: {
                         tags: ['Mixed'],
                         operationId: 'noResp',
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             },
@@ -317,5 +350,41 @@ describe('Generators (Angular): ServiceGenerator', () => {
         expect(serviceFile.getImportDeclaration('../utils/content-decoder')).toBeDefined();
         expect(serviceFile.getImportDeclaration('../utils/content-encoder')).toBeDefined();
         expect(serviceFile.getImportDeclaration('../tokens/extensions.token')).toBeDefined();
+    });
+
+    it('should emit contentEncoderConfig for encoded query parameters', () => {
+        const spec = {
+            openapi: '3.2.0',
+            info: { title: 'Encoded', version: '1.0' },
+            paths: {
+                '/encoded': {
+                    get: {
+                        tags: ['Encoded'],
+                        operationId: 'getEncoded',
+                        parameters: [
+                            { name: 'bin', in: 'query', schema: { type: 'string', contentEncoding: 'base64' } },
+                            {
+                                name: 'payload',
+                                in: 'query',
+                                schema: { type: 'string', contentMediaType: 'application/json' },
+                            },
+                        ],
+                        responses: { '200': { description: 'ok' } },
+                    },
+                },
+            },
+        };
+
+        const project = createTestEnvironment(spec);
+        const serviceFile = project.getSourceFileOrThrow('/out/services/encoded.service.ts');
+        const method = serviceFile.getClassOrThrow('EncodedService').getMethodOrThrow('getEncoded');
+        const body = method.getBodyText() ?? '';
+        const normalizedBody = body.replace(/\s+/g, '');
+
+        expect(serviceFile.getImportDeclaration('../utils/content-encoder')).toBeDefined();
+        expect(normalizedBody).toContain('"contentEncoderConfig":{"contentEncoding":"base64"}');
+        expect(normalizedBody).toContain(
+            '"contentEncoderConfig":{"contentMediaType":"application/json","encode":true}',
+        );
     });
 });

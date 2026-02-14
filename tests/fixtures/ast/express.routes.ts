@@ -31,6 +31,24 @@ const router = {
         };
     },
 };
+type Request<Params = any, ResBody = any, ReqBody = any, ReqQuery = any> = {
+    params: Params;
+    query: ReqQuery;
+    body: ReqBody;
+    headers: Record<string, string>;
+    cookies: Record<string, string>;
+    get: (name: string) => string | undefined;
+    is: (type: string) => boolean;
+};
+type Response<ResBody = any> = {
+    json: (body: ResBody) => void;
+    send: (body?: ResBody) => void;
+    status: (code: number | string) => Response<ResBody>;
+    type: (type: string) => Response<ResBody>;
+    set: (name: string, value: string) => Response<ResBody>;
+    end: () => void;
+    sendStatus: (code: number) => void;
+};
 const config = { version: 'v1' };
 const middleware = (_req: any, _res: any, next: any) => {
     void _req;
@@ -44,6 +62,7 @@ const middleware = (_req: any, _res: any, next: any) => {
  * Returns the user payload.
  *
  * @tags Users, Accounts
+ * @tag {"name":"Users","summary":"User operations","kind":"nav"}
  * @deprecated
  */
 export function getUser(req: any, res: any) {
@@ -76,6 +95,21 @@ app.post('/messages', (req: any, res: any) => {
     }
     res.send('ok');
 });
+
+export interface CreateMessageBody {
+    message: string;
+}
+
+export interface MessageReceipt {
+    id: string;
+}
+
+export function typedMessages(req: Request<unknown, MessageReceipt, CreateMessageBody>, res: Response<MessageReceipt>) {
+    const { message } = req.body;
+    res.status(201).json({ id: message });
+}
+
+app.post('/typed-messages', typedMessages);
 
 app.get(`${config.version}/status`, (_req: any, res: any) => {
     void _req;
@@ -143,6 +177,50 @@ app.copy('/files/:id', (req: any, res: any) => {
     const { id } = req.params;
     res.status(201).json({ id });
 });
+
+/**
+ * Secure endpoint.
+ *
+ * @see https://example.com/secure Secure docs
+ * @server {"url":"https://api.example.com/v2","description":"Production","name":"prod","variables":{"version":{"default":"v2"}}}
+ * @server https://staging.example.com/v2 Staging
+ * @security ApiKey
+ * @security OAuth2 read:items,write:items
+ * @x-feature-flag "beta"
+ */
+export function secureEndpoint(_req: any, res: any) {
+    res.json({ ok: true });
+}
+
+app.get('/secure', secureEndpoint);
+
+/**
+ * Documented response hints.
+ *
+ * @operationId fetchDocumented
+ * @response 202 application/json Accepted payload
+ * @response 404 text/plain Not found
+ * @responseSummary 202 Accepted summary
+ * @param id Documented id.
+ */
+export function documentedEndpoint(req: any, res: any) {
+    const { id } = req.params;
+    res.status(202).json({ id });
+}
+
+app.get('/documented/:id', documentedEndpoint);
+
+/**
+ * Raw querystring endpoint.
+ *
+ * @querystring rawQuery application/x-www-form-urlencoded
+ */
+export function rawQueryEndpoint(req: any, res: any) {
+    const raw = req.url;
+    res.send(raw);
+}
+
+app.get('/raw-query', rawQueryEndpoint);
 
 export interface CreateMessage {
     message: string;

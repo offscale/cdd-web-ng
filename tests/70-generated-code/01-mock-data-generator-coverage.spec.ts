@@ -39,17 +39,17 @@ const mockDataGenSpec = {
 
             // New schemas for 100% coverage
             AllOfWithNull: { allOf: [{ type: 'null' }, { type: 'object', properties: { name: { type: 'string' } } }] },
-            DeepNest1: { properties: { nest2: { $ref: '#/components/schemas/DeepNest2' } } },
-            DeepNest2: { properties: { nest3: { $ref: '#/components/schemas/DeepNest3' } } },
-            DeepNest3: { properties: { nest4: { $ref: '#/components/schemas/DeepNest4' } } },
-            DeepNest4: { properties: { nest5: { $ref: '#/components/schemas/DeepNest5' } } },
-            DeepNest5: { properties: { nest6: { $ref: '#/components/schemas/DeepNest6' } } },
-            DeepNest6: { properties: { nest7: { $ref: '#/components/schemas/DeepNest7' } } },
-            DeepNest7: { properties: { nest8: { $ref: '#/components/schemas/DeepNest8' } } },
-            DeepNest8: { properties: { nest9: { $ref: '#/components/schemas/DeepNest9' } } },
-            DeepNest9: { properties: { nest10: { $ref: '#/components/schemas/DeepNest10' } } },
-            DeepNest10: { properties: { nest11: { $ref: '#/components/schemas/DeepNest11' } } },
-            DeepNest11: { properties: { name: { type: 'string' } } }, // The end of the chain
+            DeepNest1: { type: 'object', properties: { nest2: { $ref: '#/components/schemas/DeepNest2' } } },
+            DeepNest2: { type: 'object', properties: { nest3: { $ref: '#/components/schemas/DeepNest3' } } },
+            DeepNest3: { type: 'object', properties: { nest4: { $ref: '#/components/schemas/DeepNest4' } } },
+            DeepNest4: { type: 'object', properties: { nest5: { $ref: '#/components/schemas/DeepNest5' } } },
+            DeepNest5: { type: 'object', properties: { nest6: { $ref: '#/components/schemas/DeepNest6' } } },
+            DeepNest6: { type: 'object', properties: { nest7: { $ref: '#/components/schemas/DeepNest7' } } },
+            DeepNest7: { type: 'object', properties: { nest8: { $ref: '#/components/schemas/DeepNest8' } } },
+            DeepNest8: { type: 'object', properties: { nest9: { $ref: '#/components/schemas/DeepNest9' } } },
+            DeepNest9: { type: 'object', properties: { nest10: { $ref: '#/components/schemas/DeepNest10' } } },
+            DeepNest10: { type: 'object', properties: { nest11: { $ref: '#/components/schemas/DeepNest11' } } },
+            DeepNest11: { type: 'object', properties: { name: { type: 'string' } } }, // The end of the chain
 
             AnyOfSchema: { anyOf: [{ type: 'boolean' }, { type: 'string' }] },
             UnsupportedType: { type: 'function' }, // A type not in the switch
@@ -66,6 +66,7 @@ const mockDataGenSpec = {
                     myPassword: { type: 'string', format: 'password' },
                     myEmail: { type: 'string', format: 'email' },
                     myBase64: { type: 'string', contentEncoding: 'base64' },
+                    myBase64Url: { type: 'string', contentEncoding: 'base64url' },
                 },
             },
             StringWithNonStringDefault: { type: 'string', default: 123 },
@@ -266,6 +267,7 @@ describe('Generated Code: MockDataGenerator (Coverage)', () => {
         expect(mock.myPassword).toBe('StrongPassword123!');
         // The test data for base64 encoding
         expect(mock.myBase64).toBe('dGVzdC1jb250ZW50');
+        expect(mock.myBase64Url).toBe('dGVzdC1jb250ZW50');
     });
 
     it('should fall back to default string if default value is not a string', () => {
@@ -316,12 +318,7 @@ describe('Generated Code: MockDataGenerator (Coverage)', () => {
             output: '/out',
             options: { dateType: 'string', enumStyle: 'enum' },
         };
-        const parser = new SwaggerParser(
-            mockDataGenSpec as any,
-            config,
-            undefined,
-            'https://example.com/spec.json',
-        );
+        const parser = new SwaggerParser(mockDataGenSpec as any, config, undefined, 'https://example.com/spec.json');
         const customGenerator = new MockDataGenerator(parser);
 
         const mockString = customGenerator.generate('ExternalRelativeHttp');
@@ -335,12 +332,7 @@ describe('Generated Code: MockDataGenerator (Coverage)', () => {
             output: '/out',
             options: { dateType: 'string', enumStyle: 'enum' },
         };
-        const parser = new SwaggerParser(
-            mockDataGenSpec as any,
-            config,
-            undefined,
-            'ftp://example.com/spec.json',
-        );
+        const parser = new SwaggerParser(mockDataGenSpec as any, config, undefined, 'ftp://example.com/spec.json');
         const customGenerator = new MockDataGenerator(parser);
 
         const mockString = customGenerator.generate('ExternalRelativeHttp');

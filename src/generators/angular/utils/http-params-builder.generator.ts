@@ -17,6 +17,10 @@ export class HttpParamsBuilderGenerator {
             moduleSpecifier: '@angular/common/http',
             namedImports: ['HttpParams', 'HttpParameterCodec'],
         });
+        sourceFile.addImportDeclaration({
+            moduleSpecifier: './content-encoder',
+            namedImports: ['ContentEncoder'],
+        });
 
         sourceFile.addClass({
             name: 'ApiParameterCodec',
@@ -81,7 +85,7 @@ export class HttpParamsBuilderGenerator {
             value = JSON.stringify(value);
         }
 
-        const encode = (v: string) => allowReserved ? this.encodeReserved(v) : encodeURIComponent(v);
+        const encode = (v: string) => allowReserved ? this.encodeReservedPath(v) : encodeURIComponent(v);
 
         if (style === 'simple') {
             if (Array.isArray(value)) {
@@ -153,9 +157,15 @@ export class HttpParamsBuilderGenerator {
              }
              return params;
         }
+
+        const encoderConfig =
+            config.contentEncoderConfig ?? (config.contentEncoding ? { contentEncoding: config.contentEncoding } : undefined);
+        if (encoderConfig) {
+            value = ContentEncoder.encode(value, encoderConfig);
+        }
         
         const allowReserved = config.allowReserved === true;
-        const encode = (v: string) => allowReserved ? this.encodeReserved(v) : encodeURIComponent(v);
+        const encode = (v: string) => allowReserved ? this.encodeReservedQuery(v) : encodeURIComponent(v);
         const normalizedContentType = config.contentType ? config.contentType.split(';')[0].trim().toLowerCase() : undefined;
         const isJson =
             config.serialization === 'json' ||
@@ -220,6 +230,12 @@ export class HttpParamsBuilderGenerator {
                      const flattened = Object.entries(value).map(([k, v]) => \`\${k},\${v}\`).join(','); 
                      params = params.append(encode(name), encode(flattened)); 
                  } 
+                 return params; 
+             } 
+             if (style === 'spaceDelimited' || style === 'pipeDelimited') { 
+                 const delimiter = style === 'spaceDelimited' ? ' ' : '|'; 
+                 const flattened = Object.entries(value).map(([k, v]) => \`\${k}\${delimiter}\${v}\`).join(delimiter); 
+                 params = params.append(encode(name), encode(flattened)); 
                  return params; 
              } 
              if (style === 'tabDelimited') { 
@@ -412,32 +428,98 @@ export class HttpParamsBuilderGenerator {
         });
 
         classDeclaration.addMethod({
+            name: 'encodeReservedInternal',
+            isStatic: true,
+            scope: Scope.Private,
+            parameters: [
+                { name: 'value', type: 'string' },
+                { name: 'allowPathDelims', type: 'boolean' },
+            ],
+            returnType: 'string',
+            docs: ['RFC 3986 encoding that preserves reserved characters and existing percent-encoded triples.'],
+            statements: `
+        const parts = value.split(/(%[0-9A-Fa-f]{2})/g);
+        return parts.map(part => {
+            if (/^%[0-9A-Fa-f]{2}$/.test(part)) return part;
+            let encoded = encodeURIComponent(part)
+                .replace(/%3A/gi, ':')
+                .replace(/%5B/gi, '[')
+                .replace(/%5D/gi, ']')
+                .replace(/%40/gi, '@')
+                .replace(/%21/gi, '!')
+                .replace(/%24/gi, '$')
+                .replace(/%26/gi, '&')
+                .replace(/%27/gi, "'")
+                .replace(/%28/gi, '(')
+                .replace(/%29/gi, ')')
+                .replace(/%2A/gi, '*')
+                .replace(/%2B/gi, '+')
+                .replace(/%2C/gi, ',')
+                .replace(/%3B/gi, ';')
+                .replace(/%3D/gi, '=');
+
+            if (allowPathDelims) {
+                encoded = encoded
+                    .replace(/%2F/gi, '/')
+                    .replace(/%3F/gi, '?')
+                    .replace(/%23/gi, '#');
+            }
+            return encoded;
+        }).join('');`,
+        });
+
+        classDeclaration.addMethod({
             name: 'encodeReserved',
             isStatic: true,
             scope: Scope.Private,
             parameters: [{ name: 'value', type: 'string' }],
             returnType: 'string',
-            docs: ['RFC 3986 encoding but preserves reserved characters.'],
+            docs: ['RFC 3986 encoding but preserves reserved characters and percent-encoded triples.'],
             statements: `
-        return encodeURIComponent(value) 
-            .replace(/%3A/gi, ':') 
-            .replace(/%2F/gi, '/') 
-            .replace(/%3F/gi, '?') 
-            .replace(/%23/gi, '#') 
-            .replace(/%5B/gi, '[') 
-            .replace(/%5D/gi, ']') 
-            .replace(/%40/gi, '@') 
-            .replace(/%21/gi, '!') 
-            .replace(/%24/gi, '$') 
-            .replace(/%26/gi, '&') 
-            .replace(/%27/gi, "'") 
-            .replace(/%28/gi, '(') 
-            .replace(/%29/gi, ')') 
-            .replace(/%2A/gi, '*') 
-            .replace(/%2B/gi, '+') 
-            .replace(/%2C/gi, ',') 
-            .replace(/%3B/gi, ';') 
-            .replace(/%3D/gi, '=');`,
+        return this.encodeReservedInternal(value, true);`,
+        });
+
+        classDeclaration.addMethod({
+            name: 'encodeReservedQuery',
+            isStatic: true,
+            scope: Scope.Private,
+            parameters: [{ name: 'value', type: 'string' }],
+            returnType: 'string',
+            docs: [
+                'RFC 3986 encoding for query components that preserves reserved characters',
+                'except query delimiters (?, #, &, =, +) and preserves percent-encoded triples.',
+            ],
+            statements: `
+        const parts = value.split(/(%[0-9A-Fa-f]{2})/g);
+        return parts.map(part => {
+            if (/^%[0-9A-Fa-f]{2}$/.test(part)) return part;
+            let encoded = encodeURIComponent(part)
+                .replace(/%3A/gi, ':')
+                .replace(/%2F/gi, '/')
+                .replace(/%5B/gi, '[')
+                .replace(/%5D/gi, ']')
+                .replace(/%40/gi, '@')
+                .replace(/%21/gi, '!')
+                .replace(/%24/gi, '$')
+                .replace(/%27/gi, "'")
+                .replace(/%28/gi, '(')
+                .replace(/%29/gi, ')')
+                .replace(/%2A/gi, '*')
+                .replace(/%2C/gi, ',')
+                .replace(/%3B/gi, ';');
+            return encoded;
+        }).join('');`,
+        });
+
+        classDeclaration.addMethod({
+            name: 'encodeReservedPath',
+            isStatic: true,
+            scope: Scope.Private,
+            parameters: [{ name: 'value', type: 'string' }],
+            returnType: 'string',
+            docs: ['RFC 3986 encoding with reserved characters preserved except "/", "?", and "#".'],
+            statements: `
+        return this.encodeReservedInternal(value, false);`,
         });
 
         sourceFile.formatText();

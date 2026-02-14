@@ -103,6 +103,11 @@ describe('Core Utils: Type Converter', () => {
             expect(utils.getTypeScriptType(schema, config)).toBe('string | null');
         });
 
+        it('should honor nullable flag for OAS 3.0 schemas', () => {
+            const schema: SwaggerDefinition = { type: 'string', nullable: true };
+            expect(utils.getTypeScriptType(schema, config)).toBe('string | null');
+        });
+
         it('should handle oneOf compositions', () => {
             const schema: SwaggerDefinition = { oneOf: [{ type: 'string' }, { type: 'number' }] };
             expect(utils.getTypeScriptType(schema, config, [])).toBe('string | number');
@@ -166,8 +171,32 @@ describe('Core Utils: Type Converter', () => {
             expect(result).toBe('number');
         });
 
-        it('should return Blob for binary/non-json contentMediaType', () => {
+        it('should return Blob for known binary contentMediaType when unencoded', () => {
             const schema: SwaggerDefinition = { type: 'string', contentMediaType: 'image/png' };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('Blob');
+        });
+
+        it('should return string for text contentMediaType', () => {
+            const schema: SwaggerDefinition = { type: 'string', contentMediaType: 'text/plain' };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('string');
+        });
+
+        it('should return string for xml contentMediaType', () => {
+            const schema: SwaggerDefinition = { type: 'string', contentMediaType: 'application/xml' };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('string');
+        });
+
+        it('should return string when contentEncoding is set for binary media types', () => {
+            const schema: SwaggerDefinition = {
+                type: 'string',
+                contentMediaType: 'image/png',
+                contentEncoding: 'base64',
+            };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('string');
+        });
+
+        it('should return Blob for raw binary schemas with only contentMediaType', () => {
+            const schema: SwaggerDefinition = { contentMediaType: 'image/png' };
             expect(utils.getTypeScriptType(schema, config, [])).toBe('Blob');
         });
 
@@ -445,6 +474,26 @@ describe('Core Utils: Type Converter', () => {
             expect(utils.getRequestBodyType(rb as any, config, [])).toBe('number');
         });
 
+        it('should prefer specific media types over wildcard ranges', () => {
+            const rb = {
+                content: {
+                    'application/*': { schema: { type: 'string' } },
+                    'application/json': { schema: { type: 'number' } },
+                },
+            };
+            expect(utils.getRequestBodyType(rb as any, config, [])).toBe('number');
+        });
+
+        it('should prefer structured JSON media types over text', () => {
+            const rb = {
+                content: {
+                    'text/plain': { schema: { type: 'string' } },
+                    'application/vnd.acme+json': { schema: { type: 'boolean' } },
+                },
+            };
+            expect(utils.getRequestBodyType(rb as any, config, [])).toBe('boolean');
+        });
+
         it('should fallback to first available key if no priority match', () => {
             const rb = {
                 content: {
@@ -474,6 +523,26 @@ describe('Core Utils: Type Converter', () => {
 
         it('should return schema type for application/json', () => {
             const resp = { content: { 'application/json': { schema: { type: 'boolean' } } } };
+            expect(utils.getResponseType(resp as any, config, [])).toBe('boolean');
+        });
+
+        it('should prefer specific media types over wildcard ranges', () => {
+            const resp = {
+                content: {
+                    'text/*': { schema: { type: 'string' } },
+                    'text/plain': { schema: { type: 'number' } },
+                },
+            };
+            expect(utils.getResponseType(resp as any, config, [])).toBe('number');
+        });
+
+        it('should prefer structured JSON media types over text', () => {
+            const resp = {
+                content: {
+                    'text/plain': { schema: { type: 'string' } },
+                    'application/vnd.acme+json': { schema: { type: 'boolean' } },
+                },
+            };
             expect(utils.getResponseType(resp as any, config, [])).toBe('boolean');
         });
 

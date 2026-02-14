@@ -42,10 +42,17 @@ export function evaluateJsonPointer(data: any, pointer: string): any {
 
     if (!cleanPointer.startsWith('/')) return undefined;
 
-    const tokens = cleanPointer
-        .split('/')
-        .slice(1)
-        .map(token => token.replace(/~1/g, '/').replace(/~0/g, '~'));
+    const decodeToken = (token: string): string => {
+        let decoded = token;
+        try {
+            decoded = decodeURIComponent(token);
+        } catch {
+            decoded = token;
+        }
+        return decoded.replace(/~1/g, '/').replace(/~0/g, '~');
+    };
+
+    const tokens = cleanPointer.split('/').slice(1).map(decodeToken);
 
     let current = data;
     for (const token of tokens) {

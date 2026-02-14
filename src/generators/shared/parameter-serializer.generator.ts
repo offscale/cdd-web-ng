@@ -16,6 +16,10 @@ export class ParameterSerializerGenerator {
         const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
+        sourceFile.addImportDeclaration({
+            moduleSpecifier: './content-encoder',
+            namedImports: ['ContentEncoder'],
+        });
 
         const classDeclaration = sourceFile.addClass({
             name: 'ParameterSerializer',
@@ -25,32 +29,87 @@ export class ParameterSerializerGenerator {
 
         // --- Helper: Encode Reserved ---
         classDeclaration.addMethod({
+            name: 'encodeReservedInternal',
+            isStatic: true,
+            scope: Scope.Private,
+            parameters: [
+                { name: 'value', type: 'string' },
+                { name: 'allowPathDelims', type: 'boolean' },
+            ],
+            returnType: 'string',
+            docs: ['RFC 3986 encoding that preserves reserved characters and existing percent-encoded triples.'],
+            statements: `
+        const parts = value.split(/(%[0-9A-Fa-f]{2})/g);
+        return parts.map(part => {
+            if (/^%[0-9A-Fa-f]{2}$/.test(part)) return part;
+            let encoded = encodeURIComponent(part)
+                .replace(/%3A/gi, ':')
+                .replace(/%5B/gi, '[')
+                .replace(/%5D/gi, ']')
+                .replace(/%40/gi, '@')
+                .replace(/%21/gi, '!')
+                .replace(/%24/gi, '$')
+                .replace(/%26/gi, '&')
+                .replace(/%27/gi, "'")
+                .replace(/%28/gi, '(')
+                .replace(/%29/gi, ')')
+                .replace(/%2A/gi, '*')
+                .replace(/%2B/gi, '+')
+                .replace(/%2C/gi, ',')
+                .replace(/%3B/gi, ';')
+                .replace(/%3D/gi, '=');
+
+            if (allowPathDelims) {
+                encoded = encoded
+                    .replace(/%2F/gi, '/')
+                    .replace(/%3F/gi, '?')
+                    .replace(/%23/gi, '#');
+            }
+            return encoded;
+        }).join('');`,
+        });
+
+        classDeclaration.addMethod({
             name: 'encodeReserved',
             isStatic: true,
             scope: Scope.Private,
             parameters: [{ name: 'value', type: 'string' }],
             returnType: 'string',
-            docs: ['RFC 3986 encoding but preserves reserved characters.'],
+            docs: ['RFC 3986 encoding but preserves reserved characters and percent-encoded triples.'],
             statements: `
-        return encodeURIComponent(value)
-            .replace(/%3A/gi, ':')
-            .replace(/%2F/gi, '/')
-            .replace(/%3F/gi, '?')
-            .replace(/%23/gi, '#')
-            .replace(/%5B/gi, '[')
-            .replace(/%5D/gi, ']')
-            .replace(/%40/gi, '@')
-            .replace(/%21/gi, '!')
-            .replace(/%24/gi, '$')
-            .replace(/%26/gi, '&')
-            .replace(/%27/gi, "'")
-            .replace(/%28/gi, '(')
-            .replace(/%29/gi, ')')
-            .replace(/%2A/gi, '*')
-            .replace(/%2B/gi, '+')
-            .replace(/%2C/gi, ',')
-            .replace(/%3B/gi, ';')
-            .replace(/%3D/gi, '=');`,
+        return this.encodeReservedInternal(value, true);`,
+        });
+
+        classDeclaration.addMethod({
+            name: 'encodeReservedQuery',
+            isStatic: true,
+            scope: Scope.Private,
+            parameters: [{ name: 'value', type: 'string' }],
+            returnType: 'string',
+            docs: [
+                'RFC 3986 encoding for query components that preserves reserved characters',
+                'except query delimiters (?, #, &, =, +) and preserves percent-encoded triples.',
+            ],
+            statements: `
+        const parts = value.split(/(%[0-9A-Fa-f]{2})/g);
+        return parts.map(part => {
+            if (/^%[0-9A-Fa-f]{2}$/.test(part)) return part;
+            let encoded = encodeURIComponent(part)
+                .replace(/%3A/gi, ':')
+                .replace(/%2F/gi, '/')
+                .replace(/%5B/gi, '[')
+                .replace(/%5D/gi, ']')
+                .replace(/%40/gi, '@')
+                .replace(/%21/gi, '!')
+                .replace(/%24/gi, '$')
+                .replace(/%27/gi, "'")
+                .replace(/%28/gi, '(')
+                .replace(/%29/gi, ')')
+                .replace(/%2A/gi, '*')
+                .replace(/%2C/gi, ',')
+                .replace(/%3B/gi, ';');
+            return encoded;
+        }).join('');`,
         });
 
         classDeclaration.addMethod({
@@ -61,22 +120,7 @@ export class ParameterSerializerGenerator {
             returnType: 'string',
             docs: ['RFC 3986 encoding with reserved characters preserved except "/", "?", and "#".'],
             statements: `
-        return encodeURIComponent(value)
-            .replace(/%3A/gi, ':')
-            .replace(/%5B/gi, '[')
-            .replace(/%5D/gi, ']')
-            .replace(/%40/gi, '@')
-            .replace(/%21/gi, '!')
-            .replace(/%24/gi, '$')
-            .replace(/%26/gi, '&')
-            .replace(/%27/gi, "'")
-            .replace(/%28/gi, '(')
-            .replace(/%29/gi, ')')
-            .replace(/%2A/gi, '*')
-            .replace(/%2B/gi, '+')
-            .replace(/%2C/gi, ',')
-            .replace(/%3B/gi, ';')
-            .replace(/%3D/gi, '=');`,
+        return this.encodeReservedInternal(value, false);`,
         });
 
         // --- Path Parameters ---
@@ -91,10 +135,14 @@ export class ParameterSerializerGenerator {
                 { name: 'explode', type: 'boolean', initializer: 'false' },
                 { name: 'allowReserved', type: 'boolean', initializer: 'false' },
                 { name: 'serialization', type: "'json' | undefined", hasQuestionToken: true },
+                { name: 'contentEncoderConfig', type: 'any', hasQuestionToken: true },
             ],
             returnType: 'string',
             statements: `
         if (value === null || value === undefined) return '';
+        if (contentEncoderConfig) {
+            value = ContentEncoder.encode(value, contentEncoderConfig);
+        }
         if (serialization === 'json' && typeof value !== 'string') value = JSON.stringify(value);
 
         const encode = (v: string) => allowReserved ? this.encodeReservedPath(v) : encodeURIComponent(v);
@@ -171,9 +219,15 @@ export class ParameterSerializerGenerator {
              if (config.allowEmptyValue) result.push({ key: name, value: '' });
              return result;
         }
+
+        const encoderConfig =
+            config.contentEncoderConfig ?? (config.contentEncoding ? { contentEncoding: config.contentEncoding } : undefined);
+        if (encoderConfig) {
+            value = ContentEncoder.encode(value, encoderConfig);
+        }
         
         const allowReserved = config.allowReserved === true;
-        const encode = (v: string) => allowReserved ? this.encodeReserved(v) : encodeURIComponent(v);
+        const encode = (v: string) => allowReserved ? this.encodeReservedQuery(v) : encodeURIComponent(v);
         const normalizedContentType = config.contentType ? config.contentType.split(';')[0].trim().toLowerCase() : undefined;
         const isJson = config.serialization === 'json' || (normalizedContentType !== undefined && (normalizedContentType === 'application/json' || normalizedContentType.endsWith('+json')));
 
@@ -269,10 +323,14 @@ export class ParameterSerializerGenerator {
                 { name: 'serialization', type: "'json' | undefined", hasQuestionToken: true },
                 { name: 'contentType', type: 'string | undefined', hasQuestionToken: true },
                 { name: 'encoding', type: 'Record<string, any> | undefined', hasQuestionToken: true },
+                { name: 'contentEncoderConfig', type: 'any', hasQuestionToken: true },
             ],
             returnType: 'string',
             statements: `
         if (value === null || value === undefined) return '';
+        if (contentEncoderConfig) {
+            value = ContentEncoder.encode(value, contentEncoderConfig);
+        }
         const normalizedContentType = contentType ? contentType.split(';')[0].trim().toLowerCase() : undefined;
         const isJson =
             serialization === 'json' ||
@@ -314,10 +372,14 @@ export class ParameterSerializerGenerator {
                 { name: 'explode', type: 'boolean', initializer: 'true' },
                 { name: 'allowReserved', type: 'boolean', initializer: 'false' },
                 { name: 'serialization', type: "'json' | undefined", hasQuestionToken: true },
+                { name: 'contentEncoderConfig', type: 'any', hasQuestionToken: true },
             ],
             returnType: 'string',
             statements: `
         if (value === null || value === undefined) return '';
+        if (contentEncoderConfig) {
+            value = ContentEncoder.encode(value, contentEncoderConfig);
+        }
         if (serialization === 'json') return \`\${key}=\${encodeURIComponent(JSON.stringify(value))}\`;
         
         const isCookieStyle = style === 'cookie';
@@ -360,10 +422,14 @@ export class ParameterSerializerGenerator {
                 { name: 'serialization', type: "'json' | undefined", hasQuestionToken: true },
                 { name: 'contentType', type: 'string | undefined', hasQuestionToken: true },
                 { name: 'encodings', type: 'Record<string, any> | undefined', hasQuestionToken: true },
+                { name: 'contentEncoderConfig', type: 'any', hasQuestionToken: true },
             ],
             returnType: 'string',
             statements: `
         if (value === null || value === undefined) return '';
+        if (contentEncoderConfig) {
+            value = ContentEncoder.encode(value, contentEncoderConfig);
+        }
         const normalizedContentType = contentType ? contentType.split(';')[0].trim().toLowerCase() : undefined;
         const isJson =
             serialization === 'json' ||
@@ -417,6 +483,22 @@ export class ParameterSerializerGenerator {
                 const hasSerializationHints =
                     config.style !== undefined || config.explode !== undefined || config.allowReserved !== undefined;
                 const contentType = normalizeContentType(config.contentType);
+                const nestedEncoding = config.encoding;
+                const canNestEncode =
+                    nestedEncoding &&
+                    typeof nestedEncoding === 'object' &&
+                    !Array.isArray(nestedEncoding) &&
+                    (contentType === undefined || contentType === 'application/x-www-form-urlencoded');
+
+                if (canNestEncode && typeof value === 'object' && !Array.isArray(value)) {
+                    const nestedParts = this.serializeUrlEncodedBody(value, nestedEncoding);
+                    const nestedString = nestedParts.map(p => \`\${p.key}=\${p.value}\`).join('&');
+                    result.push({
+                        key: normalizeForm(encodeURIComponent(key)),
+                        value: normalizeForm(encodeURIComponent(nestedString)),
+                    });
+                    return;
+                }
 
                 if (contentType && !hasSerializationHints) {
                     let rawValue = value;

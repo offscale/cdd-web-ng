@@ -67,7 +67,9 @@ export class OAuthHelperGenerator {
                 if (scheme.flows.deviceAuthorization) {
                     config.hasDeviceAuthorization = true;
                     if (!config.deviceAuthorizationUrl)
-                        config.deviceAuthorizationUrl = (scheme.flows.deviceAuthorization as any).deviceAuthorizationUrl;
+                        config.deviceAuthorizationUrl = (
+                            scheme.flows.deviceAuthorization as any
+                        ).deviceAuthorizationUrl;
                     if (!config.tokenUrl) config.tokenUrl = (scheme.flows.deviceAuthorization as any).tokenUrl;
                 }
             }

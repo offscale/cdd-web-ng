@@ -46,8 +46,8 @@ describe('Emitter: WebhookHelperGenerator', () => {
             info: { title: 'Runtime Test', version: '1.0' },
             paths: {},
             webhooks: {
-                'order.shipped': { post: { responses: { '200': {} } } },
-                'order.cancelled': { put: { responses: { '200': {} } } },
+                'order.shipped': { post: { responses: { '200': { description: 'ok' } } } },
+                'order.cancelled': { put: { responses: { '200': { description: 'ok' } } } },
             },
         };
         const parser = createParser(spec);
@@ -108,7 +108,7 @@ describe('Emitter: WebhookHelperGenerator', () => {
             info: { title: 'Fallback', version: '1.0' },
             paths: {},
             webhooks: {
-                'fallback.event': { post: { responses: { '200': {} } } },
+                'fallback.event': { post: { responses: { '200': { description: 'ok' } } } },
             },
         };
         const parser = createParser(spec);

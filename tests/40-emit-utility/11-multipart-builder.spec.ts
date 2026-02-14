@@ -114,6 +114,48 @@ describe('Utility: MultipartBuilder', () => {
             expect(stringParts).toContain('X-File: true');
             expect(stringParts).toContain('Content-Type: text/plain');
         });
+
+        it('should serialize arrays with explode=false as a single part', () => {
+            const body = { tags: ['red', 'blue'] };
+            const encoding = {
+                tags: { style: 'form', explode: false },
+            };
+            const result = MultipartBuilder.serialize(body, encoding);
+            const blob = result.content as any;
+            const stringParts = blob.parts.filter((p: any) => typeof p === 'string').join('');
+
+            expect(stringParts).toContain('name="tags"');
+            expect(stringParts).toContain('red,blue');
+            const matches = stringParts.match(/name="tags"/g);
+            expect(matches?.length).toBe(1);
+        });
+
+        it('should serialize objects with explode=true as separate parts', () => {
+            const body = { meta: { a: 1, b: 2 } };
+            const encoding = {
+                meta: { style: 'form', explode: true },
+            };
+            const result = MultipartBuilder.serialize(body, encoding);
+            const blob = result.content as any;
+            const stringParts = blob.parts.filter((p: any) => typeof p === 'string').join('');
+
+            expect(stringParts).toContain('name="a"');
+            expect(stringParts).toContain('name="b"');
+            expect(stringParts).not.toContain('name="meta"');
+        });
+
+        it('should serialize objects with explode=false as a single part', () => {
+            const body = { meta: { a: 1, b: 2 } };
+            const encoding = {
+                meta: { style: 'form', explode: false },
+            };
+            const result = MultipartBuilder.serialize(body, encoding);
+            const blob = result.content as any;
+            const stringParts = blob.parts.filter((p: any) => typeof p === 'string').join('');
+
+            expect(stringParts).toContain('name="meta"');
+            expect(stringParts).toContain('a,1,b,2');
+        });
     });
 
     describe('Manual Construction (Array/OAS 3.2 based)', () => {

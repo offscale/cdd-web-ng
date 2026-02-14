@@ -43,9 +43,11 @@ describe('Emitter: ServiceMethodGenerator (Response Precedence)', () => {
             methodName: 'testSpecific',
             responses: {
                 '2XX': {
+                    description: 'ok',
                     content: { 'application/json': { schema: { $ref: '#/components/schemas/GenericModel' } } },
                 },
                 '200': {
+                    description: 'ok',
                     content: { 'application/json': { schema: { $ref: '#/components/schemas/SpecificModel' } } },
                 },
             },
@@ -66,6 +68,7 @@ describe('Emitter: ServiceMethodGenerator (Response Precedence)', () => {
             methodName: 'testRange',
             responses: {
                 '2XX': {
+                    description: 'ok',
                     content: { 'application/json': { schema: { $ref: '#/components/schemas/GenericModel' } } },
                 },
                 '400': { description: 'Bad Request' },

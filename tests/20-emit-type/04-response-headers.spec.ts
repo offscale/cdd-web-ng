@@ -112,6 +112,7 @@ describe('Emitter: Response Header Type Generation', () => {
                     head: {
                         responses: {
                             '200': {
+                                description: 'ok',
                                 headers: { 'X-Length': { schema: { type: 'integer' } } },
                             },
                         },
@@ -133,6 +134,7 @@ describe('Emitter: Response Header Type Generation', () => {
                     get: {
                         responses: {
                             '200': {
+                                description: 'ok',
                                 headers: {
                                     'X-Legacy': { type: 'string', description: 'Legacy Header' },
                                 },
@@ -157,6 +159,7 @@ describe('Emitter: Response Header Type Generation', () => {
                         operationId: 'getCookies',
                         responses: {
                             '200': {
+                                description: 'ok',
                                 headers: {
                                     'Set-Cookie': { schema: { type: 'string' } },
                                 },
@@ -181,6 +184,7 @@ describe('Emitter: Response Header Type Generation', () => {
                         operationId: 'getContent',
                         responses: {
                             '200': {
+                                description: 'ok',
                                 headers: {
                                     'Content-Type': { schema: { type: 'string' } },
                                     'X-Status': { schema: { type: 'string' } },

@@ -9,13 +9,18 @@ const specEdgeTests = {
     info: { title: 'Edge Cases', version: '1.0' },
     paths: {
         '/public-endpoint': {
-            get: { operationId: 'getPublic', tags: ['Public'], security: [], responses: { '200': {} } },
+            get: {
+                operationId: 'getPublic',
+                tags: ['Public'],
+                security: [],
+                responses: { '200': { description: 'ok' } },
+            },
         },
         '/oauth-protected': {
             get: {
                 operationId: 'getOauthProtected',
                 security: [{ OAuth2: ['read:admin'] }],
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/server-override': {
@@ -23,7 +28,7 @@ const specEdgeTests = {
                 tags: ['ServerOverride'],
                 operationId: 'getWithServerOverride',
                 servers: [{ url: 'https://custom.api.com' }],
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/copy-resource': {
@@ -35,7 +40,7 @@ const specEdgeTests = {
             query: {
                 operationId: 'querySearch',
                 requestBody: { content: { 'application/json': { schema: { type: 'string' } } } },
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
     },
@@ -129,7 +134,8 @@ describe('Emitter: ServiceMethodGenerator (Edge Cases)', () => {
         };
         methodGen.addServiceMethod(serviceClass, op);
         const body = serviceClass.getMethodOrThrow('getWithServerOverride').getBodyText()!;
-        expect(body).toContain("const basePath = 'https://custom.api.com';");
+        expect(body).toContain('const operationServers =');
+        expect(body).toContain('resolveServerUrl(operationServers');
         expect(body).not.toContain('const basePath = this.basePath;');
     });
 
@@ -150,7 +156,7 @@ describe('Emitter: ServiceMethodGenerator (Edge Cases)', () => {
             path: '/query-search',
             methodName: 'querySearch',
             requestBody: { content: { 'application/json': { schema: { type: 'string' } } } },
-            responses: { '200': {} },
+            responses: { '200': { description: 'ok' } },
         };
 
         methodGen.addServiceMethod(serviceClass, op);

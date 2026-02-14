@@ -27,16 +27,24 @@ export class DocumentMetaGenerator {
                 { name: 'swagger', type: 'string', hasQuestionToken: true },
                 { name: '$self', type: 'string', hasQuestionToken: true },
                 { name: 'jsonSchemaDialect', type: 'string', hasQuestionToken: true },
+                {
+                    name: 'extensions',
+                    type: 'Record<string, any>',
+                    hasQuestionToken: true,
+                    docs: ['Top-level specification extensions (x-*) preserved for reverse generation.'],
+                },
             ],
             docs: ['Document-level OpenAPI/Swagger metadata captured from the source spec.'],
         });
 
         const spec = this.parser.getSpec();
+        const extensions = Object.fromEntries(Object.entries(spec).filter(([key]) => key.startsWith('x-')));
         const meta = {
             ...(spec.openapi ? { openapi: spec.openapi } : {}),
             ...(spec.swagger ? { swagger: spec.swagger } : {}),
             ...(spec.$self ? { $self: spec.$self } : {}),
             ...(spec.jsonSchemaDialect ? { jsonSchemaDialect: spec.jsonSchemaDialect } : {}),
+            ...(Object.keys(extensions).length > 0 ? { extensions } : {}),
         };
 
         sourceFile.addVariableStatement({

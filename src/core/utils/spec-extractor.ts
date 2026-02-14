@@ -10,7 +10,7 @@ import {
     SwaggerDefinition,
     SwaggerResponse,
 } from '../types/index.js';
-import { camelCase, normalizeSecurityKey, pascalCase } from './index.js';
+import { camelCase, isUriReference, normalizeSecurityKey, pascalCase } from './index.js';
 import { SwaggerParser } from '@src/core/parser.js';
 
 // Union type handling both Swagger 2.0 and OpenAPI 3.x property names
@@ -40,9 +40,10 @@ type UnifiedParameter = SwaggerOfficialParameter & {
  * - Applying OAS 3.2 default serialization rules (style/explode).
  *
  * @param swaggerPaths The raw `paths` object from the specification.
- * @param resolveRef Optional callback to resolve `$ref` pointers within path items.
+ * @param resolveRef Optional callback to resolve `$ref` pointers within path items (string-based resolution).
  * @param components Optional components object for resolving security precedence.
  * @param options Optional flags (e.g., `isOpenApi3`) and Swagger 2 defaults to enable OAS-specific behavior.
+ * @param resolveObj Optional callback to resolve full objects (context-aware `$ref`/`$dynamicRef` resolution).
  * @returns An array of normalized `PathInfo` objects ready for analysis.
  */
 export function extractPaths(
@@ -50,6 +51,7 @@ export function extractPaths(
     resolveRef?: (ref: string) => unknown,
     components?: { securitySchemes?: Record<string, any> } | undefined,
     options?: { isOpenApi3?: boolean; defaultConsumes?: string[]; defaultProduces?: string[] },
+    resolveObj?: (obj: unknown) => unknown,
 ): PathInfo[] {
     if (!swaggerPaths) {
         return [];
@@ -67,6 +69,13 @@ export function extractPaths(
         obj: T | { $ref?: string; $dynamicRef?: string; summary?: string; description?: string } | undefined | null,
     ): T | undefined => {
         if (!obj) return undefined;
+        if (!resolveRef && !resolveObj) return obj as T;
+
+        if (resolveObj && typeof obj === 'object') {
+            const resolvedObj = resolveObj(obj);
+            if (resolvedObj !== undefined) return resolvedObj as T;
+        }
+
         if (!resolveRef || typeof obj !== 'object') return obj as T;
 
         const ref = (obj as any).$ref || (obj as any).$dynamicRef;
@@ -88,7 +97,9 @@ export function extractPaths(
     };
 
     const resolveHeaders = (
-        headers: Record<string, HeaderObject | { $ref?: string; $dynamicRef?: string; description?: string }> | undefined,
+        headers:
+            | Record<string, HeaderObject | { $ref?: string; $dynamicRef?: string; description?: string }>
+            | undefined,
     ): Record<string, HeaderObject> | undefined => {
         if (!headers) return undefined;
         const resolvedHeaders: Record<string, HeaderObject> = {};
@@ -125,8 +136,11 @@ export function extractPaths(
     for (const [path, rawPathItem] of Object.entries(swaggerPaths)) {
         let pathItem = rawPathItem;
 
-        if (pathItem.$ref && resolveRef) {
-            const resolved = resolveRef(pathItem.$ref) as PathItem | undefined;
+        if (pathItem.$ref && (resolveObj || resolveRef)) {
+            const resolvedByObj =
+                resolveObj && typeof pathItem === 'object' ? (resolveObj(pathItem) as PathItem | undefined) : undefined;
+            const resolved =
+                resolvedByObj ?? (resolveRef ? (resolveRef(pathItem.$ref) as PathItem | undefined) : undefined);
             if (resolved) {
                 const localOverrides = { ...pathItem };
                 delete localOverrides.$ref;
@@ -290,10 +304,9 @@ export function extractPaths(
                     resolveMaybeRef<RequestBody>(operation.requestBody as any) ??
                     (operation.requestBody as RequestBody);
             } else if (bodyParam) {
-                const consumes =
-                    (operation.consumes && operation.consumes.length > 0
-                        ? operation.consumes
-                        : defaultConsumes) || ['application/json'];
+                const consumes = (operation.consumes && operation.consumes.length > 0
+                    ? operation.consumes
+                    : defaultConsumes) || ['application/json'];
 
                 const content: Record<string, MediaTypeObject> = {};
                 consumes.forEach(mediaType => {
@@ -321,10 +334,9 @@ export function extractPaths(
                     const headers = resolveHeaders((resolvedResp as any).headers as Record<string, HeaderObject>);
 
                     if (swagger2Response && swagger2Response.schema !== undefined) {
-                        const produces =
-                            (operation.produces && operation.produces.length > 0
-                                ? operation.produces
-                                : defaultProduces) || ['application/json'];
+                        const produces = (operation.produces && operation.produces.length > 0
+                            ? operation.produces
+                            : defaultProduces) || ['application/json'];
 
                         const content: Record<string, MediaTypeObject> = {};
                         produces.forEach(mediaType => {
@@ -349,7 +361,7 @@ export function extractPaths(
                 }
             }
 
-            const effectiveServers = operation.servers || pathServers;
+            const effectiveServers = operation.servers !== undefined ? operation.servers : pathServers;
             let effectiveSecurity = operation.security;
             if (effectiveSecurity) {
                 effectiveSecurity = effectiveSecurity.map(req => {
@@ -359,6 +371,9 @@ export function extractPaths(
                         // Otherwise, treat as URI reference (used for splitting last segment).
                         // This prevents ambiguity when a Component Name looks like a URI (e.g. "http://auth")
                         if (securitySchemeNames.has(key)) {
+                            normalizedReq[key] = req[key];
+                        } else if (isUriReference(key)) {
+                            // Preserve URI reference keys exactly (OAS 3.2)
                             normalizedReq[key] = req[key];
                         } else {
                             normalizedReq[normalizeSecurityKey(key)] = req[key];
@@ -376,7 +391,7 @@ export function extractPaths(
                 responses: normalizedResponses,
             };
 
-            if (effectiveServers) pathInfo.servers = effectiveServers;
+            if (effectiveServers !== undefined) pathInfo.servers = effectiveServers;
             if (operation.callbacks) pathInfo.callbacks = operation.callbacks;
             if (operation.operationId) pathInfo.operationId = operation.operationId;
 

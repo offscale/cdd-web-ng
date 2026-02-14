@@ -8,6 +8,28 @@ import { groupPathsByController } from '@src/core/utils/index.js';
 import { createTestProject } from '../shared/helpers.js';
 
 describe('Generators (Angular): Service Generators (Coverage)', () => {
+    const ensureResponses = (spec: any) => {
+        if (!spec?.paths) return spec;
+        const methods = ['get', 'post', 'put', 'delete', 'options', 'head', 'patch', 'trace', 'query'];
+        for (const pathItem of Object.values(spec.paths)) {
+            if (!pathItem || typeof pathItem !== 'object') continue;
+            for (const method of methods) {
+                const operation = (pathItem as any)[method];
+                if (operation && operation.responses === undefined) {
+                    operation.responses = { '200': { description: 'ok' } };
+                }
+            }
+            if ((pathItem as any).additionalOperations) {
+                for (const operation of Object.values((pathItem as any).additionalOperations)) {
+                    if (operation && (operation as any).responses === undefined) {
+                        (operation as any).responses = { '200': { description: 'ok' } };
+                    }
+                }
+            }
+        }
+        return spec;
+    };
+
     const run = (spec: object): Project => {
         const project = createTestProject();
         const config: GeneratorConfig = {
@@ -15,7 +37,8 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
             output: '/out',
             options: { dateType: 'string', enumStyle: 'enum', framework: 'angular' },
         };
-        const parser = new SwaggerParser(spec as any, config);
+        const specClone = ensureResponses(JSON.parse(JSON.stringify(spec)));
+        const parser = new SwaggerParser(specClone as any, config);
         const serviceGen = new ServiceGenerator(parser, project, config);
         const controllerGroups = groupPathsByController(parser);
         for (const [name, operations] of Object.entries(controllerGroups)) {
@@ -46,7 +69,7 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
                             { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
                             { name: 'limit', in: 'query', schema: { type: 'number' } },
                         ],
-                        responses: { '204': {} },
+                        responses: { '204': { description: 'ok' } },
                     },
                 },
             },
@@ -64,9 +87,11 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
             .getClassOrThrow('FormDataService')
             .getMethodOrThrow('postWithFormData')
             .getBodyText()!;
-        expect(methodBody).toContain('const formData = new FormData();');
-        expect(methodBody).toContain("if (file != null) { formData.append('file', file); }");
-        expect(methodBody).toContain('return this.http.post<any>(url, formData, requestOptions as any);');
+        expect(methodBody).toContain('const multipartConfig =');
+        expect(methodBody).toContain('MultipartBuilder.serialize(body, multipartConfig);');
+        expect(methodBody).toContain(
+            'return this.http.post<any>(url, multipartResult.content, requestOptions as any);',
+        );
     });
 
     it('should generate methods for application/x-www-form-urlencoded', () => {
@@ -76,8 +101,8 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
             .getClassOrThrow('UrlEncodedService')
             .getMethodOrThrow('postWithUrlEncoded')
             .getBodyText()!;
-        expect(methodBody).toContain('let formBody = new HttpParams();');
-        expect(methodBody).toContain("if (grantType != null) { formBody = formBody.append('grant_type', grantType); }");
+        expect(methodBody).toContain('const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(body,');
+        expect(methodBody).toContain('let formBody = new HttpParams({ encoder: new ApiParameterCodec() });');
         expect(methodBody).toContain('return this.http.post<any>(url, formBody, requestOptions as any);');
     });
 
@@ -126,6 +151,7 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
                         tags: ['DefaultResponse'],
                         responses: {
                             default: {
+                                description: 'Default response',
                                 content: { 'application/json': { schema: { $ref: '#/components/schemas/User' } } },
                             },
                         },
@@ -158,7 +184,7 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
         expect(noContentServiceFile).toBeDefined();
     });
 
-    it('should generate EventSource logic for text/event-stream', () => {
+    it('should generate SSE parsing logic for text/event-stream', () => {
         const spec = {
             openapi: '3.0.0',
             info: { title: 'SSE Test', version: '1.0' },
@@ -168,6 +194,7 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
                         tags: ['SSE'],
                         responses: {
                             '200': {
+                                description: 'ok',
                                 content: {
                                     'text/event-stream': {
                                         schema: {
@@ -194,7 +221,8 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
         expect(returnType).toContain('Observable<');
 
         const body = method.getBodyText()!;
-        expect(body).toContain('new EventSource(url)');
-        expect(body).toContain('JSON.parse(event.data)');
+        expect(body).toContain('fetch(url');
+        expect(body).toContain('response.body.getReader');
+        expect(body).toContain('SSE response body is not readable');
     });
 });

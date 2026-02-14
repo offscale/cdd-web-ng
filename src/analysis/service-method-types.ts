@@ -15,6 +15,8 @@ export interface ParamSerialization {
     contentType?: string;
     /** Encoding map when the parameter uses `content` with form media types. */
     encoding?: Record<string, any>;
+    /** ContentEncoder configuration derived from schema contentEncoding/contentMediaType. */
+    contentEncoderConfig?: Record<string, any>;
     /**
      * Explicit hint if complex serialization needed.
      * - 'json': Standard JSON.stringify
@@ -28,6 +30,8 @@ export interface ParamSerialization {
  */
 export type BodyVariant =
     | { type: 'json'; paramName: string }
+    | { type: 'json-lines'; paramName: string }
+    | { type: 'json-seq'; paramName: string }
     | { type: 'xml'; paramName: string; rootName: string; config: any }
     | { type: 'multipart'; paramName: string; config: any }
     | { type: 'urlencoded'; paramName: string; config: any }
@@ -57,6 +61,11 @@ export interface ResponseVariant {
     serialization: ResponseSerialization;
     xmlConfig?: any;
     decodingConfig?: any;
+    /**
+     * For Server-Sent Events, indicates whether the stream should emit full event envelopes
+     * (data/event/id/retry) or only the data payload.
+     */
+    sseMode?: 'event' | 'data';
     isDefault: boolean;
 }
 
@@ -91,6 +100,8 @@ export interface ServiceMethodModel {
     responseSerialization: ResponseSerialization;
     responseXmlConfig?: any;
     responseDecodingConfig?: any;
+    /** SSE response emission mode: 'event' for full SSE envelope, 'data' for data-only. */
+    sseMode?: 'event' | 'data';
 
     // Content Negotiation: All possible success response shapes
     responseVariants: ResponseVariant[];

@@ -20,7 +20,7 @@ const linkSpec = {
                 description: 'The user address link',
             },
             AnotherLink: {
-                operationRef: '#/paths/~12.0~1repositories~1{username}/get',
+                operationRef: '#/paths/~12.0~1repositories~1%7Busername%7D/get',
                 parameters: {
                     username: '$response.body#/username',
                 },

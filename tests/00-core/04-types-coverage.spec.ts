@@ -42,6 +42,63 @@ describe('Core: Types & Interfaces Coverage', () => {
         expect(param.allowEmptyValue).toBe(true);
     });
 
+    it('should support Example Objects on parameters (OAS 3.2)', () => {
+        const spec: SwaggerSpec = {
+            openapi: '3.2.0',
+            info: { title: 'Param Examples', version: '1.0' },
+            paths: {
+                '/search': {
+                    get: {
+                        parameters: [
+                            {
+                                name: 'q',
+                                in: 'query',
+                                examples: {
+                                    example: { dataValue: 'cats' },
+                                },
+                            },
+                        ],
+                        responses: {
+                            '200': { description: 'ok' },
+                        },
+                    },
+                },
+            },
+        };
+
+        const param = (spec.paths as any)['/search'].get.parameters[0];
+        expect(param.examples.example.dataValue).toBe('cats');
+    });
+
+    it('should support Example Objects on headers (OAS 3.2)', () => {
+        const spec: SwaggerSpec = {
+            openapi: '3.2.0',
+            info: { title: 'Header Examples', version: '1.0' },
+            paths: {
+                '/status': {
+                    get: {
+                        responses: {
+                            '200': {
+                                description: 'ok',
+                                headers: {
+                                    'X-Rate-Limit': {
+                                        examples: {
+                                            example: { serializedValue: '100' },
+                                        },
+                                        schema: { type: 'string' },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const header = (spec.paths as any)['/status'].get.responses['200'].headers['X-Rate-Limit'];
+        expect(header.examples.example.serializedValue).toBe('100');
+    });
+
     it('should support numeric exclusiveMinimum/exclusiveMaximum (OAS 3.1/JSON Schema 2020-12)', () => {
         const schema: SwaggerDefinition = {
             type: 'number',
@@ -125,6 +182,33 @@ describe('Core: Types & Interfaces Coverage', () => {
         expect(spec.components?.requestBodies?.Payload).toBeDefined();
         expect(spec.components?.examples?.ExampleOne).toBeDefined();
         expect(spec.components?.mediaTypes?.JsonPayload).toBeDefined();
+    });
+
+    it('should support Reference Object summary/description overrides in components (OAS 3.2)', () => {
+        const spec: SwaggerSpec = {
+            openapi: '3.2.0',
+            info: { title: 'Ref Overrides', version: '1.0' },
+            paths: {},
+            components: {
+                responses: {
+                    Ok: {
+                        $ref: '#/components/responses/BaseOk',
+                        summary: 'Short summary',
+                        description: 'Override description',
+                    },
+                },
+                securitySchemes: {
+                    OAuth: {
+                        $ref: '#/components/securitySchemes/OAuthBase',
+                        summary: 'Auth summary',
+                        description: 'Auth description',
+                    },
+                },
+            },
+        };
+
+        expect(spec.components?.responses?.Ok).toBeDefined();
+        expect(spec.components?.securitySchemes?.OAuth).toBeDefined();
     });
 
     it('should support oauth2MetadataUrl in security schemes (OAS 3.2)', () => {

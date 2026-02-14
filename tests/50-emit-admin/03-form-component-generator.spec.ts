@@ -190,7 +190,6 @@ describe('Generators (Angular): FormComponentGenerator', () => {
                             type: 'object',
                             properties: {
                                 value: {
-                                    discriminator: { propertyName: 'type' },
                                     oneOf: [{ type: 'string' }, { type: 'number' }],
                                 },
                             },
@@ -280,6 +279,38 @@ describe('Generators (Angular): FormComponentGenerator', () => {
             );
             expect(classText).toContain("this.form.get('phoneNumber')?.addValidators(Validators.required);");
             expect(classText).toContain("this.form.get('phoneNumber')?.removeValidators(Validators.required);");
+        });
+
+        it('should create effect for conditional validation based on dependentRequired', () => {
+            const spec = {
+                ...validBase,
+                paths: {},
+                components: {
+                    schemas: {
+                        Test: {
+                            type: 'object',
+                            properties: {
+                                hasEmail: { type: 'boolean' },
+                                emailAddress: { type: 'string' },
+                            },
+                            dependentRequired: {
+                                hasEmail: ['emailAddress'],
+                            },
+                        },
+                    },
+                },
+            };
+
+            const { sourceFile } = run(spec, { modelName: 'Test' });
+            const classText = sourceFile.getClass('TestFormComponent')!.getText();
+
+            expect(classText).toContain('effect(() => {');
+            expect(classText).toContain("const hasEmailValue = this.form.get('hasEmail')?.value;");
+            expect(classText).toContain(
+                "if (hasEmailValue !== null && hasEmailValue !== undefined && hasEmailValue !== '')",
+            );
+            expect(classText).toContain("this.form.get('emailAddress')?.addValidators(Validators.required);");
+            expect(classText).toContain("this.form.get('emailAddress')?.removeValidators(Validators.required);");
         });
     });
 
@@ -609,7 +640,11 @@ describe('Generators (Angular): FormComponentGenerator', () => {
                 dependencyRules: [],
             };
 
-            (generator as any).addPatchForm(classDeclaration, { name: 'test', modelName: 'Test' } as any, analysisEmpty);
+            (generator as any).addPatchForm(
+                classDeclaration,
+                { name: 'test', modelName: 'Test' } as any,
+                analysisEmpty,
+            );
             expect(classDeclaration.getMethod('patchForm')).toBeUndefined();
 
             const analysisComplex: FormAnalysisResult = {
@@ -628,11 +663,7 @@ describe('Generators (Angular): FormComponentGenerator', () => {
                 hasMaps: true,
             };
 
-            (generator as any).addPatchForm(
-                classDeclaration,
-                { name: 'test', modelName: '' } as any,
-                analysisComplex,
-            );
+            (generator as any).addPatchForm(classDeclaration, { name: 'test', modelName: '' } as any, analysisComplex);
             const patchMethod = classDeclaration.getMethodOrThrow('patchForm');
             expect(patchMethod.getParameters()[0].getType().getText()).toBe('any');
         });

@@ -49,7 +49,9 @@ const fullSpec: SwaggerSpec = {
             get: {
                 tags: ['User'],
                 responses: { '200': { description: 'ok' } },
-                callbacks: { onUser: { '{$request.query.userId}': { post: { responses: { '200': {} } } } } },
+                callbacks: {
+                    onUser: { '{$request.query.userId}': { post: { responses: { '200': { description: 'ok' } } } } },
+                },
             },
         },
     },
@@ -76,7 +78,7 @@ const fullSpec: SwaggerSpec = {
     },
     servers: [{ url: 'https://api.test.com' }],
     webhooks: {
-        userCreated: { post: { responses: { '200': {} } } },
+        userCreated: { post: { responses: { '200': { description: 'ok' } } } },
     },
 };
 
@@ -162,8 +164,8 @@ describe('Generators: AngularClientGenerator (Orchestrator)', () => {
             openapi: '3.0.0',
             info: { title: 'Paths Only', version: '1.0' },
             paths: {
-                '/': { get: { operationId: 'rootGet', responses: { '200': {} } } },
-                '/items': { get: { operationId: 'listItems', responses: { '200': {} } } },
+                '/': { get: { operationId: 'rootGet', responses: { '200': { description: 'ok' } } } },
+                '/items': { get: { operationId: 'listItems', responses: { '200': { description: 'ok' } } } },
             },
         };
 
@@ -191,7 +193,7 @@ describe('Generators: AngularClientGenerator (Orchestrator)', () => {
         const specWithSecurity: SwaggerSpec = {
             openapi: '3.0.0',
             info: { title: 'Security', version: '1.0' },
-            paths: { '/secure': { get: { responses: { '200': {} } } } },
+            paths: { '/secure': { get: { responses: { '200': { description: 'ok' } } } } },
             components: {
                 securitySchemes: {
                     ApiKey: { type: 'apiKey', name: 'x-api-key', in: 'header' },

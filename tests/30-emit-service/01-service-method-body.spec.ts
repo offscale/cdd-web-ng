@@ -37,7 +37,7 @@ const specBodyTests = {
                         },
                     },
                 },
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/urlencoded-encoding': {
@@ -58,7 +58,7 @@ const specBodyTests = {
                         },
                     },
                 },
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/urlencoded-content-encoding': {
@@ -76,7 +76,7 @@ const specBodyTests = {
                         },
                     },
                 },
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/xml-endpoint': {
@@ -96,7 +96,7 @@ const specBodyTests = {
                         },
                     },
                 },
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/readonly-test': {
@@ -109,25 +109,47 @@ const specBodyTests = {
                         },
                     },
                 },
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/multipart': {
             post: {
                 operationId: 'postMultipart',
                 tags: ['FormData'],
-                consumes: ['multipart/form-data'],
-                parameters: [{ name: 'file-upload', in: 'formData', type: 'file' }],
-                responses: { '200': {} },
+                requestBody: {
+                    required: true,
+                    content: {
+                        'multipart/form-data': {
+                            schema: {
+                                type: 'object',
+                                required: ['file-upload'],
+                                properties: {
+                                    'file-upload': { type: 'string', format: 'binary' },
+                                },
+                            },
+                        },
+                    },
+                },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/urlencoded': {
             post: {
                 operationId: 'postUrlencoded',
                 tags: ['FormData'],
-                consumes: ['application/x-www-form-urlencoded'],
-                parameters: [{ name: 'grantType', in: 'formData', type: 'string' }],
-                responses: { '200': {} },
+                requestBody: {
+                    content: {
+                        'application/x-www-form-urlencoded': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    grantType: { type: 'string' },
+                                },
+                            },
+                        },
+                    },
+                },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/body-no-schema': {
@@ -135,7 +157,35 @@ const specBodyTests = {
                 tags: ['ResponseType'],
                 operationId: 'postBodyNoSchema',
                 requestBody: { content: { 'application/json': {} } },
-                responses: { '204': {} },
+                responses: { '204': { description: 'ok' } },
+            },
+        },
+        '/jsonl-endpoint': {
+            post: {
+                tags: ['Seq'],
+                operationId: 'postJsonLines',
+                requestBody: {
+                    content: {
+                        'application/x-ndjson': {
+                            itemSchema: { $ref: '#/components/schemas/ReadOnlyModel' },
+                        },
+                    },
+                },
+                responses: { '200': { description: 'ok' } },
+            },
+        },
+        '/custom-jsonl-endpoint': {
+            post: {
+                tags: ['Seq'],
+                operationId: 'postCustomJsonLines',
+                requestBody: {
+                    content: {
+                        'application/vnd.acme+json': {
+                            itemSchema: { $ref: '#/components/schemas/ReadOnlyModel' },
+                        },
+                    },
+                },
+                responses: { '200': { description: 'ok' } },
             },
         },
     },
@@ -281,7 +331,41 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
 
         expect(body).toContain('let encodedBody = body;');
         expect(body).toContain('encodedBody = ContentEncoder.encode(encodedBody');
-        expect(body).toContain('const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(encodedBody, {});');
+        expect(body).toContain('ParameterSerializer.serializeUrlEncodedBody(encodedBody');
+    });
+
+    it('should serialize ndjson request bodies using newline delimiters', () => {
+        const { methodGen, serviceClass } = createTestEnvironment(specBodyTests);
+        const op: PathInfo = {
+            ...specBodyTests.paths['/jsonl-endpoint'].post,
+            method: 'POST',
+            path: '/jsonl-endpoint',
+            methodName: 'postJsonLines',
+        } as any;
+
+        methodGen.addServiceMethod(serviceClass, op);
+
+        const body = serviceClass.getMethodOrThrow('postJsonLines').getBodyText()!;
+        expect(body).toContain('let jsonLinesBody = readOnlyModel;');
+        expect(body).toContain('jsonLinesBody = jsonLinesBody.map(item => JSON.stringify(item))');
+        expect(body).toContain("headers = headers.set('Content-Type', 'application/x-ndjson')");
+    });
+
+    it('should serialize custom JSON sequential request bodies using newline delimiters', () => {
+        const { methodGen, serviceClass } = createTestEnvironment(specBodyTests);
+        const op: PathInfo = {
+            ...specBodyTests.paths['/custom-jsonl-endpoint'].post,
+            method: 'POST',
+            path: '/custom-jsonl-endpoint',
+            methodName: 'postCustomJsonLines',
+        } as any;
+
+        methodGen.addServiceMethod(serviceClass, op);
+
+        const body = serviceClass.getMethodOrThrow('postCustomJsonLines').getBodyText()!;
+        expect(body).toContain('let jsonLinesBody = readOnlyModel;');
+        expect(body).toContain('jsonLinesBody = jsonLinesBody.map(item => JSON.stringify(item))');
+        expect(body).toContain("headers = headers.set('Content-Type', 'application/vnd.acme+json')");
     });
 
     it('should use *Request type for body parameter if model has readonly/writeonly properties', () => {
@@ -297,7 +381,7 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
                     },
                 },
             },
-            responses: { '200': {} },
+            responses: { '200': { description: 'ok' } },
         };
 
         methodGen.addServiceMethod(serviceClass, op);
@@ -319,6 +403,7 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
             },
             responses: {
                 '200': {
+                    description: 'ok',
                     content: { 'application/json': { schema: { $ref: '#/components/schemas/ReadOnlyModel' } } },
                 },
             },
@@ -351,8 +436,9 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
             method: 'POST',
             path: '/urlencoded',
             methodName: 'postLegacy',
-            parameters: specBodyTests.paths['/urlencoded'].post.parameters,
-            consumes: specBodyTests.paths['/urlencoded'].post.consumes,
+            consumes: ['application/x-www-form-urlencoded'],
+            parameters: [{ name: 'grantType', in: 'formData', type: 'string' }] as any,
+            responses: { '200': { description: 'ok' } } as any,
         } as any;
 
         methodGen.addServiceMethod(serviceClass, op);

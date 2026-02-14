@@ -197,7 +197,7 @@ export class FormComponentGenerator {
                         });
                     }
 
-                    // 2. Dependent Schemas Logic (OAS 3.1)
+                    // 2. Dependent Schemas/Required Logic (OAS 3.1)
                     if (analysis.dependencyRules.length > 0) {
                         writer.writeLine('// Dependent Schemas: If trigger field is present, target is required.');
                         writer.writeLine('effect(() => {');
@@ -471,6 +471,8 @@ export class FormComponentGenerator {
                 const initializer = FormInitializerRenderer.renderMapItemInitializer(
                     prop.mapValueControl,
                     prop.keyPattern,
+                    prop.keyMinLength,
+                    prop.keyMaxLength,
                 );
                 createMethod.setBodyText(`return ${initializer};`);
             } else {

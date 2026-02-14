@@ -39,6 +39,15 @@ function HttpCode(_code: number): MethodDecorator {
     return () => {};
 }
 
+export interface CreateWidget {
+    name: string;
+}
+
+export interface Widget {
+    id: string;
+    name: string;
+}
+
 @Controller('/admin')
 export class AdminController {
     /**
@@ -50,11 +59,13 @@ export class AdminController {
     @HttpCode(201)
     create(
         @Param('id') id: string,
-        @Body() body: unknown,
+        @Body() body: CreateWidget,
         @Header('X-Trace') trace?: string,
         @Query('mode') mode?: string,
-    ) {
-        return { id, body, trace, mode };
+    ): Widget {
+        void trace;
+        void mode;
+        return { id, name: body.name };
     }
 
     @Get()

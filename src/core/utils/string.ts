@@ -67,3 +67,16 @@ export function isUrl(input: string): boolean {
         return false;
     }
 }
+
+/**
+ * Checks if a string looks like a URI reference (absolute, fragment, or relative).
+ * Useful for distinguishing Security Requirement keys from component names (OAS 3.2).
+ */
+export function isUriReference(input: string): boolean {
+    if (!input) return false;
+    const value = input.trim();
+    if (!value) return false;
+    if (value.startsWith('#') || value.startsWith('./') || value.startsWith('../')) return true;
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value)) return true;
+    return /[/?#]/.test(value);
+}

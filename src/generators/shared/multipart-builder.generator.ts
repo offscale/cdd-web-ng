@@ -25,7 +25,10 @@ export class MultipartBuilderGenerator {
                 { name: 'headers', type: 'Record<string, string>', hasQuestionToken: true },
                 { name: 'style', type: 'string', hasQuestionToken: true },
                 { name: 'explode', type: 'boolean', hasQuestionToken: true },
+                { name: 'allowReserved', type: 'boolean', hasQuestionToken: true },
                 { name: 'encoding', type: 'Record<string, EncodingConfig>', hasQuestionToken: true },
+                { name: 'prefixEncoding', type: 'EncodingConfig[]', hasQuestionToken: true },
+                { name: 'itemEncoding', type: 'EncodingConfig', hasQuestionToken: true },
             ],
         });
 
@@ -97,7 +100,12 @@ export class MultipartBuilderGenerator {
         const encodingMap = config.encoding || {};
         const requiresManual = !!config.mediaType || Object.values(encodingMap).some(c => 
             (!!c.headers && Object.keys(c.headers).length > 0) || 
-            (!!c.contentType && c.contentType.startsWith('multipart/'))
+            (!!c.contentType && c.contentType.startsWith('multipart/')) ||
+            c.style !== undefined ||
+            c.explode !== undefined ||
+            c.allowReserved !== undefined ||
+            c.prefixEncoding !== undefined ||
+            c.itemEncoding !== undefined
         );
 
         if (requiresManual) {
@@ -175,13 +183,72 @@ export class MultipartBuilderGenerator {
         const crlf = '\\r\\n';
         
         const encodings = config.encoding || {};
+        const normalizeStyle = (style?: string) => style || 'form';
+        const normalizeExplode = (style: string, explode?: boolean) =>
+            explode !== undefined ? explode : style === 'form' || style === 'cookie';
+        const getDelimiter = (style: string) => {
+            if (style === 'spaceDelimited') return ' ';
+            if (style === 'pipeDelimited') return '|';
+            if (style === 'tabDelimited') return '\\t';
+            return ',';
+        };
+        const serializeArrayValue = (items: any[], style: string) =>
+            items.map(v => String(v)).join(getDelimiter(style));
+        const serializeObjectValue = (obj: Record<string, any>, style: string) =>
+            Object.entries(obj)
+                .map(([k, v]) => \`\${k}\${getDelimiter(style)}\${v}\`)
+                .join(getDelimiter(style));
 
         Object.entries(body).forEach(([key, value]) => {
             if (value === undefined || value === null) return;
 
-            const values = Array.isArray(value) ? value : [value];
             const itemConfig = encodings[key] || {};
+            const hasSerializationHints =
+                itemConfig.style !== undefined ||
+                itemConfig.explode !== undefined ||
+                itemConfig.allowReserved !== undefined;
 
+            if (hasSerializationHints) {
+                const style = normalizeStyle(itemConfig.style);
+                const explode = normalizeExplode(style, itemConfig.explode);
+                const disp = \`Content-Disposition: form-data; name="\${key}"\`;
+
+                if (Array.isArray(value)) {
+                    if (explode) {
+                        value.forEach(v => {
+                            this.appendPart(parts, String(v), { ...itemConfig, contentType: undefined }, boundary, disp);
+                        });
+                    } else {
+                        const serialized = serializeArrayValue(value, style);
+                        this.appendPart(parts, serialized, { ...itemConfig, contentType: undefined }, boundary, disp);
+                    }
+                    return;
+                }
+
+                if (typeof value === 'object') {
+                    if (explode) {
+                        Object.entries(value).forEach(([entryKey, entryValue]) => {
+                            const entryDisp = \`Content-Disposition: form-data; name="\${entryKey}"\`;
+                            this.appendPart(
+                                parts,
+                                String(entryValue),
+                                { ...itemConfig, contentType: undefined },
+                                boundary,
+                                entryDisp,
+                            );
+                        });
+                    } else {
+                        const serialized = serializeObjectValue(value as Record<string, any>, style);
+                        this.appendPart(parts, serialized, { ...itemConfig, contentType: undefined }, boundary, disp);
+                    }
+                    return;
+                }
+
+                this.appendPart(parts, String(value), { ...itemConfig, contentType: undefined }, boundary, disp);
+                return;
+            }
+
+            const values = Array.isArray(value) ? value : [value];
             values.forEach(v => {
                 // For Object-based multipart, Content-Disposition is required with a name
                 const disp = \`Content-Disposition: form-data; name="\${key}"\`;

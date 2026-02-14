@@ -46,6 +46,14 @@ export class LinkServiceGenerator {
                 { name: 'targetOperationId', type: 'string', hasQuestionToken: true },
                 { name: 'operationRef', type: 'string', hasQuestionToken: true },
                 { name: 'parameters', type: 'Record<string, any>' },
+                {
+                    name: 'parameterLocations',
+                    type: "Record<string, 'path' | 'query' | 'header' | 'cookie'>",
+                    hasQuestionToken: true,
+                    docs: [
+                        'Optional location map for qualified Link parameter keys (e.g. "path.id" -> { id: "path" }).',
+                    ],
+                },
                 { name: 'body', type: 'any', hasQuestionToken: true },
                 { name: 'targetServer', type: 'string', hasQuestionToken: true },
             ],
@@ -101,9 +109,17 @@ export class LinkServiceGenerator {
         } 
 
         const parameters: Record<string, any> = {}; 
+        const parameterLocations: Record<string, 'path' | 'query' | 'header' | 'cookie'> = {}; 
         if (linkDef.parameters) { 
             Object.entries(linkDef.parameters).forEach(([key, expr]) => { 
-                parameters[key] = this.evaluate(expr, context); 
+                const normalized = this.normalizeParameterKey(key); 
+                const evaluated = this.evaluate(expr, context); 
+                if (evaluated !== undefined) { 
+                    parameters[normalized.name] = evaluated; 
+                    if (normalized.location) { 
+                        parameterLocations[normalized.name] = normalized.location; 
+                    } 
+                } 
             }); 
         } 
 
@@ -114,8 +130,23 @@ export class LinkServiceGenerator {
             targetOperationId: linkDef.operationId, 
             operationRef: linkDef.operationRef, 
             parameters, 
+            parameterLocations: Object.keys(parameterLocations).length ? parameterLocations : undefined, 
             body, 
             targetServer
+        };`,
+        });
+
+        linkServiceClass.addMethod({
+            name: 'normalizeParameterKey',
+            scope: Scope.Private,
+            parameters: [{ name: 'rawKey', type: 'string' }],
+            returnType: "{ name: string; location?: 'path' | 'query' | 'header' | 'cookie' }",
+            statements: `
+        const match = rawKey.match(/^(path|query|header|cookie)\\.(.+)$/); 
+        if (!match) return { name: rawKey }; 
+        return { 
+            name: match[2], 
+            location: match[1] as 'path' | 'query' | 'header' | 'cookie' 
         };`,
         });
 
@@ -225,10 +256,16 @@ export class LinkServiceGenerator {
         if (!expression.startsWith('$') && !expression.includes('{')) return expression; 
 
         if (expression.includes('{') && expression.includes('}')) { 
-            return expression.replace(/\\{([^}]+)\\}/g, (_, inner) => { 
+            let failed = false; 
+            const replaced = expression.replace(/\\{([^}]+)\\}/g, (_, inner) => { 
                 const val = this.evaluateExpression(inner.trim(), context); 
-                return val !== undefined ? String(val) : ''; 
+                if (val === undefined) { 
+                    failed = true; 
+                    return ''; 
+                } 
+                return String(val); 
             }); 
+            return failed ? undefined : replaced; 
         } 
         return this.evaluateExpression(expression, context);`,
         });
@@ -295,7 +332,13 @@ export class LinkServiceGenerator {
         
         for (const part of parts) { 
             if (current === null || current === undefined) return undefined; 
-            const unescaped = part.replace(/~1/g, '/').replace(/~0/g, '~'); 
+            let decoded = part; 
+            try { 
+                decoded = decodeURIComponent(part); 
+            } catch { 
+                // keep raw token if decoding fails 
+            } 
+            const unescaped = decoded.replace(/~1/g, '/').replace(/~0/g, '~'); 
             if (Array.isArray(current)) { 
                 const idx = parseInt(unescaped, 10); 
                 if (isNaN(idx)) return undefined; 

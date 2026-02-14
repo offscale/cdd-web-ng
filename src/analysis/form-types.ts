@@ -28,6 +28,9 @@ export interface FormControlModel {
     mapValueControl?: FormControlModel;
     // The regex pattern required for keys in this map (from patternProperties)
     keyPattern?: string;
+    // Optional length constraints for map keys (from propertyNames)
+    keyMinLength?: number;
+    keyMaxLength?: number;
 
     // Schema reference for UI generation hints (retained for HTML builder compatibility)
     schema?: SwaggerDefinition;
@@ -83,6 +86,6 @@ export interface FormAnalysisResult {
     isPolymorphic: boolean;
     polymorphicProperties: PolymorphicPropertyConfig[];
 
-    // OAS 3.1 dependentSchemas logic
+    // OAS 3.1 dependentSchemas/dependentRequired logic
     dependencyRules: DependencyRule[];
 }

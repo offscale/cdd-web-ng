@@ -114,12 +114,24 @@ export class ServiceGenerator extends AbstractServiceGenerator {
         let hasDecoding = false;
         let hasEncoding = false;
 
+        const schemaHasDecodingHints = (schema: any, depth: number = 6): boolean => {
+            if (!schema || typeof schema !== 'object' || depth <= 0) return false;
+            if ('contentEncoding' in schema || 'contentSchema' in schema) return true;
+            if (Array.isArray(schema)) {
+                return schema.some(item => schemaHasDecodingHints(item, depth - 1));
+            }
+            return Object.values(schema).some(value => schemaHasDecodingHints(value as any, depth - 1));
+        };
+
         for (const op of operations) {
             hasDecoding =
                 hasDecoding ||
                 Object.values(op.responses!).some(r => {
-                    const s = r.content?.['application/json']?.schema;
-                    return s && JSON.stringify(s).includes('contentSchema');
+                    if (!r.content) return false;
+                    return Object.values(r.content).some(media => {
+                        const schema = media?.schema ?? media?.itemSchema;
+                        return schemaHasDecodingHints(schema);
+                    });
                 });
 
             // Check request body for encoding
@@ -127,6 +139,21 @@ export class ServiceGenerator extends AbstractServiceGenerator {
                 const s = op.requestBody.content['application/json'].schema;
                 // Simple heuristic check for recursive property
                 hasEncoding = hasEncoding || JSON.stringify(s).includes('contentMediaType');
+            }
+
+            // Check parameters for content encoding/media type hints
+            if (op.parameters && op.parameters.length > 0) {
+                const hasParamEncoding = op.parameters.some(param => {
+                    const contentSchema =
+                        param.content && Object.keys(param.content).length > 0
+                            ? param.content[Object.keys(param.content)[0]]?.schema
+                            : undefined;
+                    const schema = param.schema ?? contentSchema;
+                    if (!schema) return false;
+                    const serialized = JSON.stringify(schema);
+                    return serialized.includes('contentEncoding') || serialized.includes('contentMediaType');
+                });
+                hasEncoding = hasEncoding || hasParamEncoding;
             }
         }
 
@@ -173,12 +200,9 @@ export class ServiceGenerator extends AbstractServiceGenerator {
             // Check all responses for models
             for (const resp of Object.values(op.responses!)) {
                 if (resp.content) {
-                    const jsonSchema = resp.content['application/json']?.schema;
-                    const xmlSchema = resp.content['application/xml']?.schema;
-                    const wildcardSchema = resp.content['*/*']?.schema;
-
-                    const schema = jsonSchema || xmlSchema || wildcardSchema;
-                    if (schema) {
+                    Object.values(resp.content).forEach(media => {
+                        const schema = media?.schema ?? media?.itemSchema;
+                        if (!schema) return;
                         const typeName = getTypeScriptType(schema, this.config, knownTypes).replace(
                             /\[\]| \| null/g,
                             '',
@@ -186,7 +210,7 @@ export class ServiceGenerator extends AbstractServiceGenerator {
                         if (isDataTypeInterface(typeName)) {
                             modelImports.add(typeName);
                         }
-                    }
+                    });
                 }
             }
 

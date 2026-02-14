@@ -19,6 +19,12 @@ export class ContentEncoderGenerator {
             properties: [
                 { name: 'encode', type: 'boolean', hasQuestionToken: true, docs: ['If true, stringify the value.'] },
                 {
+                    name: 'contentMediaType',
+                    type: 'string',
+                    hasQuestionToken: true,
+                    docs: ['Original contentMediaType hint (preserved for round-trip generation).'],
+                },
+                {
                     name: 'contentEncoding',
                     type: "'base64' | 'base64url' | string",
                     hasQuestionToken: true,

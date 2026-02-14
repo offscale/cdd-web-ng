@@ -100,6 +100,25 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
         const reqSchema = findSchema(op.requestBody?.content?.['application/json']?.schema, parser);
         if (reqSchema) allSchemas.push(reqSchema);
 
+        const formSchemas = [
+            findSchema(op.requestBody?.content?.['multipart/form-data']?.schema, parser),
+            findSchema(op.requestBody?.content?.['application/x-www-form-urlencoded']?.schema, parser),
+        ].filter(Boolean) as SwaggerDefinition[];
+
+        formSchemas.forEach(formSchema => {
+            if (!formSchema || typeof formSchema !== 'object') return;
+            if (!formSchema.properties) return;
+            Object.entries(formSchema.properties).forEach(([propName, propSchema]) => {
+                if (!propSchema || typeof propSchema !== 'object') return;
+                if ('$ref' in propSchema) return;
+                const cloned: SwaggerDefinition = { ...(propSchema as SwaggerDefinition) };
+                if (Array.isArray((propSchema as SwaggerDefinition).type)) {
+                    delete (cloned as SwaggerDefinition).type;
+                }
+                formDataProperties[propName] = cloned;
+            });
+        });
+
         const resSchema =
             findSchema(op.responses?.['200']?.content?.['application/json']?.schema, parser) ??
             findSchema(op.responses?.['201']?.content?.['application/json']?.schema, parser);

@@ -31,6 +31,7 @@ const encodedContentSpec = {
                 operationId: 'getBlobData',
                 responses: {
                     '200': {
+                        description: 'ok',
                         content: {
                             'application/json': {
                                 schema: {
@@ -56,6 +57,7 @@ const encodedContentSpec = {
                 operationId: 'getXmlEmbedded',
                 responses: {
                     '200': {
+                        description: 'ok',
                         content: {
                             'application/json': {
                                 schema: {
@@ -88,7 +90,7 @@ const encodedContentSpec = {
                         },
                     },
                 ],
-                responses: { '200': {} },
+                responses: { '200': { description: 'ok' } },
             },
         },
         '/base64-response': {
@@ -96,6 +98,7 @@ const encodedContentSpec = {
                 operationId: 'getBase64Response',
                 responses: {
                     '200': {
+                        description: 'ok',
                         content: {
                             'application/json': {
                                 schema: {

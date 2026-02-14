@@ -43,10 +43,15 @@ export class FormModelBuilder {
             }
         }
 
-        // 2. Detect Dependent Schemas (Optimization: check generic schema lookup for this model)
+        // 2. Detect Dependent Schemas/Required (Optimization: check generic schema lookup for this model)
         const modelDef = definitions.find(d => d.name === resource.modelName)?.definition;
-        if (modelDef && modelDef.dependentSchemas) {
-            this.analyzeDependentSchemas(modelDef);
+        if (modelDef) {
+            if (modelDef.dependentSchemas) {
+                this.analyzeDependentSchemas(modelDef);
+            }
+            if (modelDef.dependentRequired) {
+                this.analyzeDependentRequired(modelDef);
+            }
         }
         // Also check if the resource properties themselves originated from a schema with dependentSchemas
         // (Handling cases where the Resource object was built from flattened paths)
@@ -94,6 +99,23 @@ export class FormModelBuilder {
         });
     }
 
+    private analyzeDependentRequired(modelSchema: SwaggerDefinition) {
+        if (!modelSchema.dependentRequired) return;
+
+        Object.entries(modelSchema.dependentRequired).forEach(([triggerProp, requiredList]) => {
+            if (!Array.isArray(requiredList)) return;
+            requiredList
+                .filter((req): req is string => typeof req === 'string' && req.length > 0)
+                .forEach(reqProp => {
+                    this.result.dependencyRules.push({
+                        triggerField: triggerProp,
+                        targetField: reqProp,
+                        type: 'required',
+                    });
+                });
+        });
+    }
+
     /**
      * Recursively analyzes properties to build Control Models and Interface Definitions.
      */
@@ -111,7 +133,17 @@ export class FormModelBuilder {
 
             if (
                 validationRules.some(r =>
-                    ['exclusiveMinimum', 'exclusiveMaximum', 'multipleOf', 'uniqueItems', 'not'].includes(r.type),
+                    [
+                        'exclusiveMinimum',
+                        'exclusiveMaximum',
+                        'multipleOf',
+                        'uniqueItems',
+                        'contains',
+                        'minProperties',
+                        'maxProperties',
+                        'not',
+                        'const',
+                    ].includes(r.type),
                 )
             ) {
                 this.result.usesCustomValidators = true;
@@ -154,12 +186,34 @@ export class FormModelBuilder {
                 // extract the schema for map values
                 let rawValueSchema: any = {};
                 let keyPattern: string | undefined;
+                let keyMinLength: number | undefined;
+                let keyMaxLength: number | undefined;
 
                 if (schema.patternProperties) {
                     const patterns = Object.keys(schema.patternProperties);
                     if (patterns.length > 0) {
                         keyPattern = patterns[0]; // Using first pattern as constraint for the KEY
                         rawValueSchema = schema.patternProperties[keyPattern];
+                    }
+                }
+
+                if (schema.propertyNames && typeof schema.propertyNames === 'object') {
+                    const resolvedPropertyNames = this.parser.resolve(schema.propertyNames as SwaggerDefinition);
+                    if (
+                        resolvedPropertyNames &&
+                        typeof resolvedPropertyNames === 'object' &&
+                        typeof resolvedPropertyNames.pattern === 'string' &&
+                        !keyPattern
+                    ) {
+                        keyPattern = resolvedPropertyNames.pattern;
+                    }
+                    if (resolvedPropertyNames && typeof resolvedPropertyNames === 'object') {
+                        if (typeof resolvedPropertyNames.minLength === 'number') {
+                            keyMinLength = resolvedPropertyNames.minLength;
+                        }
+                        if (typeof resolvedPropertyNames.maxLength === 'number') {
+                            keyMaxLength = resolvedPropertyNames.maxLength;
+                        }
                     }
                 }
 
@@ -193,6 +247,8 @@ export class FormModelBuilder {
                     schema,
                     ...(valueControl.nestedFormInterface && { nestedFormInterface: valueControl.nestedFormInterface }),
                     ...(keyPattern && { keyPattern }), // Attach the pattern for renderer usage
+                    ...(keyMinLength !== undefined && { keyMinLength }),
+                    ...(keyMaxLength !== undefined && { keyMaxLength }),
                 };
             }
             // 2c. Form Array

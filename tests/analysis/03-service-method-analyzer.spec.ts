@@ -110,6 +110,45 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
         expect(model?.docs).toContain('@tags users, admin');
     });
 
+    it('should add @server, @security, and x-* tags to docs when present', () => {
+        const spec = {
+            openapi: '3.2.0',
+            info: { title: 'Test', version: '1.0' },
+            paths: {
+                '/secure': {
+                    get: {
+                        operationId: 'getSecure',
+                        summary: 'Secure endpoint.',
+                        servers: [
+                            {
+                                url: 'https://api.example.com/{version}',
+                                description: 'Production',
+                                name: 'prod',
+                                variables: { version: { default: 'v1' } },
+                            },
+                        ],
+                        security: [{ ApiKey: [] }],
+                        'x-rate-limit': 100,
+                        responses: { '200': { description: 'OK' } },
+                    },
+                },
+            },
+        };
+
+        const { analyzer } = setupAnalyzer(spec);
+        const operation: PathInfo = {
+            ...spec.paths['/secure'].get,
+            path: '/secure',
+            method: 'GET',
+            methodName: 'getSecure',
+        } as PathInfo;
+
+        const model = analyzer.analyze(operation);
+        expect(model?.docs).toContain('@server {"url":"https://api.example.com/{version}"');
+        expect(model?.docs).toContain('@security [{"ApiKey":[]}');
+        expect(model?.docs).toContain('@x-rate-limit 100');
+    });
+
     it('should correctly parse advanced XML config properties and stop at depth limit', () => {
         const spec = {
             openapi: '3.0.0',
@@ -136,7 +175,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                                 },
                             },
                         },
-                        responses: { '200': {} },
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             },
@@ -184,6 +223,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                         operationId: 'getReport',
                         responses: {
                             '200': {
+                                description: 'ok',
                                 content: {
                                     'application/xml': {
                                         schema: { $ref: '#/components/schemas/Report' },
@@ -223,7 +263,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                             { name: 'b', in: 'query', content: { 'application/json; charset=utf-8': {} } }, // JSON compatible subtype
                             { name: 'c', in: 'query', content: { '*/*': {} } }, // Wildcard
                         ],
-                        responses: {},
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             },
@@ -239,6 +279,40 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
         expect(pA?.serializationLink).toBe('json');
         expect(pB?.serializationLink).toBe('json');
         expect(pC?.serializationLink).toBe('json');
+    });
+
+    it('should ignore reserved header parameters (Accept, Content-Type, Authorization)', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'Test', version: '1.0' },
+            paths: {
+                '/test': {
+                    get: {
+                        operationId: 'getTest',
+                        parameters: [
+                            { name: 'Accept', in: 'header', schema: { type: 'string' } },
+                            { name: 'Content-Type', in: 'header', schema: { type: 'string' } },
+                            { name: 'Authorization', in: 'header', schema: { type: 'string' } },
+                            { name: 'X-Trace', in: 'header', schema: { type: 'string' } },
+                        ],
+                        responses: { '200': { description: 'ok' } },
+                    },
+                },
+            },
+        };
+
+        const { analyzer } = setupAnalyzer(spec);
+        const op = { ...spec.paths['/test'].get, method: 'GET', path: '/test', methodName: 'getTest' } as PathInfo;
+        const model = analyzer.analyze(op);
+
+        const paramNames = model?.parameters.map(p => p.name) ?? [];
+        expect(paramNames).toContain('xTrace');
+        expect(paramNames).not.toContain('accept');
+        expect(paramNames).not.toContain('contentType');
+        expect(paramNames).not.toContain('authorization');
+
+        const headerNames = model?.headerParams.map(p => p.originalName) ?? [];
+        expect(headerNames).toEqual(['X-Trace']);
     });
 
     it('should merge XML configuration from allOf schemas', () => {
@@ -272,7 +346,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                                 },
                             },
                         },
-                        responses: { '200': {} },
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             },
@@ -382,6 +456,40 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
         expect(soapModel?.requestContentType).toBe('application/soap+xml');
     });
 
+    it('should prefer specific request body media types over wildcard entries', () => {
+        const spec = {
+            openapi: '3.2.0',
+            info: { title: 'Request Bodies', version: '1.0' },
+            paths: {
+                '/wildcard': {
+                    post: {
+                        operationId: 'postWildcard',
+                        requestBody: {
+                            content: {
+                                '*/*': { schema: { type: 'string' } },
+                                'text/plain': { schema: { type: 'string' } },
+                            },
+                        },
+                        responses: { '200': { description: 'OK' } },
+                    },
+                },
+            },
+        };
+
+        const { analyzer } = setupAnalyzer(spec);
+        const op = {
+            ...spec.paths['/wildcard'].post,
+            path: '/wildcard',
+            method: 'POST',
+            methodName: 'postWildcard',
+        } as any;
+        const model = analyzer.analyze(op);
+
+        expect(model?.requestContentType).toBe('text/plain');
+        expect(model?.body?.type).toBe('raw');
+        expect(model?.parameters.find(p => p.name === 'body')?.type).toBe('string');
+    });
+
     // Test for line 267: Unresolved ref in getXmlConfig
     it('should return empty config for unresolvable schema ref', () => {
         const spec = {
@@ -406,7 +514,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                     post: {
                         methodName: 'echo',
                         // No responses defined
-                        responses: {},
+                        responses: { '200': { description: 'ok' } },
                         requestBody: {
                             content: {
                                 'application/json': {
@@ -442,7 +550,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                                 },
                             },
                         },
-                        responses: {},
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             },
@@ -466,6 +574,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                         operationId: 'getItems',
                         responses: {
                             '200': {
+                                description: 'ok',
                                 content: {
                                     'application/json': { $ref: '#/components/mediaTypes/Items' },
                                 },
@@ -489,6 +598,38 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
         const model = analyzer.analyze(op);
 
         expect(model?.responseType).toBe('string[]');
+    });
+
+    it('should include multiple 2xx response schemas in response variants', () => {
+        const spec = {
+            openapi: '3.2.0',
+            info: { title: 'MultiSuccess', version: '1.0' },
+            paths: {
+                '/multi': {
+                    get: {
+                        operationId: 'getMulti',
+                        responses: {
+                            '200': {
+                                description: 'ok',
+                                content: { 'application/json': { schema: { type: 'string' } } },
+                            },
+                            '201': {
+                                description: 'created',
+                                content: { 'application/json': { schema: { type: 'integer' } } },
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const { analyzer, parser } = setupAnalyzer(spec);
+        const op = parser.operations[0];
+        op.methodName = 'getMulti';
+        const model = analyzer.analyze(op);
+
+        const types = (model?.responseVariants ?? []).map(v => v.type);
+        expect(types).toEqual(expect.arrayContaining(['string', 'number']));
     });
 
     // Test for XML array config (line 243)
@@ -591,7 +732,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                     get: {
                         operationId: 'getDoc',
                         externalDocs: { url: 'https://example.com/docs', description: 'More info' },
-                        responses: { '200': {} },
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             },
@@ -612,11 +753,16 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                         operationId: 'getMulti',
                         responses: {
                             '200': {
+                                description: 'ok',
                                 content: {
                                     'application/json-seq': { schema: { type: 'string' } },
                                     'application/jsonl': { schema: { type: 'string' } },
                                     'application/xml': {
-                                        schema: { type: 'object', xml: { name: 'Doc' }, properties: { id: { type: 'string' } } },
+                                        schema: {
+                                            type: 'object',
+                                            xml: { name: 'Doc' },
+                                            properties: { id: { type: 'string' } },
+                                        },
                                     },
                                     'text/event-stream': { schema: { type: 'string' } },
                                     'text/plain': { schema: { type: 'string' } },
@@ -640,6 +786,35 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
         expect(model.responseVariants.some(v => v.serialization === 'blob')).toBe(true);
     });
 
+    it('should treat structured +json-seq media types as sequential JSON', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info: { title: 'GeoSeq', version: '1.0' },
+            paths: {
+                '/geo': {
+                    get: {
+                        operationId: 'getGeoSeq',
+                        responses: {
+                            '200': {
+                                description: 'ok',
+                                content: {
+                                    'application/geo+json-seq': {
+                                        itemSchema: { type: 'object', properties: { type: { type: 'string' } } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        };
+        const { analyzer } = setupAnalyzer(spec);
+        const operation = { ...spec.paths['/geo'].get, path: '/geo', method: 'GET', methodName: 'getGeoSeq' } as any;
+        const model = analyzer.analyze(operation)!;
+
+        expect(model.responseVariants.some(v => v.serialization === 'json-seq')).toBe(true);
+    });
+
     it('should classify error responses by content type and auth codes', () => {
         const spec = {
             openapi: '3.0.0',
@@ -649,11 +824,20 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                     get: {
                         operationId: 'getErr',
                         responses: {
-                            '200': { content: { 'application/json': { schema: { type: 'string' } } } },
-                            '400': { content: { 'application/xml': { schema: { type: 'string' } } } },
+                            '200': {
+                                description: 'ok',
+                                content: { 'application/json': { schema: { type: 'string' } } },
+                            },
+                            '400': {
+                                description: 'ok',
+                                content: { 'application/xml': { schema: { type: 'string' } } },
+                            },
                             '401': { description: 'Unauthorized' },
-                            '422': { content: { 'application/problem+json': { schema: { type: 'string' } } } },
-                            '500': { content: { 'text/plain': {} } },
+                            '422': {
+                                description: 'ok',
+                                content: { 'application/problem+json': { schema: { type: 'string' } } },
+                            },
+                            '500': { description: 'ok', content: { 'text/plain': {} } },
                         },
                     },
                 },
@@ -668,6 +852,33 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
         expect(types).toContain('void'); // 401 with no content
     });
 
+    it('should treat +xml error responses as string', () => {
+        const spec = {
+            openapi: '3.2.0',
+            info: { title: 'Errors', version: '1.0' },
+            paths: {
+                '/err': {
+                    get: {
+                        operationId: 'getErr',
+                        responses: {
+                            '200': { description: 'ok' },
+                            '400': {
+                                description: 'ok',
+                                content: { 'application/soap+xml': { schema: { type: 'string' } } },
+                            },
+                        },
+                    },
+                },
+            },
+        };
+        const { analyzer } = setupAnalyzer(spec);
+        const operation = { ...spec.paths['/err'].get, path: '/err', method: 'GET', methodName: 'getErr' } as any;
+        const model = analyzer.analyze(operation)!;
+
+        const types = model.errorResponses.map(e => e.type);
+        expect(types).toContain('string');
+    });
+
     it('should treat text/* error responses as string', () => {
         const spec = {
             openapi: '3.0.0',
@@ -678,7 +889,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                         operationId: 'getErr',
                         responses: {
                             '200': { description: 'ok' },
-                            '400': { content: { 'text/html': {} } },
+                            '400': { description: 'ok', content: { 'text/html': {} } },
                         },
                     },
                 },
@@ -690,7 +901,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
         expect(model.errorResponses[0].type).toBe('string');
     });
 
-    it('should infer array type when requestBody uses itemSchema', () => {
+    it('should infer array type when requestBody uses itemSchema for sequential json', () => {
         const spec = {
             openapi: '3.0.0',
             info: { title: 'ItemSchema', version: '1.0' },
@@ -700,12 +911,12 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                         operationId: 'postItems',
                         requestBody: {
                             content: {
-                                'application/json': {
+                                'application/jsonl': {
                                     itemSchema: { type: 'string' },
                                 },
                             },
                         },
-                        responses: { '200': {} },
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             },
@@ -713,9 +924,41 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
         const { analyzer } = setupAnalyzer(spec);
         const op = { ...spec.paths['/items'].post, path: '/items', method: 'POST', methodName: 'postItems' } as any;
         const model = analyzer.analyze(op)!;
-        const bodyParam = model.parameters.find(p => p.type === '(string)[]');
+        const bodyParam = model.parameters.find(p => p.type === 'string[]' || p.type === '(string)[]');
         expect(bodyParam).toBeDefined();
-        expect(bodyParam?.name).toBe('string');
+        expect(bodyParam?.name).toBe('body');
+    });
+
+    it('should treat custom JSON request bodies with itemSchema as json-lines', () => {
+        const spec = {
+            openapi: '3.2.0',
+            info: { title: 'CustomSeq', version: '1.0' },
+            paths: {
+                '/custom-seq': {
+                    post: {
+                        operationId: 'postCustomSeq',
+                        requestBody: {
+                            content: {
+                                'application/vnd.acme+json': {
+                                    itemSchema: { type: 'string' },
+                                },
+                            },
+                        },
+                        responses: { '200': { description: 'ok' } },
+                    },
+                },
+            },
+        };
+        const { analyzer } = setupAnalyzer(spec);
+        const op = {
+            ...spec.paths['/custom-seq'].post,
+            path: '/custom-seq',
+            method: 'POST',
+            methodName: 'postCustomSeq',
+        } as any;
+        const model = analyzer.analyze(op)!;
+        expect(model.requestContentType).toBe('application/vnd.acme+json');
+        expect(model.body?.type).toBe('json-lines');
     });
 
     it('should fallback to FormData typing for multipart without schema', () => {
@@ -731,7 +974,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                                 'multipart/form-data': {},
                             },
                         },
-                        responses: { '200': {} },
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             },
@@ -764,7 +1007,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                                 },
                             },
                         },
-                        responses: { '200': {} },
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             },
@@ -845,7 +1088,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                     get: {
                         operationId: 'getQuery',
                         parameters: [{ name: 'q', in: 'query', schema: { $ref: '#/components/schemas/JsonString' } }],
-                        responses: {},
+                        responses: { '200': { description: 'ok' } },
                     },
                 },
             },
@@ -854,6 +1097,86 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
         const op = { ...spec.paths['/query'].get, path: '/query', method: 'GET', methodName: 'getQuery' } as any;
         const model = analyzer.analyze(op)!;
         expect(model.queryParams[0].serializationLink).toBe('json');
+    });
+
+    it('should preserve parameter contentEncoding and contentMediaType in encoder config', () => {
+        const spec = {
+            openapi: '3.1.0',
+            info: { title: 'Param Encoding', version: '1.0' },
+            paths: {
+                '/encoded': {
+                    get: {
+                        operationId: 'getEncoded',
+                        parameters: [
+                            { name: 'bin', in: 'query', schema: { type: 'string', contentEncoding: 'base64' } },
+                            {
+                                name: 'payload',
+                                in: 'query',
+                                schema: { type: 'string', contentMediaType: 'application/json' },
+                            },
+                        ],
+                        responses: { '200': { description: 'ok' } },
+                    },
+                },
+            },
+        };
+        const { analyzer } = setupAnalyzer(spec);
+        const op = { ...spec.paths['/encoded'].get, path: '/encoded', method: 'GET', methodName: 'getEncoded' } as any;
+        const model = analyzer.analyze(op)!;
+
+        const binParam = model.queryParams.find(p => p.originalName === 'bin');
+        expect(binParam?.contentEncoderConfig?.contentEncoding).toBe('base64');
+
+        const payloadParam = model.queryParams.find(p => p.originalName === 'payload');
+        expect(payloadParam?.contentEncoderConfig?.encode).toBe(true);
+        expect(payloadParam?.contentEncoderConfig?.contentMediaType).toBe('application/json');
+        expect(payloadParam?.serializationLink).toBe('json');
+    });
+
+    it('should mark +xml and text/xml parameters for XML serialization', () => {
+        const spec = {
+            openapi: '3.2.0',
+            info: { title: 'Xml Params', version: '1.0' },
+            paths: {
+                '/xml/{soapId}': {
+                    get: {
+                        operationId: 'getXmlParams',
+                        parameters: [
+                            {
+                                name: 'soapId',
+                                in: 'path',
+                                required: true,
+                                content: { 'text/xml': { schema: { type: 'string' } } },
+                            },
+                            {
+                                name: 'filter',
+                                in: 'query',
+                                content: {
+                                    'application/soap+xml': {
+                                        schema: {
+                                            type: 'object',
+                                            properties: { active: { type: 'boolean' } },
+                                        },
+                                    },
+                                },
+                            },
+                        ],
+                        responses: { '200': { description: 'ok' } },
+                    },
+                },
+            },
+        };
+        const { analyzer } = setupAnalyzer(spec);
+        const op = {
+            ...spec.paths['/xml/{soapId}'].get,
+            path: '/xml/{soapId}',
+            method: 'GET',
+            methodName: 'getXmlParams',
+        } as any;
+        const model = analyzer.analyze(op)!;
+
+        expect(model.pathParams[0].paramName).toBe('soapIdSerialized');
+        expect(model.queryParams[0].paramName).toBe('filterSerialized');
     });
 
     describe('Coverage edge cases', () => {
@@ -867,6 +1190,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                             operationId: 'getEmpty',
                             responses: {
                                 '200': {
+                                    description: 'ok',
                                     content: {
                                         'application/json': {},
                                     },
@@ -883,7 +1207,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
             expect(model.responseType).toBe('any');
         });
 
-        it('should handle application/json with itemSchema only', () => {
+        it('should handle sequential json media type with itemSchema only', () => {
             const spec = {
                 openapi: '3.0.0',
                 info: { title: 'ItemSchema', version: '1.0' },
@@ -893,8 +1217,9 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                             operationId: 'getItems',
                             responses: {
                                 '200': {
+                                    description: 'ok',
                                     content: {
-                                        'application/json': { itemSchema: { type: 'string' } },
+                                        'application/jsonl': { itemSchema: { type: 'string' } },
                                     },
                                 },
                             },
@@ -905,7 +1230,34 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
             const { analyzer } = setupAnalyzer(spec);
             const op = { ...spec.paths['/items'].get, path: '/items', method: 'GET', methodName: 'getItems' } as any;
             const model = analyzer.analyze(op)!;
-            expect(model.responseVariants[0].type).toBe('any');
+            expect(model.responseVariants[0].type).toBe('(string)[]');
+        });
+
+        it('should treat custom JSON media types with itemSchema as json-lines', () => {
+            const spec = {
+                openapi: '3.2.0',
+                info: { title: 'CustomSeq', version: '1.0' },
+                paths: {
+                    '/custom': {
+                        get: {
+                            operationId: 'getCustom',
+                            responses: {
+                                '200': {
+                                    description: 'ok',
+                                    content: {
+                                        'application/vnd.acme+json': { itemSchema: { type: 'number' } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+            const { analyzer } = setupAnalyzer(spec);
+            const op = { ...spec.paths['/custom'].get, path: '/custom', method: 'GET', methodName: 'getCustom' } as any;
+            const model = analyzer.analyze(op)!;
+            expect(model.responseVariants[0].serialization).toBe('json-lines');
+            expect(model.responseVariants[0].type).toBe('(number)[]');
         });
 
         it('should treat non-standard json media types as non-default', () => {
@@ -918,6 +1270,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                             operationId: 'getVendor',
                             responses: {
                                 '200': {
+                                    description: 'ok',
                                     content: {
                                         'application/vnd.api+json': { schema: { type: 'string' } },
                                     },
@@ -944,9 +1297,10 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                             operationId: 'getXml',
                             responses: {
                                 '200': {
+                                    description: 'ok',
                                     content: {
                                         'application/json': { schema: { type: 'string' } },
-                                        'application/xml': { itemSchema: { type: 'string' } },
+                                        'application/xml': {},
                                     },
                                 },
                             },
@@ -970,6 +1324,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                             operationId: 'getSse',
                             responses: {
                                 '200': {
+                                    description: 'ok',
                                     content: {
                                         'text/event-stream': { itemSchema: { type: 'string' } },
                                     },
@@ -983,6 +1338,47 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
             const op = { ...spec.paths['/sse'].get, path: '/sse', method: 'GET', methodName: 'getSse' } as any;
             const model = analyzer.analyze(op)!;
             expect(model.responseVariants[0].type).toBe('string');
+            expect(model.responseVariants[0].sseMode).toBe('data');
+        });
+
+        it('should emit event-mode SSE when schema includes data property', () => {
+            const spec = {
+                openapi: '3.0.0',
+                info: { title: 'SSE Event', version: '1.0' },
+                paths: {
+                    '/sse-event': {
+                        get: {
+                            operationId: 'getSseEvent',
+                            responses: {
+                                '200': {
+                                    description: 'ok',
+                                    content: {
+                                        'text/event-stream': {
+                                            schema: {
+                                                type: 'object',
+                                                properties: {
+                                                    data: { type: 'string' },
+                                                    event: { type: 'string' },
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+            const { analyzer } = setupAnalyzer(spec);
+            const op = {
+                ...spec.paths['/sse-event'].get,
+                path: '/sse-event',
+                method: 'GET',
+                methodName: 'getSseEvent',
+            } as any;
+            const model = analyzer.analyze(op)!;
+            expect(model.responseVariants[0].sseMode).toBe('event');
+            expect(model.sseMode).toBe('event');
         });
 
         it('should treat binary error responses as Blob', () => {
@@ -995,7 +1391,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                             operationId: 'getErr',
                             responses: {
                                 '200': { description: 'ok' },
-                                '400': { content: { 'application/octet-stream': {} } },
+                                '400': { description: 'ok', content: { 'application/octet-stream': {} } },
                             },
                         },
                     },
@@ -1016,7 +1412,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                         post: {
                             operationId: 'postBody',
                             requestBody: { content: { 'application/json': {} } },
-                            responses: { '200': {} },
+                            responses: { '200': { description: 'ok' } },
                         },
                     },
                 },
@@ -1037,7 +1433,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                         post: {
                             operationId: 'postRaw',
                             requestBody: { content: { 'application/octet-stream': {} } },
-                            responses: { '200': {} },
+                            responses: { '200': { description: 'ok' } },
                         },
                     },
                 },
@@ -1060,7 +1456,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                                 { name: 'opt', in: 'query', schema: { type: 'string' } },
                                 { name: 'req', in: 'query', required: true, schema: { type: 'string' } },
                             ],
-                            responses: { '200': {} },
+                            responses: { '200': { description: 'ok' } },
                         },
                     },
                 },
@@ -1091,7 +1487,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                                     },
                                 },
                             },
-                            responses: { '200': {} },
+                            responses: { '200': { description: 'ok' } },
                         },
                     },
                 },
@@ -1130,7 +1526,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                                     },
                                 },
                             },
-                            responses: { '200': {} },
+                            responses: { '200': { description: 'ok' } },
                         },
                     },
                 },
@@ -1260,7 +1656,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                         post: {
                             operationId: 'postEnc',
                             requestBody: { content: { 'application/json': {} } },
-                            responses: { '200': {} },
+                            responses: { '200': { description: 'ok' } },
                         },
                     },
                 },
@@ -1281,7 +1677,10 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                         get: {
                             operationId: 'getJsonl',
                             responses: {
-                                '200': { content: { 'application/jsonl': { itemSchema: { type: 'number' } } } },
+                                '200': {
+                                    description: 'ok',
+                                    content: { 'application/jsonl': { itemSchema: { type: 'number' } } },
+                                },
                             },
                         },
                     },
@@ -1308,9 +1707,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                 methodName: 'getWeird',
                 method: 'GET',
                 path: '/weird',
-                responses: {
-                    '200': { content: { 'text/event-stream': mediaObj } },
-                },
+                responses: { '200': { description: 'ok', content: { 'text/event-stream': mediaObj } } },
             } as any;
             const model = analyzer.analyze(op)!;
             expect(model.responseVariants[0].type).toBe('any');
@@ -1334,7 +1731,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                                     },
                                 },
                             },
-                            responses: { '200': {} },
+                            responses: { '200': { description: 'ok' } },
                         },
                     },
                 },
@@ -1366,13 +1763,18 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                     '/fallback': {
                         get: {
                             operationId: 'getFallback',
-                            responses: { '200': {} },
+                            responses: { '200': { description: 'ok' } },
                         },
                     },
                 },
             };
             const { analyzer } = setupAnalyzer(spec);
-            const op = { ...spec.paths['/fallback'].get, path: '/fallback', method: 'GET', methodName: 'getFallback' } as any;
+            const op = {
+                ...spec.paths['/fallback'].get,
+                path: '/fallback',
+                method: 'GET',
+                methodName: 'getFallback',
+            } as any;
             const model = analyzer.analyze(op)!;
             expect(model.docs).toContain('Performs a GET request to /fallback.');
         });
@@ -1387,7 +1789,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                             operationId: 'getDesc',
                             summary: 'Short summary',
                             description: 'Detailed description',
-                            responses: { '200': {} },
+                            responses: { '200': { description: 'ok' } },
                         },
                     },
                 },
@@ -1408,7 +1810,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                         get: {
                             operationId: 'getExt',
                             externalDocs: { url: 'https://example.com' },
-                            responses: { '200': {} },
+                            responses: { '200': { description: 'ok' } },
                         },
                     },
                 },
@@ -1418,5 +1820,83 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
             const model = analyzer.analyze(op)!;
             expect(model.docs).toContain('@see https://example.com');
         });
+    });
+
+    it('should model sequential JSON request bodies as array input', () => {
+        const spec = {
+            openapi: '3.2.0',
+            info: { title: 'Seq', version: '1.0' },
+            components: {
+                schemas: {
+                    LogEntry: {
+                        type: 'object',
+                        properties: { message: { type: 'string' } },
+                    },
+                },
+            },
+            paths: {
+                '/logs': {
+                    post: {
+                        operationId: 'postLogs',
+                        requestBody: {
+                            content: {
+                                'application/x-ndjson': {
+                                    itemSchema: { $ref: '#/components/schemas/LogEntry' },
+                                },
+                            },
+                        },
+                        responses: { '200': { description: 'ok' } },
+                    },
+                },
+            },
+        };
+
+        const { analyzer } = setupAnalyzer(spec);
+        const operation: PathInfo = {
+            ...spec.paths['/logs'].post,
+            path: '/logs',
+            method: 'POST',
+            methodName: 'postLogs',
+        } as PathInfo;
+
+        const model = analyzer.analyze(operation);
+        expect(model?.body?.type).toBe('json-lines');
+        expect(model?.requestContentType).toBe('application/x-ndjson');
+
+        const bodyParam = model?.parameters.find(p => p.name === 'logEntry');
+        expect(bodyParam?.type).toBe('LogEntry[]');
+    });
+
+    it('should treat binary responses without schema as Blob', () => {
+        const spec = {
+            openapi: '3.2.0',
+            info: { title: 'Bin', version: '1.0' },
+            paths: {
+                '/download': {
+                    get: {
+                        operationId: 'downloadFile',
+                        responses: {
+                            '200': {
+                                description: 'ok',
+                                content: { 'application/pdf': {} },
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const { analyzer } = setupAnalyzer(spec);
+        const operation: PathInfo = {
+            ...spec.paths['/download'].get,
+            path: '/download',
+            method: 'GET',
+            methodName: 'downloadFile',
+        } as PathInfo;
+
+        const model = analyzer.analyze(operation);
+        expect(model?.responseType).toBe('Blob');
+        expect(model?.responseSerialization).toBe('blob');
+        expect(model?.responseVariants[0].serialization).toBe('blob');
     });
 });

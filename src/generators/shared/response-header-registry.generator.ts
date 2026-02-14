@@ -19,8 +19,13 @@ export class ResponseHeaderRegistryGenerator {
         const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
         const registry: Record<string, Record<string, Record<string, string>>> = {};
+        const headerObjectsRegistry: Record<
+            string,
+            Record<string, Record<string, HeaderObject | { $ref: string }>>
+        > = {};
         const headerConfigMap: Record<string, any> = {};
         let headerCount = 0;
+        let headerObjectCount = 0;
 
         this.parser.operations.forEach((op: PathInfo) => {
             if (!op.operationId || !op.responses) return;
@@ -31,6 +36,7 @@ export class ResponseHeaderRegistryGenerator {
             Object.entries(op.responses).forEach(([statusCode, response]) => {
                 if (response.headers) {
                     const headerConfig: Record<string, string> = {};
+                    const headerObjects: Record<string, HeaderObject | { $ref: string }> = {};
 
                     Object.entries(response.headers).forEach(([headerName, headerOrRef]) => {
                         const headerDef = this.parser.resolve(headerOrRef) as HeaderObject;
@@ -41,6 +47,7 @@ export class ResponseHeaderRegistryGenerator {
                         if (humanReadableName === 'content-type') {
                             return;
                         }
+                        headerObjects[headerName] = headerOrRef as HeaderObject | { $ref: string };
                         // OAS 3.2: "Set-Cookie" is a special-case header that cannot be comma-joined.
                         // Treat it as a multi-value header regardless of schema.
                         if (humanReadableName === 'set-cookie') {
@@ -69,6 +76,13 @@ export class ResponseHeaderRegistryGenerator {
                         hasHeadersForOp = true;
                         headerCount += Object.keys(headerConfig).length;
                     }
+
+                    if (Object.keys(headerObjects).length > 0) {
+                        const opHeaderObjects = headerObjectsRegistry[op.operationId] ?? {};
+                        opHeaderObjects[statusCode] = headerObjects;
+                        headerObjectsRegistry[op.operationId] = opHeaderObjects;
+                        headerObjectCount += Object.keys(headerObjects).length;
+                    }
                 }
             });
 
@@ -77,7 +91,7 @@ export class ResponseHeaderRegistryGenerator {
             }
         });
 
-        if (headerCount > 0) {
+        if (headerCount > 0 || headerObjectCount > 0) {
             sourceFile.addVariableStatement({
                 isExported: true,
                 declarationKind: VariableDeclarationKind.Const,
@@ -89,6 +103,20 @@ export class ResponseHeaderRegistryGenerator {
                 ],
                 docs: ['Registry of Response Headers defined in the API.'],
             });
+
+            if (headerObjectCount > 0) {
+                sourceFile.addVariableStatement({
+                    isExported: true,
+                    declarationKind: VariableDeclarationKind.Const,
+                    declarations: [
+                        {
+                            name: 'API_RESPONSE_HEADER_OBJECTS',
+                            initializer: JSON.stringify(headerObjectsRegistry, null, 2),
+                        },
+                    ],
+                    docs: ['Full Response Header Objects for reverse OpenAPI generation.'],
+                });
+            }
 
             // If we have any XML configs, export them.
             // We always export the variable to simplify imports in the service, defaulting to empty object.
@@ -115,13 +143,17 @@ export class ResponseHeaderRegistryGenerator {
     private getHeaderTypeInfo(header: HeaderObject): { typeHint: string; xmlConfig?: any } {
         if (header.content) {
             const contentType = Object.keys(header.content)[0];
-            if (contentType && (contentType.includes('json') || contentType === 'application/linkset+json')) {
-                return { typeHint: 'json' };
+            const normalizedContentType = contentType?.split(';')[0].trim().toLowerCase();
+            if (normalizedContentType === 'application/linkset+json') {
+                return { typeHint: 'linkset+json' };
             }
-            if (contentType && contentType === 'application/linkset') {
+            if (normalizedContentType === 'application/linkset') {
                 return { typeHint: 'linkset' };
             }
-            if (contentType && contentType.includes('xml')) {
+            if (normalizedContentType && normalizedContentType.includes('json')) {
+                return { typeHint: 'json' };
+            }
+            if (normalizedContentType && normalizedContentType.includes('xml')) {
                 const schema = header.content[contentType].schema as SwaggerDefinition;
                 if (schema) {
                     return { typeHint: 'xml', xmlConfig: this.getXmlConfig(schema, 3) };

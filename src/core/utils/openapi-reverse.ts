@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { MethodDeclaration, Node, Project, Scope, SyntaxKind } from 'ts-morph';
 import {
     ExampleObject,
@@ -21,23 +22,25 @@ import { OAS_3_1_DIALECT } from '../constants.js';
 import type { ReverseSchemaMap } from './openapi-reverse-models.js';
 
 /** Supported parameter locations extracted from generated service code. */
-export type ReverseParamLocation =
-    | 'path'
-    | 'query'
-    | 'header'
-    | 'cookie'
-    | 'formData'
-    | 'querystring'
-    | 'body';
+export type ReverseParamLocation = 'path' | 'query' | 'header' | 'cookie' | 'formData' | 'querystring' | 'body';
 
 /** Describes a parameter extracted from a generated service method. */
 export interface ReverseParam {
     name: string;
     in: ReverseParamLocation;
     required?: boolean;
+    description?: string;
+    /** Example value reconstructed from @paramExample tags. */
+    example?: unknown;
     contentType?: string;
     serialization?: 'json';
     encoding?: Record<string, any>;
+    /** ContentEncoder config reconstructed from generated code (contentEncoding/contentMediaType). */
+    contentEncoderConfig?: Record<string, any>;
+    /** Top-level contentEncoding hint reconstructed from generated code. */
+    contentEncoding?: string;
+    /** Top-level contentMediaType hint reconstructed from generated code. */
+    contentMediaType?: string;
     /** OAS serialization style hint reconstructed from generated code. */
     style?: string;
     /** OAS explode hint reconstructed from generated code. */
@@ -53,16 +56,27 @@ export interface ReverseParam {
 /** Describes a reconstructed operation extracted from a generated service method. */
 export interface ReverseOperation {
     methodName: string;
+    operationId?: string;
     httpMethod: string;
     path: string;
     params: ReverseParam[];
     requestMediaTypes: string[];
     responseMediaTypes: string[];
+    /** Encoding metadata reconstructed from generated request-body serializers. */
+    requestEncoding?: ReverseRequestEncoding;
     /** Response type hint reconstructed from the TypeScript signature (when available). */
     responseTypeHint?: string;
     /** Response metadata reconstructed from JSDoc @response tags. */
     responseHints?: ReverseResponseHint[];
+    /** Parameter examples reconstructed from @paramExample tags. */
+    paramExamples?: Record<string, unknown>;
+    /** Request body examples reconstructed from @requestExample tags (mediaType -> example). */
+    requestExamples?: Record<string, unknown>;
+    /** Response examples reconstructed from @responseExample tags (status -> mediaType -> example). */
+    responseExamples?: Record<string, Record<string, unknown>>;
     security?: Record<string, string[]>[];
+    /** Specification extensions (x-*) reconstructed from generated HttpContext. */
+    extensions?: Record<string, any>;
     /** Tags reconstructed from JSDoc when available. */
     tags?: string[];
     /** Operation-level servers reconstructed from generated method bodies. */
@@ -84,10 +98,25 @@ export interface ReverseService {
     operations: ReverseOperation[];
 }
 
+/** Request-body encoding metadata reconstructed from generated services. */
+export interface ReverseRequestEncoding {
+    urlencoded?: Record<string, any>;
+    multipart?: ReverseMultipartConfig;
+}
+
+/** Multipart encoding metadata reconstructed from generated services. */
+export interface ReverseMultipartConfig {
+    mediaType?: string;
+    encoding?: Record<string, any>;
+    prefixEncoding?: any[];
+    itemEncoding?: any;
+}
+
 /** JSDoc response hint reconstructed from generated service docs. */
 export interface ReverseResponseHint {
     status: string;
     mediaTypes?: string[];
+    summary?: string;
     description?: string;
 }
 
@@ -125,24 +154,30 @@ export interface ReverseMetadata {
     info?: InfoObject;
     tags?: TagObject[];
     externalDocs?: ExternalDocumentationObject;
+    inferredSelf?: string;
     documentMeta?: {
         openapi?: string;
         swagger?: string;
         $self?: string;
         jsonSchemaDialect?: string;
+        extensions?: Record<string, any>;
     };
     servers?: ServerObject[];
     securitySchemes?: Record<string, SecurityScheme>;
     securityRequirements?: Record<string, string[]>[];
     responseHeaders?: Record<string, Record<string, Record<string, string>>>;
+    responseHeaderObjects?: Record<string, Record<string, Record<string, HeaderObject | { $ref: string }>>>;
     responseHeaderXmlConfigs?: Record<string, any>;
     links?: Record<string, Record<string, Record<string, LinkObject>>>;
+    componentLinks?: Record<string, LinkObject | { $ref: string }>;
     callbacks?: ReverseCallbackMeta[];
     webhooks?: ReverseWebhookMeta[];
     examples?: Record<string, ExampleObject | { $ref: string }>;
     mediaTypes?: Record<string, MediaTypeObject | { $ref: string }>;
+    paths?: Record<string, PathItem | { $ref: string }>;
     pathItems?: Record<string, PathItem | { $ref: string }>;
     parameters?: Record<string, Parameter | { $ref: string }>;
+    headers?: Record<string, HeaderObject | { $ref: string }>;
     requestBodies?: Record<string, RequestBody | { $ref: string }>;
     responses?: Record<string, SwaggerResponse | { $ref: string }>;
 }
@@ -167,6 +202,9 @@ type ParsedPathInfo = {
         explode?: boolean;
         allowReserved?: boolean;
         serialization?: 'json';
+        contentEncoderConfig?: Record<string, any>;
+        contentEncoding?: string;
+        contentMediaType?: string;
     }[];
 };
 
@@ -191,14 +229,24 @@ export function parseGeneratedServiceSource(sourceText: string, filePath = 'serv
             if (!urlInfo) continue;
 
             const httpCall = findHttpCall(method);
-            const isSse = bodyText.includes('new EventSource');
+            const isSse = isSseBody(bodyText);
             const httpMethod = httpCall?.httpMethod ?? (isSse ? 'GET' : undefined);
             if (!httpMethod) continue;
 
             const docMeta = extractMethodDocs(method);
+            const paramDocs = docMeta.paramDocs ?? {};
+            const paramExamples = docMeta.paramExamples ?? {};
             const paramMeta = buildParamMeta(method);
             const params: ReverseParam[] = [];
             const responseTypeHint = extractReturnTypeHint(method);
+            const resolveDescription = (name: string, variableName?: string) => {
+                const direct = paramDocs[variableName ?? name] ?? paramDocs[name];
+                if (direct) return direct;
+                const normalized = name.replace(/[{}]/g, '');
+                return paramDocs[normalized];
+            };
+            const resolveExample = (name: string, variableName?: string) =>
+                paramExamples[variableName ?? name] ?? paramExamples[name];
 
             const registerParam = (param: ReverseParam) => {
                 const key = `${param.in}:${param.name}`;
@@ -215,10 +263,15 @@ export function parseGeneratedServiceSource(sourceText: string, filePath = 'serv
                     name: p.name,
                     in: 'path',
                     required: true,
+                    description: resolveDescription(p.name, p.variableName),
+                    example: resolveExample(p.name, p.variableName),
                     style: p.style,
                     explode: p.explode,
                     allowReserved: p.allowReserved,
                     serialization: p.serialization,
+                    contentEncoderConfig: p.contentEncoderConfig,
+                    contentEncoding: p.contentEncoding,
+                    contentMediaType: p.contentMediaType,
                     typeHint: extractParamTypeHint(method, p.variableName ?? p.name),
                 }),
             );
@@ -228,11 +281,16 @@ export function parseGeneratedServiceSource(sourceText: string, filePath = 'serv
                     name: p.name,
                     in: 'query',
                     required: paramMeta.get(p.variableName ?? p.name),
+                    description: resolveDescription(p.name, p.variableName),
+                    example: resolveExample(p.name, p.variableName),
                     style: p.style,
                     explode: p.explode,
                     allowReserved: p.allowReserved,
                     allowEmptyValue: p.allowEmptyValue,
                     serialization: p.serialization,
+                    contentEncoderConfig: p.contentEncoderConfig,
+                    contentEncoding: p.contentEncoding,
+                    contentMediaType: p.contentMediaType,
                     typeHint: extractParamTypeHint(method, p.variableName ?? p.name),
                 }),
             );
@@ -242,9 +300,14 @@ export function parseGeneratedServiceSource(sourceText: string, filePath = 'serv
                     name: p.name,
                     in: 'querystring',
                     required: paramMeta.get(p.variableName ?? p.name),
+                    description: resolveDescription(p.name, p.variableName),
+                    example: resolveExample(p.name, p.variableName),
                     contentType: p.contentType,
                     serialization: p.serialization,
                     encoding: p.encoding,
+                    contentEncoderConfig: p.contentEncoderConfig,
+                    contentEncoding: p.contentEncoding,
+                    contentMediaType: p.contentMediaType,
                     typeHint: extractParamTypeHint(method, p.variableName ?? p.name),
                 }),
             );
@@ -254,8 +317,13 @@ export function parseGeneratedServiceSource(sourceText: string, filePath = 'serv
                     name: p.name,
                     in: 'header',
                     required: paramMeta.get(p.variableName ?? p.name),
+                    description: resolveDescription(p.name, p.variableName),
+                    example: resolveExample(p.name, p.variableName),
                     explode: p.explode,
                     serialization: p.serialization,
+                    contentEncoderConfig: p.contentEncoderConfig,
+                    contentEncoding: p.contentEncoding,
+                    contentMediaType: p.contentMediaType,
                     typeHint: extractParamTypeHint(method, p.variableName ?? p.name),
                 }),
             );
@@ -265,20 +333,29 @@ export function parseGeneratedServiceSource(sourceText: string, filePath = 'serv
                     name: p.name,
                     in: 'cookie',
                     required: paramMeta.get(p.variableName ?? p.name),
+                    description: resolveDescription(p.name, p.variableName),
+                    example: resolveExample(p.name, p.variableName),
                     style: p.style,
                     explode: p.explode,
                     allowReserved: p.allowReserved,
                     serialization: p.serialization,
+                    contentEncoderConfig: p.contentEncoderConfig,
+                    contentEncoding: p.contentEncoding,
+                    contentMediaType: p.contentMediaType,
                     typeHint: extractParamTypeHint(method, p.variableName ?? p.name),
                 }),
             );
 
             const formDataParams = extractFormDataParams(bodyText);
+            const urlEncodedEncoding = extractUrlEncodedBodyEncoding(bodyText);
+            const multipartConfig = extractMultipartConfig(bodyText);
             formDataParams.forEach(p =>
                 registerParam({
                     name: p.name,
                     in: 'formData',
                     required: paramMeta.get(p.variableName ?? p.name),
+                    description: resolveDescription(p.name, p.variableName),
+                    example: resolveExample(p.name, p.variableName),
                     typeHint: extractParamTypeHint(method, p.variableName ?? p.name),
                 }),
             );
@@ -290,6 +367,7 @@ export function parseGeneratedServiceSource(sourceText: string, filePath = 'serv
                     name: bodyParamName,
                     in: 'body',
                     required: paramMeta.get(bodyParamName),
+                    description: resolveDescription(bodyParamName),
                     typeHint: bodyTypeHint,
                 });
             }
@@ -297,10 +375,24 @@ export function parseGeneratedServiceSource(sourceText: string, filePath = 'serv
             const requestMediaTypes = detectRequestMediaTypes(bodyText, {
                 hasBodyParam: !!bodyParamName,
                 formDataParams,
+                multipartConfig,
             });
             const responseMediaTypes = detectResponseMediaTypes(bodyText);
-            const security = extractSecurityRequirements(bodyText);
-            const servers = extractOperationServers(bodyText);
+            const security = extractSecurityRequirements(bodyText) ?? docMeta.security;
+            const servers = extractOperationServers(bodyText) ?? docMeta.servers;
+            const extensionsFromBody = extractOperationExtensions(bodyText);
+            const mergedExtensions = {
+                ...(docMeta.extensions ?? {}),
+                ...(extensionsFromBody ?? {}),
+            };
+            const extensions = Object.keys(mergedExtensions).length > 0 ? mergedExtensions : undefined;
+            const requestEncoding =
+                urlEncodedEncoding || multipartConfig
+                    ? {
+                          ...(urlEncodedEncoding ? { urlencoded: urlEncodedEncoding } : {}),
+                          ...(multipartConfig ? { multipart: multipartConfig } : {}),
+                      }
+                    : undefined;
 
             operations.push({
                 methodName: method.getName(),
@@ -309,9 +401,15 @@ export function parseGeneratedServiceSource(sourceText: string, filePath = 'serv
                 params,
                 requestMediaTypes,
                 responseMediaTypes,
+                ...(requestEncoding ? { requestEncoding } : {}),
                 ...(security ? { security } : {}),
+                ...(extensions ? { extensions } : {}),
                 ...(docMeta.responses && docMeta.responses.length > 0 ? { responseHints: docMeta.responses } : {}),
+                ...(docMeta.requestExamples ? { requestExamples: docMeta.requestExamples } : {}),
+                ...(docMeta.responseExamples ? { responseExamples: docMeta.responseExamples } : {}),
+                ...(docMeta.paramExamples ? { paramExamples: docMeta.paramExamples } : {}),
                 ...(docMeta.tags && docMeta.tags.length > 0 ? { tags: docMeta.tags } : {}),
+                ...(docMeta.operationId ? { operationId: docMeta.operationId } : {}),
                 ...(servers ? { servers } : {}),
                 ...(docMeta.summary ? { summary: docMeta.summary } : {}),
                 ...(docMeta.description ? { description: docMeta.description } : {}),
@@ -389,11 +487,17 @@ export function buildOpenApiSpecFromServices(
         for (const op of service.operations) {
             const parameters = buildParameters(op.params, schemaNames);
             const requestBody = buildRequestBody(op, schemaNames);
-            const responses = buildResponses(op.responseMediaTypes, op.responseTypeHint, schemaNames, op.responseHints);
+            const responses = buildResponses(
+                op.responseMediaTypes,
+                op.responseTypeHint,
+                schemaNames,
+                op.responseHints,
+                op.responseExamples,
+            );
             const methodKey = op.httpMethod.toLowerCase();
             const pathItem = paths[op.path] ?? {};
             const operation = {
-                operationId: op.methodName,
+                operationId: op.operationId ?? op.methodName,
                 ...(op.summary ? { summary: op.summary } : {}),
                 ...(op.description ? { description: op.description } : {}),
                 ...(op.externalDocs ? { externalDocs: op.externalDocs } : {}),
@@ -404,6 +508,7 @@ export function buildOpenApiSpecFromServices(
                 responses,
                 ...(op.security ? { security: op.security } : {}),
                 ...(op.servers && op.servers.length > 0 ? { servers: op.servers } : {}),
+                ...(op.extensions ? op.extensions : {}),
             };
 
             if (fixedMethods.has(methodKey)) {
@@ -451,7 +556,11 @@ export function buildOpenApiSpecFromServices(
  */
 export function parseGeneratedMetadata(inputPath: string, fileSystem: ReverseFileSystem): ReverseMetadata {
     const rootDir = resolveReverseRoot(inputPath, fileSystem);
-    const metadata: ReverseMetadata = {};
+    const inferredSelf = inferSelfUri(rootDir, fileSystem);
+    const fallbackSelf = safePathToFileURL(path.resolve(rootDir, 'openapi.yaml'));
+    const metadata: ReverseMetadata = {
+        inferredSelf: inferredSelf || fallbackSelf,
+    };
 
     const infoPath = findUpFile(rootDir, 'info.ts', fileSystem) ?? path.resolve(rootDir, 'info.ts');
     const infoText = readTextIfExists(infoPath, fileSystem);
@@ -467,8 +576,7 @@ export function parseGeneratedMetadata(inputPath: string, fileSystem: ReverseFil
         if (externalDocs !== undefined) metadata.externalDocs = externalDocs;
     }
 
-    const documentMetaPath =
-        findUpFile(rootDir, 'document.ts', fileSystem) ?? path.resolve(rootDir, 'document.ts');
+    const documentMetaPath = findUpFile(rootDir, 'document.ts', fileSystem) ?? path.resolve(rootDir, 'document.ts');
     const documentMetaText = readTextIfExists(documentMetaPath, fileSystem);
     if (documentMetaText) {
         const documentMeta = extractConstInitializer<ReverseMetadata['documentMeta']>(
@@ -481,10 +589,7 @@ export function parseGeneratedMetadata(inputPath: string, fileSystem: ReverseFil
     const securityPath = findUpFile(rootDir, 'security.ts', fileSystem) ?? path.resolve(rootDir, 'security.ts');
     const securityText = readTextIfExists(securityPath, fileSystem);
     if (securityText) {
-        const schemes = extractConstInitializer<Record<string, SecurityScheme>>(
-            securityText,
-            'API_SECURITY_SCHEMES',
-        );
+        const schemes = extractConstInitializer<Record<string, SecurityScheme>>(securityText, 'API_SECURITY_SCHEMES');
         if (schemes && Object.keys(schemes).length > 0) metadata.securitySchemes = schemes;
         const requirements = extractConstInitializer<Record<string, string[]>[]>(
             securityText,
@@ -503,6 +608,13 @@ export function parseGeneratedMetadata(inputPath: string, fileSystem: ReverseFil
         if (servers && servers.length > 0) metadata.servers = servers;
     }
 
+    const pathsPath = findUpFile(rootDir, 'paths.ts', fileSystem) ?? path.resolve(rootDir, 'paths.ts');
+    const pathsText = readTextIfExists(pathsPath, fileSystem);
+    if (pathsText) {
+        const pathsMeta = extractConstInitializer<Record<string, PathItem | { $ref: string }>>(pathsText, 'API_PATHS');
+        if (pathsMeta && Object.keys(pathsMeta).length > 0) metadata.paths = pathsMeta;
+    }
+
     const responseHeadersPath =
         findUpFile(rootDir, 'response-headers.ts', fileSystem) ?? path.resolve(rootDir, 'response-headers.ts');
     const responseHeadersText = readTextIfExists(responseHeadersPath, fileSystem);
@@ -511,8 +623,12 @@ export function parseGeneratedMetadata(inputPath: string, fileSystem: ReverseFil
             responseHeadersText,
             'API_RESPONSE_HEADERS',
         );
+        const headerObjects = extractConstInitializer<
+            Record<string, Record<string, Record<string, HeaderObject | { $ref: string }>>>
+        >(responseHeadersText, 'API_RESPONSE_HEADER_OBJECTS');
         const xmlConfigs = extractConstInitializer<Record<string, any>>(responseHeadersText, 'API_HEADER_XML_CONFIGS');
         if (registry && Object.keys(registry).length > 0) metadata.responseHeaders = registry;
+        if (headerObjects && Object.keys(headerObjects).length > 0) metadata.responseHeaderObjects = headerObjects;
         if (xmlConfigs && Object.keys(xmlConfigs).length > 0) metadata.responseHeaderXmlConfigs = xmlConfigs;
     }
 
@@ -524,6 +640,11 @@ export function parseGeneratedMetadata(inputPath: string, fileSystem: ReverseFil
             'API_LINKS',
         );
         if (links && Object.keys(links).length > 0) metadata.links = links;
+        const componentLinks = extractConstInitializer<Record<string, LinkObject | { $ref: string }>>(
+            linksText,
+            'API_COMPONENT_LINKS',
+        );
+        if (componentLinks && Object.keys(componentLinks).length > 0) metadata.componentLinks = componentLinks;
     }
 
     const callbacksPath = findUpFile(rootDir, 'callbacks.ts', fileSystem) ?? path.resolve(rootDir, 'callbacks.ts');
@@ -540,8 +661,7 @@ export function parseGeneratedMetadata(inputPath: string, fileSystem: ReverseFil
         if (webhooks && webhooks.length > 0) metadata.webhooks = webhooks;
     }
 
-    const examplesPath =
-        findUpFile(rootDir, 'examples.ts', fileSystem) ?? path.resolve(rootDir, 'examples.ts');
+    const examplesPath = findUpFile(rootDir, 'examples.ts', fileSystem) ?? path.resolve(rootDir, 'examples.ts');
     const examplesText = readTextIfExists(examplesPath, fileSystem);
     if (examplesText) {
         const examples = extractConstInitializer<Record<string, ExampleObject | { $ref: string }>>(
@@ -551,8 +671,7 @@ export function parseGeneratedMetadata(inputPath: string, fileSystem: ReverseFil
         if (examples && Object.keys(examples).length > 0) metadata.examples = examples;
     }
 
-    const mediaTypesPath =
-        findUpFile(rootDir, 'media-types.ts', fileSystem) ?? path.resolve(rootDir, 'media-types.ts');
+    const mediaTypesPath = findUpFile(rootDir, 'media-types.ts', fileSystem) ?? path.resolve(rootDir, 'media-types.ts');
     const mediaTypesText = readTextIfExists(mediaTypesPath, fileSystem);
     if (mediaTypesText) {
         const mediaTypes = extractConstInitializer<Record<string, MediaTypeObject | { $ref: string }>>(
@@ -562,8 +681,7 @@ export function parseGeneratedMetadata(inputPath: string, fileSystem: ReverseFil
         if (mediaTypes && Object.keys(mediaTypes).length > 0) metadata.mediaTypes = mediaTypes;
     }
 
-    const pathItemsPath =
-        findUpFile(rootDir, 'path-items.ts', fileSystem) ?? path.resolve(rootDir, 'path-items.ts');
+    const pathItemsPath = findUpFile(rootDir, 'path-items.ts', fileSystem) ?? path.resolve(rootDir, 'path-items.ts');
     const pathItemsText = readTextIfExists(pathItemsPath, fileSystem);
     if (pathItemsText) {
         const pathItems = extractConstInitializer<Record<string, PathItem | { $ref: string }>>(
@@ -573,8 +691,7 @@ export function parseGeneratedMetadata(inputPath: string, fileSystem: ReverseFil
         if (pathItems && Object.keys(pathItems).length > 0) metadata.pathItems = pathItems;
     }
 
-    const parametersPath =
-        findUpFile(rootDir, 'parameters.ts', fileSystem) ?? path.resolve(rootDir, 'parameters.ts');
+    const parametersPath = findUpFile(rootDir, 'parameters.ts', fileSystem) ?? path.resolve(rootDir, 'parameters.ts');
     const parametersText = readTextIfExists(parametersPath, fileSystem);
     if (parametersText) {
         const parameters = extractConstInitializer<Record<string, Parameter | { $ref: string }>>(
@@ -582,6 +699,16 @@ export function parseGeneratedMetadata(inputPath: string, fileSystem: ReverseFil
             'API_PARAMETERS',
         );
         if (parameters && Object.keys(parameters).length > 0) metadata.parameters = parameters;
+    }
+
+    const headersPath = findUpFile(rootDir, 'headers.ts', fileSystem) ?? path.resolve(rootDir, 'headers.ts');
+    const headersText = readTextIfExists(headersPath, fileSystem);
+    if (headersText) {
+        const headers = extractConstInitializer<Record<string, HeaderObject | { $ref: string }>>(
+            headersText,
+            'API_HEADERS',
+        );
+        if (headers && Object.keys(headers).length > 0) metadata.headers = headers;
     }
 
     const requestBodiesPath =
@@ -595,8 +722,7 @@ export function parseGeneratedMetadata(inputPath: string, fileSystem: ReverseFil
         if (requestBodies && Object.keys(requestBodies).length > 0) metadata.requestBodies = requestBodies;
     }
 
-    const responsesPath =
-        findUpFile(rootDir, 'responses.ts', fileSystem) ?? path.resolve(rootDir, 'responses.ts');
+    const responsesPath = findUpFile(rootDir, 'responses.ts', fileSystem) ?? path.resolve(rootDir, 'responses.ts');
     const responsesText = readTextIfExists(responsesPath, fileSystem);
     if (responsesText) {
         const responses = extractConstInitializer<Record<string, SwaggerResponse | { $ref: string }>>(
@@ -604,6 +730,10 @@ export function parseGeneratedMetadata(inputPath: string, fileSystem: ReverseFil
             'API_RESPONSES',
         );
         if (responses && Object.keys(responses).length > 0) metadata.responses = responses;
+    }
+
+    if (!metadata.inferredSelf) {
+        metadata.inferredSelf = fallbackSelf;
     }
 
     return metadata;
@@ -632,6 +762,7 @@ export function applyReverseMetadata(spec: SwaggerSpec, metadata: ReverseMetadat
             nextSpec.swagger = metadata.documentMeta.swagger;
             delete nextSpec.openapi;
             delete nextSpec.jsonSchemaDialect;
+            delete nextSpec.$self;
         }
         if (metadata.documentMeta.$self !== undefined) {
             nextSpec.$self = metadata.documentMeta.$self;
@@ -641,6 +772,17 @@ export function applyReverseMetadata(spec: SwaggerSpec, metadata: ReverseMetadat
         } else if (metadata.documentMeta.openapi && /^3\\.0\\./.test(metadata.documentMeta.openapi)) {
             delete nextSpec.jsonSchemaDialect;
         }
+        if (metadata.documentMeta.extensions) {
+            Object.entries(metadata.documentMeta.extensions).forEach(([key, value]) => {
+                nextSpec[key as keyof SwaggerSpec] = value as any;
+            });
+        }
+    }
+    if (!nextSpec.$self && metadata.inferredSelf) {
+        const isSwagger = typeof nextSpec.swagger === 'string';
+        const openapiVersion = nextSpec.openapi;
+        const supportsSelf = !isSwagger && (typeof openapiVersion !== 'string' || /^3\.2(\.|$)/.test(openapiVersion));
+        if (supportsSelf) nextSpec.$self = metadata.inferredSelf;
     }
     if (metadata.servers) {
         nextSpec.servers = metadata.servers;
@@ -650,6 +792,16 @@ export function applyReverseMetadata(spec: SwaggerSpec, metadata: ReverseMetadat
     }
     if (metadata.securityRequirements) {
         nextSpec.security = metadata.securityRequirements;
+    }
+    if (metadata.paths) {
+        nextSpec.paths = nextSpec.paths ?? {};
+        Object.entries(metadata.paths).forEach(([pathKey, meta]) => {
+            const existing = (nextSpec.paths as Record<string, PathItem>)[pathKey] ?? {};
+            (nextSpec.paths as Record<string, PathItem>)[pathKey] = {
+                ...existing,
+                ...(meta as PathItem),
+            };
+        });
     }
 
     applyResponseArtifacts(nextSpec, metadata);
@@ -667,13 +819,21 @@ type OperationIndexEntry = {
 
 function applyResponseArtifacts(spec: SwaggerSpec, metadata: ReverseMetadata): void {
     const responseHeaders = metadata.responseHeaders || {};
+    const responseHeaderObjects = metadata.responseHeaderObjects || {};
     const linksRegistry = metadata.links || {};
-    if (Object.keys(responseHeaders).length === 0 && Object.keys(linksRegistry).length === 0) return;
+    const xmlConfigs = metadata.responseHeaderXmlConfigs || {};
+    if (
+        Object.keys(responseHeaders).length === 0 &&
+        Object.keys(responseHeaderObjects).length === 0 &&
+        Object.keys(linksRegistry).length === 0
+    )
+        return;
 
     const operationIndex = buildOperationIndex(spec);
 
     const operationIds = new Set<string>([
         ...Object.keys(responseHeaders),
+        ...Object.keys(responseHeaderObjects),
         ...Object.keys(linksRegistry),
     ]);
 
@@ -685,11 +845,7 @@ function applyResponseArtifacts(spec: SwaggerSpec, metadata: ReverseMetadata): v
 
         const headerStatuses = Object.keys(responseHeaders[operationId] || {});
         const linkStatuses = Object.keys(linksRegistry[operationId] || {});
-        const statusCodes = new Set<string>([
-            ...Object.keys(existingResponses),
-            ...headerStatuses,
-            ...linkStatuses,
-        ]);
+        const statusCodes = new Set<string>([...Object.keys(existingResponses), ...headerStatuses, ...linkStatuses]);
 
         if (statusCodes.size === 0) {
             statusCodes.add('200');
@@ -709,20 +865,33 @@ function applyResponseArtifacts(spec: SwaggerSpec, metadata: ReverseMetadata): v
             }
 
             const headerHints = responseHeaders[operationId]?.[status];
-            if (headerHints) {
-                const resolvedHeaders: Record<string, HeaderObject> = response.headers
-                    ? { ...(response.headers as Record<string, HeaderObject>) }
-                    : {};
+            const headerObjects = responseHeaderObjects[operationId]?.[status];
+            const resolvedHeaders: Record<string, HeaderObject> = response.headers
+                ? { ...(response.headers as Record<string, HeaderObject>) }
+                : {};
 
+            if (headerObjects) {
+                Object.entries(headerObjects).forEach(([headerName, headerObj]) => {
+                    resolvedHeaders[headerName] = headerObj as HeaderObject;
+                });
+            }
+
+            if (headerHints) {
                 Object.entries(headerHints).forEach(([headerName, hint]) => {
+                    const xmlConfigKey = `${operationId}_${status}_${headerName}`;
+                    const xmlConfig = xmlConfigs[xmlConfigKey];
                     if (!resolvedHeaders[headerName]) {
-                        resolvedHeaders[headerName] = buildHeaderObjectFromHint(hint);
+                        resolvedHeaders[headerName] = buildHeaderObjectFromHint(hint, xmlConfig);
+                        return;
+                    }
+                    if (xmlConfig) {
+                        resolvedHeaders[headerName] = applyXmlConfigToHeader(resolvedHeaders[headerName], xmlConfig);
                     }
                 });
+            }
 
-                if (Object.keys(resolvedHeaders).length > 0) {
-                    response.headers = resolvedHeaders;
-                }
+            if (Object.keys(resolvedHeaders).length > 0) {
+                response.headers = resolvedHeaders;
             }
 
             const statusLinks = linksRegistry[operationId]?.[status];
@@ -747,27 +916,162 @@ function findBaseResponseContent(responses: Record<string, SwaggerResponse>): Sw
     return undefined;
 }
 
-function buildHeaderObjectFromHint(hint: string): HeaderObject {
+function buildSchemaFromXmlConfig(config: unknown): SwaggerDefinition {
+    if (!config || typeof config !== 'object' || Array.isArray(config)) return {};
+
+    const configObj = config as Record<string, unknown>;
+    const schema: SwaggerDefinition = {};
+    const xml: Record<string, unknown> = {};
+    if (typeof configObj.name === 'string') xml.name = configObj.name;
+    if (configObj.attribute === true) xml.attribute = true;
+    if (configObj.wrapped === true) xml.wrapped = true;
+    if (typeof configObj.prefix === 'string') xml.prefix = configObj.prefix;
+    if (typeof configObj.namespace === 'string') xml.namespace = configObj.namespace;
+    if (typeof configObj.nodeType === 'string') xml.nodeType = configObj.nodeType;
+
+    if (Object.keys(xml).length > 0) {
+        schema.xml = xml as SwaggerDefinition['xml'];
+    }
+
+    if (configObj.items) {
+        schema.type = 'array';
+        schema.items = buildSchemaFromXmlConfig(configObj.items);
+    }
+
+    if (Array.isArray(configObj.prefixItems)) {
+        schema.type = 'array';
+        schema.prefixItems = configObj.prefixItems.map(item => buildSchemaFromXmlConfig(item));
+    }
+
+    if (configObj.properties && typeof configObj.properties === 'object' && !Array.isArray(configObj.properties)) {
+        schema.type = 'object';
+        schema.properties = {};
+        Object.entries(configObj.properties).forEach(([name, propConfig]) => {
+            schema.properties![name] = buildSchemaFromXmlConfig(propConfig);
+        });
+    }
+
+    return schema;
+}
+
+function mergeSchemaXml(base: SwaggerDefinition, xmlSchema: SwaggerDefinition): SwaggerDefinition {
+    const merged: SwaggerDefinition = { ...base };
+
+    if (xmlSchema.type && merged.type === undefined) {
+        merged.type = xmlSchema.type;
+    }
+
+    if (xmlSchema.xml) {
+        merged.xml = { ...(merged.xml ?? {}), ...(xmlSchema.xml ?? {}) };
+    }
+
+    if (xmlSchema.items) {
+        const baseItems =
+            merged.items && typeof merged.items === 'object' && !Array.isArray(merged.items)
+                ? (merged.items as SwaggerDefinition)
+                : {};
+        merged.items = mergeSchemaXml(baseItems, xmlSchema.items as SwaggerDefinition);
+    }
+
+    if (Array.isArray(xmlSchema.prefixItems)) {
+        const basePrefix = Array.isArray(merged.prefixItems) ? merged.prefixItems : [];
+        merged.prefixItems = xmlSchema.prefixItems.map((item, index) => {
+            const existing = basePrefix[index];
+            const baseItem =
+                existing && typeof existing === 'object' && !Array.isArray(existing)
+                    ? (existing as SwaggerDefinition)
+                    : {};
+            return mergeSchemaXml(baseItem, item as SwaggerDefinition);
+        });
+    }
+
+    if (xmlSchema.properties && typeof xmlSchema.properties === 'object') {
+        const baseProps = (merged.properties ?? {}) as Record<string, SwaggerDefinition | boolean>;
+        const nextProps: Record<string, SwaggerDefinition | boolean> = { ...baseProps };
+        Object.entries(xmlSchema.properties).forEach(([name, xmlProp]) => {
+            const existing = baseProps[name];
+            if (existing && typeof existing === 'object' && !Array.isArray(existing)) {
+                nextProps[name] = mergeSchemaXml(existing as SwaggerDefinition, xmlProp as SwaggerDefinition);
+            } else {
+                nextProps[name] = xmlProp as SwaggerDefinition;
+            }
+        });
+        merged.properties = nextProps;
+    }
+
+    return merged;
+}
+
+function applyXmlConfigToHeader(header: HeaderObject, xmlConfig?: unknown): HeaderObject {
+    if (!xmlConfig || typeof xmlConfig !== 'object' || Array.isArray(xmlConfig)) return header;
+
+    const xmlSchema = buildSchemaFromXmlConfig(xmlConfig);
+    const nextHeader: HeaderObject = { ...header };
+
+    if (nextHeader.content) {
+        const xmlKey = Object.keys(nextHeader.content).find(key =>
+            key.split(';')[0].trim().toLowerCase().includes('xml'),
+        );
+        if (xmlKey) {
+            const entry = { ...(nextHeader.content[xmlKey] as any) };
+            const existingSchema =
+                entry.schema && typeof entry.schema === 'object' && !Array.isArray(entry.schema)
+                    ? (entry.schema as SwaggerDefinition)
+                    : {};
+            entry.schema = mergeSchemaXml(existingSchema, xmlSchema);
+            nextHeader.content = { ...nextHeader.content, [xmlKey]: entry };
+            return nextHeader;
+        }
+    }
+
+    if (nextHeader.schema && typeof nextHeader.schema === 'object' && !Array.isArray(nextHeader.schema)) {
+        nextHeader.schema = mergeSchemaXml(nextHeader.schema as SwaggerDefinition, xmlSchema);
+        return nextHeader;
+    }
+
+    nextHeader.schema = xmlSchema;
+    return nextHeader;
+}
+
+function buildHeaderObjectFromHint(hint: string, xmlConfig?: unknown): HeaderObject {
+    let header: HeaderObject;
     switch (hint) {
         case 'set-cookie':
-            return { schema: { type: 'string' } };
+            header = { schema: { type: 'string' } };
+            break;
         case 'linkset':
-            return { content: { 'application/linkset': { schema: {} } } };
+            header = { content: { 'application/linkset': { schema: {} } } };
+            break;
+        case 'linkset+json':
+            header = { content: { 'application/linkset+json': { schema: {} } } };
+            break;
         case 'json':
-            return { content: { 'application/json': { schema: {} } } };
+            header = { content: { 'application/json': { schema: {} } } };
+            break;
         case 'xml':
-            return { content: { 'application/xml': { schema: {} } } };
+            header = { content: { 'application/xml': { schema: {} } } };
+            break;
         case 'array':
-            return { schema: { type: 'array', items: {} } };
+            header = { schema: { type: 'array', items: {} } };
+            break;
         case 'number':
-            return { schema: { type: 'number' } };
+            header = { schema: { type: 'number' } };
+            break;
         case 'boolean':
-            return { schema: { type: 'boolean' } };
+            header = { schema: { type: 'boolean' } };
+            break;
         case 'date':
-            return { schema: { type: 'string', format: 'date-time' } };
+            header = { schema: { type: 'string', format: 'date-time' } };
+            break;
         default:
-            return { schema: { type: 'string' } };
+            header = { schema: { type: 'string' } };
+            break;
     }
+
+    if (xmlConfig) {
+        return applyXmlConfigToHeader(header, xmlConfig);
+    }
+    return header;
 }
 
 function applyComponentArtifacts(spec: SwaggerSpec, metadata: ReverseMetadata): void {
@@ -836,12 +1140,26 @@ function applyComponentArtifacts(spec: SwaggerSpec, metadata: ReverseMetadata): 
         });
     }
 
+    if (metadata.componentLinks) {
+        Object.entries(metadata.componentLinks).forEach(([name, linkObj]) => {
+            if (!links[name]) links[name] = linkObj as LinkObject;
+        });
+    }
+
     if (metadata.responseHeaders) {
         Object.entries(metadata.responseHeaders).forEach(([operationId, statusMap]) => {
             Object.entries(statusMap).forEach(([status, headerMap]) => {
                 Object.entries(headerMap).forEach(([headerName, hint]) => {
                     const key = sanitizeComponentKey(`${operationId}_${status}_${headerName}`);
-                    if (!headers[key]) headers[key] = buildHeaderObjectFromHint(hint);
+                    const xmlConfigKey = `${operationId}_${status}_${headerName}`;
+                    const xmlConfig = metadata.responseHeaderXmlConfigs?.[xmlConfigKey];
+                    if (!headers[key]) {
+                        headers[key] = buildHeaderObjectFromHint(hint, xmlConfig);
+                        return;
+                    }
+                    if (xmlConfig) {
+                        headers[key] = applyXmlConfigToHeader(headers[key] as HeaderObject, xmlConfig);
+                    }
                 });
             });
         });
@@ -868,6 +1186,12 @@ function applyComponentArtifacts(spec: SwaggerSpec, metadata: ReverseMetadata): 
     if (metadata.parameters) {
         Object.entries(metadata.parameters).forEach(([name, param]) => {
             if (!parameters[name]) parameters[name] = param as Parameter;
+        });
+    }
+
+    if (metadata.headers) {
+        Object.entries(metadata.headers).forEach(([name, header]) => {
+            if (!headers[name]) headers[name] = header as HeaderObject;
         });
     }
 
@@ -927,7 +1251,8 @@ function applyComponentArtifacts(spec: SwaggerSpec, metadata: ReverseMetadata): 
                 [method]: { responses: { '200': { description: 'Webhook response' } } },
             };
             const existingComponent = webhooks[key];
-            const existingIsRef = !!existingComponent && typeof existingComponent === 'object' && '$ref' in existingComponent;
+            const existingIsRef =
+                !!existingComponent && typeof existingComponent === 'object' && '$ref' in existingComponent;
 
             if (!existingIsRef || webhook.pathItem) {
                 const mergedComponent = mergePathItem(
@@ -941,9 +1266,7 @@ function applyComponentArtifacts(spec: SwaggerSpec, metadata: ReverseMetadata): 
             if (scope !== 'component') {
                 spec.webhooks = spec.webhooks ?? {};
                 const existingWebhook = spec.webhooks[webhook.name];
-                spec.webhooks[webhook.name] = existingWebhook
-                    ? mergePathItem(existingWebhook, incoming)
-                    : incoming;
+                spec.webhooks[webhook.name] = existingWebhook ? mergePathItem(existingWebhook, incoming) : incoming;
             }
         });
     }
@@ -1150,6 +1473,15 @@ function extractUrlTemplate(bodyText: string): ParsedPathInfo | null {
         const explode = parseBooleanLiteral(args[3]);
         const allowReserved = parseBooleanLiteral(args[4]);
         const serialization = parseStringLiteral(args[5]) === 'json' ? 'json' : undefined;
+        const encoderConfig = parseJsonLiteral<Record<string, any>>(args[6]);
+        const contentEncoding =
+            encoderConfig && typeof encoderConfig.contentEncoding === 'string'
+                ? encoderConfig.contentEncoding
+                : undefined;
+        const contentMediaType =
+            encoderConfig && typeof encoderConfig.contentMediaType === 'string'
+                ? encoderConfig.contentMediaType
+                : undefined;
 
         pathParams.push({
             name,
@@ -1158,6 +1490,9 @@ function extractUrlTemplate(bodyText: string): ParsedPathInfo | null {
             ...(explode !== undefined ? { explode } : {}),
             ...(allowReserved !== undefined ? { allowReserved } : {}),
             ...(serialization ? { serialization } : {}),
+            ...(encoderConfig ? { contentEncoderConfig: encoderConfig } : {}),
+            ...(contentEncoding ? { contentEncoding } : {}),
+            ...(contentMediaType ? { contentMediaType } : {}),
         });
     });
 
@@ -1182,6 +1517,7 @@ function extractQueryParams(bodyText: string): {
     serialization?: 'json';
     contentType?: string;
     encoding?: Record<string, any>;
+    contentMediaType?: string;
 }[] {
     const results: {
         name: string;
@@ -1193,6 +1529,7 @@ function extractQueryParams(bodyText: string): {
         serialization?: 'json';
         contentType?: string;
         encoding?: Record<string, any>;
+        contentMediaType?: string;
     }[] = [];
 
     const calls = extractFunctionCallArgs(bodyText, 'ParameterSerializer.serializeQueryParam');
@@ -1208,10 +1545,19 @@ function extractQueryParams(bodyText: string): {
             serialization?: string | null;
             contentType?: string;
             encoding?: Record<string, any>;
+            contentEncoderConfig?: Record<string, any>;
         }>(configText);
 
         const name = config?.name ?? parseConfigName(configText);
         if (!name) return;
+        const contentEncoding =
+            config?.contentEncoderConfig && typeof config.contentEncoderConfig.contentEncoding === 'string'
+                ? config.contentEncoderConfig.contentEncoding
+                : undefined;
+        const contentMediaType =
+            config?.contentEncoderConfig && typeof config.contentEncoderConfig.contentMediaType === 'string'
+                ? config.contentEncoderConfig.contentMediaType
+                : undefined;
 
         results.push({
             name,
@@ -1223,6 +1569,9 @@ function extractQueryParams(bodyText: string): {
             ...(config?.serialization === 'json' ? { serialization: 'json' } : {}),
             ...(config?.contentType ? { contentType: config.contentType } : {}),
             ...(config?.encoding ? { encoding: config.encoding } : {}),
+            ...(config?.contentEncoderConfig ? { contentEncoderConfig: config.contentEncoderConfig } : {}),
+            ...(contentEncoding ? { contentEncoding } : {}),
+            ...(contentMediaType ? { contentMediaType } : {}),
         });
     });
 
@@ -1256,6 +1605,66 @@ function parseJsonLiteral<T = any>(value: string | undefined): T | undefined {
     }
 }
 
+function resolveJsonArgument(bodyText: string, argText: string | undefined): unknown | undefined {
+    if (!argText) return undefined;
+    const direct = parseJsonLiteral(argText);
+    if (direct !== undefined) return direct;
+    const identifier = extractIdentifier(argText);
+    if (!identifier) return undefined;
+    return extractJsonInitializer(bodyText, identifier);
+}
+
+function extractJsonInitializer(bodyText: string, variableName: string): unknown | undefined {
+    const regex = new RegExp(`\\b(?:const|let|var)\\s+${variableName}\\s*=`);
+    const match = regex.exec(bodyText);
+    if (!match) return undefined;
+    const braceIndex = bodyText.indexOf('{', match.index + match[0].length);
+    if (braceIndex === -1) return undefined;
+    const jsonObject = extractJsonObject(bodyText, braceIndex);
+    if (!jsonObject) return undefined;
+    try {
+        return JSON.parse(jsonObject);
+    } catch {
+        return undefined;
+    }
+}
+
+function normalizeEncodingMap(value: unknown): Record<string, any> | undefined {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+    const entries = Object.values(value);
+    if (entries.length === 0) return value as Record<string, any>;
+    const allObjects = entries.every(entry => typeof entry === 'object' && entry !== null && !Array.isArray(entry));
+    return allObjects ? (value as Record<string, any>) : undefined;
+}
+
+function normalizeMultipartConfig(value: unknown): ReverseMultipartConfig | undefined {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+    const config = value as Record<string, unknown>;
+    const hasConfigKeys =
+        'mediaType' in config || 'encoding' in config || 'prefixEncoding' in config || 'itemEncoding' in config;
+
+    if (hasConfigKeys) {
+        const normalized: ReverseMultipartConfig = {};
+        if (typeof config.mediaType === 'string') normalized.mediaType = config.mediaType;
+        if (config.encoding) {
+            const encoding = normalizeEncodingMap(config.encoding);
+            if (encoding) normalized.encoding = encoding;
+        }
+        if (Array.isArray(config.prefixEncoding)) {
+            normalized.prefixEncoding = config.prefixEncoding as any[];
+        }
+        if (config.itemEncoding && typeof config.itemEncoding === 'object' && !Array.isArray(config.itemEncoding)) {
+            normalized.itemEncoding = config.itemEncoding as Record<string, any>;
+        }
+        return Object.keys(normalized).length > 0 ? normalized : undefined;
+    }
+
+    const encodingMap = normalizeEncodingMap(config);
+    if (encodingMap) return { encoding: encodingMap };
+
+    return undefined;
+}
+
 function parseArgsFromString(argText: string): string[] | undefined {
     const wrapper = `fn(${argText})`;
     const parsed = parseCallArguments(wrapper, wrapper.indexOf('(') + 1);
@@ -1270,13 +1679,47 @@ function normalizeDocComment(comment: unknown): string {
     return String(comment);
 }
 
+const EXAMPLE_WRAPPER_KEY = '__oasExample';
+
+type ExampleCarrier = {
+    [EXAMPLE_WRAPPER_KEY]: ExampleObject;
+};
+
+function isExampleCarrier(value: unknown): value is ExampleCarrier {
+    if (!value || typeof value !== 'object') return false;
+    if (!(EXAMPLE_WRAPPER_KEY in (value as Record<string, unknown>))) return false;
+    const wrapped = (value as Record<string, unknown>)[EXAMPLE_WRAPPER_KEY];
+    return !!wrapped && typeof wrapped === 'object' && !Array.isArray(wrapped);
+}
+
+function unwrapExampleCarrier(value: unknown): ExampleObject | undefined {
+    if (!isExampleCarrier(value)) return undefined;
+    return (value as ExampleCarrier)[EXAMPLE_WRAPPER_KEY];
+}
+
+function parseDocValue(value: string): unknown {
+    try {
+        return JSON.parse(value);
+    } catch {
+        return value;
+    }
+}
+
 function extractMethodDocs(method: MethodDeclaration): {
     summary?: string;
     description?: string;
     deprecated?: boolean;
     externalDocs?: ExternalDocumentationObject;
     tags?: string[];
+    servers?: ServerObject[];
+    security?: Record<string, string[]>[];
+    extensions?: Record<string, any>;
     responses?: ReverseResponseHint[];
+    paramDocs?: Record<string, string>;
+    paramExamples?: Record<string, unknown>;
+    requestExamples?: Record<string, unknown>;
+    responseExamples?: Record<string, Record<string, unknown>>;
+    operationId?: string;
 } {
     const docs = method.getJsDocs();
     if (!docs.length) return {};
@@ -1295,8 +1738,46 @@ function extractMethodDocs(method: MethodDeclaration): {
         tags.some(tag => tag.getTagName() === 'deprecated') || rawComment.toLowerCase().includes('@deprecated');
     const tagNames: string[] = [];
     const responseHints: ReverseResponseHint[] = [];
+    const paramDocs: Record<string, string> = {};
+    const paramExamples: Record<string, unknown> = {};
+    const requestExamples: Record<string, unknown> = {};
+    const responseExamples: Record<string, Record<string, unknown>> = {};
+    const responseSummaries: Record<string, string> = {};
+    let operationId: string | undefined;
+    const servers: ServerObject[] = [];
+    const security: Record<string, string[]>[] = [];
+    const extensions: Record<string, any> = {};
     tags.forEach(tag => {
         const tagName = tag.getTagName();
+        if (tagName === 'server') {
+            const rawTagText = normalizeDocComment(tag.getComment()).trim();
+            if (rawTagText) {
+                servers.push(...parseServerTag(rawTagText));
+            }
+            return;
+        }
+        if (tagName === 'security') {
+            const rawTagText = normalizeDocComment(tag.getComment()).trim();
+            if (rawTagText) {
+                security.push(...parseSecurityTag(rawTagText));
+            }
+            return;
+        }
+        if (tagName.startsWith('x-')) {
+            const rawTagText = normalizeDocComment(tag.getComment()).trim();
+            extensions[tagName] = parseExtensionTag(rawTagText);
+            return;
+        }
+        if (tagName === 'operationId') {
+            const rawTagText = normalizeDocComment(tag.getComment());
+            if (rawTagText) {
+                const parts = rawTagText.split(/\s+/).filter(Boolean);
+                if (parts.length > 0) {
+                    operationId = parts[0];
+                }
+            }
+            return;
+        }
         if (tagName === 'tag' || tagName === 'tags') {
             const rawTagText = normalizeDocComment(tag.getComment());
             if (rawTagText) {
@@ -1334,7 +1815,109 @@ function extractMethodDocs(method: MethodDeclaration): {
                 ...(description ? { description } : {}),
             });
         }
+
+        if (tagName === 'responseSummary') {
+            const rawTagText = normalizeDocComment(tag.getComment());
+            if (!rawTagText) return;
+            const parts = rawTagText.split(/\s+/).filter(Boolean);
+            const status = parts.shift();
+            if (!status) return;
+            const summary = parts.join(' ').trim();
+            if (summary) responseSummaries[status] = summary;
+        }
+
+        if (tagName === 'paramExample') {
+            const rawTagText = normalizeDocComment(tag.getComment()).trim();
+            if (!rawTagText) return;
+            const parts = rawTagText.split(/\s+/).filter(Boolean);
+            const name = parts.shift();
+            if (!name || parts.length === 0) return;
+            const valueText = parts.join(' ').trim();
+            if (!valueText) return;
+            paramExamples[name] = parseDocValue(valueText);
+            return;
+        }
+
+        if (tagName === 'requestExample') {
+            const rawTagText = normalizeDocComment(tag.getComment()).trim();
+            if (!rawTagText) return;
+            const parts = rawTagText.split(/\s+/).filter(Boolean);
+            if (parts.length === 0) return;
+            let mediaType: string | undefined;
+            if (parts[0].includes('/')) {
+                mediaType = parts.shift();
+            }
+            const valueText = parts.join(' ').trim();
+            if (!valueText) return;
+            requestExamples[mediaType ?? '*'] = parseDocValue(valueText);
+            return;
+        }
+
+        if (tagName === 'responseExample') {
+            const rawTagText = normalizeDocComment(tag.getComment()).trim();
+            if (!rawTagText) return;
+            const parts = rawTagText.split(/\s+/).filter(Boolean);
+            const status = parts.shift();
+            if (!status || parts.length === 0) return;
+            let mediaType: string | undefined;
+            if (parts[0].includes('/')) {
+                mediaType = parts.shift();
+            }
+            const valueText = parts.join(' ').trim();
+            if (!valueText) return;
+            if (!responseExamples[status]) responseExamples[status] = {};
+            responseExamples[status][mediaType ?? '*'] = parseDocValue(valueText);
+            return;
+        }
+
+        if (tagName === 'param') {
+            if (Node.isJSDocParameterTag(tag)) {
+                const name = tag.getName();
+                const desc = normalizeDocComment(tag.getComment()).trim();
+                if (name && desc) {
+                    paramDocs[name] = desc;
+                    return;
+                }
+            }
+
+            const rawText = tag
+                .getText()
+                .replace(/^\s*\*?\s*@param\s+/i, '')
+                .trim();
+            let name: string | undefined;
+            let desc = '';
+
+            if (rawText) {
+                const cleaned = rawText.replace(/\r?\n\s*\*\s?/g, ' ').trim();
+                const match = cleaned.match(/^(?:\{[^}]+\}\s*)?(\S+)\s*([\s\S]*)$/);
+                if (match) {
+                    name = match[1];
+                    desc = (match[2] || '').trim();
+                }
+            }
+
+            if (!name) {
+                const fallback = normalizeDocComment(tag.getComment());
+                const parts = fallback.split(/\s+/).filter(Boolean);
+                if (parts.length === 0) return;
+                name = parts.shift();
+                if (name && name.startsWith('{')) {
+                    name = parts.shift();
+                }
+                desc = parts.join(' ').trim();
+            }
+
+            if (!name || !desc) return;
+            paramDocs[name] = desc;
+        }
     });
+    if (Object.keys(responseSummaries).length > 0) {
+        responseHints.forEach(hint => {
+            if (!hint.summary && responseSummaries[hint.status]) {
+                hint.summary = responseSummaries[hint.status];
+            }
+        });
+    }
     const uniqueTags = Array.from(new Set(tagNames));
 
     const seeTag = tags.find(tag => tag.getTagName() === 'see');
@@ -1375,8 +1958,83 @@ function extractMethodDocs(method: MethodDeclaration): {
         ...(deprecated ? { deprecated } : {}),
         ...(externalDocs ? { externalDocs } : {}),
         ...(uniqueTags.length > 0 ? { tags: uniqueTags } : {}),
+        ...(servers.length > 0 ? { servers } : {}),
+        ...(security.length > 0 ? { security } : {}),
+        ...(Object.keys(extensions).length > 0 ? { extensions } : {}),
         ...(responseHints.length > 0 ? { responses: responseHints } : {}),
+        ...(Object.keys(paramDocs).length > 0 ? { paramDocs } : {}),
+        ...(Object.keys(paramExamples).length > 0 ? { paramExamples } : {}),
+        ...(Object.keys(requestExamples).length > 0 ? { requestExamples } : {}),
+        ...(Object.keys(responseExamples).length > 0 ? { responseExamples } : {}),
+        ...(operationId ? { operationId } : {}),
     };
+}
+
+function parseServerTag(raw: string): ServerObject[] {
+    if (!raw) return [];
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+        try {
+            const parsed = JSON.parse(trimmed) as unknown;
+            if (Array.isArray(parsed)) {
+                return parsed.filter((entry): entry is ServerObject => !!entry && typeof entry === 'object');
+            }
+            if (parsed && typeof parsed === 'object') {
+                return [parsed as ServerObject];
+            }
+        } catch {
+            return [];
+        }
+    }
+
+    const parts = trimmed.split(/\s+/);
+    const url = parts.shift();
+    if (!url) return [];
+    const description = parts.join(' ').trim();
+    return description ? [{ url, description }] : [{ url }];
+}
+
+function parseSecurityTag(raw: string): Record<string, string[]>[] {
+    if (!raw) return [];
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+        try {
+            const parsed = JSON.parse(trimmed) as unknown;
+            if (Array.isArray(parsed)) {
+                return parsed.filter(
+                    (entry): entry is Record<string, string[]> => !!entry && typeof entry === 'object',
+                );
+            }
+            if (parsed && typeof parsed === 'object') {
+                return [parsed as Record<string, string[]>];
+            }
+        } catch {
+            return [];
+        }
+    }
+
+    const [scheme, ...rest] = trimmed.split(/\s+/);
+    if (!scheme) return [];
+    const scopes = rest
+        .join(' ')
+        .split(/[,\s]+/)
+        .map(scope => scope.trim())
+        .filter(Boolean);
+    return [{ [scheme]: scopes }];
+}
+
+function parseExtensionTag(raw: string): any {
+    const trimmed = raw.trim();
+    if (!trimmed) return true;
+    try {
+        return JSON.parse(trimmed);
+    } catch {
+        return trimmed;
+    }
 }
 
 function extractFunctionCallArgs(bodyText: string, functionName: string): string[][] {
@@ -1398,10 +2056,7 @@ function extractFunctionCallArgs(bodyText: string, functionName: string): string
     return results;
 }
 
-function parseCallArguments(
-    bodyText: string,
-    startIndex: number,
-): { args: string[]; endIndex: number } | undefined {
+function parseCallArguments(bodyText: string, startIndex: number): { args: string[]; endIndex: number } | undefined {
     const args: string[] = [];
     let current = '';
     let depth = 0;
@@ -1465,15 +2120,25 @@ function parseCallArguments(
     return undefined;
 }
 
-function extractRawQuerystringParams(
-    bodyText: string,
-): { name: string; variableName?: string; contentType?: string; serialization?: 'json'; encoding?: Record<string, any> }[] {
+function extractRawQuerystringParams(bodyText: string): {
+    name: string;
+    variableName?: string;
+    contentType?: string;
+    serialization?: 'json';
+    encoding?: Record<string, any>;
+    contentEncoderConfig?: Record<string, any>;
+    contentEncoding?: string;
+    contentMediaType?: string;
+}[] {
     const results: {
         name: string;
         variableName?: string;
         contentType?: string;
         serialization?: 'json';
         encoding?: Record<string, any>;
+        contentEncoderConfig?: Record<string, any>;
+        contentEncoding?: string;
+        contentMediaType?: string;
     }[] = [];
 
     const calls = extractFunctionCallArgs(bodyText, 'serializeRawQuerystring');
@@ -1490,6 +2155,15 @@ function extractRawQuerystringParams(
         let serialization: 'json' | undefined;
         let contentType: string | undefined;
         const encoding = parseJsonLiteral<Record<string, any>>(arg4);
+        const encoderConfig = parseJsonLiteral<Record<string, any>>(args[4]?.trim());
+        const contentEncoding =
+            encoderConfig && typeof encoderConfig.contentEncoding === 'string'
+                ? encoderConfig.contentEncoding
+                : undefined;
+        const contentMediaType =
+            encoderConfig && typeof encoderConfig.contentMediaType === 'string'
+                ? encoderConfig.contentMediaType
+                : undefined;
 
         if (arg2Literal === 'json') {
             serialization = 'json';
@@ -1503,7 +2177,16 @@ function extractRawQuerystringParams(
         }
 
         if (variableName) {
-            results.push({ name: variableName, variableName, contentType, serialization, encoding });
+            results.push({
+                name: variableName,
+                variableName,
+                contentType,
+                serialization,
+                encoding,
+                ...(encoderConfig ? { contentEncoderConfig: encoderConfig } : {}),
+                ...(contentEncoding ? { contentEncoding } : {}),
+                ...(contentMediaType ? { contentMediaType } : {}),
+            });
         }
     });
     return results;
@@ -1516,6 +2199,9 @@ function extractHeaderParams(bodyText: string): {
     serialization?: 'json';
     contentType?: string;
     encoding?: Record<string, any>;
+    contentEncoderConfig?: Record<string, any>;
+    contentEncoding?: string;
+    contentMediaType?: string;
 }[] {
     const results: {
         name: string;
@@ -1524,6 +2210,9 @@ function extractHeaderParams(bodyText: string): {
         serialization?: 'json';
         contentType?: string;
         encoding?: Record<string, any>;
+        contentEncoderConfig?: Record<string, any>;
+        contentEncoding?: string;
+        contentMediaType?: string;
     }[] = [];
     const regex = /headers\.set\(['"]([^'"]+)['"]\s*,\s*ParameterSerializer\.serializeHeaderParam\(([^)]*)\)\)/g;
     let match: RegExpExecArray | null;
@@ -1535,6 +2224,15 @@ function extractHeaderParams(bodyText: string): {
         const serialization = parseStringLiteral(args[2]) === 'json' ? 'json' : undefined;
         const contentType = parseStringLiteral(args[3]);
         const encoding = parseJsonLiteral<Record<string, any>>(args[4]);
+        const encoderConfig = parseJsonLiteral<Record<string, any>>(args[5]);
+        const contentEncoding =
+            encoderConfig && typeof encoderConfig.contentEncoding === 'string'
+                ? encoderConfig.contentEncoding
+                : undefined;
+        const contentMediaType =
+            encoderConfig && typeof encoderConfig.contentMediaType === 'string'
+                ? encoderConfig.contentMediaType
+                : undefined;
         results.push({
             name,
             ...(variableName ? { variableName } : {}),
@@ -1542,6 +2240,9 @@ function extractHeaderParams(bodyText: string): {
             ...(serialization ? { serialization } : {}),
             ...(contentType ? { contentType } : {}),
             ...(encoding ? { encoding } : {}),
+            ...(encoderConfig ? { contentEncoderConfig: encoderConfig } : {}),
+            ...(contentEncoding ? { contentEncoding } : {}),
+            ...(contentMediaType ? { contentMediaType } : {}),
         });
     }
     return results;
@@ -1554,6 +2255,9 @@ function extractCookieParams(bodyText: string): {
     explode?: boolean;
     allowReserved?: boolean;
     serialization?: 'json';
+    contentEncoderConfig?: Record<string, any>;
+    contentEncoding?: string;
+    contentMediaType?: string;
 }[] {
     const results: {
         name: string;
@@ -1562,6 +2266,9 @@ function extractCookieParams(bodyText: string): {
         explode?: boolean;
         allowReserved?: boolean;
         serialization?: 'json';
+        contentEncoderConfig?: Record<string, any>;
+        contentEncoding?: string;
+        contentMediaType?: string;
     }[] = [];
 
     const calls = extractFunctionCallArgs(bodyText, 'ParameterSerializer.serializeCookieParam');
@@ -1573,6 +2280,15 @@ function extractCookieParams(bodyText: string): {
         const explode = parseBooleanLiteral(args[3]);
         const allowReserved = parseBooleanLiteral(args[4]);
         const serialization = parseStringLiteral(args[5]) === 'json' ? 'json' : undefined;
+        const encoderConfig = parseJsonLiteral<Record<string, any>>(args[6]);
+        const contentEncoding =
+            encoderConfig && typeof encoderConfig.contentEncoding === 'string'
+                ? encoderConfig.contentEncoding
+                : undefined;
+        const contentMediaType =
+            encoderConfig && typeof encoderConfig.contentMediaType === 'string'
+                ? encoderConfig.contentMediaType
+                : undefined;
 
         results.push({
             name,
@@ -1581,12 +2297,17 @@ function extractCookieParams(bodyText: string): {
             ...(explode !== undefined ? { explode } : {}),
             ...(allowReserved !== undefined ? { allowReserved } : {}),
             ...(serialization ? { serialization } : {}),
+            ...(encoderConfig ? { contentEncoderConfig: encoderConfig } : {}),
+            ...(contentEncoding ? { contentEncoding } : {}),
+            ...(contentMediaType ? { contentMediaType } : {}),
         });
     });
     return results;
 }
 
-function extractFormDataParams(bodyText: string): { name: string; variableName?: string; kind: 'multipart' | 'urlencoded' }[] {
+function extractFormDataParams(
+    bodyText: string,
+): { name: string; variableName?: string; kind: 'multipart' | 'urlencoded' }[] {
     const results: { name: string; variableName?: string; kind: 'multipart' | 'urlencoded' }[] = [];
 
     const formDataRegex = /formData\.append\(['"]([^'"]+)['"]\s*,\s*([^\)]+)\)/g;
@@ -1609,6 +2330,29 @@ function extractFormDataParams(bodyText: string): { name: string; variableName?:
     }
 
     return results;
+}
+
+function extractUrlEncodedBodyEncoding(bodyText: string): Record<string, any> | undefined {
+    const calls = extractFunctionCallArgs(bodyText, 'ParameterSerializer.serializeUrlEncodedBody');
+    for (const args of calls) {
+        const configArg = args[1];
+        const config = resolveJsonArgument(bodyText, configArg);
+        if (!config) continue;
+        const encoding = normalizeEncodingMap(config);
+        if (encoding) return encoding;
+    }
+    return undefined;
+}
+
+function extractMultipartConfig(bodyText: string): ReverseMultipartConfig | undefined {
+    const calls = extractFunctionCallArgs(bodyText, 'MultipartBuilder.serialize');
+    for (const args of calls) {
+        const configArg = args[1];
+        const config = resolveJsonArgument(bodyText, configArg);
+        const normalized = normalizeMultipartConfig(config);
+        if (normalized) return normalized;
+    }
+    return undefined;
 }
 
 function detectBodyParamName(
@@ -1635,7 +2379,11 @@ function detectBodyParamName(
 
 function detectRequestMediaTypes(
     bodyText: string,
-    options: { hasBodyParam: boolean; formDataParams: { kind: 'multipart' | 'urlencoded' }[] },
+    options: {
+        hasBodyParam: boolean;
+        formDataParams: { kind: 'multipart' | 'urlencoded' }[];
+        multipartConfig?: ReverseMultipartConfig;
+    },
 ): string[] {
     const mediaTypes = new Set<string>();
 
@@ -1652,8 +2400,9 @@ function detectRequestMediaTypes(
     const hasUrlEncodedBody = bodyText.includes('ParameterSerializer.serializeUrlEncodedBody');
     const hasLegacyUrlEncoded = options.formDataParams.some(p => p.kind === 'urlencoded');
     const hasXmlBody = bodyText.includes('XmlBuilder.serialize');
+    const multipartMediaType = options.multipartConfig?.mediaType;
 
-    if (hasMultipartBuilder || hasFormData) mediaTypes.add('multipart/form-data');
+    if (hasMultipartBuilder || hasFormData) mediaTypes.add(multipartMediaType ?? 'multipart/form-data');
     else if (hasUrlEncodedBody || hasLegacyUrlEncoded) mediaTypes.add('application/x-www-form-urlencoded');
     else if (hasXmlBody) mediaTypes.add('application/xml');
     else if (options.hasBodyParam || options.formDataParams.length > 0) mediaTypes.add('application/json');
@@ -1672,18 +2421,22 @@ function detectResponseMediaTypes(bodyText: string): string[] {
 
     if (mediaTypes.size > 0) return Array.from(mediaTypes);
 
-    if (bodyText.includes('new EventSource')) return ['text/event-stream'];
+    if (isSseBody(bodyText)) return ['text/event-stream'];
     if (bodyText.includes('XmlParser.parse')) return ['application/xml'];
-    if (
-        bodyText.includes("response.split('\\\\x1e')") ||
-        /response\.split\('\u001e'\)/.test(bodyText)
-    ) {
+    if (bodyText.includes("response.split('\\\\x1e')") || /response\.split\('\u001e'\)/.test(bodyText)) {
         return ['application/json-seq'];
     }
     if (bodyText.includes("response.split('\\\\n')") || /response\.split\('\n'\)/.test(bodyText)) {
         return ['application/jsonl'];
     }
     return ['application/json'];
+}
+
+function isSseBody(bodyText: string): boolean {
+    if (bodyText.includes('new EventSource')) return true;
+    if (bodyText.includes('SSE response body is not readable')) return true;
+    if (bodyText.includes('response.body.getReader') && bodyText.includes('dataLines')) return true;
+    return false;
 }
 
 function extractSecurityRequirements(bodyText: string): Record<string, string[]>[] | undefined {
@@ -1700,6 +2453,29 @@ function extractSecurityRequirements(bodyText: string): Record<string, string[]>
         const parsed = JSON.parse(jsonArray);
         if (Array.isArray(parsed)) {
             return parsed as Record<string, string[]>[];
+        }
+    } catch {
+        return undefined;
+    }
+
+    return undefined;
+}
+
+function extractOperationExtensions(bodyText: string): Record<string, any> | undefined {
+    const tokenIndex = bodyText.indexOf('EXTENSIONS_CONTEXT_TOKEN');
+    if (tokenIndex === -1) return undefined;
+
+    const braceIndex = bodyText.indexOf('{', tokenIndex);
+    if (braceIndex === -1) return undefined;
+
+    const jsonObject = extractJsonObject(bodyText, braceIndex);
+    if (!jsonObject) return undefined;
+
+    try {
+        const parsed = JSON.parse(jsonObject);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            const extensions = Object.fromEntries(Object.entries(parsed).filter(([key]) => key.startsWith('x-')));
+            return Object.keys(extensions).length > 0 ? extensions : undefined;
         }
     } catch {
         return undefined;
@@ -1725,6 +2501,42 @@ function extractOperationServers(bodyText: string): ServerObject[] | undefined {
         }
     } catch {
         return undefined;
+    }
+
+    return undefined;
+}
+
+function extractJsonObject(text: string, startIndex: number): string | undefined {
+    let depth = 0;
+    let inString = false;
+    let escaping = false;
+    let objectStart = -1;
+
+    for (let i = startIndex; i < text.length; i++) {
+        const char = text[i];
+        if (escaping) {
+            escaping = false;
+            continue;
+        }
+        if (char === '\\\\') {
+            escaping = true;
+            continue;
+        }
+        if (char === '"') {
+            inString = !inString;
+            continue;
+        }
+        if (inString) continue;
+
+        if (char === '{') {
+            if (depth === 0) objectStart = i;
+            depth += 1;
+        } else if (char === '}') {
+            depth -= 1;
+            if (depth === 0 && objectStart !== -1) {
+                return text.substring(objectStart, i + 1);
+            }
+        }
     }
 
     return undefined;
@@ -1779,19 +2591,51 @@ function buildParameters(params: ReverseParam[], schemaNames?: Set<string>): Par
     return params
         .filter(p => p.in !== 'body' && p.in !== 'formData')
         .map(p => {
+            const contentEncoding =
+                p.contentEncoding ??
+                (p.contentEncoderConfig && typeof p.contentEncoderConfig.contentEncoding === 'string'
+                    ? p.contentEncoderConfig.contentEncoding
+                    : undefined);
+            const contentMediaType =
+                p.contentMediaType ??
+                (p.contentEncoderConfig && typeof p.contentEncoderConfig.contentMediaType === 'string'
+                    ? p.contentEncoderConfig.contentMediaType
+                    : undefined);
+
             if (p.in === 'querystring') {
                 const contentType =
-                    p.contentType ?? (p.serialization === 'json' ? 'application/json' : 'application/x-www-form-urlencoded');
-                const contentEntry: { schema: SwaggerDefinition; encoding?: Record<string, any> } = {
+                    p.contentType ??
+                    (p.serialization === 'json' ? 'application/json' : 'application/x-www-form-urlencoded');
+                const contentEntry: {
+                    schema: SwaggerDefinition;
+                    encoding?: Record<string, any>;
+                    example?: unknown;
+                    examples?: Record<string, ExampleObject>;
+                } = {
                     schema: typeHintToSchema(p.typeHint, schemaNames) ?? {},
                 };
+                if (contentEncoding) {
+                    contentEntry.schema.contentEncoding = contentEncoding;
+                }
+                if (contentMediaType) {
+                    contentEntry.schema.contentMediaType = contentMediaType;
+                }
                 if (p.encoding) {
                     contentEntry.encoding = p.encoding;
+                }
+                if (p.example !== undefined) {
+                    const wrapped = unwrapExampleCarrier(p.example);
+                    if (wrapped) {
+                        contentEntry.examples = { example: wrapped };
+                    } else {
+                        contentEntry.example = p.example;
+                    }
                 }
                 return {
                     name: p.name,
                     in: 'querystring' as Parameter['in'],
                     required: p.required,
+                    ...(p.description ? { description: p.description } : {}),
                     content: {
                         [contentType]: contentEntry,
                     },
@@ -1799,16 +2643,36 @@ function buildParameters(params: ReverseParam[], schemaNames?: Set<string>): Par
             }
 
             if (p.contentType) {
-                const contentEntry: { schema: SwaggerDefinition; encoding?: Record<string, any> } = {
+                const contentEntry: {
+                    schema: SwaggerDefinition;
+                    encoding?: Record<string, any>;
+                    example?: unknown;
+                    examples?: Record<string, ExampleObject>;
+                } = {
                     schema: typeHintToSchema(p.typeHint, schemaNames) ?? {},
                 };
+                if (contentEncoding) {
+                    contentEntry.schema.contentEncoding = contentEncoding;
+                }
+                if (contentMediaType) {
+                    contentEntry.schema.contentMediaType = contentMediaType;
+                }
                 if (p.encoding) {
                     contentEntry.encoding = p.encoding;
+                }
+                if (p.example !== undefined) {
+                    const wrapped = unwrapExampleCarrier(p.example);
+                    if (wrapped) {
+                        contentEntry.examples = { example: wrapped };
+                    } else {
+                        contentEntry.example = p.example;
+                    }
                 }
                 return {
                     name: p.name,
                     in: p.in as Parameter['in'],
                     required: p.in === 'path' ? true : p.required,
+                    ...(p.description ? { description: p.description } : {}),
                     content: {
                         [p.contentType]: contentEntry,
                     },
@@ -1821,10 +2685,25 @@ function buildParameters(params: ReverseParam[], schemaNames?: Set<string>): Par
                 required: p.in === 'path' ? true : p.required,
                 schema: typeHintToSchema(p.typeHint, schemaNames) ?? {},
             };
+            if (contentEncoding) {
+                (param.schema as SwaggerDefinition).contentEncoding = contentEncoding;
+            }
+            if (contentMediaType) {
+                (param.schema as SwaggerDefinition).contentMediaType = contentMediaType;
+            }
+            if (p.description) param.description = p.description;
             if (p.style !== undefined) param.style = p.style;
             if (p.explode !== undefined) param.explode = p.explode;
             if (p.allowReserved !== undefined) param.allowReserved = p.allowReserved;
             if (p.allowEmptyValue !== undefined) param.allowEmptyValue = p.allowEmptyValue;
+            if (p.example !== undefined) {
+                const wrapped = unwrapExampleCarrier(p.example);
+                if (wrapped) {
+                    param.examples = { example: wrapped };
+                } else {
+                    param.example = p.example;
+                }
+            }
             return param;
         });
 }
@@ -1836,21 +2715,79 @@ function buildRequestBody(operation: ReverseOperation, schemaNames?: Set<string>
 
     const requiredNames = [...bodyParams, ...formDataParams].filter(p => p.required).map(p => p.name);
     const schema: SwaggerDefinition = buildRequestSchema(bodyParams, formDataParams, schemaNames);
+    const description = inferRequestBodyDescription(bodyParams, formDataParams);
+    const urlEncodedEncoding = operation.requestEncoding?.urlencoded;
+    const multipartEncoding = operation.requestEncoding?.multipart;
 
     const mediaTypes = operation.requestMediaTypes.length > 0 ? operation.requestMediaTypes : ['application/json'];
-    const content: Record<string, { schema?: SwaggerDefinition; itemSchema?: SwaggerDefinition }> = {};
+    const content: Record<
+        string,
+        {
+            schema?: SwaggerDefinition;
+            itemSchema?: SwaggerDefinition;
+            encoding?: Record<string, any>;
+            prefixEncoding?: any[];
+            itemEncoding?: any;
+        }
+    > = {};
     mediaTypes.forEach(mt => {
         if (isSequentialMediaType(mt)) {
-            content[mt] = { itemSchema: normalizeSequentialSchema(schema) };
+            const entry: {
+                itemSchema: SwaggerDefinition;
+                encoding?: Record<string, any>;
+                prefixEncoding?: any[];
+                itemEncoding?: any;
+            } = {
+                itemSchema: normalizeSequentialSchema(schema),
+            };
+            applyRequestEncoding(entry, mt, urlEncodedEncoding, multipartEncoding);
+            content[mt] = entry;
         } else {
-            content[mt] = { schema };
+            const entry: {
+                schema: SwaggerDefinition;
+                encoding?: Record<string, any>;
+                prefixEncoding?: any[];
+                itemEncoding?: any;
+            } = {
+                schema,
+            };
+            applyRequestEncoding(entry, mt, urlEncodedEncoding, multipartEncoding);
+            content[mt] = entry;
         }
     });
 
+    if (operation.requestExamples && Object.keys(operation.requestExamples).length > 0) {
+        Object.entries(content).forEach(([mediaType, entry]) => {
+            const example = operation.requestExamples?.[mediaType] ?? operation.requestExamples?.['*'];
+            if (example !== undefined) {
+                const wrapped = unwrapExampleCarrier(example);
+                if (wrapped) {
+                    (entry as { examples?: Record<string, ExampleObject> }).examples = { example: wrapped };
+                } else {
+                    (entry as { example?: unknown }).example = example;
+                }
+            }
+        });
+    }
+
     return {
+        ...(description ? { description } : {}),
         required: requiredNames.length > 0 ? true : undefined,
         content,
     };
+}
+
+function inferRequestBodyDescription(bodyParams: ReverseParam[], formDataParams: ReverseParam[]): string | undefined {
+    const descriptions = [...bodyParams, ...formDataParams]
+        .map(param => param.description)
+        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        .map(value => value.trim());
+
+    if (descriptions.length === 0) return undefined;
+
+    const unique = Array.from(new Set(descriptions));
+    if (unique.length === 1) return unique[0];
+    return unique.join('; ');
 }
 
 function buildRequestSchema(
@@ -1884,8 +2821,28 @@ function buildResponses(
     responseTypeHint?: string,
     schemaNames?: Set<string>,
     responseHints?: ReverseResponseHint[],
+    responseExamples?: Record<string, Record<string, unknown>>,
 ): Record<string, SwaggerResponse> {
     const schema = typeHintToSchema(responseTypeHint, schemaNames);
+
+    const applyExamples = (responses: Record<string, SwaggerResponse>) => {
+        if (!responseExamples) return;
+        Object.entries(responseExamples).forEach(([status, examples]) => {
+            const response = responses[status];
+            if (!response?.content) return;
+            Object.entries(response.content).forEach(([mediaType, entry]) => {
+                const example = examples[mediaType] ?? examples['*'];
+                if (example !== undefined) {
+                    const wrapped = unwrapExampleCarrier(example);
+                    if (wrapped) {
+                        (entry as { examples?: Record<string, ExampleObject> }).examples = { example: wrapped };
+                    } else {
+                        (entry as { example?: unknown }).example = example;
+                    }
+                }
+            });
+        });
+    };
 
     if (responseHints && responseHints.length > 0) {
         const responses: Record<string, SwaggerResponse> = {};
@@ -1894,6 +2851,7 @@ function buildResponses(
             if (!status) return;
 
             const response: SwaggerResponse = {
+                ...(hint.summary ? { summary: hint.summary } : {}),
                 description:
                     hint.description ??
                     (status === 'default' ? 'Default response' : /^2\d{2}$/.test(status) ? 'Success' : 'Response'),
@@ -1914,7 +2872,10 @@ function buildResponses(
             responses[status] = response;
         });
 
-        if (Object.keys(responses).length > 0) return responses;
+        if (Object.keys(responses).length > 0) {
+            applyExamples(responses);
+            return responses;
+        }
     }
 
     const response: SwaggerResponse = { description: 'Success' };
@@ -1930,7 +2891,9 @@ function buildResponses(
         });
     }
 
-    return { '200': response };
+    const responses = { '200': response };
+    applyExamples(responses);
+    return responses;
 }
 
 function typeHintToSchema(
@@ -1963,8 +2926,7 @@ function typeHintToSchema(
         return { type: 'array', items: itemSchema };
     }
 
-    const arrayInner =
-        extractGenericArg(cleaned, 'Array') || extractGenericArg(cleaned, 'ReadonlyArray');
+    const arrayInner = extractGenericArg(cleaned, 'Array') || extractGenericArg(cleaned, 'ReadonlyArray');
     if (arrayInner) {
         const itemSchema = typeHintToSchema(arrayInner, schemaNames, depth + 1) ?? {};
         return { type: 'array', items: itemSchema };
@@ -2022,7 +2984,16 @@ function stripOuterParens(typeText: string): string {
 }
 
 function unwrapKnownWrappers(typeText: string): string {
-    const wrappers = ['Observable', 'Promise', 'HttpResponse', 'HttpEvent', 'Partial', 'Readonly', 'Required', 'NonNullable'];
+    const wrappers = [
+        'Observable',
+        'Promise',
+        'HttpResponse',
+        'HttpEvent',
+        'Partial',
+        'Readonly',
+        'Required',
+        'NonNullable',
+    ];
     let current = typeText.trim();
     let changed = true;
 
@@ -2110,6 +3081,28 @@ function normalizeSequentialSchema(schema: SwaggerDefinition): SwaggerDefinition
     return schema;
 }
 
+function applyRequestEncoding(
+    entry: {
+        encoding?: Record<string, any>;
+        prefixEncoding?: any[];
+        itemEncoding?: any;
+    },
+    mediaType: string,
+    urlEncodedEncoding?: Record<string, any>,
+    multipartConfig?: ReverseMultipartConfig,
+): void {
+    const normalized = mediaType.split(';')[0]?.trim().toLowerCase();
+    if (normalized === 'application/x-www-form-urlencoded' && urlEncodedEncoding) {
+        entry.encoding = urlEncodedEncoding;
+        return;
+    }
+    if (normalized && normalized.startsWith('multipart/') && multipartConfig) {
+        if (multipartConfig.encoding) entry.encoding = multipartConfig.encoding;
+        if (multipartConfig.prefixEncoding) entry.prefixEncoding = multipartConfig.prefixEncoding;
+        if (multipartConfig.itemEncoding) entry.itemEncoding = multipartConfig.itemEncoding;
+    }
+}
+
 function parseConfigName(config: string): string | undefined {
     try {
         const parsed = JSON.parse(config) as { name?: string };
@@ -2127,6 +3120,34 @@ function resolveReverseRoot(inputPath: string, fileSystem: ReverseFileSystem): s
     if (stat.isDirectory()) return inputPath;
     if (stat.isFile()) return path.dirname(inputPath);
     throw new Error(`Input path is neither a file nor a directory: ${inputPath}`);
+}
+
+function inferSelfUri(rootDir: string, fileSystem: ReverseFileSystem): string {
+    const candidates = [
+        'openapi.yaml',
+        'openapi.yml',
+        'openapi.json',
+        'openapi.snapshot.yaml',
+        'openapi.snapshot.yml',
+        'openapi.snapshot.json',
+    ];
+    for (const name of candidates) {
+        const candidate = path.resolve(rootDir, name);
+        if (fileExists(candidate, fileSystem)) {
+            return safePathToFileURL(candidate);
+        }
+    }
+    const fallback = path.resolve(rootDir, 'openapi.yaml');
+    return safePathToFileURL(fallback);
+}
+
+function safePathToFileURL(filePath: string): string {
+    try {
+        return pathToFileURL(filePath).href;
+    } catch {
+        const normalized = filePath.replace(/\\/g, '/');
+        return `file://${normalized.startsWith('/') ? '' : '/'}${normalized}`;
+    }
 }
 
 function findUpFile(startDir: string, relativePath: string, fileSystem: ReverseFileSystem): string | undefined {

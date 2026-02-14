@@ -74,6 +74,36 @@ describe('Analysis: validation.analyzer', () => {
         expect(rules).toContainEqual({ type: 'maxItems', value: 5 });
     });
 
+    it('should map contains/minContains/maxContains constraints', () => {
+        const schema: SwaggerDefinition = {
+            type: 'array',
+            contains: { type: 'string' },
+            minContains: 2,
+            maxContains: 4,
+        };
+        const rules = analyzeValidationRules(schema);
+        expect(rules).toContainEqual({ type: 'contains', schema: { type: 'string' }, min: 2, max: 4 });
+    });
+
+    it('should default minContains to 1 when contains is present', () => {
+        const schema: SwaggerDefinition = {
+            type: 'array',
+            contains: { type: 'number' },
+        };
+        const rules = analyzeValidationRules(schema);
+        expect(rules).toContainEqual({ type: 'contains', schema: { type: 'number' }, min: 1 });
+    });
+
+    it('should map object property count constraints', () => {
+        const schema: SwaggerDefinition = {
+            minProperties: 1,
+            maxProperties: 3,
+        };
+        const rules = analyzeValidationRules(schema);
+        expect(rules).toContainEqual({ type: 'minProperties', value: 1 });
+        expect(rules).toContainEqual({ type: 'maxProperties', value: 3 });
+    });
+
     it('should map required property (denormalized)', () => {
         const schema: any = { required: ['true'] }; // Logic checks if required exists/truthy
         expect(analyzeValidationRules(schema)).toContainEqual({ type: 'required' });

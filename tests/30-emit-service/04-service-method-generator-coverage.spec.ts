@@ -8,7 +8,11 @@ import { GeneratorConfig } from '@src/core/types/index.js';
 import { ServiceMethodModel } from '@src/analysis/service-method-types.js';
 
 describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
-    const config: GeneratorConfig = { input: '', output: '/out', options: { dateType: 'string', enumStyle: 'enum' } } as any;
+    const config: GeneratorConfig = {
+        input: '',
+        output: '/out',
+        options: { dateType: 'string', enumStyle: 'enum' },
+    } as any;
 
     it('should include docs when provided', () => {
         const project = new Project({ useInMemoryFileSystem: true });
@@ -50,6 +54,319 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
         expect(docs[0].getText()).toContain('Doc string');
     });
 
+    it('should emit @operationId when provided on the operation', () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const parser = new SwaggerParser(
+            { openapi: '3.0.0', info: { title: 'T', version: '1' }, paths: {} } as any,
+            config,
+        );
+        const generator = new ServiceMethodGenerator(config, parser);
+
+        const model: ServiceMethodModel = {
+            methodName: 'doThing',
+            httpMethod: 'GET',
+            urlTemplate: '/do',
+            docs: 'Doc string',
+            isDeprecated: false,
+            parameters: [],
+            responseType: 'string',
+            responseSerialization: 'json',
+            responseVariants: [
+                { mediaType: 'application/json', type: 'string', serialization: 'json', isDefault: true },
+            ],
+            errorResponses: [],
+            pathParams: [],
+            queryParams: [],
+            headerParams: [],
+            cookieParams: [],
+            security: [],
+            extensions: {},
+            hasServers: false,
+        };
+
+        const sourceFile = project.createSourceFile('/out/service.ts', '', { overwrite: true });
+        const classDeclaration = sourceFile.addClass({ name: 'TestService' });
+
+        vi.spyOn((generator as any).analyzer, 'analyze').mockReturnValue(model);
+        generator.addServiceMethod(classDeclaration, { methodName: 'doThing', operationId: 'getThing' } as any);
+
+        const docText = classDeclaration.getMethodOrThrow('doThing').getJsDocs()[0].getText();
+        expect(docText).toContain('@operationId getThing');
+    });
+
+    it('should emit operation metadata tags for reverse generation', () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const spec = {
+            openapi: '3.2.0',
+            info: { title: 'T', version: '1' },
+            paths: {
+                '/items': {
+                    get: {
+                        operationId: 'listItems',
+                        tags: ['items', 'admin'],
+                        externalDocs: {
+                            url: 'https://example.com/items',
+                            description: 'Item docs',
+                        },
+                        servers: [
+                            {
+                                url: 'https://api.example.com/v1',
+                                description: 'primary',
+                                name: 'prod',
+                                variables: {
+                                    region: { default: 'us' },
+                                },
+                            },
+                        ],
+                        security: [{ ApiKey: [] }],
+                        parameters: [
+                            {
+                                name: 'qs',
+                                in: 'querystring',
+                                required: true,
+                                description: 'Filter',
+                                content: {
+                                    'application/x-www-form-urlencoded': {
+                                        schema: { type: 'object' },
+                                    },
+                                },
+                            },
+                        ],
+                        'x-feature-flag': 'beta',
+                        responses: { '200': { description: 'ok' } },
+                    },
+                },
+            },
+        };
+        const parser = new SwaggerParser(spec as any, config);
+        const generator = new ServiceMethodGenerator(config, parser);
+
+        const model: ServiceMethodModel = {
+            methodName: 'listItems',
+            httpMethod: 'GET',
+            urlTemplate: '/items',
+            isDeprecated: false,
+            parameters: [],
+            responseType: 'string',
+            responseSerialization: 'json',
+            responseVariants: [
+                { mediaType: 'application/json', type: 'string', serialization: 'json', isDefault: true },
+            ],
+            errorResponses: [],
+            pathParams: [],
+            queryParams: [],
+            headerParams: [],
+            cookieParams: [],
+            security: [],
+            extensions: {},
+            hasServers: false,
+        };
+
+        const sourceFile = project.createSourceFile('/out/service.ts', '', { overwrite: true });
+        const classDeclaration = sourceFile.addClass({ name: 'TestService' });
+
+        vi.spyOn((generator as any).analyzer, 'analyze').mockReturnValue(model);
+        generator.addServiceMethod(classDeclaration, parser.operations[0]);
+
+        const docText = classDeclaration.getMethodOrThrow('listItems').getJsDocs()[0].getText();
+        expect(docText).toContain('@tags items, admin');
+        expect(docText).toContain('@see https://example.com/items Item docs');
+        expect(docText).toContain('@server [{"url":"https://api.example.com/v1"');
+        expect(docText).toContain('@security [{"ApiKey":[]}'); // order stable via JSON.stringify
+        expect(docText).toContain('@x-feature-flag "beta"');
+        expect(docText).toContain(
+            '@querystring {"name":"qs","contentType":"application/x-www-form-urlencoded","required":true,"description":"Filter"}',
+        );
+    });
+
+    it('should emit example tags for parameters, request bodies, and responses', () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const spec = {
+            openapi: '3.2.0',
+            info: { title: 'T', version: '1' },
+            paths: {
+                '/items/{id}': {
+                    post: {
+                        operationId: 'createItem',
+                        parameters: [
+                            {
+                                name: 'id',
+                                in: 'path',
+                                required: true,
+                                example: 'abc',
+                                schema: { type: 'string' },
+                            },
+                            {
+                                name: 'limit',
+                                in: 'query',
+                                example: 10,
+                                schema: { type: 'integer' },
+                            },
+                        ],
+                        requestBody: {
+                            content: {
+                                'application/json': {
+                                    example: { name: 'Widget' },
+                                },
+                            },
+                        },
+                        responses: {
+                            '200': {
+                                description: 'ok',
+                                content: {
+                                    'application/json': {
+                                        example: { id: 1 },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        };
+        const parser = new SwaggerParser(spec as any, config);
+        const generator = new ServiceMethodGenerator(config, parser);
+
+        const model: ServiceMethodModel = {
+            methodName: 'createItem',
+            httpMethod: 'POST',
+            urlTemplate: '/items/{id}',
+            isDeprecated: false,
+            parameters: [
+                { name: 'id', type: 'string' },
+                { name: 'limit', type: 'number', hasQuestionToken: true },
+                { name: 'body', type: 'any' },
+            ],
+            responseType: 'string',
+            responseSerialization: 'json',
+            responseVariants: [
+                { mediaType: 'application/json', type: 'string', serialization: 'json', isDefault: true },
+            ],
+            errorResponses: [],
+            pathParams: [],
+            queryParams: [],
+            headerParams: [],
+            cookieParams: [],
+            security: [],
+            extensions: {},
+            hasServers: false,
+        };
+
+        const sourceFile = project.createSourceFile('/out/service.ts', '', { overwrite: true });
+        const classDeclaration = sourceFile.addClass({ name: 'TestService' });
+
+        vi.spyOn((generator as any).analyzer, 'analyze').mockReturnValue(model);
+        generator.addServiceMethod(classDeclaration, parser.operations[0]);
+
+        const docText = classDeclaration.getMethodOrThrow('createItem').getJsDocs()[0].getText();
+        expect(docText).toContain('@paramExample id "abc"');
+        expect(docText).toContain('@paramExample limit 10');
+        expect(docText).toContain('@requestExample application/json {"name":"Widget"}');
+        expect(docText).toContain('@responseExample 200 application/json {"id":1}');
+    });
+
+    it('should prefer serializedValue examples for non-JSON media types', () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const spec = {
+            openapi: '3.2.0',
+            info: { title: 'T', version: '1' },
+            paths: {
+                '/text': {
+                    get: {
+                        operationId: 'getText',
+                        responses: {
+                            '200': {
+                                description: 'ok',
+                                content: {
+                                    'text/plain': {
+                                        examples: {
+                                            sample: {
+                                                dataValue: 'raw-value',
+                                                serializedValue: 'SERIALIZED-VALUE',
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            components: {},
+        };
+        const parser = new SwaggerParser(spec as any, config);
+        const generator = new ServiceMethodGenerator(config, parser);
+
+        const model: ServiceMethodModel = {
+            methodName: 'getText',
+            httpMethod: 'GET',
+            urlTemplate: '/text',
+            isDeprecated: false,
+            parameters: [],
+            responseType: 'string',
+            responseSerialization: 'text',
+            responseVariants: [{ mediaType: 'text/plain', type: 'string', serialization: 'text', isDefault: true }],
+            errorResponses: [],
+            pathParams: [],
+            queryParams: [],
+            headerParams: [],
+            cookieParams: [],
+            security: [],
+            extensions: {},
+            hasServers: false,
+        };
+
+        const sourceFile = project.createSourceFile('/out/service.ts', '', { overwrite: true });
+        const classDeclaration = sourceFile.addClass({ name: 'TestService' });
+
+        vi.spyOn((generator as any).analyzer, 'analyze').mockReturnValue(model);
+        generator.addServiceMethod(classDeclaration, parser.operations[0]);
+
+        const docText = classDeclaration.getMethodOrThrow('getText').getJsDocs()[0].getText();
+        expect(docText).toContain('@responseExample 200 text/plain "SERIALIZED-VALUE"');
+        expect(docText).not.toContain('@responseExample 200 text/plain "raw-value"');
+    });
+
+    it('should widen return type when multiple success response types exist', () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const parser = new SwaggerParser(
+            { openapi: '3.2.0', info: { title: 'T', version: '1' }, paths: {} } as any,
+            config,
+        );
+        const generator = new ServiceMethodGenerator(config, parser);
+
+        const model: ServiceMethodModel = {
+            methodName: 'getMulti',
+            httpMethod: 'GET',
+            urlTemplate: '/multi',
+            isDeprecated: false,
+            parameters: [],
+            responseType: 'string',
+            responseSerialization: 'json',
+            responseVariants: [
+                { mediaType: 'application/json', type: 'string', serialization: 'json', isDefault: true },
+                { mediaType: 'application/json', type: 'number', serialization: 'json', isDefault: false },
+            ],
+            errorResponses: [],
+            pathParams: [],
+            queryParams: [],
+            headerParams: [],
+            cookieParams: [],
+            security: [],
+            extensions: {},
+            hasServers: false,
+        };
+
+        const sourceFile = project.createSourceFile('/out/service.ts', '', { overwrite: true });
+        const classDeclaration = sourceFile.addClass({ name: 'TestService' });
+
+        vi.spyOn((generator as any).analyzer, 'analyze').mockReturnValue(model);
+        generator.addServiceMethod(classDeclaration, { methodName: 'getMulti' } as any);
+
+        const returnType = classDeclaration.getMethodOrThrow('getMulti').getReturnType().getText();
+        expect(returnType).toContain('Observable<string | number>');
+    });
+
     it('should emit @response tags when responses are defined', () => {
         const project = new Project({ useInMemoryFileSystem: true });
         const parser = new SwaggerParser(
@@ -88,6 +405,7 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
             methodName: 'withResponses',
             responses: {
                 '200': {
+                    summary: 'Success payload',
                     description: 'OK',
                     content: {
                         'application/json': { schema: { type: 'string' } },
@@ -104,6 +422,7 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
         expect(docText).toContain('@response 200 application/json OK');
         expect(docText).toContain('@response 200 text/plain OK');
         expect(docText).toContain('@response 404 Not found');
+        expect(docText).toContain('@responseSummary 200 Success payload');
     });
 
     it('should omit docs when none are provided', () => {
@@ -341,6 +660,38 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
         expect(body).not.toContain("? 'text' :");
     });
 
+    it('should default responseType to blob for binary responses', () => {
+        const parser = new SwaggerParser(
+            { openapi: '3.2.0', info: { title: 'T', version: '1' }, paths: {} } as any,
+            config,
+        );
+        const generator = new ServiceMethodGenerator(config, parser);
+
+        const model: ServiceMethodModel = {
+            methodName: 'download',
+            httpMethod: 'GET',
+            urlTemplate: '/download',
+            isDeprecated: false,
+            parameters: [],
+            responseType: 'Blob',
+            responseSerialization: 'blob',
+            responseVariants: [{ mediaType: 'application/pdf', type: 'Blob', serialization: 'blob', isDefault: true }],
+            errorResponses: [],
+            pathParams: [],
+            queryParams: [],
+            headerParams: [],
+            cookieParams: [],
+            security: [],
+            extensions: {},
+            hasServers: false,
+        };
+
+        const rawOp = { path: '/download', method: 'GET' } as any;
+        const body = (generator as any).emitMethodBody(model, rawOp, false, false);
+
+        expect(body).toContain("responseType: 'blob'");
+    });
+
     it('should leave body null for unsupported body types', () => {
         const parser = new SwaggerParser(
             { openapi: '3.0.0', info: { title: 'T', version: '1' }, paths: {} } as any,
@@ -419,14 +770,9 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
         );
         const generator = new ServiceMethodGenerator(config, parser);
 
-        const overloads = (generator as any).emitOverloads(
-            'doThing',
-            '',
-            [],
-            false,
-            false,
-            [{ mediaType: 'application/json', type: 'any', serialization: 'json', isDefault: true }],
-        );
+        const overloads = (generator as any).emitOverloads('doThing', '', [], false, false, [
+            { mediaType: 'application/json', type: 'any', serialization: 'json', isDefault: true },
+        ]);
         expect(overloads[0].returnType).toContain('unknown');
     });
 });

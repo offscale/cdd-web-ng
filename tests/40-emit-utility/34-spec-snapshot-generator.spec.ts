@@ -11,7 +11,7 @@ const snapshotSpec: SwaggerSpec = {
 };
 
 describe('Emitter: SpecSnapshotGenerator', () => {
-    it('should emit JSON and YAML snapshot files', () => {
+    it('should emit JSON and YAML snapshot files', async () => {
         const project = createTestProject();
         const config: GeneratorConfig = {
             input: '',
@@ -26,8 +26,8 @@ describe('Emitter: SpecSnapshotGenerator', () => {
         const jsonPath = '/out/openapi.snapshot.json';
         const yamlPath = '/out/openapi.snapshot.yaml';
 
-        expect(fs.fileExists(jsonPath)).toBe(true);
-        expect(fs.fileExists(yamlPath)).toBe(true);
+        expect(await fs.fileExists(jsonPath)).toBe(true);
+        expect(await fs.fileExists(yamlPath)).toBe(true);
 
         const jsonPayload = fs.readFileSync(jsonPath);
         const parsed = JSON.parse(jsonPayload);

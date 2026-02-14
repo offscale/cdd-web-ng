@@ -20,6 +20,7 @@ const tagsSpec: SwaggerSpec = {
             summary: 'Pet Operations',
             description: 'Everything about your Pets',
             kind: 'resource',
+            'x-audience': 'internal',
             externalDocs: {
                 description: 'Find out more',
                 url: 'http://swagger.io',
@@ -59,6 +60,7 @@ describe('Emitter: TagGenerator', () => {
         expect(API_TAGS[0].name).toBe('Pet');
         expect(API_TAGS[0].summary).toBe('Pet Operations');
         expect(API_TAGS[0].kind).toBe('resource');
+        expect(API_TAGS[0]['x-audience']).toBe('internal');
         expect(API_TAGS[0].externalDocs.url).toBe('http://swagger.io');
     });
 

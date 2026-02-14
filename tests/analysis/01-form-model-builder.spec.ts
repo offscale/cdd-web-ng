@@ -138,6 +138,37 @@ describe('Analysis: FormModelBuilder', () => {
         expect(mapControl?.mapValueControl?.dataType).toContain('number');
     });
 
+    it('should extract keyPattern and length constraints from propertyNames when patternProperties are absent', () => {
+        const spec = {
+            openapi: '3.1.0',
+            info: { title: 'Property Names Map', version: '1.0' },
+            components: {
+                schemas: {
+                    TestResource: {
+                        type: 'object',
+                        properties: {
+                            headerMap: {
+                                type: 'object',
+                                propertyNames: { pattern: '^x-', minLength: 2, maxLength: 10 },
+                                additionalProperties: { type: 'string' },
+                            },
+                        },
+                    },
+                },
+            },
+        };
+        const { builder, resource } = setup(spec);
+        const result = builder.build(resource);
+
+        const mapControl = result.topLevelControls.find(c => c.name === 'headerMap');
+        expect(mapControl).toBeDefined();
+        expect(mapControl?.controlType).toBe('map');
+        expect(mapControl?.keyPattern).toBe('^x-');
+        expect(mapControl?.keyMinLength).toBe(2);
+        expect(mapControl?.keyMaxLength).toBe(10);
+        expect(mapControl?.mapValueControl?.dataType).toContain('string');
+    });
+
     it('should extract dependentSchemas logic into dependencyRules', () => {
         const spec = {
             openapi: '3.1.0',
@@ -170,6 +201,37 @@ describe('Analysis: FormModelBuilder', () => {
         expect(rules.length).toBe(2);
         expect(rules.some(r => r.targetField === 'cvv')).toBe(true);
         expect(rules.some(r => r.targetField === 'billingAddress')).toBe(true);
+        expect(rules[0].type).toBe('required');
+    });
+
+    it('should extract dependentRequired logic into dependencyRules', () => {
+        const spec = {
+            openapi: '3.1.0',
+            info: { title: 'Deps', version: '1.0' },
+            components: {
+                schemas: {
+                    TestResource: {
+                        type: 'object',
+                        properties: {
+                            hasPhone: { type: 'boolean' },
+                            phoneNumber: { type: 'string' },
+                            phoneExtension: { type: 'string' },
+                        },
+                        dependentRequired: {
+                            hasPhone: ['phoneNumber', 'phoneExtension'],
+                        },
+                    },
+                },
+            },
+        };
+
+        const { builder, resource } = setup(spec);
+        const result = builder.build(resource);
+
+        const rules = result.dependencyRules.filter(r => r.triggerField === 'hasPhone');
+        expect(rules.length).toBe(2);
+        expect(rules.some(r => r.targetField === 'phoneNumber')).toBe(true);
+        expect(rules.some(r => r.targetField === 'phoneExtension')).toBe(true);
         expect(rules[0].type).toBe('required');
     });
 
@@ -219,6 +281,50 @@ describe('Analysis: FormModelBuilder', () => {
         expect(result.usesCustomValidators).toBe(true);
     });
 
+    it('should set usesCustomValidators flag for contains rules', () => {
+        const spec = {
+            openapi: '3.1.0',
+            info: { title: 'Test', version: '1.0' },
+            components: {
+                schemas: {
+                    TestResource: {
+                        type: 'object',
+                        properties: {
+                            tags: {
+                                type: 'array',
+                                contains: { type: 'string' },
+                                minContains: 1,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+        const { builder, resource } = setup(spec);
+        const result = builder.build(resource);
+        expect(result.usesCustomValidators).toBe(true);
+    });
+
+    it('should set usesCustomValidators flag for const rules', () => {
+        const spec = {
+            openapi: '3.1.0',
+            info: { title: 'Test', version: '1.0' },
+            components: {
+                schemas: {
+                    TestResource: {
+                        type: 'object',
+                        properties: {
+                            status: { type: 'string', const: 'active' },
+                        },
+                    },
+                },
+            },
+        };
+        const { builder, resource } = setup(spec);
+        const result = builder.build(resource);
+        expect(result.usesCustomValidators).toBe(true);
+    });
+
     it('should handle polymorphic oneOf referencing only primitive types', () => {
         const spec = {
             openapi: '3.0.0',
@@ -232,6 +338,8 @@ describe('Analysis: FormModelBuilder', () => {
                                 description: 'Polymorphic primitive value',
                                 oneOf: [{ type: 'string' }, { type: 'number' }],
                                 discriminator: { propertyName: 'type' },
+                                properties: { type: { type: 'string' } },
+                                required: ['type'],
                             },
                         },
                     },
@@ -270,6 +378,8 @@ describe('Analysis: FormModelBuilder', () => {
                                     // Valid item that should be processed
                                     { $ref: '#/components/schemas/ValidSub' },
                                 ],
+                                properties: { type: { type: 'string' } },
+                                required: ['type'],
                             },
                         },
                     },
@@ -366,6 +476,8 @@ describe('Analysis: FormModelBuilder', () => {
                             poly: {
                                 oneOf: [{ $ref: '#/components/schemas/Sub' }],
                                 discriminator: { propertyName: 'type' },
+                                properties: { type: { type: 'string' } },
+                                required: ['type'],
                             },
                         },
                     },
@@ -483,6 +595,8 @@ describe('Analysis: FormModelBuilder', () => {
                 schemas: {
                     Poly: {
                         oneOf: [{ $ref: '#/components/schemas/Sub' }],
+                        properties: { type: { type: 'string' } },
+                        required: ['type'],
                         discriminator: {
                             propertyName: 'type',
                             mapping: { mapped: '#/components/schemas/Sub' },
@@ -599,6 +713,8 @@ describe('Analysis: FormModelBuilder', () => {
                     Poly: {
                         oneOf: [{ $ref: '#/components/schemas/Sub' }],
                         discriminator: { propertyName: 'type' },
+                        properties: { type: { type: 'string' } },
+                        required: ['type'],
                     },
                     Base: {
                         type: 'object',
@@ -633,6 +749,8 @@ describe('Analysis: FormModelBuilder', () => {
                     Poly: {
                         oneOf: [{ $ref: '#/components/schemas/Sub' }],
                         discriminator: { propertyName: 'type' },
+                        properties: { type: { type: 'string' } },
+                        required: ['type'],
                     },
                     Empty: {
                         type: 'object',
@@ -691,6 +809,8 @@ describe('Analysis: FormModelBuilder', () => {
                     Poly: {
                         oneOf: [{ $ref: '#/components/schemas/Sub' }],
                         discriminator: { propertyName: 'type' },
+                        properties: { type: { type: 'string' } },
+                        required: ['type'],
                     },
                     Sub: {
                         allOf: [
@@ -746,6 +866,8 @@ describe('Analysis: FormModelBuilder', () => {
                     Poly: {
                         oneOf: [{ $ref: '#/components/schemas/Sub' }],
                         discriminator: { propertyName: 'type' },
+                        properties: { type: { type: 'string' } },
+                        required: ['type'],
                     },
                     Sub: {
                         type: 'object',
@@ -773,6 +895,8 @@ describe('Analysis: FormModelBuilder', () => {
                     Poly: {
                         oneOf: [{ $ref: '#/components/schemas/Sub' }],
                         discriminator: { propertyName: 'type' },
+                        properties: { type: { type: 'string' } },
+                        required: ['type'],
                     },
                     Sub: {
                         type: 'object',
@@ -826,6 +950,8 @@ describe('Analysis: FormModelBuilder', () => {
                             payload: {
                                 oneOf: [{ $ref: '#/components/schemas/Car' }, { $ref: '#/components/schemas/Plane' }],
                                 discriminator: { propertyName: 'type' },
+                                properties: { type: { type: 'string' } },
+                                required: ['type'],
                             },
                         },
                     },

@@ -39,5 +39,15 @@ describe('Core Utils: String', () => {
             expect(utils.isUrl('https://example.com')).toBe(true);
             expect(utils.isUrl('not-a-url')).toBe(false);
         });
+
+        it('should detect URI references', () => {
+            expect(utils.isUriReference('#/components/securitySchemes/ApiKey')).toBe(true);
+            expect(utils.isUriReference('./ApiKey')).toBe(true);
+            expect(utils.isUriReference('../security.json#/ApiKey')).toBe(true);
+            expect(utils.isUriReference('https://example.com/schemes.json#/ApiKey')).toBe(true);
+            expect(utils.isUriReference('urn:example:security:ApiKey')).toBe(true);
+            expect(utils.isUriReference('ApiKey')).toBe(false);
+            expect(utils.isUriReference('api_key')).toBe(false);
+        });
     });
 });

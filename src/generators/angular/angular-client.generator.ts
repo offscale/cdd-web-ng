@@ -55,7 +55,9 @@ import { SecurityGenerator } from '@src/generators/shared/security.generator.js'
 import { TagGenerator } from '@src/generators/shared/tag.generator.js';
 import { ExamplesGenerator } from '@src/generators/shared/examples.generator.js';
 import { MediaTypesGenerator } from '@src/generators/shared/media-types.generator.js';
+import { PathsGenerator } from '@src/generators/shared/paths.generator.js';
 import { PathItemsGenerator } from '@src/generators/shared/path-items.generator.js';
+import { HeadersGenerator } from '@src/generators/shared/headers.generator.js';
 import { ParametersGenerator } from '@src/generators/shared/parameters.generator.js';
 import { RequestBodiesGenerator } from '@src/generators/shared/request-bodies.generator.js';
 import { ResponsesGenerator } from '@src/generators/shared/responses.generator.js';
@@ -105,7 +107,9 @@ export class AngularClientGenerator extends AbstractClientGenerator {
         new TagGenerator(parser, project).generate(outputRoot);
         new ExamplesGenerator(parser, project).generate(outputRoot);
         new MediaTypesGenerator(parser, project).generate(outputRoot);
+        new PathsGenerator(parser, project).generate(outputRoot);
         new PathItemsGenerator(parser, project).generate(outputRoot);
+        new HeadersGenerator(parser, project).generate(outputRoot);
         new ParametersGenerator(parser, project).generate(outputRoot);
         new RequestBodiesGenerator(parser, project).generate(outputRoot);
         new ResponsesGenerator(parser, project).generate(outputRoot);

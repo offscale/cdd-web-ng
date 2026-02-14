@@ -7,6 +7,7 @@ export default defineConfig({
         globals: true,
         environment: 'node',
         include: ['tests/**/*.spec.ts'],
+        exclude: ['tests/fixtures/**'],
         testTimeout: 30000,
         reporters: ['verbose', 'junit'],
         alias: {

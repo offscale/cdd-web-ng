@@ -59,6 +59,21 @@ export function analyzeValidationRules(schema: SwaggerDefinition | boolean): Val
     if (schema.uniqueItems) rules.push({ type: 'uniqueItems' });
     if (schema.minItems) rules.push({ type: 'minItems', value: schema.minItems });
     if (schema.maxItems) rules.push({ type: 'maxItems', value: schema.maxItems });
+    if (schema.minProperties !== undefined) rules.push({ type: 'minProperties', value: schema.minProperties });
+    if (schema.maxProperties !== undefined) rules.push({ type: 'maxProperties', value: schema.maxProperties });
+
+    const hasContains = schema.contains !== undefined;
+    if (hasContains) {
+        const min = typeof schema.minContains === 'number' ? schema.minContains : 1;
+        const max = typeof schema.maxContains === 'number' ? schema.maxContains : undefined;
+        const containsSchema = schema.contains;
+        rules.push({
+            type: 'contains',
+            schema: containsSchema,
+            ...(min !== undefined ? { min } : {}),
+            ...(max !== undefined ? { max } : {}),
+        });
+    }
 
     // JSON Schema 'not' keyword (Inverse validation)
     if (schema.not) {

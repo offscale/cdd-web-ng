@@ -1,3 +1,5 @@
+// tests/fixtures/ast/express.routes.ts
+
 const app = {
     get: (..._args: any[]) => {
         void _args;
@@ -31,7 +33,7 @@ const router = {
         };
     },
 };
-type Request<Params = any, ResBody = any, ReqBody = any, ReqQuery = any> = {
+type Request<Params = any, _ResBody = any, ReqBody = any, ReqQuery = any> = {
     params: Params;
     query: ReqQuery;
     body: ReqBody;
@@ -78,6 +80,7 @@ app.get('/users/:id', getUser);
 
 router.route('/projects/:projectId').patch(function updateProject(req: any, res: any) {
     const { projectId } = req.params;
+    void projectId;
     res.type('application/xml').status(200).send('<ok/>');
 });
 

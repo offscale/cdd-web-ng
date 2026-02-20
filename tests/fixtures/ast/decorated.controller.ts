@@ -1,40 +1,44 @@
-function Controller(_path: string): ClassDecorator {
+// tests/fixtures/ast/decorated.controller.ts
+
+// Mocks to satisfy both runtime execution AND TypeScript static checks.
+// Uses 'any' to avoid strict signature mismatches with legacy experiment decorators.
+function Controller(_path: string): any {
     void _path;
     return () => {};
 }
 
-function Get(_path?: string): MethodDecorator {
+function Get(_path?: string): any {
     void _path;
     return () => {};
 }
 
-function Post(_path?: string): MethodDecorator {
+function Post(_path?: string): any {
     void _path;
     return () => {};
 }
 
-function Param(_name?: string): ParameterDecorator {
+function Param(_name?: string): any {
     void _name;
     return () => {};
 }
 
-function Query(_name?: string): ParameterDecorator;
-function Query(_path?: string): MethodDecorator;
-function Query(_arg?: string): ParameterDecorator | MethodDecorator {
+function Query(_name?: string): any;
+function Query(_path?: string): any;
+function Query(_arg?: string): any {
     void _arg;
     return () => {};
 }
 
-function Header(_name?: string): ParameterDecorator {
+function Header(_name?: string): any {
     void _name;
     return () => {};
 }
 
-function Body(): ParameterDecorator {
+function Body(): any {
     return () => {};
 }
 
-function HttpCode(_code: number): MethodDecorator {
+function HttpCode(_code: number): any {
     void _code;
     return () => {};
 }

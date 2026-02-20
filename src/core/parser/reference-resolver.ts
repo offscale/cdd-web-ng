@@ -241,22 +241,29 @@ export class ReferenceResolver {
 
         // 4. JSON Pointer Traversal
         let result: any = targetSpec;
-        if (fragment && fragment.startsWith('/')) {
-            const pointerParts = fragment.split('/').filter(p => p !== '');
-            for (const part of pointerParts) {
-                const decodedPart = part.replace(/~1/g, '/').replace(/~0/g, '~');
-                if (
-                    typeof result === 'object' &&
-                    result !== null &&
-                    Object.prototype.hasOwnProperty.call(result, decodedPart)
-                ) {
-                    result = result[decodedPart];
-                } else {
-                    console.warn(
-                        `[Parser] Failed to resolve reference part "${decodedPart}" in path "${ref}" within file ${targetUri}`,
-                    );
-                    return undefined;
+        if (fragment) {
+            if (fragment.startsWith('/')) {
+                const pointerParts = fragment.split('/').filter(p => p !== '');
+                for (const part of pointerParts) {
+                    const decodedPart = part.replace(/~1/g, '/').replace(/~0/g, '~');
+                    if (
+                        typeof result === 'object' &&
+                        result !== null &&
+                        Object.prototype.hasOwnProperty.call(result, decodedPart)
+                    ) {
+                        result = result[decodedPart];
+                    } else {
+                        console.warn(
+                            `[Parser] Failed to resolve reference part "${decodedPart}" in path "${ref}" within file ${targetUri}`,
+                        );
+                        return undefined;
+                    }
                 }
+            } else {
+                console.warn(
+                    `[Parser] Failed to resolve anchor "${fragment}" in path "${ref}" within file ${targetUri}`,
+                );
+                return undefined;
             }
         }
 

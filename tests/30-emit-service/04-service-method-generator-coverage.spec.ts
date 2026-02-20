@@ -323,8 +323,10 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
         generator.addServiceMethod(classDeclaration, parser.operations[0]);
 
         const docText = classDeclaration.getMethodOrThrow('getText').getJsDocs()[0].getText();
-        expect(docText).toContain('@responseExample 200 text/plain "SERIALIZED-VALUE"');
-        expect(docText).not.toContain('@responseExample 200 text/plain "raw-value"');
+        expect(docText).toContain(
+            '@responseExample 200 text/plain {"__oasExample":{"serializedValue":"SERIALIZED-VALUE"}}',
+        );
+        expect(docText).not.toContain('raw-value');
     });
 
     it('should widen return type when multiple success response types exist', () => {

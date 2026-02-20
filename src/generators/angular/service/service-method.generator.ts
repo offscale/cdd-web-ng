@@ -211,7 +211,7 @@ export class ServiceMethodGenerator {
                 const resolved = this.parser.resolve<SwaggerResponse>(response as any) ?? (response as SwaggerResponse);
                 if (!resolved?.content) return;
                 Object.entries(resolved.content).forEach(([mediaType, mediaObj]) => {
-                    const example = this.extractMediaTypeExample(mediaObj);
+                    const example = this.extractMediaTypeExample(mediaObj, mediaType);
                     const serialized = this.serializeExampleValue(example);
                     if (serialized !== undefined) {
                         tags.push(`@responseExample ${code} ${mediaType} ${serialized}`);
@@ -787,10 +787,10 @@ export class ServiceMethodGenerator {
         }
 
         let optionProperties = `
-  observe: options?.observe, 
-  reportProgress: options?.reportProgress, 
-  responseType: ${responseTypeVal}, 
-  withCredentials: options?.withCredentials, 
+  observe: options?.observe,
+  reportProgress: options?.reportProgress,
+  responseType: ${responseTypeVal},
+  withCredentials: options?.withCredentials,
   context: ${contextConstruction}`;
 
         if (standardQueryParams.length > 0) optionProperties += `,\n  params`;

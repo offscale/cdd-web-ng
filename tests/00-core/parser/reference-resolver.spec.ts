@@ -290,6 +290,7 @@ describe('Core: ReferenceResolver', () => {
         });
 
         it('should return undefined when dynamic anchor is not found in stack', () => {
+            const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
             cache.set('http://base/generic', { openapi: '3.0.0', paths: {} } as any);
             const resolved = resolver.resolveReference('#missing', 'http://base/generic', ['http://base/generic']);
             expect(resolved).toBeUndefined();

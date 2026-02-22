@@ -1,9 +1,17 @@
+// src/generators/angular/test/service-test-generator.ts
 import { Project, SourceFile } from 'ts-morph';
 
 import * as path from 'node:path';
 
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig, Parameter, PathInfo, SwaggerDefinition } from '@src/core/types/index.js';
+import {
+    GeneratorConfig,
+    Parameter,
+    PathInfo,
+    SwaggerDefinition,
+    ExampleObject,
+    ReferenceLike,
+} from '@src/core/types/index.js';
 import {
     camelCase,
     getBasePathTokenName,
@@ -14,28 +22,9 @@ import {
 
 import { MockDataGenerator } from './mock-data.generator.js';
 
-/**
- * Generates Angular unit tests (*.spec.ts) for the generated API services.
- *
- * This generator creates a suite of tests for each service that:
- * 1. Sets up the Angular TestBed with HttpClientTestingModule.
- * 2. Injects the service and HttpTestingController.
- * 3. Verifies that the service is created.
- * 4. Generates a test case for every operation (method) in the service.
- *    - Mocks the HTTP request.
- *    - Verifies the HTTP method and URL.
- *    - Returns mock data generated from the OpenAPI schema.
- *    - Verifies error handling (404 case).
- */
 export class ServiceTestGenerator {
     private mockDataGenerator: MockDataGenerator;
 
-    /**
-     * Initializes a new instance of the ServiceTestGenerator.
-     * @param parser The parsed OpenAPI specification.
-     * @param project The ts-morph Project to write files to.
-     * @param config The generation configuration.
-     */
     constructor(
         private readonly parser: SwaggerParser,
         private readonly project: Project,
@@ -44,13 +33,6 @@ export class ServiceTestGenerator {
         this.mockDataGenerator = new MockDataGenerator(parser);
     }
 
-    /**
-     * Generates a single service test file (e.g., `users.service.spec.ts`).
-     *
-     * @param controllerName The name of the controller/tag (e.g., 'Users').
-     * @param operations The list of operations belonging to this controller.
-     * @param outputDir The directory to save the file in.
-     */
     public generateServiceTestFile(controllerName: string, operations: PathInfo[], outputDir: string): void {
         const serviceName = `${pascalCase(controllerName)}Service`;
         const testFileName = `${camelCase(controllerName)}.service.spec.ts`;
@@ -91,13 +73,6 @@ export class ServiceTestGenerator {
         sourceFile.formatText();
     }
 
-    /**
-     * Generates individual `describe` and `it` blocks for every operation in the service.
-     *
-     * @param operations The operations to test.
-     * @returns An array of string statements representing the test code.
-     * @private
-     */
     private generateMethodTests(operations: PathInfo[]): string[] {
         const tests: string[] = [];
         const knownTypes = this.parser.schemas.map(s => s.name);
@@ -106,27 +81,22 @@ export class ServiceTestGenerator {
             if (!op.methodName) continue;
             const { responseModel, responseType, bodyModel, isPrimitiveBody } = this.getMethodTypes(op);
 
-            // Prepare mock parameters
-            const params = (op.parameters ?? []).map(p => {
+            const params = (op.parameters ?? []).map((p: Parameter) => {
                 const name = camelCase(p.name);
-                const type = getTypeScriptType(p.schema, this.config, knownTypes);
-                // Check if the parameter type is a generated model interface
+                const type = getTypeScriptType(p.schema as SwaggerDefinition, this.config, knownTypes);
                 const modelName = isDataTypeInterface(type.replace(/\[\]| \| null/g, ''))
                     ? type.replace(/\[\]| \| null/g, '')
                     : undefined;
                 let value: string;
 
                 if (modelName) {
-                    // Generate a full JSON object string for the model
                     value = this.mockDataGenerator.generate(modelName);
                 } else {
-                    // Use example if available, otherwise fallback to default primitive
                     value = this.getParameterExampleValue(p) ?? this.generateDefaultPrimitiveValue(p.schema);
                 }
                 return { name, value, type, modelName };
             });
 
-            // Prepare mock request body
             const bodyParam = op.requestBody?.content?.['application/json']
                 ? {
                       name: isPrimitiveBody ? 'body' : bodyModel ? camelCase(bodyModel) : 'body',
@@ -162,10 +132,8 @@ export class ServiceTestGenerator {
             const url = op.path.replace(/{(\w+)}/g, (_, paramName) => `\${${camelCase(paramName)}}`);
             tests.push(`\n  describe('${op.methodName}()', () => {`);
 
-            // SCENARIO 1: Success
             tests.push(`    it('should return ${responseType} on success', () => {`);
 
-            // Generate mock response data
             let mockResponseValue = 'null';
             if (responseModel) {
                 if (responseType.endsWith('[]')) {
@@ -184,25 +152,21 @@ export class ServiceTestGenerator {
             tests.push(`      const mockResponse${responseModel ? `: ${responseType}` : ''} = ${mockResponseValue};`);
             tests.push(...declareParams());
 
-            // Use explicit object syntax for subscribe to match stricter test expectations and RxJS best practices
             tests.push(`      service.${op.methodName}(${allArgs.join(', ')}).subscribe({`);
             tests.push(`        next: response => expect(response).toEqual(mockResponse),`);
             tests.push(`        error: err => fail(err)`);
             tests.push(`      });`);
 
-            // Expect HTTP call
             tests.push(`      const req = httpMock.expectOne(\`/api/v1${url}\`);`);
             tests.push(`      expect(req.request.method).toBe('${op.method.toUpperCase()}');`);
 
             if (bodyParam) {
-                // Determine if we match exact body or just truthy
                 tests.push(`      expect(req.request.body).toEqual(${bodyParam.name});`);
             }
 
             tests.push(`      req.flush(mockResponse);`);
             tests.push(`    });`);
 
-            // SCENARIO 2: Error (404)
             tests.push(`    it('should handle a 404 error', () => {`);
             tests.push(...declareParams());
             tests.push(`      service.${op.methodName}(${allArgs.join(', ')}).subscribe({`);
@@ -218,8 +182,8 @@ export class ServiceTestGenerator {
         return tests;
     }
 
-    private generateDefaultPrimitiveValue(schema: SwaggerDefinition | { $ref: string } | undefined): string {
-        const resolvedSchema = this.parser.resolve<SwaggerDefinition>(schema);
+    private generateDefaultPrimitiveValue(schema: SwaggerDefinition | { $ref: string } | boolean | undefined): string {
+        const resolvedSchema = this.parser.resolve<SwaggerDefinition>(schema as ReferenceLike);
         if (resolvedSchema && (resolvedSchema.type === 'number' || resolvedSchema.type === 'integer')) {
             return '123';
         } else if (resolvedSchema && resolvedSchema.type === 'boolean') {
@@ -229,32 +193,27 @@ export class ServiceTestGenerator {
         }
     }
 
-    // Helper to extract examples from parameters, handling nested OAS structures
     private getParameterExampleValue(param: Parameter): string | undefined {
-        let potentialValue: any = undefined;
-        const pickExampleValue = (example: unknown): { found: boolean; value: any } => {
+        let potentialValue: unknown = undefined;
+        const pickExampleValue = (example: unknown): { found: boolean; value: unknown } => {
             if (!example || typeof example !== 'object') return { found: false, value: undefined };
             if (Object.prototype.hasOwnProperty.call(example, 'dataValue')) {
-                return { found: true, value: (example as any).dataValue };
+                return { found: true, value: (example as Record<string, unknown>).dataValue };
             }
             if (Object.prototype.hasOwnProperty.call(example, 'value')) {
-                return { found: true, value: (example as any).value };
+                return { found: true, value: (example as Record<string, unknown>).value };
             }
             if (Object.prototype.hasOwnProperty.call(example, 'serializedValue')) {
-                return { found: true, value: (example as any).serializedValue };
+                return { found: true, value: (example as Record<string, unknown>).serializedValue };
             }
             return { found: false, value: undefined };
         };
 
-        // 1. Direct Example (OAS 3.x / Swagger 2.0)
         if (param.example !== undefined) {
             potentialValue = param.example;
-        }
-        // 2. Examples Map (OAS 3.x) - pick first
-        else if (param.examples && typeof param.examples === 'object') {
+        } else if (param.examples && typeof param.examples === 'object') {
             const firstExample = Object.values(param.examples)[0];
             if (firstExample !== undefined) {
-                // OAS 3.2 Priority: dataValue > value > serializedValue
                 const directValue = pickExampleValue(firstExample);
                 if (directValue.found) {
                     potentialValue = directValue.value;
@@ -263,21 +222,17 @@ export class ServiceTestGenerator {
                     typeof firstExample === 'object' &&
                     Object.prototype.hasOwnProperty.call(firstExample, '$ref')
                 ) {
-                    const resolved = this.parser.resolveReference<any>((firstExample as any).$ref);
+                    const resolved = this.parser.resolveReference<ExampleObject>((firstExample as ReferenceLike).$ref);
                     const resolvedValue = pickExampleValue(resolved);
                     if (resolvedValue.found) potentialValue = resolvedValue.value;
                 } else if (firstExample === null || typeof firstExample !== 'object') {
-                    // Literal value fallback (Swagger 2.0 allowed looser maps)
                     potentialValue = firstExample;
                 }
             }
-        }
-        // 3. Schema Example (OAS 3.x)
-        else if (param.schema && !('$ref' in param.schema)) {
-            const schema = param.schema as SwaggerDefinition;
-            // OAS 3.2 Schema Example Priority
-            if ((schema as any).dataValue !== undefined) {
-                potentialValue = (schema as any).dataValue;
+        } else if (param.schema && typeof param.schema === 'object' && !('$ref' in param.schema)) {
+            const schema = param.schema as Record<string, unknown>;
+            if (schema.dataValue !== undefined) {
+                potentialValue = schema.dataValue;
             } else if (schema.example !== undefined) {
                 potentialValue = schema.example;
             } else if (schema.examples && Array.isArray(schema.examples) && schema.examples.length > 0) {
@@ -285,17 +240,16 @@ export class ServiceTestGenerator {
             }
         }
 
-        // 4. Check Content Map (OAS 3.x Parameter Content with Example Objects)
         if (potentialValue === undefined && param.content) {
             const contentType = Object.keys(param.content)[0];
             if (contentType) {
                 const media = param.content[contentType];
-                if (media.example !== undefined) {
+                if (media && media.example !== undefined) {
                     potentialValue = media.example;
-                } else if (media.examples) {
+                } else if (media && media.examples) {
                     const keys = Object.keys(media.examples);
                     if (keys.length > 0) {
-                        const ex = media.examples[keys[0]];
+                        const ex = (media.examples as Record<string, unknown>)[keys[0]!];
                         const contentValue = pickExampleValue(ex);
                         if (contentValue.found) potentialValue = contentValue.value;
                     }
@@ -312,14 +266,6 @@ export class ServiceTestGenerator {
         return undefined;
     }
 
-    /**
-     * Adds the necessary import declarations to the test file.
-     *
-     * @param sourceFile The ts-morph SourceFile object.
-     * @param serviceName The name of the service class being tested.
-     * @param modelImports A list of model names required by the test.
-     * @private
-     */
     private addImports(sourceFile: SourceFile, serviceName: string, modelImports: string[]): void {
         sourceFile.addImportDeclarations([
             { moduleSpecifier: '@angular/core/testing', namedImports: ['TestBed', 'fail'] },
@@ -332,7 +278,6 @@ export class ServiceTestGenerator {
                 namedImports: [serviceName],
             },
         ]);
-        // Only add the models import if there are models to import.
         if (modelImports.length > 0) {
             sourceFile.addImportDeclaration({
                 moduleSpecifier: `../models`,
@@ -345,13 +290,6 @@ export class ServiceTestGenerator {
         });
     }
 
-    /**
-     * Analyzing the operation to determine input/output types and models.
-     *
-     * @param op The path operation info.
-     * @returns Object containing type descriptors for response and body.
-     * @private
-     */
     private getMethodTypes(op: PathInfo): {
         responseModel?: string;
         responseType: string;
@@ -361,14 +299,16 @@ export class ServiceTestGenerator {
         const knownTypes = this.parser.schemas.map(s => s.name);
         const successResponseSchema = op.responses?.['200']?.content?.['application/json']?.schema;
         const responseType = successResponseSchema
-            ? getTypeScriptType(successResponseSchema, this.config, knownTypes)
+            ? getTypeScriptType(successResponseSchema as SwaggerDefinition, this.config, knownTypes)
             : 'any';
         const responseModelType = responseType.replace(/\[\]| \| null/g, '');
         const responseModel = isDataTypeInterface(responseModelType) ? responseModelType : undefined;
 
         const requestBodySchema = op.requestBody?.content?.['application/json']?.schema;
-        const resolvedBodySchema = this.parser.resolve(requestBodySchema);
-        const bodyType = requestBodySchema ? getTypeScriptType(requestBodySchema, this.config, knownTypes) : 'any';
+        const resolvedBodySchema = this.parser.resolve(requestBodySchema as SwaggerDefinition);
+        const bodyType = requestBodySchema
+            ? getTypeScriptType(requestBodySchema as SwaggerDefinition, this.config, knownTypes)
+            : 'any';
 
         const bodyModelType = bodyType.replace(/\[\]| \| null/g, '');
         const bodyModel = isDataTypeInterface(bodyModelType) ? bodyModelType : undefined;
@@ -380,18 +320,11 @@ export class ServiceTestGenerator {
         return {
             responseType,
             isPrimitiveBody,
-            ...(responseModel && { responseModel }),
-            ...(bodyModel && { bodyModel }),
+            ...(responseModel !== undefined ? { responseModel } : {}),
+            ...(bodyModel !== undefined ? { bodyModel } : {}),
         };
     }
 
-    /**
-     * Scans all operations to find which models need to be imported.
-     *
-     * @param operations List of operations.
-     * @returns A Set of model names.
-     * @private
-     */
     private collectModelImports(operations: PathInfo[]): Set<string> {
         const modelImports = new Set<string>();
         const knownTypes = this.parser.schemas.map(s => s.name);
@@ -405,8 +338,11 @@ export class ServiceTestGenerator {
             if (responseModel) modelImports.add(responseModel);
             if (bodyModel) modelImports.add(bodyModel);
 
-            (op.parameters ?? []).forEach(param => {
-                const typeName = getTypeScriptType(param.schema, this.config, knownTypes).replace(/\[\]| \| null/g, '');
+            (op.parameters ?? []).forEach((param: Parameter) => {
+                const typeName = getTypeScriptType(param.schema as SwaggerDefinition, this.config, knownTypes).replace(
+                    /\[\]| \| null/g,
+                    '',
+                );
                 if (isDataTypeInterface(typeName)) {
                     modelImports.add(typeName);
                 }

@@ -18,11 +18,11 @@ export interface RuntimeContext {
         headers: Record<string, string | string[] | undefined>;
         query: Record<string, string | string[] | undefined>;
         path: Record<string, string | undefined>;
-        body?: any;
+        body?: unknown;
     };
     response?: {
         headers: Record<string, string | string[] | undefined>;
-        body?: any;
+        body?: unknown;
     };
 }
 
@@ -34,7 +34,7 @@ export interface RuntimeContext {
  * @param pointer The JSON pointer string (e.g., "/user/0/id").
  * @returns The resolved value or undefined if not found.
  */
-export function evaluateJsonPointer(data: any, pointer: string): any {
+export function evaluateJsonPointer(data: unknown, pointer: string): unknown {
     if (pointer === '' || pointer === '#') return data;
 
     // Remove leading # if present (URI fragment style)
@@ -54,7 +54,7 @@ export function evaluateJsonPointer(data: any, pointer: string): any {
 
     const tokens = cleanPointer.split('/').slice(1).map(decodeToken);
 
-    let current = data;
+    let current: unknown = data;
     for (const token of tokens) {
         if (current === null || typeof current !== 'object') {
             return undefined;
@@ -66,12 +66,12 @@ export function evaluateJsonPointer(data: any, pointer: string): any {
             if (index < 0 || index >= current.length) {
                 return undefined;
             }
-            current = current[index];
+            current = (current as unknown[])[index];
         } else {
-            if (!(token in current)) {
+            if (!(token in (current as Record<string, unknown>))) {
                 return undefined;
             }
-            current = current[token];
+            current = (current as Record<string, unknown>)[token];
         }
     }
     return current;
@@ -100,7 +100,7 @@ function getQuery(query: Record<string, string | string[] | undefined>, key: str
  * Resolves a single, bare runtime expression (e.g. "$request.body#/id").
  * Preserves the type of the referenced value (e.g. boolean, number, object).
  */
-function resolveSingleExpression(expr: string, context: RuntimeContext): any {
+function resolveSingleExpression(expr: string, context: RuntimeContext): unknown {
     if (expr === '$url') return context.url;
     if (expr === '$method') return context.method;
     if (expr === '$statusCode') return context.statusCode;
@@ -152,7 +152,7 @@ function resolveSingleExpression(expr: string, context: RuntimeContext): any {
  * @param context The runtime data (request info, response info).
  * @returns The evaluated result.
  */
-export function evaluateRuntimeExpression(expression: string, context: RuntimeContext): any {
+export function evaluateRuntimeExpression(expression: string, context: RuntimeContext): unknown {
     const hasBraces = expression.includes('{') && expression.includes('}');
 
     // Case 1: Bare expression (must start with $)
@@ -166,7 +166,7 @@ export function evaluateRuntimeExpression(expression: string, context: RuntimeCo
     }
 
     // Case 3: Embedded template string (e.g., "foo/{$url}/bar")
-    return expression.replace(/\{([^}]+)\}/g, (_, innerExpr) => {
+    return expression.replace(/\{([^}]+)\}/g, (_, innerExpr: string) => {
         const trimmed = innerExpr.trim();
         // Only interpolate if it looks like a variable we recognize, otherwise leave it?
         // OAS implies logical expressions inside braces.

@@ -356,6 +356,7 @@ describe('Analysis: FormModelBuilder', () => {
     });
 
     it('should gracefully skip invalid oneOf items during polymorphism analysis', () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
         const spec = {
             openapi: '3.0.0',
             info: { title: 'Test', version: '1.0' },
@@ -414,6 +415,7 @@ describe('Analysis: FormModelBuilder', () => {
         expect(polyConfig.options.length).toBe(1);
         expect(polyConfig.options[0].discriminatorValue).toBe('valid');
         expect(polyConfig.options[0].modelName).toBe('ValidSub');
+        warnSpy.mockRestore();
     });
 
     it('should identify defaultOption when defaultMapping is present', () => {
@@ -512,6 +514,7 @@ describe('Analysis: FormModelBuilder', () => {
     });
 
     it('should ignore dependentSchemas when ref cannot be resolved', () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
         const spec = {
             openapi: '3.0.0',
             info: { title: 'Test', version: '1.0' },
@@ -528,6 +531,7 @@ describe('Analysis: FormModelBuilder', () => {
             },
         });
         expect((builder as any).result.dependencyRules).toEqual([]);
+        warnSpy.mockRestore();
     });
 
     it('should ignore dependentSchemas without required fields', () => {
@@ -588,6 +592,7 @@ describe('Analysis: FormModelBuilder', () => {
     });
 
     it('should use discriminator mapping when explicit mapping is present', () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
         const spec = {
             openapi: '3.0.0',
             info: { title: 'Test', version: '1.0' },
@@ -616,6 +621,7 @@ describe('Analysis: FormModelBuilder', () => {
             schema: spec.components.schemas.Poly,
         });
         expect(config.options[0].discriminatorValue).toBe('mapped');
+        warnSpy.mockRestore();
     });
 
     it('should handle map schemas with empty patternProperties and unevaluatedProperties', () => {
@@ -801,6 +807,7 @@ describe('Analysis: FormModelBuilder', () => {
     });
 
     it('should skip unresolved allOf refs when collecting polymorphic properties', () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
         const spec = {
             openapi: '3.0.0',
             info: { title: 'Poly', version: '1.0' },
@@ -830,6 +837,7 @@ describe('Analysis: FormModelBuilder', () => {
             schema: spec.components.schemas.Poly,
         });
         expect(config.options[0].controls.some((c: any) => c.name === 'name')).toBe(true);
+        warnSpy.mockRestore();
     });
 
     it('should handle defaultMapping with empty ref segment gracefully', () => {
@@ -912,6 +920,7 @@ describe('Analysis: FormModelBuilder', () => {
     });
 
     it('should skip polymorphic option when ref name is empty', () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
         const spec = {
             openapi: '3.0.0',
             info: { title: 'Test', version: '1.0' },
@@ -935,6 +944,7 @@ describe('Analysis: FormModelBuilder', () => {
         } as any);
         const config = (builder as any).analyzePolymorphism(prop);
         expect(config.options.length).toBe(0);
+        warnSpy.mockRestore();
     });
 
     it('should support implicit discriminator mapping based on component name (OAS 3.2)', () => {

@@ -1,48 +1,54 @@
 // tests/fixtures/ast/express.routes.ts
 
 const app = {
-    get: (..._args: any[]) => {
+    get: (..._args: unknown[]) => {
         void _args;
     },
-    post: (..._args: any[]) => {
+    post: (..._args: unknown[]) => {
         void _args;
     },
-    put: (..._args: any[]) => {
+    put: (..._args: unknown[]) => {
         void _args;
     },
-    patch: (..._args: any[]) => {
+    patch: (..._args: unknown[]) => {
         void _args;
     },
-    delete: (..._args: any[]) => {
+    delete: (..._args: unknown[]) => {
         void _args;
     },
-    query: (..._args: any[]) => {
+    query: (..._args: unknown[]) => {
         void _args;
     },
-    copy: (..._args: any[]) => {
+    copy: (..._args: unknown[]) => {
         void _args;
     },
 };
 const router = {
-    route: (..._args: any[]) => {
+    route: (..._args: unknown[]) => {
         void _args;
         return {
-            patch: (..._routeArgs: any[]) => {
+            patch: (..._routeArgs: unknown[]) => {
                 void _routeArgs;
             },
         };
     },
 };
-type Request<Params = any, _ResBody = any, ReqBody = any, ReqQuery = any> = {
+type Request<
+    Params = Record<string, string | undefined>,
+    _ResBody = unknown,
+    ReqBody = Record<string, unknown> | undefined,
+    ReqQuery = Record<string, string | undefined>,
+> = {
     params: Params;
     query: ReqQuery;
     body: ReqBody;
-    headers: Record<string, string>;
-    cookies: Record<string, string>;
+    headers: Record<string, string | undefined>;
+    cookies: Record<string, string | undefined>;
     get: (name: string) => string | undefined;
     is: (type: string) => boolean;
+    url: string;
 };
-type Response<ResBody = any> = {
+type Response<ResBody = unknown> = {
     json: (body: ResBody) => void;
     send: (body?: ResBody) => void;
     status: (code: number | string) => Response<ResBody>;
@@ -52,7 +58,7 @@ type Response<ResBody = any> = {
     sendStatus: (code: number) => void;
 };
 const config = { version: 'v1' };
-const middleware = (_req: any, _res: any, next: any) => {
+const middleware = (_req: Request, _res: Response, next: () => void) => {
     void _req;
     void _res;
     next();
@@ -67,26 +73,26 @@ const middleware = (_req: any, _res: any, next: any) => {
  * @tag {"name":"Users","summary":"User operations","kind":"nav"}
  * @deprecated
  */
-export function getUser(req: any, res: any) {
+export function getUser(req: Request<Record<string, string>, unknown, unknown, Record<string, string>>, res: Response) {
     const { id } = req.params;
     const search = req.query.search;
     const token = req.headers['x-token'];
     const requestId = req.get('X-Request-Id');
-    const session = req.cookies.session;
+    const session = req.cookies['session'];
     res.status(200).json({ id, search, token, session, requestId });
 }
 
 app.get('/users/:id', getUser);
 
-router.route('/projects/:projectId').patch(function updateProject(req: any, res: any) {
+router.route('/projects/:projectId').patch(function updateProject(req: Request<Record<string, string>>, res: Response) {
     const { projectId } = req.params;
     void projectId;
     res.type('application/xml').status(200).send('<ok/>');
 });
 
-app.post('/messages', (req: any, res: any) => {
+app.post('/messages', (req: Request<unknown, unknown, Record<string, unknown>>, res: Response) => {
     const body = req.body;
-    const { payload } = req.body;
+    const payload = req.body ? req.body['payload'] : undefined;
     if (req.is('application/json')) {
         // json branch
     }
@@ -108,43 +114,53 @@ export interface MessageReceipt {
 }
 
 export function typedMessages(req: Request<unknown, MessageReceipt, CreateMessageBody>, res: Response<MessageReceipt>) {
-    const { message } = req.body;
-    res.status(201).json({ id: message });
+    const message = req.body ? req.body.message : undefined;
+    res.status(201).json({ id: message ?? '' });
 }
 
 app.post('/typed-messages', typedMessages);
 
-app.get(`${config.version}/status`, (_req: any, res: any) => {
+app.get(`${config.version}/status`, (_req: Request, res: Response) => {
     void _req;
     res.send('status');
 });
 
 app.put('/array', [
     middleware,
-    function handleArray(_req: any, res: any) {
+    function handleArray(_req: Request, res: Response) {
         void _req;
         res.set('Content-Type', 'text/csv').send('id,name');
     },
 ]);
 
-app.get('/bound/:id', ({ params, query, body }: any, res: any) => {
-    const userId = params.id;
-    const filter = query.filter;
-    if (body) {
-        // body branch
-    }
-    if (userId || filter) {
-        // use values
-    }
-    res.end();
-});
+app.get(
+    '/bound/:id',
+    (
+        {
+            params,
+            query,
+            body,
+        }: Request<Record<string, string>, unknown, Record<string, unknown>, Record<string, string>>,
+        res: Response,
+    ) => {
+        const userId = params.id;
+        const filter = query.filter;
+        if (body) {
+            // body branch
+        }
+        if (userId || filter) {
+            // use values
+        }
+        res.end();
+    },
+);
 
-app.post('/object', (_req: any, res: any) => {
+app.post('/object', (_req: Request, res: Response) => {
     void _req;
     res.send({ ok: true });
 });
 
-app.delete('/remove/:id', (_req: any, res: any) => {
+app.delete('/remove/:id', (_req: Request, res: Response) => {
     void _req;
     res.sendStatus(204);
 });
@@ -154,29 +170,29 @@ app.delete('/remove/:id', (_req: any, res: any) => {
  *
  * Local handler description.
  */
-const localHandler = (req: any, res: any) => {
+const localHandler = (req: Request, res: Response) => {
     void req;
     res.send('local');
 };
 
 app.patch('/local', localHandler);
 
-app.get('/string-status', (_req: any, res: any) => {
+app.get('/string-status', (_req: Request, res: Response) => {
     void _req;
     res.status('202').json({ ok: true });
 });
 
-app.get(`/literal`, (_req: any, res: any) => {
+app.get(`/literal`, (_req: Request, res: Response) => {
     void _req;
     res.send('literal');
 });
 
-app.query('/search', (req: any, res: any) => {
+app.query('/search', (req: Request<unknown, unknown, unknown, Record<string, string>>, res: Response) => {
     const q = req.query.q;
     res.json({ q });
 });
 
-app.copy('/files/:id', (req: any, res: any) => {
+app.copy('/files/:id', (req: Request<Record<string, string>>, res: Response) => {
     const { id } = req.params;
     res.status(201).json({ id });
 });
@@ -191,7 +207,7 @@ app.copy('/files/:id', (req: any, res: any) => {
  * @security OAuth2 read:items,write:items
  * @x-feature-flag "beta"
  */
-export function secureEndpoint(_req: any, res: any) {
+export function secureEndpoint(_req: Request, res: Response) {
     res.json({ ok: true });
 }
 
@@ -206,7 +222,7 @@ app.get('/secure', secureEndpoint);
  * @responseSummary 202 Accepted summary
  * @param id Documented id.
  */
-export function documentedEndpoint(req: any, res: any) {
+export function documentedEndpoint(req: Request<Record<string, string>>, res: Response) {
     const { id } = req.params;
     res.status(202).json({ id });
 }
@@ -218,7 +234,7 @@ app.get('/documented/:id', documentedEndpoint);
  *
  * @querystring rawQuery application/x-www-form-urlencoded
  */
-export function rawQueryEndpoint(req: any, res: any) {
+export function rawQueryEndpoint(req: Request, res: Response) {
     const raw = req.url;
     res.send(raw);
 }

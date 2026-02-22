@@ -1,44 +1,42 @@
-// tests/fixtures/ast/decorated.controller.ts
-
 // Mocks to satisfy both runtime execution AND TypeScript static checks.
 // Uses 'any' to avoid strict signature mismatches with legacy experiment decorators.
-function Controller(_path: string): any {
+export function Controller(_path: string): any {
     void _path;
     return () => {};
 }
 
-function Get(_path?: string): any {
+export function Get(_path?: string): any {
     void _path;
     return () => {};
 }
 
-function Post(_path?: string): any {
+export function Post(_path?: string): any {
     void _path;
     return () => {};
 }
 
-function Param(_name?: string): any {
+export function Param(_name?: string): any {
     void _name;
     return () => {};
 }
 
-function Query(_name?: string): any;
-function Query(_path?: string): any;
-function Query(_arg?: string): any {
+export function Query(_name?: string): any;
+export function Query(_path?: string): any;
+export function Query(_arg?: string): any {
     void _arg;
     return () => {};
 }
 
-function Header(_name?: string): any {
+export function Header(_name?: string): any {
     void _name;
     return () => {};
 }
 
-function Body(): any {
+export function Body(): any {
     return () => {};
 }
 
-function HttpCode(_code: number): any {
+export function HttpCode(_code: number): any {
     void _code;
     return () => {};
 }

@@ -18,7 +18,6 @@ const sequentialSpec = {
                         content: {
                             'application/json-seq': {
                                 itemSchema: {
-                                    // OAS 3.2 specific
                                     type: 'object',
                                     properties: { id: { type: 'number' } },
                                 },
@@ -54,9 +53,7 @@ const sequentialSpec = {
                         description: 'ok',
                         content: {
                             'application/jsonl': {
-                                // Common alias for ndjson
                                 schema: {
-                                    // Standard array schema usage
                                     type: 'array',
                                     items: { type: 'string' },
                                 },
@@ -106,13 +103,11 @@ describe('Emitter: ServiceMethodGenerator (Sequential Media Types)', () => {
         const project = new Project({ useInMemoryFileSystem: true });
         const parser = new SwaggerParser(sequentialSpec as any, config);
 
-        // Pre-generate types
         new TypeGenerator(parser, project, config).generate('/out');
 
         const methodGen = new ServiceMethodGenerator(config, parser);
         const sourceFile = project.createSourceFile('/out/service.ts');
         const serviceClass = sourceFile.addClass({ name: 'TestService' });
-        // Mock the http property
         serviceClass.addProperty({ name: 'http', scope: Scope.Private, isReadonly: true, type: 'any' });
         serviceClass.addProperty({
             name: 'basePath',
@@ -140,15 +135,11 @@ describe('Emitter: ServiceMethodGenerator (Sequential Media Types)', () => {
 
         const body = serviceClass.getMethodOrThrow('getJsonSeq').getBodyText()!;
 
-        // Ensure forced responseType: 'text'
         expect(body).toContain(`responseType: 'text'`);
-        // Ensure pipe map exists
         expect(body).toContain('.pipe(');
-        expect(body).toContain('map(response => {');
-        // Check splitter
+        expect(body).toContain('map((response: any) => {');
         expect(body).toContain("response.split('\\x1e')");
-        // Check filter and parse
-        expect(body).toContain('filter(part => part.trim().length > 0)');
+        expect(body).toContain('filter((part: string) => part.trim().length > 0)');
         expect(body).toContain('JSON.parse(item)');
     });
 
@@ -176,7 +167,6 @@ describe('Emitter: ServiceMethodGenerator (Sequential Media Types)', () => {
         const body = serviceClass.getMethodOrThrow('getJsonLines').getBodyText()!;
 
         expect(body).toContain(`responseType: 'text'`);
-        // Check newlines splitter
         expect(body).toContain("response.split('\\n')");
         expect(body).toContain('JSON.parse(item)');
     });

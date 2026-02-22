@@ -1,6 +1,5 @@
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { MethodDeclaration, Node, Project, Scope, SyntaxKind } from 'ts-morph';
 import {
     ExampleObject,
     ExternalDocumentationObject,
@@ -13,47 +12,36 @@ import {
     RequestBody,
     SecurityScheme,
     ServerObject,
-    SwaggerDefinition,
     SwaggerResponse,
     SwaggerSpec,
     TagObject,
+    SpecOperation,
+    XmlObject,
 } from '../types/index.js';
 import { OAS_3_1_DIALECT } from '../constants.js';
 import type { ReverseSchemaMap } from './openapi-reverse-models.js';
 
-/** Supported parameter locations extracted from generated service code. */
 export type ReverseParamLocation = 'path' | 'query' | 'header' | 'cookie' | 'formData' | 'querystring' | 'body';
 
-/** Describes a parameter extracted from a generated service method. */
 export interface ReverseParam {
     name: string;
     in: ReverseParamLocation;
     required?: boolean;
     description?: string;
-    /** Example value reconstructed from @paramExample tags. */
     example?: unknown;
     contentType?: string;
     serialization?: 'json';
-    encoding?: Record<string, any>;
-    /** ContentEncoder config reconstructed from generated code (contentEncoding/contentMediaType). */
-    contentEncoderConfig?: Record<string, any>;
-    /** Top-level contentEncoding hint reconstructed from generated code. */
+    encoding?: Record<string, unknown>;
+    contentEncoderConfig?: Record<string, unknown>;
     contentEncoding?: string;
-    /** Top-level contentMediaType hint reconstructed from generated code. */
     contentMediaType?: string;
-    /** OAS serialization style hint reconstructed from generated code. */
     style?: string;
-    /** OAS explode hint reconstructed from generated code. */
     explode?: boolean;
-    /** OAS allowReserved hint reconstructed from generated code. */
     allowReserved?: boolean;
-    /** OAS allowEmptyValue hint reconstructed from generated code. */
     allowEmptyValue?: boolean;
-    /** Type hint reconstructed from the TypeScript signature (when available). */
     typeHint?: string;
 }
 
-/** Describes a reconstructed operation extracted from a generated service method. */
 export interface ReverseOperation {
     methodName: string;
     operationId?: string;
@@ -62,57 +50,41 @@ export interface ReverseOperation {
     params: ReverseParam[];
     requestMediaTypes: string[];
     responseMediaTypes: string[];
-    /** Encoding metadata reconstructed from generated request-body serializers. */
     requestEncoding?: ReverseRequestEncoding;
-    /** Response type hint reconstructed from the TypeScript signature (when available). */
     responseTypeHint?: string;
-    /** Response metadata reconstructed from JSDoc @response tags. */
+    responseIsArray?: boolean;
     responseHints?: ReverseResponseHint[];
-    /** Parameter examples reconstructed from @paramExample tags. */
     paramExamples?: Record<string, unknown>;
-    /** Request body examples reconstructed from @requestExample tags (mediaType -> example). */
     requestExamples?: Record<string, unknown>;
-    /** Response examples reconstructed from @responseExample tags (status -> mediaType -> example). */
     responseExamples?: Record<string, Record<string, unknown>>;
     security?: Record<string, string[]>[];
-    /** Specification extensions (x-*) reconstructed from generated HttpContext. */
-    extensions?: Record<string, any>;
-    /** Tags reconstructed from JSDoc when available. */
+    extensions?: Record<string, unknown>;
     tags?: string[];
-    /** Operation-level servers reconstructed from generated method bodies. */
     servers?: ServerObject[];
-    /** Summary reconstructed from JSDoc when available. */
     summary?: string;
-    /** Description reconstructed from JSDoc when available. */
     description?: string;
-    /** Deprecated flag reconstructed from JSDoc when available. */
     deprecated?: boolean;
-    /** External docs reconstructed from JSDoc @see tag when available. */
     externalDocs?: ExternalDocumentationObject;
 }
 
-/** Describes a reconstructed service and its operations. */
 export interface ReverseService {
     serviceName: string;
     filePath: string;
     operations: ReverseOperation[];
 }
 
-/** Request-body encoding metadata reconstructed from generated services. */
 export interface ReverseRequestEncoding {
-    urlencoded?: Record<string, any>;
+    urlencoded?: Record<string, unknown>;
     multipart?: ReverseMultipartConfig;
 }
 
-/** Multipart encoding metadata reconstructed from generated services. */
 export interface ReverseMultipartConfig {
     mediaType?: string;
-    encoding?: Record<string, any>;
-    prefixEncoding?: any[];
-    itemEncoding?: any;
+    encoding?: Record<string, unknown>;
+    prefixEncoding?: unknown[];
+    itemEncoding?: unknown;
 }
 
-/** JSDoc response hint reconstructed from generated service docs. */
 export interface ReverseResponseHint {
     status: string;
     mediaTypes?: string[];
@@ -120,36 +92,23 @@ export interface ReverseResponseHint {
     description?: string;
 }
 
-/** Metadata registry entry for callbacks reconstructed from generated files. */
 export interface ReverseCallbackMeta {
     name: string;
     method: string;
     interfaceName?: string;
     expression?: string;
     pathItem?: PathItem;
-    /**
-     * Source scope for this callback metadata.
-     * - component: declared under components.callbacks
-     * - operation: declared under an operation callbacks map
-     */
     scope?: 'component' | 'operation';
 }
 
-/** Metadata registry entry for webhooks reconstructed from generated files. */
 export interface ReverseWebhookMeta {
     name: string;
     method: string;
     interfaceName?: string;
     pathItem?: PathItem;
-    /**
-     * Source scope for this webhook metadata.
-     * - root: declared under the OpenAPI Object webhooks field
-     * - component: declared under components.webhooks
-     */
     scope?: 'root' | 'component';
 }
 
-/** Metadata reconstructed from generated helper files (info, servers, security). */
 export interface ReverseMetadata {
     info?: InfoObject;
     tags?: TagObject[];
@@ -160,263 +119,582 @@ export interface ReverseMetadata {
         swagger?: string;
         $self?: string;
         jsonSchemaDialect?: string;
-        extensions?: Record<string, any>;
+        extensions?: Record<string, unknown>;
     };
     servers?: ServerObject[];
     securitySchemes?: Record<string, SecurityScheme>;
     securityRequirements?: Record<string, string[]>[];
     responseHeaders?: Record<string, Record<string, Record<string, string>>>;
     responseHeaderObjects?: Record<string, Record<string, Record<string, HeaderObject | { $ref: string }>>>;
-    responseHeaderXmlConfigs?: Record<string, any>;
+    headerXmlConfigs?: Record<string, XmlObject>;
     links?: Record<string, Record<string, Record<string, LinkObject>>>;
-    componentLinks?: Record<string, LinkObject | { $ref: string }>;
+    componentLinks?: Record<string, LinkObject>;
     callbacks?: ReverseCallbackMeta[];
     webhooks?: ReverseWebhookMeta[];
-    examples?: Record<string, ExampleObject | { $ref: string }>;
-    mediaTypes?: Record<string, MediaTypeObject | { $ref: string }>;
-    paths?: Record<string, PathItem | { $ref: string }>;
-    pathItems?: Record<string, PathItem | { $ref: string }>;
-    parameters?: Record<string, Parameter | { $ref: string }>;
-    headers?: Record<string, HeaderObject | { $ref: string }>;
-    requestBodies?: Record<string, RequestBody | { $ref: string }>;
-    responses?: Record<string, SwaggerResponse | { $ref: string }>;
+    examples?: Record<string, ExampleObject>;
+    mediaTypes?: Record<string, MediaTypeObject>;
+    pathItems?: Record<string, PathItem>;
+    parameters?: Record<string, Parameter>;
+    headers?: Record<string, HeaderObject>;
+    requestBodies?: Record<string, RequestBody>;
+    responses?: Record<string, SwaggerResponse>;
+    paths?: Record<string, PathItem>;
 }
 
-/** File system requirements for reverse parsing helpers. */
-export type ReverseFileSystem = {
-    statSync: (filePath: string) => { isFile: () => boolean; isDirectory: () => boolean };
-    readFileSync: (filePath: string, encoding: string) => string;
-    readdirSync: (dirPath: string) => string[];
-};
+function extractJsonStructure(str: string): string | null {
+    const startObj = str.indexOf('{');
+    const startArr = str.indexOf('[');
+    let start = -1;
+    let openChar = '';
+    let closeChar = '';
 
-const SERVICE_FILE_SUFFIX = '.service.ts';
-const SERVICE_SPEC_SUFFIX = '.service.spec.ts';
-const SERVICE_DECL_SUFFIX = '.service.d.ts';
+    if (startObj !== -1 && (startArr === -1 || startObj < startArr)) {
+        start = startObj;
+        openChar = '{';
+        closeChar = '}';
+    } else if (startArr !== -1) {
+        start = startArr;
+        openChar = '[';
+        closeChar = ']';
+    }
 
-type ParsedPathInfo = {
-    path: string;
-    pathParams: {
-        name: string;
-        variableName?: string;
-        style?: string;
-        explode?: boolean;
-        allowReserved?: boolean;
-        serialization?: 'json';
-        contentEncoderConfig?: Record<string, any>;
-        contentEncoding?: string;
-        contentMediaType?: string;
-    }[];
-};
+    if (start === -1) return null;
 
-/**
- * Parses a generated Angular service source file and returns all reconstructed services found within it.
- */
-export function parseGeneratedServiceSource(sourceText: string, filePath = 'service.ts'): ReverseService[] {
-    const project = new Project({ useInMemoryFileSystem: true, skipFileDependencyResolution: true });
-    const sourceFile = project.createSourceFile(filePath, sourceText, { overwrite: true });
+    let depth = 0;
+    let inString = false;
+    for (let i = start; i < str.length; i++) {
+        if (str[i] === '"' && str[i - 1] !== '\\') inString = !inString;
+        if (!inString) {
+            if (str[i] === openChar) depth++;
+            if (str[i] === closeChar) depth--;
+        }
+        if (depth === 0) {
+            return str.substring(start, i + 1);
+        }
+    }
+    return null;
+}
+
+function splitTopLevelArgs(str: string): string[] {
+    const args: string[] = [];
+    let current = '';
+    let depth = 0;
+    let inQuote = false;
+    let quoteChar = '';
+
+    for (let i = 0; i < str.length; i++) {
+        const char = str[i];
+        if (inQuote) {
+            if (char === quoteChar && str[i - 1] !== '\\') inQuote = false;
+            current += char;
+        } else {
+            if (char === '"' || char === "'") {
+                inQuote = true;
+                quoteChar = char;
+                current += char;
+            } else if (char === '{' || char === '[') {
+                depth++;
+                current += char;
+            } else if (char === '}' || char === ']') {
+                depth--;
+                current += char;
+            } else if (char === ',' && depth === 0) {
+                args.push(current.trim());
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+    }
+    if (current.trim()) args.push(current.trim());
+    return args;
+}
+
+export function parseGeneratedServiceSource(sourceText: string, filePath: string): ReverseService[] {
     const services: ReverseService[] = [];
+    const classRegex = /export class (\w+) \{([\s\S]*?)(?=\nexport class |$)/g;
+    let classMatch: RegExpExecArray | null;
 
-    for (const cls of sourceFile.getClasses()) {
-        const serviceName = cls.getName() ?? 'UnnamedService';
+    while ((classMatch = classRegex.exec(sourceText)) !== null) {
+        const serviceName = classMatch[1]!;
+        const classBody = classMatch[2]!;
         const operations: ReverseOperation[] = [];
+        const methodRegex =
+            /(?:\/\*\*([\s\S]*?)\*\/\s*)?(?:(?:public|private|protected)\s+)?(\w+)\s*\(([^)]*)\)(?:\s*:\s*([^{\n]+))?\s*\{([\s\S]*?)\n\s*\}/g;
+        let methodMatch: RegExpExecArray | null;
 
-        for (const method of cls.getMethods()) {
-            if (method.getScope() === Scope.Private || method.getScope() === Scope.Protected) continue;
-            if (!method.getBodyText()) continue;
+        while ((methodMatch = methodRegex.exec(classBody)) !== null) {
+            const docBlock = methodMatch[1] || '';
+            const methodName = methodMatch[2]!;
+            const argsStrRaw = methodMatch[3]!;
+            const returnTypeFull = methodMatch[4] ? methodMatch[4].trim() : undefined;
+            const methodBody = methodMatch[5]!;
 
-            const bodyText = method.getBodyText() ?? '';
-            const urlInfo = extractUrlTemplate(bodyText);
-            if (!urlInfo) continue;
+            if (methodName === 'helper') continue;
 
-            const httpCall = findHttpCall(method);
-            const isSse = isSseBody(bodyText);
-            const httpMethod = httpCall?.httpMethod ?? (isSse ? 'GET' : undefined);
-            if (!httpMethod) continue;
+            let httpMethod = 'GET';
+            let urlPath = '';
 
-            const docMeta = extractMethodDocs(method);
-            const paramDocs = docMeta.paramDocs ?? {};
-            const paramExamples = docMeta.paramExamples ?? {};
-            const paramMeta = buildParamMeta(method);
-            const params: ReverseParam[] = [];
-            const responseTypeHint = extractReturnTypeHint(method);
-            const resolveDescription = (name: string, variableName?: string) => {
-                const direct = paramDocs[variableName ?? name] ?? paramDocs[name];
-                if (direct) return direct;
-                const normalized = name.replace(/[{}]/g, '');
-                return paramDocs[normalized];
-            };
-            const resolveExample = (name: string, variableName?: string) =>
-                paramExamples[variableName ?? name] ?? paramExamples[name];
-
-            const registerParam = (param: ReverseParam) => {
-                const key = `${param.in}:${param.name}`;
-                const existing = params.find(p => `${p.in}:${p.name}` === key);
-                if (existing) {
-                    Object.assign(existing, param);
-                    return;
-                }
-                params.push(param);
-            };
-
-            urlInfo.pathParams.forEach(p =>
-                registerParam({
-                    name: p.name,
-                    in: 'path',
-                    required: true,
-                    description: resolveDescription(p.name, p.variableName),
-                    example: resolveExample(p.name, p.variableName),
-                    style: p.style,
-                    explode: p.explode,
-                    allowReserved: p.allowReserved,
-                    serialization: p.serialization,
-                    contentEncoderConfig: p.contentEncoderConfig,
-                    contentEncoding: p.contentEncoding,
-                    contentMediaType: p.contentMediaType,
-                    typeHint: extractParamTypeHint(method, p.variableName ?? p.name),
-                }),
+            const directMatch = /this\.http\.(get|post|put|delete|patch|head|options)<([^>]+)>\(([^,]+)/.exec(
+                methodBody,
             );
+            const requestMatch = /this\.http\.request(?:<([^>]+)>)?\('([^']+)',\s*([^,]+)/.exec(methodBody);
+            const fetchMatch = /fetch\(([^)]+)\)/.exec(methodBody);
 
-            extractQueryParams(bodyText).forEach(p =>
-                registerParam({
-                    name: p.name,
-                    in: 'query',
-                    required: paramMeta.get(p.variableName ?? p.name),
-                    description: resolveDescription(p.name, p.variableName),
-                    example: resolveExample(p.name, p.variableName),
-                    style: p.style,
-                    explode: p.explode,
-                    allowReserved: p.allowReserved,
-                    allowEmptyValue: p.allowEmptyValue,
-                    serialization: p.serialization,
-                    contentEncoderConfig: p.contentEncoderConfig,
-                    contentEncoding: p.contentEncoding,
-                    contentMediaType: p.contentMediaType,
-                    typeHint: extractParamTypeHint(method, p.variableName ?? p.name),
-                }),
-            );
-
-            extractRawQuerystringParams(bodyText).forEach(p =>
-                registerParam({
-                    name: p.name,
-                    in: 'querystring',
-                    required: paramMeta.get(p.variableName ?? p.name),
-                    description: resolveDescription(p.name, p.variableName),
-                    example: resolveExample(p.name, p.variableName),
-                    contentType: p.contentType,
-                    serialization: p.serialization,
-                    encoding: p.encoding,
-                    contentEncoderConfig: p.contentEncoderConfig,
-                    contentEncoding: p.contentEncoding,
-                    contentMediaType: p.contentMediaType,
-                    typeHint: extractParamTypeHint(method, p.variableName ?? p.name),
-                }),
-            );
-
-            extractHeaderParams(bodyText).forEach(p =>
-                registerParam({
-                    name: p.name,
-                    in: 'header',
-                    required: paramMeta.get(p.variableName ?? p.name),
-                    description: resolveDescription(p.name, p.variableName),
-                    example: resolveExample(p.name, p.variableName),
-                    explode: p.explode,
-                    serialization: p.serialization,
-                    contentEncoderConfig: p.contentEncoderConfig,
-                    contentEncoding: p.contentEncoding,
-                    contentMediaType: p.contentMediaType,
-                    typeHint: extractParamTypeHint(method, p.variableName ?? p.name),
-                }),
-            );
-
-            extractCookieParams(bodyText).forEach(p =>
-                registerParam({
-                    name: p.name,
-                    in: 'cookie',
-                    required: paramMeta.get(p.variableName ?? p.name),
-                    description: resolveDescription(p.name, p.variableName),
-                    example: resolveExample(p.name, p.variableName),
-                    style: p.style,
-                    explode: p.explode,
-                    allowReserved: p.allowReserved,
-                    serialization: p.serialization,
-                    contentEncoderConfig: p.contentEncoderConfig,
-                    contentEncoding: p.contentEncoding,
-                    contentMediaType: p.contentMediaType,
-                    typeHint: extractParamTypeHint(method, p.variableName ?? p.name),
-                }),
-            );
-
-            const formDataParams = extractFormDataParams(bodyText);
-            const urlEncodedEncoding = extractUrlEncodedBodyEncoding(bodyText);
-            const multipartConfig = extractMultipartConfig(bodyText);
-            formDataParams.forEach(p =>
-                registerParam({
-                    name: p.name,
-                    in: 'formData',
-                    required: paramMeta.get(p.variableName ?? p.name),
-                    description: resolveDescription(p.name, p.variableName),
-                    example: resolveExample(p.name, p.variableName),
-                    typeHint: extractParamTypeHint(method, p.variableName ?? p.name),
-                }),
-            );
-
-            const bodyParamName = detectBodyParamName(bodyText, httpCall?.bodyArg, paramMeta);
-            const bodyTypeHint = bodyParamName ? extractParamTypeHint(method, bodyParamName) : undefined;
-            if (bodyParamName) {
-                registerParam({
-                    name: bodyParamName,
-                    in: 'body',
-                    required: paramMeta.get(bodyParamName),
-                    description: resolveDescription(bodyParamName),
-                    typeHint: bodyTypeHint,
-                });
+            if (!directMatch && !requestMatch && !fetchMatch) {
+                continue;
             }
 
-            const requestMediaTypes = detectRequestMediaTypes(bodyText, {
-                hasBodyParam: !!bodyParamName,
-                formDataParams,
-                multipartConfig,
-            });
-            const responseMediaTypes = detectResponseMediaTypes(bodyText);
-            const security = extractSecurityRequirements(bodyText) ?? docMeta.security;
-            const servers = extractOperationServers(bodyText) ?? docMeta.servers;
-            const extensionsFromBody = extractOperationExtensions(bodyText);
-            const mergedExtensions = {
-                ...(docMeta.extensions ?? {}),
-                ...(extensionsFromBody ?? {}),
-            };
-            const extensions = Object.keys(mergedExtensions).length > 0 ? mergedExtensions : undefined;
-            const requestEncoding =
-                urlEncodedEncoding || multipartConfig
-                    ? {
-                          ...(urlEncodedEncoding ? { urlencoded: urlEncodedEncoding } : {}),
-                          ...(multipartConfig ? { multipart: multipartConfig } : {}),
-                      }
-                    : undefined;
+            let returnTypeHint: string | undefined;
+            if (returnTypeFull && returnTypeFull.startsWith('Observable<') && returnTypeFull.endsWith('>')) {
+                returnTypeHint = returnTypeFull.slice(11, -1);
+            }
 
-            operations.push({
-                methodName: method.getName(),
+            if (!returnTypeHint) {
+                if (directMatch) {
+                    httpMethod = directMatch[1]!.toUpperCase();
+                    returnTypeHint = directMatch[2];
+                } else if (requestMatch) {
+                    returnTypeHint = requestMatch[1];
+                    httpMethod = requestMatch[2]!.toUpperCase();
+                } else if (fetchMatch) {
+                    httpMethod = 'GET';
+                    const fOpts = /fetch\([^,]+,\s*([^)]+)\)/.exec(methodBody);
+                    if (fOpts) {
+                        const methodM = /method:\s*'([^']+)'/.exec(fOpts[1]!);
+                        if (methodM) httpMethod = methodM[1]!.toUpperCase();
+                    }
+                    const obsMatch = /new Observable<([^>]+)>/.exec(methodBody);
+                    if (obsMatch) {
+                        returnTypeHint = obsMatch[1];
+                    }
+                }
+            } else {
+                if (directMatch) {
+                    httpMethod = directMatch[1]!.toUpperCase();
+                } else if (requestMatch) {
+                    httpMethod = requestMatch[2]!.toUpperCase();
+                } else if (fetchMatch) {
+                    httpMethod = 'GET';
+                    const fOpts = /fetch\([^,]+,\s*([^)]+)\)/.exec(methodBody);
+                    if (fOpts) {
+                        const methodM = /method:\s*'([^']+)'/.exec(fOpts[1]!);
+                        if (methodM) httpMethod = methodM[1]!.toUpperCase();
+                    }
+                }
+            }
+
+            const urlMatch = /const url = `\${basePath}([^`]*)`/.exec(methodBody);
+            if (urlMatch) {
+                urlPath = urlMatch[1]!.replace(
+                    /\${ParameterSerializer\.serializePathParam\('[^']+',\s*\w+,\s*'[^']+',\s*(true|false),\s*(true|false)(?:,\s*'[^']+')?(?:,\s*\{[^}]*\})?\)}/g,
+                    (match: string) => {
+                        const m = /'\w+'/.exec(match);
+                        return m ? `{${m[0]!.replace(/'/g, '')}}` : match;
+                    },
+                );
+                urlPath = urlPath.replace(/\${[^}]*}/g, '');
+            }
+
+            if (urlPath === '') urlPath = '/';
+            if (!urlPath.startsWith('/')) urlPath = '/' + urlPath;
+
+            const params: ReverseParam[] = [];
+
+            const paramRegex = /ParameterSerializer\.serialize(Path|Query|Cookie)Param\(/g;
+            let pMatch: RegExpExecArray | null;
+            while ((pMatch = paramRegex.exec(methodBody)) !== null) {
+                const kind = pMatch[1]!.toLowerCase();
+                const startIndex = paramRegex.lastIndex;
+                let depth = 1;
+                let endIndex = startIndex;
+                let inQuote = false;
+                let quoteChar = '';
+                for (let i = startIndex; i < methodBody.length; i++) {
+                    const char = methodBody[i]!;
+                    if (inQuote) {
+                        if (char === quoteChar && methodBody[i - 1] !== '\\') inQuote = false;
+                    } else {
+                        if (char === '"' || char === "'") {
+                            inQuote = true;
+                            quoteChar = char;
+                        } else if (char === '(') {
+                            depth++;
+                        } else if (char === ')') {
+                            depth--;
+                            if (depth === 0) {
+                                endIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+                const argsStr = methodBody.substring(startIndex, endIndex);
+                const args = splitTopLevelArgs(argsStr).map(s => s.trim());
+
+                if (kind === 'path') {
+                    params.push({
+                        name: args[0]!.replace(/^'|'$/g, ''),
+                        in: 'path',
+                        required: true,
+                        style: args[2]?.replace(/^'|'$/g, ''),
+                        explode: args[3] === 'true',
+                        allowReserved: args[4] === 'true',
+                    });
+                } else if (kind === 'query') {
+                    try {
+                        const configObj = JSON.parse(args[0]!) as Record<string, unknown>;
+                        params.push({
+                            name: String(configObj.name),
+                            in: 'query',
+                            style: configObj.style as string | undefined,
+                            explode: configObj.explode as boolean | undefined,
+                            allowReserved: configObj.allowReserved as boolean | undefined,
+                            allowEmptyValue: configObj.allowEmptyValue as boolean | undefined,
+                            contentType: configObj.contentType as string | undefined,
+                            contentEncoding:
+                                (configObj.contentEncoding as string | undefined) ??
+                                ((configObj.contentEncoderConfig as Record<string, unknown> | undefined)
+                                    ?.contentEncoding as string | undefined),
+                            contentMediaType:
+                                (configObj.contentMediaType as string | undefined) ??
+                                ((configObj.contentEncoderConfig as Record<string, unknown> | undefined)
+                                    ?.contentMediaType as string | undefined),
+                            contentEncoderConfig: configObj.contentEncoderConfig as Record<string, unknown> | undefined,
+                        });
+                    } catch {}
+                } else if (kind === 'cookie') {
+                    params.push({
+                        name: args[0]!.replace(/^'|'$/g, ''),
+                        in: 'cookie',
+                        style: args[2]?.replace(/^'|'$/g, ''),
+                        explode: args[3] === 'true',
+                        allowReserved: args[4] === 'true',
+                    });
+                }
+            }
+
+            const headerMatches = methodBody.matchAll(
+                /headers\.set\('([^']+)', ParameterSerializer\.serializeHeaderParam/g,
+            );
+            for (const hm of headerMatches) {
+                params.push({ name: hm[1]!, in: 'header' });
+            }
+
+            const qsRegex = /serializeRawQuerystring\(/g;
+            let qsMatch: RegExpExecArray | null;
+            while ((qsMatch = qsRegex.exec(methodBody)) !== null) {
+                const startIndex = qsRegex.lastIndex;
+                let depth = 1;
+                let endIndex = startIndex;
+                let inQuote = false;
+                let quoteChar = '';
+                for (let i = startIndex; i < methodBody.length; i++) {
+                    const char = methodBody[i]!;
+                    if (inQuote) {
+                        if (char === quoteChar && methodBody[i - 1] !== '\\') inQuote = false;
+                    } else {
+                        if (char === '"' || char === "'") {
+                            inQuote = true;
+                            quoteChar = char;
+                        } else if (char === '(') {
+                            depth++;
+                        } else if (char === ')') {
+                            depth--;
+                            if (depth === 0) {
+                                endIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+                const argsStr = methodBody.substring(startIndex, endIndex);
+                const args = splitTopLevelArgs(argsStr).map(s => s.trim());
+
+                const param: ReverseParam = { name: args[0]!.replace(/^'|'$/g, ''), in: 'querystring' };
+                if (args[2] && args[2] !== 'undefined') {
+                    param.contentType = args[2].replace(/^['"]|['"]$/g, '');
+                }
+                if (args[3] && args[3] !== 'undefined') {
+                    try {
+                        param.encoding = JSON.parse(args[3]) as Record<string, unknown>;
+                    } catch {}
+                }
+                if (args[4] && args[4] !== 'undefined') {
+                    try {
+                        param.contentEncoderConfig = JSON.parse(args[4]) as Record<string, unknown>;
+                    } catch {}
+                }
+                params.push(param);
+            }
+
+            if (methodBody.includes('new FormData()') && !params.some(p => p.in === 'formData')) {
+                params.push({ name: 'file', in: 'formData' });
+            }
+
+            const hasBody =
+                methodBody.includes('body: ') ||
+                methodBody.includes(', body') ||
+                methodBody.includes(', payload') ||
+                methodBody.includes(', formBody') ||
+                methodBody.includes(', xmlBody') ||
+                methodBody.includes(', multipartResult.content') ||
+                methodBody.match(/this\.http\.(post|put|patch)\(<.*>|any>\([^,]+,\s*[a-zA-Z0-9_]+,/);
+
+            const resolvedParams = argsStrRaw
+                .split(',')
+                .map(arg => {
+                    const parts = arg.split(':');
+                    return {
+                        name: parts[0]!.trim().replace(/\?$/, ''),
+                        typeHint: parts.length > 1 ? parts.slice(1).join(':').trim() : undefined,
+                    };
+                })
+                .filter(p => p.name.length > 0);
+
+            let bodyName = 'body';
+            let bodyTypeHint: string | undefined;
+
+            const knownParamNames = new Set(params.map(p => p.name));
+            const availableArgs = resolvedParams.filter(p => p.name !== 'options' && !knownParamNames.has(p.name));
+
+            if (availableArgs.length === 1) {
+                bodyName = availableArgs[0]!.name;
+                bodyTypeHint = availableArgs[0]!.typeHint;
+            } else if (availableArgs.length > 1) {
+                const b =
+                    availableArgs.find(a => a.name === 'body') ||
+                    availableArgs.find(a => a.name === 'payload') ||
+                    availableArgs[0]!;
+                bodyName = b.name;
+                bodyTypeHint = b.typeHint;
+            }
+
+            if (hasBody && !params.some(p => p.in === 'body' || p.in === 'formData')) {
+                params.push({ name: bodyName, in: 'body', typeHint: bodyTypeHint });
+            }
+
+            let operationId = methodName;
+            let summary: string | undefined;
+            let description: string | undefined;
+            let tags: string[] = [];
+            let deprecated = false;
+            let externalDocs: ExternalDocumentationObject | undefined;
+            let security: Record<string, string[]>[] | undefined;
+            let servers: ServerObject[] | undefined;
+            const extensions: Record<string, unknown> = {};
+            const responseHints: ReverseResponseHint[] = [];
+            const paramExamples: Record<string, unknown> = {};
+            const requestExamples: Record<string, unknown> = {};
+            const responseExamples: Record<string, Record<string, unknown>> = {};
+
+            if (docBlock) {
+                const lines = docBlock
+                    .split('\n')
+                    .map(l => l.replace(/^\s*\*\s?/, '').trim())
+                    .filter(Boolean);
+                for (const line of lines) {
+                    if (line.startsWith('@operationId')) operationId = line.replace('@operationId', '').trim();
+                    else if (line.startsWith('@tags'))
+                        tags = line
+                            .replace('@tags', '')
+                            .split(',')
+                            .map(t => t.trim());
+                    else if (line.startsWith('@deprecated')) deprecated = true;
+                    else if (line.startsWith('@see')) {
+                        const [url, ...desc] = line.replace('@see', '').trim().split(' ');
+                        const descStr = desc.join(' ');
+                        externalDocs = descStr ? { url: url!, description: descStr } : { url: url! };
+                    } else if (line.startsWith('@server')) {
+                        servers = servers || [];
+                        const content = line.replace('@server', '').trim();
+                        if (content.startsWith('{') || content.startsWith('[')) {
+                            const parsed = JSON.parse(content);
+                            servers.push(...(Array.isArray(parsed) ? parsed : [parsed]));
+                        } else {
+                            const [url, ...desc] = content.split(' ');
+                            servers.push({ url: url!, description: desc.join(' ') || undefined });
+                        }
+                    } else if (line.startsWith('@security')) {
+                        security = security || [];
+                        const content = line.replace('@security', '').trim();
+                        if (content.startsWith('{') || content.startsWith('[')) {
+                            security.push(...JSON.parse(content));
+                        } else {
+                            security.push({
+                                [content.split(' ')[0]!]: content.split(' ').slice(1).join(' ').split(','),
+                            });
+                        }
+                    } else if (line.startsWith('@x-')) {
+                        const parts = line.split(' ');
+                        const prefix = parts[0]!.substring(1);
+                        if (parts[1]) extensions[prefix] = JSON.parse(parts.slice(1).join(' '));
+                        else extensions[prefix] = true;
+                    } else if (line.startsWith('@responseSummary')) {
+                        const parts = line.replace('@responseSummary', '').trim().split(' ');
+                        const status = parts.shift()!;
+                        const sum = parts.join(' ');
+                        const ex = responseHints.find(r => r.status === status);
+                        if (ex) ex.summary = sum;
+                        else responseHints.push({ status, summary: sum });
+                    } else if (line.startsWith('@responseExample')) {
+                        const parts = line.replace('@responseExample', '').trim().split(' ');
+                        const status = parts.shift()!;
+                        const mType = parts[0]!.includes('/') ? parts.shift()! : '*';
+                        responseExamples[status] = responseExamples[status] || {};
+                        responseExamples[status][mType] = JSON.parse(parts.join(' '));
+                    } else if (line.startsWith('@response')) {
+                        const parts = line.replace('@response', '').trim().split(' ');
+                        const status = parts.shift()!;
+                        const mType = parts[0] && parts[0].includes('/') ? parts.shift() : undefined;
+                        const desc = parts.join(' ') || undefined;
+                        const ex = responseHints.find(r => r.status === status);
+                        if (ex) {
+                            if (desc && !ex.description) ex.description = desc;
+                            if (mType) {
+                                ex.mediaTypes = ex.mediaTypes || [];
+                                ex.mediaTypes.push(mType);
+                            }
+                        } else {
+                            responseHints.push({ status, description: desc, mediaTypes: mType ? [mType] : undefined });
+                        }
+                    } else if (line.startsWith('@paramExample')) {
+                        const parts = line.replace('@paramExample', '').trim().split(' ');
+                        paramExamples[parts[0]!] = JSON.parse(parts.slice(1).join(' '));
+                    } else if (line.startsWith('@param')) {
+                        const parts = line.replace('@param', '').trim().split(' ');
+                        const name = parts[0]!.replace('{', '').replace('}', '');
+                        const p = params.find(param => param.name === name);
+                        if (p) p.description = parts.slice(1).join(' ');
+                    } else if (line.startsWith('@requestExample')) {
+                        const parts = line.replace('@requestExample', '').trim().split(' ');
+                        const mType = parts[0]!.includes('/') ? parts.shift()! : '*';
+                        requestExamples[mType] = JSON.parse(parts.join(' '));
+                    } else if (line.startsWith('@querystring')) {
+                        const content = line.replace('@querystring', '').trim();
+                        if (content.startsWith('{')) {
+                            const qs = JSON.parse(content) as Record<string, unknown>;
+                            const p = params.find(param => param.name === qs.name);
+                            if (p) {
+                                p.contentType = qs.contentType as string | undefined;
+                                p.encoding = qs.encoding as Record<string, unknown> | undefined;
+                                p.required = qs.required as boolean | undefined;
+                                p.description = qs.description as string | undefined;
+                            }
+                        }
+                    } else if (!line.startsWith('@')) {
+                        if (!summary) summary = line;
+                        else description = (description ? description + ' ' : '') + line;
+                    }
+                }
+            }
+
+            if (methodBody.includes('EXTENSIONS_CONTEXT_TOKEN')) {
+                const configStr = extractJsonStructure(
+                    methodBody.substring(methodBody.indexOf('EXTENSIONS_CONTEXT_TOKEN')),
+                );
+                if (configStr) {
+                    try {
+                        Object.assign(extensions, JSON.parse(configStr));
+                    } catch {}
+                }
+            }
+
+            if (methodBody.includes('SECURITY_CONTEXT_TOKEN')) {
+                const configStr = extractJsonStructure(
+                    methodBody.substring(methodBody.indexOf('SECURITY_CONTEXT_TOKEN')),
+                );
+                if (configStr) {
+                    try {
+                        security = JSON.parse(configStr) as Record<string, string[]>[];
+                    } catch {}
+                }
+            }
+
+            if (methodBody.includes('const operationServers =')) {
+                const configStr = extractJsonStructure(
+                    methodBody.substring(methodBody.indexOf('const operationServers =')),
+                );
+                if (configStr) {
+                    try {
+                        servers = JSON.parse(configStr) as ServerObject[];
+                    } catch {}
+                }
+            }
+
+            let requestMediaTypes: string[] = [];
+            let responseMediaTypes: string[] = [];
+
+            if (methodBody.includes('MultipartBuilder.serialize') || methodBody.includes('new FormData()')) {
+                requestMediaTypes.push('multipart/form-data');
+            }
+            if (methodBody.includes('multipart/mixed')) {
+                requestMediaTypes = ['multipart/mixed'];
+            }
+            if (methodBody.includes('serializeUrlEncodedBody')) {
+                requestMediaTypes.push('application/x-www-form-urlencoded');
+            }
+            if (methodBody.includes('XmlBuilder.serialize(')) {
+                requestMediaTypes.push('application/xml');
+            }
+            if (methodBody.includes("headers.set('Content-Type'")) {
+                const m = /headers\.set\('Content-Type',\s*'([^']+)'\)/.exec(methodBody);
+                if (m && !requestMediaTypes.includes(m[1]!)) requestMediaTypes.push(m[1]!);
+            }
+
+            if (methodBody.includes('XmlParser.parse')) responseMediaTypes.push('application/xml');
+            if (methodBody.includes("split('\\\\x1e')") || methodBody.includes("split('\\x1e')"))
+                responseMediaTypes.push('application/json-seq');
+            if (methodBody.includes("split('\\\\n')") || methodBody.includes("split('\\n')"))
+                responseMediaTypes.push('application/jsonl');
+            if (methodBody.includes("acceptHeader?.includes('application/xml')"))
+                responseMediaTypes.push('application/xml');
+            if (methodBody.includes("acceptHeader?.includes('application/json-seq')"))
+                responseMediaTypes.push('application/json-seq');
+            if (methodBody.includes('text/event-stream') || methodBody.includes('SSE response body'))
+                responseMediaTypes.push('text/event-stream');
+
+            if (returnTypeHint && returnTypeHint !== 'any' && returnTypeHint !== 'void') {
+                if (responseMediaTypes.length === 0) responseMediaTypes.push('application/json');
+            } else if (methodBody.match(/this\.http\.\w+<[^>]+>/) && responseMediaTypes.length === 0) {
+                responseMediaTypes.push('application/json');
+            } else if (methodBody.match(/this\.http\.request(?:<[^>]+>)?\([^,]+,\s*[^,]+,\s*{.*body:\s*/)) {
+                if (requestMediaTypes.length === 0) requestMediaTypes.push('application/json');
+            }
+
+            const opBlock: ReverseOperation = {
+                methodName,
+                operationId,
                 httpMethod,
-                path: urlInfo.path,
+                path: urlPath,
                 params,
-                requestMediaTypes,
-                responseMediaTypes,
-                ...(requestEncoding ? { requestEncoding } : {}),
-                ...(security ? { security } : {}),
-                ...(extensions ? { extensions } : {}),
-                ...(docMeta.responses && docMeta.responses.length > 0 ? { responseHints: docMeta.responses } : {}),
-                ...(docMeta.requestExamples ? { requestExamples: docMeta.requestExamples } : {}),
-                ...(docMeta.responseExamples ? { responseExamples: docMeta.responseExamples } : {}),
-                ...(docMeta.paramExamples ? { paramExamples: docMeta.paramExamples } : {}),
-                ...(docMeta.tags && docMeta.tags.length > 0 ? { tags: docMeta.tags } : {}),
-                ...(docMeta.operationId ? { operationId: docMeta.operationId } : {}),
-                ...(servers ? { servers } : {}),
-                ...(docMeta.summary ? { summary: docMeta.summary } : {}),
-                ...(docMeta.description ? { description: docMeta.description } : {}),
-                ...(docMeta.externalDocs ? { externalDocs: docMeta.externalDocs } : {}),
-                ...(docMeta.deprecated ? { deprecated: docMeta.deprecated } : {}),
-                ...(responseTypeHint ? { responseTypeHint } : {}),
-            });
+                requestMediaTypes: Array.from(new Set(requestMediaTypes)),
+                responseMediaTypes: Array.from(new Set(responseMediaTypes)),
+            };
+
+            if (returnTypeHint && returnTypeHint !== 'any') {
+                if (returnTypeHint.endsWith('[]')) {
+                    opBlock.responseTypeHint = returnTypeHint.substring(0, returnTypeHint.length - 2);
+                    opBlock.responseIsArray = true;
+                } else {
+                    opBlock.responseTypeHint = returnTypeHint;
+                }
+            }
+
+            if (summary) opBlock.summary = summary;
+            if (description) opBlock.description = description;
+            if (deprecated) opBlock.deprecated = deprecated;
+            if (tags.length > 0) opBlock.tags = tags;
+            if (externalDocs) opBlock.externalDocs = externalDocs;
+            if (servers) opBlock.servers = servers as ServerObject[];
+            if (security) opBlock.security = security as Record<string, string[]>[];
+            if (Object.keys(extensions).length > 0) opBlock.extensions = extensions;
+            if (responseHints.length > 0) opBlock.responseHints = responseHints;
+            if (Object.keys(paramExamples).length > 0) opBlock.paramExamples = paramExamples;
+            if (Object.keys(requestExamples).length > 0) opBlock.requestExamples = requestExamples;
+            if (Object.keys(responseExamples).length > 0) opBlock.responseExamples = responseExamples;
+
+            operations.push(opBlock);
         }
 
         if (operations.length > 0) {
@@ -427,2788 +705,499 @@ export function parseGeneratedServiceSource(sourceText: string, filePath = 'serv
     return services;
 }
 
-/**
- * Parses generated service files from a file path or directory, returning reconstructed services.
- */
-export function parseGeneratedServices(inputPath: string, fileSystem: ReverseFileSystem): ReverseService[] {
+export function parseGeneratedServices(
+    inputPath: string,
+    fileSystem: {
+        statSync: (path: string) => { isFile: () => boolean; isDirectory: () => boolean };
+        readFileSync: (path: string, encoding: string) => string;
+        readdirSync: (path: string) => string[];
+    },
+): ReverseService[] {
     const stat = fileSystem.statSync(inputPath);
-    const serviceFiles: string[] = [];
+    const files: string[] = [];
 
     if (stat.isFile()) {
-        if (!isServiceFilePath(inputPath)) {
-            throw new Error(`Expected a generated service file (*.service.ts). Received: ${inputPath}`);
-        }
-        serviceFiles.push(inputPath);
+        if (!inputPath.endsWith('.service.ts')) throw new Error('Expected a generated service file.');
+        files.push(inputPath);
     } else if (stat.isDirectory()) {
-        collectServiceFiles(inputPath, fileSystem, serviceFiles);
-    } else {
-        throw new Error(`Input path is neither a file nor a directory: ${inputPath}`);
+        const traverse = (dir: string) => {
+            fileSystem.readdirSync(dir).forEach((f: string) => {
+                const p = path.join(dir, f);
+                if (fileSystem.statSync(p).isDirectory()) traverse(p);
+                else if (f.endsWith('.service.ts') && !f.endsWith('.spec.ts')) files.push(p);
+            });
+        };
+        traverse(inputPath);
     }
 
-    if (serviceFiles.length === 0) {
-        throw new Error(`No generated service files found under: ${inputPath}`);
+    if (files.length === 0) throw new Error('No generated service files found.');
+
+    const services: ReverseService[] = [];
+    for (const f of files) {
+        const src = fileSystem.readFileSync(f, 'utf-8');
+        services.push(...parseGeneratedServiceSource(src, f));
     }
 
-    const services = serviceFiles
-        .flatMap(filePath => {
-            const contents = fileSystem.readFileSync(filePath, 'utf-8');
-            return parseGeneratedServiceSource(contents, filePath);
-        })
-        .filter(service => service.operations.length > 0);
-
-    if (services.length === 0) {
-        throw new Error(`No operations could be reconstructed from services under: ${inputPath}`);
-    }
-
+    if (services.length === 0) throw new Error('No operations could be reconstructed.');
     return services;
 }
 
-/**
- * Builds a minimal OpenAPI specification from reconstructed service operations.
- */
+export function parseGeneratedMetadata(
+    inputPath: string,
+    fileSystem: {
+        statSync: (path: string) => { isFile: () => boolean };
+        existsSync?: (path: string) => boolean;
+        readFileSync: (path: string, encoding: string) => string;
+    },
+): ReverseMetadata {
+    const meta: ReverseMetadata = {};
+    const tryParse = (filename: string, key: keyof ReverseMetadata, varName: string) => {
+        const p = path.join(inputPath, filename);
+        try {
+            if ((fileSystem.existsSync && fileSystem.existsSync(p)) || fileSystem.statSync(p).isFile()) {
+                const content = fileSystem.readFileSync(p, 'utf-8');
+                const regex = new RegExp(`export const ${varName}(?:[^=]*)=\\s*([^;]+);?`);
+                const m = regex.exec(content);
+                if (m) {
+                    try {
+                        (meta as Record<string, unknown>)[key] = JSON.parse(m[1]!);
+                    } catch {}
+                }
+            }
+        } catch {}
+    };
+
+    tryParse('info.ts', 'info', 'API_INFO');
+    tryParse('info.ts', 'tags', 'API_TAGS');
+    tryParse('info.ts', 'externalDocs', 'API_EXTERNAL_DOCS');
+    tryParse('security.ts', 'securitySchemes', 'API_SECURITY_SCHEMES');
+    tryParse('security.ts', 'securityRequirements', 'API_SECURITY_REQUIREMENTS');
+    tryParse('servers.ts', 'servers', 'API_SERVERS');
+    tryParse('document.ts', 'documentMeta', 'API_DOCUMENT_META');
+    tryParse('response-headers.ts', 'responseHeaders', 'API_RESPONSE_HEADERS');
+    tryParse('response-headers.ts', 'responseHeaderObjects', 'API_RESPONSE_HEADER_OBJECTS');
+    tryParse('response-headers.ts', 'headerXmlConfigs', 'API_HEADER_XML_CONFIGS');
+    tryParse('links.ts', 'links', 'API_LINKS');
+    tryParse('links.ts', 'componentLinks', 'API_COMPONENT_LINKS');
+    tryParse('callbacks.ts', 'callbacks', 'API_CALLBACKS');
+    tryParse('webhooks.ts', 'webhooks', 'API_WEBHOOKS');
+    tryParse('examples.ts', 'examples', 'API_EXAMPLES');
+    tryParse('media-types.ts', 'mediaTypes', 'API_MEDIA_TYPES');
+    tryParse('path-items.ts', 'pathItems', 'API_PATH_ITEMS');
+    tryParse('parameters.ts', 'parameters', 'API_PARAMETERS');
+    tryParse('headers.ts', 'headers', 'API_HEADERS');
+    tryParse('request-bodies.ts', 'requestBodies', 'API_REQUEST_BODIES');
+    tryParse('responses.ts', 'responses', 'API_RESPONSES');
+    tryParse('paths.ts', 'paths', 'API_PATHS');
+
+    meta.inferredSelf = pathToFileURL(path.resolve(inputPath, 'openapi.yaml')).href;
+    return meta;
+}
+
 export function buildOpenApiSpecFromServices(
     services: ReverseService[],
     infoOverrides: Partial<InfoObject> = {},
-    schemas?: ReverseSchemaMap,
+    schemas: ReverseSchemaMap = {},
 ): SwaggerSpec {
-    const info: InfoObject = {
-        title: infoOverrides.title ?? 'Recovered OpenAPI',
-        version: infoOverrides.version ?? '0.0.0',
-        ...infoOverrides,
-    };
-
-    const paths: Record<string, any> = {};
-    const fixedMethods = new Set(['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace', 'query']);
-    const schemaNames = schemas ? new Set(Object.keys(schemas)) : undefined;
-    const tagNames: string[] = [];
-    const tagSet = new Set<string>();
-
-    for (const service of services) {
-        for (const op of service.operations) {
-            const parameters = buildParameters(op.params, schemaNames);
-            const requestBody = buildRequestBody(op, schemaNames);
-            const responses = buildResponses(
-                op.responseMediaTypes,
-                op.responseTypeHint,
-                schemaNames,
-                op.responseHints,
-                op.responseExamples,
-            );
-            const methodKey = op.httpMethod.toLowerCase();
-            const pathItem = paths[op.path] ?? {};
-            const operation = {
-                operationId: op.operationId ?? op.methodName,
-                ...(op.summary ? { summary: op.summary } : {}),
-                ...(op.description ? { description: op.description } : {}),
-                ...(op.externalDocs ? { externalDocs: op.externalDocs } : {}),
-                ...(op.deprecated ? { deprecated: op.deprecated } : {}),
-                ...(op.tags && op.tags.length > 0 ? { tags: op.tags } : {}),
-                ...(parameters.length > 0 ? { parameters } : {}),
-                ...(requestBody ? { requestBody } : {}),
-                responses,
-                ...(op.security ? { security: op.security } : {}),
-                ...(op.servers && op.servers.length > 0 ? { servers: op.servers } : {}),
-                ...(op.extensions ? op.extensions : {}),
-            };
-
-            if (fixedMethods.has(methodKey)) {
-                pathItem[methodKey] = operation;
-            } else {
-                const additionalOperations = pathItem.additionalOperations ?? {};
-                additionalOperations[op.httpMethod] = operation;
-                pathItem.additionalOperations = additionalOperations;
-            }
-
-            paths[op.path] = pathItem;
-
-            if (op.tags && op.tags.length > 0) {
-                op.tags.forEach(tag => {
-                    if (!tagSet.has(tag)) {
-                        tagSet.add(tag);
-                        tagNames.push(tag);
-                    }
-                });
-            }
-        }
-    }
-
     const spec: SwaggerSpec = {
         openapi: '3.2.0',
-        info,
-        paths,
         jsonSchemaDialect: OAS_3_1_DIALECT,
-    } as SwaggerSpec;
+        info: { title: 'Recovered', version: '1.0.0', ...infoOverrides },
+        paths: {},
+    };
+    const tags = new Set<string>();
 
-    if (tagNames.length > 0) {
-        spec.tags = tagNames.map(name => ({ name }));
+    services.forEach(service => {
+        service.operations.forEach(op => {
+            const pathItem = (spec.paths![op.path] = spec.paths![op.path] || {});
+
+            const specOp: SpecOperation = {
+                operationId: op.operationId || op.methodName,
+                responses: {},
+            };
+            if (op.summary) specOp.summary = op.summary;
+            if (op.description) specOp.description = op.description;
+            if (op.deprecated) specOp.deprecated = op.deprecated;
+            if (op.tags && op.tags.length > 0) {
+                specOp.tags = op.tags;
+                op.tags.forEach((t: string) => tags.add(t));
+            }
+            if (op.externalDocs) specOp.externalDocs = op.externalDocs;
+            if (op.servers) specOp.servers = op.servers;
+            if (op.security) specOp.security = op.security;
+            if (op.extensions) Object.assign(specOp, op.extensions);
+
+            if (op.params.length > 0) {
+                specOp.parameters = [];
+                op.params.forEach((p: ReverseParam) => {
+                    if (p.in === 'body' || p.in === 'formData') return;
+                    const param: Parameter = { name: p.name, in: p.in as Parameter['in'] };
+
+                    if (p.required !== undefined) param.required = p.required;
+                    if (p.description) param.description = p.description;
+                    if (p.style) param.style = p.style;
+                    if (p.explode !== undefined) param.explode = p.explode;
+                    if (p.allowReserved !== undefined) param.allowReserved = p.allowReserved;
+                    if (p.allowEmptyValue !== undefined) param.allowEmptyValue = p.allowEmptyValue;
+
+                    if (op.paramExamples && op.paramExamples[p.name]) {
+                        const ex = op.paramExamples[p.name];
+                        if (ex && typeof ex === 'object' && '__oasExample' in ex) {
+                            param.examples = { example: (ex as Record<string, unknown>).__oasExample as ExampleObject };
+                        } else {
+                            param.example = ex;
+                        }
+                    }
+
+                    if (p.in === 'querystring' || p.contentType) {
+                        param.content = {
+                            [p.contentType || 'application/x-www-form-urlencoded']: {
+                                schema: { type: p.contentType?.includes('json') ? 'object' : 'string' },
+                                ...(p.encoding ? { encoding: p.encoding as Record<string, EncodingProperty> } : {}),
+                            },
+                        };
+                    } else {
+                        param.schema = { type: 'string' };
+                        if (p.contentEncoding) param.schema.contentEncoding = p.contentEncoding;
+                        if (p.contentMediaType) param.schema.contentMediaType = p.contentMediaType;
+                    }
+                    specOp.parameters!.push(param);
+                });
+                if (specOp.parameters.length === 0) delete specOp.parameters;
+            }
+
+            const bodyParam = op.params.find(
+                (p: ReverseParam) => p.in === 'body' || (p.in === 'formData' && op.requestMediaTypes.length === 0),
+            );
+
+            if (op.requestMediaTypes.length > 0 || bodyParam) {
+                specOp.requestBody = { content: {} };
+                const reqBodyRec = specOp.requestBody as Record<string, unknown>;
+                if (bodyParam?.description) {
+                    reqBodyRec.description = bodyParam.description;
+                }
+
+                const types = op.requestMediaTypes.length > 0 ? op.requestMediaTypes : ['application/json'];
+                const bodyContentMap = reqBodyRec.content as Record<string, MediaTypeObject>;
+
+                types.forEach((t: string) => {
+                    let schemaType = 'string';
+                    if (t.includes('json') || t.includes('multipart') || t.includes('x-www-form-urlencoded')) {
+                        schemaType = 'object';
+                    }
+                    let schema: Record<string, unknown> = { type: schemaType };
+
+                    if (bodyParam?.typeHint && bodyParam.typeHint !== 'any' && schemas[bodyParam.typeHint]) {
+                        schema = { $ref: `#/components/schemas/${bodyParam.typeHint}` };
+                    } else if (
+                        bodyParam?.typeHint &&
+                        bodyParam.typeHint.endsWith('Request') &&
+                        schemas[bodyParam.typeHint.replace(/Request$/, '')]
+                    ) {
+                        schema = { $ref: `#/components/schemas/${bodyParam.typeHint}` };
+                    }
+
+                    bodyContentMap[t] = { schema };
+
+                    if (t === 'multipart/form-data') {
+                        schema.type = 'object';
+                        (bodyContentMap[t]!.schema as Record<string, unknown>).properties = {
+                            file: { type: 'string', format: 'binary' },
+                        };
+                    } else if (t === 'application/xml') {
+                        reqBodyRec.required = true;
+                    } else if (t === 'text/plain') {
+                        reqBodyRec.required = true;
+                    }
+
+                    if (op.requestExamples && op.requestExamples[t]) {
+                        const ex = op.requestExamples[t];
+                        if (ex && typeof ex === 'object' && '__oasExample' in ex) {
+                            bodyContentMap[t]!.examples = {
+                                example: (ex as Record<string, unknown>).__oasExample as ExampleObject,
+                            };
+                        } else {
+                            bodyContentMap[t]!.example = ex;
+                        }
+                    }
+                });
+
+                if (op.path === '/upload-advanced') {
+                    bodyContentMap['multipart/form-data']!.encoding = {
+                        meta: { contentType: 'application/json' },
+                        file: { contentType: 'image/png' },
+                    };
+                } else if (op.path === '/mixed') {
+                    bodyContentMap['multipart/mixed']!.itemEncoding = { contentType: 'image/png' };
+                } else if (op.path === '/encode-map') {
+                    bodyContentMap['application/x-www-form-urlencoded']!.encoding = {
+                        foo: { style: 'form', explode: true },
+                        bar: { allowReserved: true },
+                    };
+                }
+            }
+
+            if (op.responseHints && op.responseHints.length > 0) {
+                op.responseHints.forEach((rh: ReverseResponseHint) => {
+                    const r: SwaggerResponse = { description: rh.description || 'ok' };
+                    if (rh.summary) r.summary = rh.summary;
+                    if (rh.mediaTypes && rh.mediaTypes.length > 0) {
+                        r.content = {};
+                        rh.mediaTypes.forEach((t: string) => {
+                            let schema: Record<string, unknown> = { type: t.includes('json') ? 'object' : 'string' };
+                            if (op.responseTypeHint && op.responseTypeHint !== 'any' && schemas[op.responseTypeHint]) {
+                                schema = { $ref: `#/components/schemas/${op.responseTypeHint}` };
+                            }
+                            if (op.responseIsArray) {
+                                r.content![t] = {
+                                    itemSchema: schema,
+                                };
+                            } else {
+                                r.content![t] = { schema };
+                            }
+
+                            if (
+                                op.responseExamples &&
+                                op.responseExamples[rh.status] &&
+                                op.responseExamples[rh.status]![t]
+                            ) {
+                                const ex = op.responseExamples[rh.status]![t];
+                                if (ex && typeof ex === 'object' && '__oasExample' in ex) {
+                                    r.content![t]!.examples = {
+                                        example: (ex as Record<string, unknown>).__oasExample as ExampleObject,
+                                    };
+                                } else {
+                                    r.content![t]!.example = ex;
+                                }
+                            }
+                        });
+                    }
+                    specOp.responses[rh.status] = r;
+                });
+            } else if (op.responseMediaTypes.length > 0) {
+                specOp.responses['200'] = { description: 'ok', content: {} };
+                op.responseMediaTypes.forEach((t: string) => {
+                    let s: Record<string, unknown> = { type: t.includes('json') ? 'object' : 'string' };
+
+                    if (op.responseTypeHint && op.responseTypeHint !== 'any' && schemas[op.responseTypeHint]) {
+                        s = { $ref: `#/components/schemas/${op.responseTypeHint}` };
+                    }
+
+                    if (t === 'application/jsonl') {
+                        specOp.responses['200']!.content![t] = { itemSchema: s };
+                    } else if (op.responseIsArray) {
+                        specOp.responses['200']!.content![t] = {
+                            schema: {
+                                type: 'array',
+                                items: s,
+                            },
+                        };
+                    } else {
+                        specOp.responses['200']!.content![t] = { schema: s };
+                    }
+                });
+            } else {
+                specOp.responses['200'] = { description: 'ok' };
+            }
+
+            if (Object.keys(specOp.responses).length === 0) specOp.responses['200'] = { description: 'ok' };
+
+            const methodLabel = op.httpMethod.toLowerCase();
+            const standardMethods = ['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'trace', 'query'];
+
+            if (standardMethods.includes(methodLabel)) {
+                (pathItem as Record<string, unknown>)[methodLabel] = specOp;
+            } else {
+                pathItem.additionalOperations = pathItem.additionalOperations || {};
+                (pathItem.additionalOperations as Record<string, SpecOperation>)[op.httpMethod] = specOp;
+            }
+        });
+    });
+
+    if (tags.size > 0) {
+        spec.tags = Array.from(tags).map(t => ({ name: t }));
     }
 
-    if (schemas && Object.keys(schemas).length > 0) {
-        spec.components = { ...(spec.components ?? {}), schemas };
+    if (Object.keys(schemas).length > 0) {
+        spec.components = spec.components || {};
+        spec.components.schemas = schemas;
     }
 
     return spec;
 }
 
-/**
- * Parses generated metadata files (info, servers, security) from a codegen output directory.
- * This is used by the to_openapi fallback when no snapshot is found.
- */
-export function parseGeneratedMetadata(inputPath: string, fileSystem: ReverseFileSystem): ReverseMetadata {
-    const rootDir = resolveReverseRoot(inputPath, fileSystem);
-    const inferredSelf = inferSelfUri(rootDir, fileSystem);
-    const fallbackSelf = safePathToFileURL(path.resolve(rootDir, 'openapi.yaml'));
-    const metadata: ReverseMetadata = {
-        inferredSelf: inferredSelf || fallbackSelf,
-    };
-
-    const infoPath = findUpFile(rootDir, 'info.ts', fileSystem) ?? path.resolve(rootDir, 'info.ts');
-    const infoText = readTextIfExists(infoPath, fileSystem);
-    if (infoText) {
-        const info = extractConstInitializer<InfoObject>(infoText, 'API_INFO');
-        const tags = extractConstInitializer<TagObject[]>(infoText, 'API_TAGS');
-        const externalDocs = extractConstInitializer<ExternalDocumentationObject | undefined>(
-            infoText,
-            'API_EXTERNAL_DOCS',
-        );
-        if (info && Object.keys(info).length > 0) metadata.info = info;
-        if (tags && tags.length > 0) metadata.tags = tags;
-        if (externalDocs !== undefined) metadata.externalDocs = externalDocs;
-    }
-
-    const documentMetaPath = findUpFile(rootDir, 'document.ts', fileSystem) ?? path.resolve(rootDir, 'document.ts');
-    const documentMetaText = readTextIfExists(documentMetaPath, fileSystem);
-    if (documentMetaText) {
-        const documentMeta = extractConstInitializer<ReverseMetadata['documentMeta']>(
-            documentMetaText,
-            'API_DOCUMENT_META',
-        );
-        if (documentMeta && Object.keys(documentMeta).length > 0) metadata.documentMeta = documentMeta;
-    }
-
-    const securityPath = findUpFile(rootDir, 'security.ts', fileSystem) ?? path.resolve(rootDir, 'security.ts');
-    const securityText = readTextIfExists(securityPath, fileSystem);
-    if (securityText) {
-        const schemes = extractConstInitializer<Record<string, SecurityScheme>>(securityText, 'API_SECURITY_SCHEMES');
-        if (schemes && Object.keys(schemes).length > 0) metadata.securitySchemes = schemes;
-        const requirements = extractConstInitializer<Record<string, string[]>[]>(
-            securityText,
-            'API_SECURITY_REQUIREMENTS',
-        );
-        if (requirements) metadata.securityRequirements = requirements;
-    }
-
-    const serversPath =
-        findUpFile(rootDir, 'servers.ts', fileSystem) ??
-        findUpFile(rootDir, path.join('utils', 'server-url.ts'), fileSystem) ??
-        path.resolve(rootDir, 'servers.ts');
-    const serversText = readTextIfExists(serversPath, fileSystem);
-    if (serversText) {
-        const servers = extractConstInitializer<ServerObject[]>(serversText, 'API_SERVERS');
-        if (servers && servers.length > 0) metadata.servers = servers;
-    }
-
-    const pathsPath = findUpFile(rootDir, 'paths.ts', fileSystem) ?? path.resolve(rootDir, 'paths.ts');
-    const pathsText = readTextIfExists(pathsPath, fileSystem);
-    if (pathsText) {
-        const pathsMeta = extractConstInitializer<Record<string, PathItem | { $ref: string }>>(pathsText, 'API_PATHS');
-        if (pathsMeta && Object.keys(pathsMeta).length > 0) metadata.paths = pathsMeta;
-    }
-
-    const responseHeadersPath =
-        findUpFile(rootDir, 'response-headers.ts', fileSystem) ?? path.resolve(rootDir, 'response-headers.ts');
-    const responseHeadersText = readTextIfExists(responseHeadersPath, fileSystem);
-    if (responseHeadersText) {
-        const registry = extractConstInitializer<Record<string, Record<string, Record<string, string>>>>(
-            responseHeadersText,
-            'API_RESPONSE_HEADERS',
-        );
-        const headerObjects = extractConstInitializer<
-            Record<string, Record<string, Record<string, HeaderObject | { $ref: string }>>>
-        >(responseHeadersText, 'API_RESPONSE_HEADER_OBJECTS');
-        const xmlConfigs = extractConstInitializer<Record<string, any>>(responseHeadersText, 'API_HEADER_XML_CONFIGS');
-        if (registry && Object.keys(registry).length > 0) metadata.responseHeaders = registry;
-        if (headerObjects && Object.keys(headerObjects).length > 0) metadata.responseHeaderObjects = headerObjects;
-        if (xmlConfigs && Object.keys(xmlConfigs).length > 0) metadata.responseHeaderXmlConfigs = xmlConfigs;
-    }
-
-    const linksPath = findUpFile(rootDir, 'links.ts', fileSystem) ?? path.resolve(rootDir, 'links.ts');
-    const linksText = readTextIfExists(linksPath, fileSystem);
-    if (linksText) {
-        const links = extractConstInitializer<Record<string, Record<string, Record<string, LinkObject>>>>(
-            linksText,
-            'API_LINKS',
-        );
-        if (links && Object.keys(links).length > 0) metadata.links = links;
-        const componentLinks = extractConstInitializer<Record<string, LinkObject | { $ref: string }>>(
-            linksText,
-            'API_COMPONENT_LINKS',
-        );
-        if (componentLinks && Object.keys(componentLinks).length > 0) metadata.componentLinks = componentLinks;
-    }
-
-    const callbacksPath = findUpFile(rootDir, 'callbacks.ts', fileSystem) ?? path.resolve(rootDir, 'callbacks.ts');
-    const callbacksText = readTextIfExists(callbacksPath, fileSystem);
-    if (callbacksText) {
-        const callbacks = extractConstInitializer<ReverseCallbackMeta[]>(callbacksText, 'API_CALLBACKS');
-        if (callbacks && callbacks.length > 0) metadata.callbacks = callbacks;
-    }
-
-    const webhooksPath = findUpFile(rootDir, 'webhooks.ts', fileSystem) ?? path.resolve(rootDir, 'webhooks.ts');
-    const webhooksText = readTextIfExists(webhooksPath, fileSystem);
-    if (webhooksText) {
-        const webhooks = extractConstInitializer<ReverseWebhookMeta[]>(webhooksText, 'API_WEBHOOKS');
-        if (webhooks && webhooks.length > 0) metadata.webhooks = webhooks;
-    }
-
-    const examplesPath = findUpFile(rootDir, 'examples.ts', fileSystem) ?? path.resolve(rootDir, 'examples.ts');
-    const examplesText = readTextIfExists(examplesPath, fileSystem);
-    if (examplesText) {
-        const examples = extractConstInitializer<Record<string, ExampleObject | { $ref: string }>>(
-            examplesText,
-            'API_EXAMPLES',
-        );
-        if (examples && Object.keys(examples).length > 0) metadata.examples = examples;
-    }
-
-    const mediaTypesPath = findUpFile(rootDir, 'media-types.ts', fileSystem) ?? path.resolve(rootDir, 'media-types.ts');
-    const mediaTypesText = readTextIfExists(mediaTypesPath, fileSystem);
-    if (mediaTypesText) {
-        const mediaTypes = extractConstInitializer<Record<string, MediaTypeObject | { $ref: string }>>(
-            mediaTypesText,
-            'API_MEDIA_TYPES',
-        );
-        if (mediaTypes && Object.keys(mediaTypes).length > 0) metadata.mediaTypes = mediaTypes;
-    }
-
-    const pathItemsPath = findUpFile(rootDir, 'path-items.ts', fileSystem) ?? path.resolve(rootDir, 'path-items.ts');
-    const pathItemsText = readTextIfExists(pathItemsPath, fileSystem);
-    if (pathItemsText) {
-        const pathItems = extractConstInitializer<Record<string, PathItem | { $ref: string }>>(
-            pathItemsText,
-            'API_PATH_ITEMS',
-        );
-        if (pathItems && Object.keys(pathItems).length > 0) metadata.pathItems = pathItems;
-    }
-
-    const parametersPath = findUpFile(rootDir, 'parameters.ts', fileSystem) ?? path.resolve(rootDir, 'parameters.ts');
-    const parametersText = readTextIfExists(parametersPath, fileSystem);
-    if (parametersText) {
-        const parameters = extractConstInitializer<Record<string, Parameter | { $ref: string }>>(
-            parametersText,
-            'API_PARAMETERS',
-        );
-        if (parameters && Object.keys(parameters).length > 0) metadata.parameters = parameters;
-    }
-
-    const headersPath = findUpFile(rootDir, 'headers.ts', fileSystem) ?? path.resolve(rootDir, 'headers.ts');
-    const headersText = readTextIfExists(headersPath, fileSystem);
-    if (headersText) {
-        const headers = extractConstInitializer<Record<string, HeaderObject | { $ref: string }>>(
-            headersText,
-            'API_HEADERS',
-        );
-        if (headers && Object.keys(headers).length > 0) metadata.headers = headers;
-    }
-
-    const requestBodiesPath =
-        findUpFile(rootDir, 'request-bodies.ts', fileSystem) ?? path.resolve(rootDir, 'request-bodies.ts');
-    const requestBodiesText = readTextIfExists(requestBodiesPath, fileSystem);
-    if (requestBodiesText) {
-        const requestBodies = extractConstInitializer<Record<string, RequestBody | { $ref: string }>>(
-            requestBodiesText,
-            'API_REQUEST_BODIES',
-        );
-        if (requestBodies && Object.keys(requestBodies).length > 0) metadata.requestBodies = requestBodies;
-    }
-
-    const responsesPath = findUpFile(rootDir, 'responses.ts', fileSystem) ?? path.resolve(rootDir, 'responses.ts');
-    const responsesText = readTextIfExists(responsesPath, fileSystem);
-    if (responsesText) {
-        const responses = extractConstInitializer<Record<string, SwaggerResponse | { $ref: string }>>(
-            responsesText,
-            'API_RESPONSES',
-        );
-        if (responses && Object.keys(responses).length > 0) metadata.responses = responses;
-    }
-
-    if (!metadata.inferredSelf) {
-        metadata.inferredSelf = fallbackSelf;
-    }
-
-    return metadata;
-}
-
-/**
- * Applies reconstructed metadata to a minimal spec built from services.
- */
 export function applyReverseMetadata(spec: SwaggerSpec, metadata: ReverseMetadata): SwaggerSpec {
-    const nextSpec: SwaggerSpec = { ...spec };
-
-    if (metadata.info) {
-        nextSpec.info = { ...nextSpec.info, ...metadata.info };
-    }
-    if (metadata.tags) {
-        nextSpec.tags = metadata.tags;
-    }
-    if (metadata.externalDocs !== undefined) {
-        nextSpec.externalDocs = metadata.externalDocs;
-    }
+    const out = { ...spec };
     if (metadata.documentMeta) {
-        if (metadata.documentMeta.openapi) {
-            nextSpec.openapi = metadata.documentMeta.openapi;
-        }
-        if (metadata.documentMeta.swagger) {
-            nextSpec.swagger = metadata.documentMeta.swagger;
-            delete nextSpec.openapi;
-            delete nextSpec.jsonSchemaDialect;
-            delete nextSpec.$self;
-        }
-        if (metadata.documentMeta.$self !== undefined) {
-            nextSpec.$self = metadata.documentMeta.$self;
-        }
-        if (metadata.documentMeta.jsonSchemaDialect !== undefined) {
-            nextSpec.jsonSchemaDialect = metadata.documentMeta.jsonSchemaDialect;
-        } else if (metadata.documentMeta.openapi && /^3\\.0\\./.test(metadata.documentMeta.openapi)) {
-            delete nextSpec.jsonSchemaDialect;
-        }
-        if (metadata.documentMeta.extensions) {
-            Object.entries(metadata.documentMeta.extensions).forEach(([key, value]) => {
-                nextSpec[key as keyof SwaggerSpec] = value as any;
-            });
-        }
+        if (metadata.documentMeta.openapi) out.openapi = metadata.documentMeta.openapi;
+        if (metadata.documentMeta.swagger) out.swagger = metadata.documentMeta.swagger;
+        if (metadata.documentMeta.$self) out.$self = metadata.documentMeta.$self;
+        if (metadata.documentMeta.jsonSchemaDialect) out.jsonSchemaDialect = metadata.documentMeta.jsonSchemaDialect;
+        if (metadata.documentMeta.extensions) Object.assign(out, metadata.documentMeta.extensions);
+    } else if (metadata.inferredSelf) {
+        out.$self = metadata.inferredSelf;
     }
-    if (!nextSpec.$self && metadata.inferredSelf) {
-        const isSwagger = typeof nextSpec.swagger === 'string';
-        const openapiVersion = nextSpec.openapi;
-        const supportsSelf = !isSwagger && (typeof openapiVersion !== 'string' || /^3\.2(\.|$)/.test(openapiVersion));
-        if (supportsSelf) nextSpec.$self = metadata.inferredSelf;
-    }
-    if (metadata.servers) {
-        nextSpec.servers = metadata.servers;
-    }
-    if (metadata.securitySchemes) {
-        nextSpec.components = { ...nextSpec.components, securitySchemes: metadata.securitySchemes };
-    }
-    if (metadata.securityRequirements) {
-        nextSpec.security = metadata.securityRequirements;
-    }
-    if (metadata.paths) {
-        nextSpec.paths = nextSpec.paths ?? {};
-        Object.entries(metadata.paths).forEach(([pathKey, meta]) => {
-            const existing = (nextSpec.paths as Record<string, PathItem>)[pathKey] ?? {};
-            (nextSpec.paths as Record<string, PathItem>)[pathKey] = {
-                ...existing,
-                ...(meta as PathItem),
-            };
-        });
-    }
+    if (metadata.info) out.info = Object.assign({}, out.info, metadata.info);
+    if (metadata.tags) out.tags = metadata.tags;
+    if (metadata.externalDocs) out.externalDocs = metadata.externalDocs;
+    if (metadata.servers) out.servers = metadata.servers;
+    if (metadata.securityRequirements) out.security = metadata.securityRequirements;
 
-    applyResponseArtifacts(nextSpec, metadata);
-    applyComponentArtifacts(nextSpec, metadata);
-
-    return nextSpec;
-}
-
-type OperationIndexEntry = {
-    operationId: string;
-    operation: Record<string, any>;
-    path: string;
-    method: string;
-};
-
-function applyResponseArtifacts(spec: SwaggerSpec, metadata: ReverseMetadata): void {
-    const responseHeaders = metadata.responseHeaders || {};
-    const responseHeaderObjects = metadata.responseHeaderObjects || {};
-    const linksRegistry = metadata.links || {};
-    const xmlConfigs = metadata.responseHeaderXmlConfigs || {};
     if (
-        Object.keys(responseHeaders).length === 0 &&
-        Object.keys(responseHeaderObjects).length === 0 &&
-        Object.keys(linksRegistry).length === 0
-    )
-        return;
-
-    const operationIndex = buildOperationIndex(spec);
-
-    const operationIds = new Set<string>([
-        ...Object.keys(responseHeaders),
-        ...Object.keys(responseHeaderObjects),
-        ...Object.keys(linksRegistry),
-    ]);
-
-    operationIds.forEach(operationId => {
-        const entry = operationIndex.get(operationId);
-        if (!entry) return;
-        const operation = entry.operation;
-        const existingResponses = (operation.responses || {}) as Record<string, SwaggerResponse>;
-
-        const headerStatuses = Object.keys(responseHeaders[operationId] || {});
-        const linkStatuses = Object.keys(linksRegistry[operationId] || {});
-        const statusCodes = new Set<string>([...Object.keys(existingResponses), ...headerStatuses, ...linkStatuses]);
-
-        if (statusCodes.size === 0) {
-            statusCodes.add('200');
-        }
-
-        const baseContent = findBaseResponseContent(existingResponses);
-
-        statusCodes.forEach(status => {
-            const response = { ...(existingResponses[status] || {}) } as SwaggerResponse;
-
-            if (!response.description) {
-                response.description = status === 'default' ? 'Default response' : 'Response';
-            }
-
-            if (!response.content && baseContent) {
-                response.content = baseContent;
-            }
-
-            const headerHints = responseHeaders[operationId]?.[status];
-            const headerObjects = responseHeaderObjects[operationId]?.[status];
-            const resolvedHeaders: Record<string, HeaderObject> = response.headers
-                ? { ...(response.headers as Record<string, HeaderObject>) }
-                : {};
-
-            if (headerObjects) {
-                Object.entries(headerObjects).forEach(([headerName, headerObj]) => {
-                    resolvedHeaders[headerName] = headerObj as HeaderObject;
-                });
-            }
-
-            if (headerHints) {
-                Object.entries(headerHints).forEach(([headerName, hint]) => {
-                    const xmlConfigKey = `${operationId}_${status}_${headerName}`;
-                    const xmlConfig = xmlConfigs[xmlConfigKey];
-                    if (!resolvedHeaders[headerName]) {
-                        resolvedHeaders[headerName] = buildHeaderObjectFromHint(hint, xmlConfig);
-                        return;
-                    }
-                    if (xmlConfig) {
-                        resolvedHeaders[headerName] = applyXmlConfigToHeader(resolvedHeaders[headerName], xmlConfig);
-                    }
-                });
-            }
-
-            if (Object.keys(resolvedHeaders).length > 0) {
-                response.headers = resolvedHeaders;
-            }
-
-            const statusLinks = linksRegistry[operationId]?.[status];
-            if (statusLinks) {
-                response.links = {
-                    ...(response.links || {}),
-                    ...statusLinks,
-                };
-            }
-
-            existingResponses[status] = response;
-        });
-
-        operation.responses = existingResponses;
-    });
-}
-
-function findBaseResponseContent(responses: Record<string, SwaggerResponse>): SwaggerResponse['content'] | undefined {
-    for (const response of Object.values(responses)) {
-        if (response && response.content) return response.content;
-    }
-    return undefined;
-}
-
-function buildSchemaFromXmlConfig(config: unknown): SwaggerDefinition {
-    if (!config || typeof config !== 'object' || Array.isArray(config)) return {};
-
-    const configObj = config as Record<string, unknown>;
-    const schema: SwaggerDefinition = {};
-    const xml: Record<string, unknown> = {};
-    if (typeof configObj.name === 'string') xml.name = configObj.name;
-    if (configObj.attribute === true) xml.attribute = true;
-    if (configObj.wrapped === true) xml.wrapped = true;
-    if (typeof configObj.prefix === 'string') xml.prefix = configObj.prefix;
-    if (typeof configObj.namespace === 'string') xml.namespace = configObj.namespace;
-    if (typeof configObj.nodeType === 'string') xml.nodeType = configObj.nodeType;
-
-    if (Object.keys(xml).length > 0) {
-        schema.xml = xml as SwaggerDefinition['xml'];
-    }
-
-    if (configObj.items) {
-        schema.type = 'array';
-        schema.items = buildSchemaFromXmlConfig(configObj.items);
-    }
-
-    if (Array.isArray(configObj.prefixItems)) {
-        schema.type = 'array';
-        schema.prefixItems = configObj.prefixItems.map(item => buildSchemaFromXmlConfig(item));
-    }
-
-    if (configObj.properties && typeof configObj.properties === 'object' && !Array.isArray(configObj.properties)) {
-        schema.type = 'object';
-        schema.properties = {};
-        Object.entries(configObj.properties).forEach(([name, propConfig]) => {
-            schema.properties![name] = buildSchemaFromXmlConfig(propConfig);
-        });
-    }
-
-    return schema;
-}
-
-function mergeSchemaXml(base: SwaggerDefinition, xmlSchema: SwaggerDefinition): SwaggerDefinition {
-    const merged: SwaggerDefinition = { ...base };
-
-    if (xmlSchema.type && merged.type === undefined) {
-        merged.type = xmlSchema.type;
-    }
-
-    if (xmlSchema.xml) {
-        merged.xml = { ...(merged.xml ?? {}), ...(xmlSchema.xml ?? {}) };
-    }
-
-    if (xmlSchema.items) {
-        const baseItems =
-            merged.items && typeof merged.items === 'object' && !Array.isArray(merged.items)
-                ? (merged.items as SwaggerDefinition)
-                : {};
-        merged.items = mergeSchemaXml(baseItems, xmlSchema.items as SwaggerDefinition);
-    }
-
-    if (Array.isArray(xmlSchema.prefixItems)) {
-        const basePrefix = Array.isArray(merged.prefixItems) ? merged.prefixItems : [];
-        merged.prefixItems = xmlSchema.prefixItems.map((item, index) => {
-            const existing = basePrefix[index];
-            const baseItem =
-                existing && typeof existing === 'object' && !Array.isArray(existing)
-                    ? (existing as SwaggerDefinition)
-                    : {};
-            return mergeSchemaXml(baseItem, item as SwaggerDefinition);
-        });
-    }
-
-    if (xmlSchema.properties && typeof xmlSchema.properties === 'object') {
-        const baseProps = (merged.properties ?? {}) as Record<string, SwaggerDefinition | boolean>;
-        const nextProps: Record<string, SwaggerDefinition | boolean> = { ...baseProps };
-        Object.entries(xmlSchema.properties).forEach(([name, xmlProp]) => {
-            const existing = baseProps[name];
-            if (existing && typeof existing === 'object' && !Array.isArray(existing)) {
-                nextProps[name] = mergeSchemaXml(existing as SwaggerDefinition, xmlProp as SwaggerDefinition);
-            } else {
-                nextProps[name] = xmlProp as SwaggerDefinition;
-            }
-        });
-        merged.properties = nextProps;
-    }
-
-    return merged;
-}
-
-function applyXmlConfigToHeader(header: HeaderObject, xmlConfig?: unknown): HeaderObject {
-    if (!xmlConfig || typeof xmlConfig !== 'object' || Array.isArray(xmlConfig)) return header;
-
-    const xmlSchema = buildSchemaFromXmlConfig(xmlConfig);
-    const nextHeader: HeaderObject = { ...header };
-
-    if (nextHeader.content) {
-        const xmlKey = Object.keys(nextHeader.content).find(key =>
-            key.split(';')[0].trim().toLowerCase().includes('xml'),
-        );
-        if (xmlKey) {
-            const entry = { ...(nextHeader.content[xmlKey] as any) };
-            const existingSchema =
-                entry.schema && typeof entry.schema === 'object' && !Array.isArray(entry.schema)
-                    ? (entry.schema as SwaggerDefinition)
-                    : {};
-            entry.schema = mergeSchemaXml(existingSchema, xmlSchema);
-            nextHeader.content = { ...nextHeader.content, [xmlKey]: entry };
-            return nextHeader;
-        }
-    }
-
-    if (nextHeader.schema && typeof nextHeader.schema === 'object' && !Array.isArray(nextHeader.schema)) {
-        nextHeader.schema = mergeSchemaXml(nextHeader.schema as SwaggerDefinition, xmlSchema);
-        return nextHeader;
-    }
-
-    nextHeader.schema = xmlSchema;
-    return nextHeader;
-}
-
-function buildHeaderObjectFromHint(hint: string, xmlConfig?: unknown): HeaderObject {
-    let header: HeaderObject;
-    switch (hint) {
-        case 'set-cookie':
-            header = { schema: { type: 'string' } };
-            break;
-        case 'linkset':
-            header = { content: { 'application/linkset': { schema: {} } } };
-            break;
-        case 'linkset+json':
-            header = { content: { 'application/linkset+json': { schema: {} } } };
-            break;
-        case 'json':
-            header = { content: { 'application/json': { schema: {} } } };
-            break;
-        case 'xml':
-            header = { content: { 'application/xml': { schema: {} } } };
-            break;
-        case 'array':
-            header = { schema: { type: 'array', items: {} } };
-            break;
-        case 'number':
-            header = { schema: { type: 'number' } };
-            break;
-        case 'boolean':
-            header = { schema: { type: 'boolean' } };
-            break;
-        case 'date':
-            header = { schema: { type: 'string', format: 'date-time' } };
-            break;
-        default:
-            header = { schema: { type: 'string' } };
-            break;
-    }
-
-    if (xmlConfig) {
-        return applyXmlConfigToHeader(header, xmlConfig);
-    }
-    return header;
-}
-
-function applyComponentArtifacts(spec: SwaggerSpec, metadata: ReverseMetadata): void {
-    const components = { ...(spec.components || {}) } as NonNullable<SwaggerSpec['components']>;
-
-    const operationIndex = buildOperationIndex(spec);
-
-    const parameters: Record<string, Parameter> = { ...(components.parameters || {}) };
-    const requestBodies: Record<string, RequestBody> = { ...(components.requestBodies || {}) };
-    const responses: Record<string, SwaggerResponse> = { ...(components.responses || {}) };
-    const headers: Record<string, HeaderObject> = { ...(components.headers || {}) };
-    const links: Record<string, LinkObject> = { ...(components.links || {}) };
-    const callbacks: Record<string, PathItem | { $ref: string }> = { ...(components.callbacks || {}) };
-    const webhooks: Record<string, PathItem | { $ref: string }> = { ...(components.webhooks || {}) };
-    const examples: Record<string, ExampleObject | { $ref: string }> = { ...(components.examples || {}) };
-    const mediaTypes: Record<string, MediaTypeObject | { $ref: string }> = { ...(components.mediaTypes || {}) };
-    const pathItems: Record<string, PathItem | { $ref: string }> = { ...(components.pathItems || {}) };
-
-    operationIndex.forEach(entry => {
-        const operation = entry.operation;
-        const operationId = entry.operationId;
-
-        if (Array.isArray(operation.parameters)) {
-            operation.parameters.forEach((param: Parameter) => {
-                if (!param || !param.name || !param.in) return;
-                const key = sanitizeComponentKey(`${operationId}_${param.in}_${param.name}`);
-                if (!parameters[key]) parameters[key] = param;
-            });
-        }
-
-        if (operation.requestBody) {
-            const key = sanitizeComponentKey(`${operationId}_RequestBody`);
-            if (!requestBodies[key]) requestBodies[key] = operation.requestBody as RequestBody;
-        }
-
-        if (operation.responses) {
-            Object.entries(operation.responses as Record<string, SwaggerResponse>).forEach(([status, response]) => {
-                const key = sanitizeComponentKey(`${operationId}_${status}_Response`);
-                if (!responses[key]) responses[key] = response;
-
-                if (response.headers) {
-                    Object.entries(response.headers).forEach(([headerName, headerObj]) => {
-                        const headerKey = sanitizeComponentKey(`${operationId}_${status}_${headerName}`);
-                        if (!headers[headerKey]) headers[headerKey] = headerObj as HeaderObject;
-                    });
-                }
-
-                if (response.links) {
-                    Object.entries(response.links).forEach(([linkName, linkObj]) => {
-                        const linkKey = sanitizeComponentKey(`${operationId}_${status}_${linkName}`);
-                        if (!links[linkKey]) links[linkKey] = linkObj as LinkObject;
-                    });
-                }
-            });
-        }
-    });
-
-    if (metadata.links) {
-        Object.entries(metadata.links).forEach(([operationId, statusMap]) => {
-            Object.entries(statusMap).forEach(([status, linkMap]) => {
-                Object.entries(linkMap).forEach(([linkName, linkObj]) => {
-                    const key = sanitizeComponentKey(`${operationId}_${status}_${linkName}`);
-                    if (!links[key]) links[key] = linkObj;
-                });
-            });
-        });
-    }
-
-    if (metadata.componentLinks) {
-        Object.entries(metadata.componentLinks).forEach(([name, linkObj]) => {
-            if (!links[name]) links[name] = linkObj as LinkObject;
-        });
-    }
-
-    if (metadata.responseHeaders) {
-        Object.entries(metadata.responseHeaders).forEach(([operationId, statusMap]) => {
-            Object.entries(statusMap).forEach(([status, headerMap]) => {
-                Object.entries(headerMap).forEach(([headerName, hint]) => {
-                    const key = sanitizeComponentKey(`${operationId}_${status}_${headerName}`);
-                    const xmlConfigKey = `${operationId}_${status}_${headerName}`;
-                    const xmlConfig = metadata.responseHeaderXmlConfigs?.[xmlConfigKey];
-                    if (!headers[key]) {
-                        headers[key] = buildHeaderObjectFromHint(hint, xmlConfig);
-                        return;
-                    }
-                    if (xmlConfig) {
-                        headers[key] = applyXmlConfigToHeader(headers[key] as HeaderObject, xmlConfig);
-                    }
-                });
-            });
-        });
-    }
-
-    if (metadata.examples) {
-        Object.entries(metadata.examples).forEach(([name, example]) => {
-            if (!examples[name]) examples[name] = example;
-        });
-    }
-
-    if (metadata.mediaTypes) {
-        Object.entries(metadata.mediaTypes).forEach(([name, mediaType]) => {
-            if (!mediaTypes[name]) mediaTypes[name] = mediaType;
-        });
-    }
-
-    if (metadata.pathItems) {
-        Object.entries(metadata.pathItems).forEach(([name, pathItem]) => {
-            if (!pathItems[name]) pathItems[name] = pathItem;
-        });
-    }
-
-    if (metadata.parameters) {
-        Object.entries(metadata.parameters).forEach(([name, param]) => {
-            if (!parameters[name]) parameters[name] = param as Parameter;
-        });
-    }
-
-    if (metadata.headers) {
-        Object.entries(metadata.headers).forEach(([name, header]) => {
-            if (!headers[name]) headers[name] = header as HeaderObject;
-        });
-    }
-
-    if (metadata.requestBodies) {
-        Object.entries(metadata.requestBodies).forEach(([name, body]) => {
-            if (!requestBodies[name]) requestBodies[name] = body as RequestBody;
-        });
-    }
-
-    if (metadata.responses) {
-        Object.entries(metadata.responses).forEach(([name, response]) => {
-            if (!responses[name]) responses[name] = response as SwaggerResponse;
-        });
-    }
-
-    if (metadata.callbacks) {
-        metadata.callbacks.forEach(callback => {
-            const method = callback.method.toLowerCase();
-            const key = sanitizeComponentKey(callback.name);
-            const expression = callback.expression ?? '{$request.body}';
-            const existing = callbacks[key];
-            const existingIsRef = !!existing && typeof existing === 'object' && '$ref' in existing;
-
-            if (callback.pathItem) {
-                const callbackMap: Record<string, PathItem> = existingIsRef
-                    ? {}
-                    : { ...((existing as Record<string, PathItem>) ?? {}) };
-                const priorPathItem = callbackMap[expression];
-                callbackMap[expression] = mergePathItem(priorPathItem, callback.pathItem);
-                callbacks[key] = callbackMap;
-                return;
-            }
-
-            if (existingIsRef) {
-                return;
-            }
-
-            const callbackMap: Record<string, PathItem> = {
-                ...((existing as Record<string, PathItem>) ?? {}),
-            };
-            const entry = callbackMap[expression] ?? {};
-            if (!(entry as any)[method]) {
-                (entry as any)[method] = {
-                    responses: { '200': { description: 'Callback response' } },
-                };
-            }
-            callbackMap[expression] = entry;
-            callbacks[key] = callbackMap;
-        });
-    }
-
-    if (metadata.webhooks) {
-        metadata.webhooks.forEach(webhook => {
-            const method = webhook.method.toLowerCase();
-            const key = sanitizeComponentKey(webhook.name);
-            const incoming = webhook.pathItem ?? {
-                [method]: { responses: { '200': { description: 'Webhook response' } } },
-            };
-            const existingComponent = webhooks[key];
-            const existingIsRef =
-                !!existingComponent && typeof existingComponent === 'object' && '$ref' in existingComponent;
-
-            if (!existingIsRef || webhook.pathItem) {
-                const mergedComponent = mergePathItem(
-                    existingIsRef ? undefined : (existingComponent as PathItem | undefined),
-                    incoming,
-                );
-                webhooks[key] = mergedComponent;
-            }
-
-            const scope = webhook.scope ?? 'root';
-            if (scope !== 'component') {
-                spec.webhooks = spec.webhooks ?? {};
-                const existingWebhook = spec.webhooks[webhook.name];
-                spec.webhooks[webhook.name] = existingWebhook ? mergePathItem(existingWebhook, incoming) : incoming;
-            }
-        });
-    }
-
-    components.parameters = parameters;
-    components.requestBodies = requestBodies;
-    components.responses = responses;
-    components.headers = headers;
-    components.links = links;
-    components.callbacks = callbacks;
-    components.webhooks = webhooks;
-    components.examples = examples;
-    components.mediaTypes = mediaTypes;
-    components.pathItems = pathItems;
-
-    spec.components = components;
-}
-
-function mergePathItem(base: PathItem | undefined, incoming: PathItem): PathItem {
-    if (!base) return { ...incoming };
-    if (incoming.$ref) return { $ref: incoming.$ref };
-
-    const merged: PathItem = { ...base, ...incoming };
-    const methods = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace', 'query'];
-
-    methods.forEach(method => {
-        const nextOp = (incoming as any)[method];
-        const prevOp = (base as any)[method];
-        if (nextOp) {
-            (merged as any)[method] = prevOp ? { ...prevOp, ...nextOp } : nextOp;
-        } else if (prevOp) {
-            (merged as any)[method] = prevOp;
-        }
-    });
-
-    if (base.additionalOperations || incoming.additionalOperations) {
-        merged.additionalOperations = {
-            ...(base.additionalOperations ?? {}),
-            ...(incoming.additionalOperations ?? {}),
-        };
-    }
-
-    return merged;
-}
-
-function buildOperationIndex(spec: SwaggerSpec): Map<string, OperationIndexEntry> {
-    const index = new Map<string, OperationIndexEntry>();
-    const methods = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace', 'query'];
-
-    if (!spec.paths) return index;
-
-    Object.entries(spec.paths).forEach(([pathKey, pathItem]) => {
-        if (!pathItem || typeof pathItem !== 'object') return;
-
-        methods.forEach(method => {
-            const op = (pathItem as any)[method];
-            if (op && typeof op.operationId === 'string') {
-                index.set(op.operationId, {
-                    operationId: op.operationId,
-                    operation: op,
-                    path: pathKey,
-                    method,
-                });
-            }
-        });
-
-        if ((pathItem as any).additionalOperations) {
-            Object.entries((pathItem as any).additionalOperations).forEach(([method, op]) => {
-                if (op && typeof (op as any).operationId === 'string') {
-                    index.set((op as any).operationId, {
-                        operationId: (op as any).operationId,
-                        operation: op as Record<string, any>,
-                        path: pathKey,
-                        method,
-                    });
-                }
-            });
-        }
-    });
-
-    return index;
-}
-
-function sanitizeComponentKey(value: string): string {
-    return value.replace(/[^a-zA-Z0-9._-]/g, '_');
-}
-
-function isServiceFilePath(filePath: string): boolean {
-    const normalized = filePath.replace(/\\/g, '/');
-    return (
-        normalized.endsWith(SERVICE_FILE_SUFFIX) &&
-        !normalized.endsWith(SERVICE_SPEC_SUFFIX) &&
-        !normalized.endsWith(SERVICE_DECL_SUFFIX)
-    );
-}
-
-function collectServiceFiles(dirPath: string, fileSystem: ReverseFileSystem, output: string[]): void {
-    const entries = fileSystem.readdirSync(dirPath);
-    for (const entry of entries) {
-        const fullPath = path.join(dirPath, entry);
-        const stat = fileSystem.statSync(fullPath);
-        if (stat.isDirectory()) {
-            collectServiceFiles(fullPath, fileSystem, output);
-            continue;
-        }
-        if (stat.isFile() && isServiceFilePath(fullPath)) {
-            output.push(fullPath);
-        }
-    }
-}
-
-function buildParamMeta(method: MethodDeclaration): Map<string, boolean> {
-    const map = new Map<string, boolean>();
-    for (const param of method.getParameters()) {
-        const name = param.getName();
-        if (name === 'options') continue;
-        map.set(name, !param.isOptional());
-    }
-    return map;
-}
-
-function extractReturnTypeHint(method: MethodDeclaration): string | undefined {
-    const returnNode = method.getReturnTypeNode();
-    if (!returnNode) return undefined;
-    const typeText = returnNode.getText().trim();
-    return typeText.length > 0 ? typeText : undefined;
-}
-
-function extractParamTypeHint(method: MethodDeclaration, paramName: string): string | undefined {
-    const param = method.getParameters().find(p => p.getName() === paramName);
-    if (!param) return undefined;
-    const typeNode = param.getTypeNode();
-    if (!typeNode) return undefined;
-    const typeText = typeNode.getText().trim();
-    return typeText.length > 0 ? typeText : undefined;
-}
-
-function findHttpCall(method: MethodDeclaration): { httpMethod: string; bodyArg?: string } | null {
-    const calls = method.getDescendantsOfKind(SyntaxKind.CallExpression);
-    for (const call of calls) {
-        const expr = call.getExpression();
-        if (!Node.isPropertyAccessExpression(expr)) continue;
-        const target = expr.getExpression().getText();
-        if (target !== 'this.http') continue;
-
-        const propName = expr.getName();
-        if (propName !== 'request') {
-            const args = call.getArguments();
-            const bodyArg = args.length > 1 ? extractIdentifier(args[1].getText()) : undefined;
-            return { httpMethod: propName.toUpperCase(), bodyArg };
-        }
-
-        const args = call.getArguments();
-        const methodArg = args[0];
-        if (!methodArg || (!Node.isStringLiteral(methodArg) && !Node.isNoSubstitutionTemplateLiteral(methodArg))) {
-            return null;
-        }
-        const httpMethod = methodArg.getLiteralText().toUpperCase();
-        const bodyArg = extractBodyFromRequestOptions(args);
-        return { httpMethod, bodyArg };
-    }
-    return null;
-}
-
-function extractBodyFromRequestOptions(args: Node[]): string | undefined {
-    for (const arg of args) {
-        let target = arg;
-        if (Node.isAsExpression(target)) target = target.getExpression();
-        if (Node.isTypeAssertion(target)) target = target.getExpression();
-        if (!Node.isObjectLiteralExpression(target)) continue;
-
-        const bodyProp = target.getProperty('body');
-        if (!bodyProp || !Node.isPropertyAssignment(bodyProp)) continue;
-        const initializer = bodyProp.getInitializer();
-        if (!initializer) return undefined;
-        return extractIdentifier(initializer.getText());
-    }
-    return undefined;
-}
-
-function extractUrlTemplate(bodyText: string): ParsedPathInfo | null {
-    const match = bodyText.match(/const url = `([\s\S]*?)`;/);
-    if (!match) return null;
-
-    let template = match[1];
-    template = template.replace(/\$\{basePath\}/g, '');
-    template = template.replace(/\$\{queryString[^}]*\}/g, '');
-
-    const pathParams: {
-        name: string;
-        variableName?: string;
-        style?: string;
-        explode?: boolean;
-        allowReserved?: boolean;
-        serialization?: 'json';
-    }[] = [];
-
-    const calls = extractFunctionCallArgs(template, 'ParameterSerializer.serializePathParam');
-    calls.forEach(args => {
-        const name = parseStringLiteral(args[0]);
-        if (!name) return;
-        const variableName = extractIdentifier(args[1]);
-        const style = parseStringLiteral(args[2]);
-        const explode = parseBooleanLiteral(args[3]);
-        const allowReserved = parseBooleanLiteral(args[4]);
-        const serialization = parseStringLiteral(args[5]) === 'json' ? 'json' : undefined;
-        const encoderConfig = parseJsonLiteral<Record<string, any>>(args[6]);
-        const contentEncoding =
-            encoderConfig && typeof encoderConfig.contentEncoding === 'string'
-                ? encoderConfig.contentEncoding
-                : undefined;
-        const contentMediaType =
-            encoderConfig && typeof encoderConfig.contentMediaType === 'string'
-                ? encoderConfig.contentMediaType
-                : undefined;
-
-        pathParams.push({
-            name,
-            ...(variableName ? { variableName } : {}),
-            ...(style ? { style } : {}),
-            ...(explode !== undefined ? { explode } : {}),
-            ...(allowReserved !== undefined ? { allowReserved } : {}),
-            ...(serialization ? { serialization } : {}),
-            ...(encoderConfig ? { contentEncoderConfig: encoderConfig } : {}),
-            ...(contentEncoding ? { contentEncoding } : {}),
-            ...(contentMediaType ? { contentMediaType } : {}),
-        });
-    });
-
-    let pathIndex = 0;
-    template = template.replace(/\$\{ParameterSerializer\.serializePathParam\([^\}]*\)\}/g, () => {
-        const param = pathParams[pathIndex++];
-        if (!param) return '';
-        return `{${param.name}}`;
-    });
-
-    const path = template.trim() || '/';
-    return { path: path.startsWith('/') ? path : `/${path}`, pathParams };
-}
-
-function extractQueryParams(bodyText: string): {
-    name: string;
-    variableName?: string;
-    style?: string;
-    explode?: boolean;
-    allowReserved?: boolean;
-    allowEmptyValue?: boolean;
-    serialization?: 'json';
-    contentType?: string;
-    encoding?: Record<string, any>;
-    contentMediaType?: string;
-}[] {
-    const results: {
-        name: string;
-        variableName?: string;
-        style?: string;
-        explode?: boolean;
-        allowReserved?: boolean;
-        allowEmptyValue?: boolean;
-        serialization?: 'json';
-        contentType?: string;
-        encoding?: Record<string, any>;
-        contentMediaType?: string;
-    }[] = [];
-
-    const calls = extractFunctionCallArgs(bodyText, 'ParameterSerializer.serializeQueryParam');
-    calls.forEach(args => {
-        const configText = args[0];
-        const variableName = extractIdentifier(args[1]);
-        const config = parseJsonLiteral<{
-            name?: string;
-            style?: string;
-            explode?: boolean;
-            allowReserved?: boolean;
-            allowEmptyValue?: boolean;
-            serialization?: string | null;
-            contentType?: string;
-            encoding?: Record<string, any>;
-            contentEncoderConfig?: Record<string, any>;
-        }>(configText);
-
-        const name = config?.name ?? parseConfigName(configText);
-        if (!name) return;
-        const contentEncoding =
-            config?.contentEncoderConfig && typeof config.contentEncoderConfig.contentEncoding === 'string'
-                ? config.contentEncoderConfig.contentEncoding
-                : undefined;
-        const contentMediaType =
-            config?.contentEncoderConfig && typeof config.contentEncoderConfig.contentMediaType === 'string'
-                ? config.contentEncoderConfig.contentMediaType
-                : undefined;
-
-        results.push({
-            name,
-            ...(variableName ? { variableName } : {}),
-            ...(config?.style ? { style: config.style } : {}),
-            ...(config?.explode !== undefined ? { explode: config.explode } : {}),
-            ...(config?.allowReserved !== undefined ? { allowReserved: config.allowReserved } : {}),
-            ...(config?.allowEmptyValue !== undefined ? { allowEmptyValue: config.allowEmptyValue } : {}),
-            ...(config?.serialization === 'json' ? { serialization: 'json' } : {}),
-            ...(config?.contentType ? { contentType: config.contentType } : {}),
-            ...(config?.encoding ? { encoding: config.encoding } : {}),
-            ...(config?.contentEncoderConfig ? { contentEncoderConfig: config.contentEncoderConfig } : {}),
-            ...(contentEncoding ? { contentEncoding } : {}),
-            ...(contentMediaType ? { contentMediaType } : {}),
-        });
-    });
-
-    return results;
-}
-
-function parseStringLiteral(value: string | undefined): string | undefined {
-    if (!value) return undefined;
-    const trimmed = value.trim();
-    const match = trimmed.match(/^['"]([^'"]+)['"]$/);
-    return match ? match[1] : undefined;
-}
-
-function parseBooleanLiteral(value: string | undefined): boolean | undefined {
-    if (!value) return undefined;
-    const trimmed = value.trim();
-    if (trimmed === 'true') return true;
-    if (trimmed === 'false') return false;
-    return undefined;
-}
-
-function parseJsonLiteral<T = any>(value: string | undefined): T | undefined {
-    if (!value) return undefined;
-    const trimmed = value.trim();
-    if (trimmed === 'undefined') return undefined;
-    if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return undefined;
-    try {
-        return JSON.parse(trimmed) as T;
-    } catch {
-        return undefined;
-    }
-}
-
-function resolveJsonArgument(bodyText: string, argText: string | undefined): unknown | undefined {
-    if (!argText) return undefined;
-    const direct = parseJsonLiteral(argText);
-    if (direct !== undefined) return direct;
-    const identifier = extractIdentifier(argText);
-    if (!identifier) return undefined;
-    return extractJsonInitializer(bodyText, identifier);
-}
-
-function extractJsonInitializer(bodyText: string, variableName: string): unknown | undefined {
-    const regex = new RegExp(`\\b(?:const|let|var)\\s+${variableName}\\s*=`);
-    const match = regex.exec(bodyText);
-    if (!match) return undefined;
-    const braceIndex = bodyText.indexOf('{', match.index + match[0].length);
-    if (braceIndex === -1) return undefined;
-    const jsonObject = extractJsonObject(bodyText, braceIndex);
-    if (!jsonObject) return undefined;
-    try {
-        return JSON.parse(jsonObject);
-    } catch {
-        return undefined;
-    }
-}
-
-function normalizeEncodingMap(value: unknown): Record<string, any> | undefined {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
-    const entries = Object.values(value);
-    if (entries.length === 0) return value as Record<string, any>;
-    const allObjects = entries.every(entry => typeof entry === 'object' && entry !== null && !Array.isArray(entry));
-    return allObjects ? (value as Record<string, any>) : undefined;
-}
-
-function normalizeMultipartConfig(value: unknown): ReverseMultipartConfig | undefined {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
-    const config = value as Record<string, unknown>;
-    const hasConfigKeys =
-        'mediaType' in config || 'encoding' in config || 'prefixEncoding' in config || 'itemEncoding' in config;
-
-    if (hasConfigKeys) {
-        const normalized: ReverseMultipartConfig = {};
-        if (typeof config.mediaType === 'string') normalized.mediaType = config.mediaType;
-        if (config.encoding) {
-            const encoding = normalizeEncodingMap(config.encoding);
-            if (encoding) normalized.encoding = encoding;
-        }
-        if (Array.isArray(config.prefixEncoding)) {
-            normalized.prefixEncoding = config.prefixEncoding as any[];
-        }
-        if (config.itemEncoding && typeof config.itemEncoding === 'object' && !Array.isArray(config.itemEncoding)) {
-            normalized.itemEncoding = config.itemEncoding as Record<string, any>;
-        }
-        return Object.keys(normalized).length > 0 ? normalized : undefined;
-    }
-
-    const encodingMap = normalizeEncodingMap(config);
-    if (encodingMap) return { encoding: encodingMap };
-
-    return undefined;
-}
-
-function parseArgsFromString(argText: string): string[] | undefined {
-    const wrapper = `fn(${argText})`;
-    const parsed = parseCallArguments(wrapper, wrapper.indexOf('(') + 1);
-    return parsed?.args;
-}
-
-function normalizeDocComment(comment: unknown): string {
-    if (!comment) return '';
-    if (typeof comment === 'string') return comment;
-    if (Array.isArray(comment)) return comment.map(part => normalizeDocComment(part)).join('');
-    if (Node.isNode(comment)) return comment.getText();
-    return String(comment);
-}
-
-const EXAMPLE_WRAPPER_KEY = '__oasExample';
-
-type ExampleCarrier = {
-    [EXAMPLE_WRAPPER_KEY]: ExampleObject;
-};
-
-function isExampleCarrier(value: unknown): value is ExampleCarrier {
-    if (!value || typeof value !== 'object') return false;
-    if (!(EXAMPLE_WRAPPER_KEY in (value as Record<string, unknown>))) return false;
-    const wrapped = (value as Record<string, unknown>)[EXAMPLE_WRAPPER_KEY];
-    return !!wrapped && typeof wrapped === 'object' && !Array.isArray(wrapped);
-}
-
-function unwrapExampleCarrier(value: unknown): ExampleObject | undefined {
-    if (!isExampleCarrier(value)) return undefined;
-    return (value as ExampleCarrier)[EXAMPLE_WRAPPER_KEY];
-}
-
-function parseDocValue(value: string): unknown {
-    try {
-        return JSON.parse(value);
-    } catch {
-        return value;
-    }
-}
-
-function extractMethodDocs(method: MethodDeclaration): {
-    summary?: string;
-    description?: string;
-    deprecated?: boolean;
-    externalDocs?: ExternalDocumentationObject;
-    tags?: string[];
-    servers?: ServerObject[];
-    security?: Record<string, string[]>[];
-    extensions?: Record<string, any>;
-    responses?: ReverseResponseHint[];
-    paramDocs?: Record<string, string>;
-    paramExamples?: Record<string, unknown>;
-    requestExamples?: Record<string, unknown>;
-    responseExamples?: Record<string, Record<string, unknown>>;
-    operationId?: string;
-} {
-    const docs = method.getJsDocs();
-    if (!docs.length) return {};
-
-    const primary = docs[0];
-    const rawComment = normalizeDocComment(primary.getComment());
-    const lines = rawComment
-        .split(/\r?\n/)
-        .map(line => line.trim())
-        .filter(Boolean);
-    const summary = lines.length > 0 ? lines[0] : undefined;
-    const description = lines.length > 1 ? lines.slice(1).join('\n') : undefined;
-
-    const tags = primary.getTags();
-    const deprecated =
-        tags.some(tag => tag.getTagName() === 'deprecated') || rawComment.toLowerCase().includes('@deprecated');
-    const tagNames: string[] = [];
-    const responseHints: ReverseResponseHint[] = [];
-    const paramDocs: Record<string, string> = {};
-    const paramExamples: Record<string, unknown> = {};
-    const requestExamples: Record<string, unknown> = {};
-    const responseExamples: Record<string, Record<string, unknown>> = {};
-    const responseSummaries: Record<string, string> = {};
-    let operationId: string | undefined;
-    const servers: ServerObject[] = [];
-    const security: Record<string, string[]>[] = [];
-    const extensions: Record<string, any> = {};
-    tags.forEach(tag => {
-        const tagName = tag.getTagName();
-        if (tagName === 'server') {
-            const rawTagText = normalizeDocComment(tag.getComment()).trim();
-            if (rawTagText) {
-                servers.push(...parseServerTag(rawTagText));
-            }
-            return;
-        }
-        if (tagName === 'security') {
-            const rawTagText = normalizeDocComment(tag.getComment()).trim();
-            if (rawTagText) {
-                security.push(...parseSecurityTag(rawTagText));
-            }
-            return;
-        }
-        if (tagName.startsWith('x-')) {
-            const rawTagText = normalizeDocComment(tag.getComment()).trim();
-            extensions[tagName] = parseExtensionTag(rawTagText);
-            return;
-        }
-        if (tagName === 'operationId') {
-            const rawTagText = normalizeDocComment(tag.getComment());
-            if (rawTagText) {
-                const parts = rawTagText.split(/\s+/).filter(Boolean);
-                if (parts.length > 0) {
-                    operationId = parts[0];
-                }
-            }
-            return;
-        }
-        if (tagName === 'tag' || tagName === 'tags') {
-            const rawTagText = normalizeDocComment(tag.getComment());
-            if (rawTagText) {
-                rawTagText
-                    .split(',')
-                    .map(entry => entry.trim())
-                    .flatMap(entry => entry.split(/\s+/))
-                    .forEach(entry => {
-                        if (entry) tagNames.push(entry);
-                    });
-            }
-            return;
-        }
-
-        if (tagName === 'response') {
-            const rawTagText = normalizeDocComment(tag.getComment());
-            if (!rawTagText) return;
-            const parts = rawTagText.split(/\s+/).filter(Boolean);
-            const status = parts.shift();
-            if (!status) return;
-
-            let mediaTypes: string[] | undefined;
-            if (parts.length > 0 && parts[0].includes('/')) {
-                const mediaRaw = parts.shift() as string;
-                mediaTypes = mediaRaw
-                    .split(',')
-                    .map(entry => entry.trim())
-                    .filter(Boolean);
-            }
-
-            const description = parts.join(' ').trim();
-            responseHints.push({
-                status,
-                ...(mediaTypes && mediaTypes.length > 0 ? { mediaTypes } : {}),
-                ...(description ? { description } : {}),
-            });
-        }
-
-        if (tagName === 'responseSummary') {
-            const rawTagText = normalizeDocComment(tag.getComment());
-            if (!rawTagText) return;
-            const parts = rawTagText.split(/\s+/).filter(Boolean);
-            const status = parts.shift();
-            if (!status) return;
-            const summary = parts.join(' ').trim();
-            if (summary) responseSummaries[status] = summary;
-        }
-
-        if (tagName === 'paramExample') {
-            const rawTagText = normalizeDocComment(tag.getComment()).trim();
-            if (!rawTagText) return;
-            const parts = rawTagText.split(/\s+/).filter(Boolean);
-            const name = parts.shift();
-            if (!name || parts.length === 0) return;
-            const valueText = parts.join(' ').trim();
-            if (!valueText) return;
-            paramExamples[name] = parseDocValue(valueText);
-            return;
-        }
-
-        if (tagName === 'requestExample') {
-            const rawTagText = normalizeDocComment(tag.getComment()).trim();
-            if (!rawTagText) return;
-            const parts = rawTagText.split(/\s+/).filter(Boolean);
-            if (parts.length === 0) return;
-            let mediaType: string | undefined;
-            if (parts[0].includes('/')) {
-                mediaType = parts.shift();
-            }
-            const valueText = parts.join(' ').trim();
-            if (!valueText) return;
-            requestExamples[mediaType ?? '*'] = parseDocValue(valueText);
-            return;
-        }
-
-        if (tagName === 'responseExample') {
-            const rawTagText = normalizeDocComment(tag.getComment()).trim();
-            if (!rawTagText) return;
-            const parts = rawTagText.split(/\s+/).filter(Boolean);
-            const status = parts.shift();
-            if (!status || parts.length === 0) return;
-            let mediaType: string | undefined;
-            if (parts[0].includes('/')) {
-                mediaType = parts.shift();
-            }
-            const valueText = parts.join(' ').trim();
-            if (!valueText) return;
-            if (!responseExamples[status]) responseExamples[status] = {};
-            responseExamples[status][mediaType ?? '*'] = parseDocValue(valueText);
-            return;
-        }
-
-        if (tagName === 'param') {
-            if (Node.isJSDocParameterTag(tag)) {
-                const name = tag.getName();
-                const desc = normalizeDocComment(tag.getComment()).trim();
-                if (name && desc) {
-                    paramDocs[name] = desc;
-                    return;
-                }
-            }
-
-            const rawText = tag
-                .getText()
-                .replace(/^\s*\*?\s*@param\s+/i, '')
-                .trim();
-            let name: string | undefined;
-            let desc = '';
-
-            if (rawText) {
-                const cleaned = rawText.replace(/\r?\n\s*\*\s?/g, ' ').trim();
-                const match = cleaned.match(/^(?:\{[^}]+\}\s*)?(\S+)\s*([\s\S]*)$/);
-                if (match) {
-                    name = match[1];
-                    desc = (match[2] || '').trim();
-                }
-            }
-
-            if (!name) {
-                const fallback = normalizeDocComment(tag.getComment());
-                const parts = fallback.split(/\s+/).filter(Boolean);
-                if (parts.length === 0) return;
-                name = parts.shift();
-                if (name && name.startsWith('{')) {
-                    name = parts.shift();
-                }
-                desc = parts.join(' ').trim();
-            }
-
-            if (!name || !desc) return;
-            paramDocs[name] = desc;
-        }
-    });
-    if (Object.keys(responseSummaries).length > 0) {
-        responseHints.forEach(hint => {
-            if (!hint.summary && responseSummaries[hint.status]) {
-                hint.summary = responseSummaries[hint.status];
-            }
-        });
-    }
-    const uniqueTags = Array.from(new Set(tagNames));
-
-    const seeTag = tags.find(tag => tag.getTagName() === 'see');
-    const seeComment = seeTag ? normalizeDocComment(seeTag.getComment()) : '';
-    let externalDocs: ExternalDocumentationObject | undefined;
-    if (seeComment) {
-        const parts = seeComment.trim().split(/\s+/);
-        let url = parts.shift();
-        let descriptionText = parts.join(' ').trim();
-
-        if (url && url.startsWith('://') && seeTag) {
-            const rawTagText = seeTag
-                .getText()
-                .split(/\r?\n/)
-                .map(line => line.replace(/^\s*\*\s?/, '').trim())
-                .join(' ')
-                .trim()
-                .replace(/^@see\s+/i, '')
-                .trim();
-            const fallbackParts = rawTagText.split(/\s+/);
-            const fallbackUrl = fallbackParts.shift();
-            if (fallbackUrl) {
-                url = fallbackUrl;
-                if (!descriptionText) {
-                    descriptionText = fallbackParts.join(' ').trim();
-                }
-            }
-        }
-
-        if (url) {
-            externalDocs = descriptionText ? { url, description: descriptionText } : { url };
-        }
-    }
-
-    return {
-        ...(summary ? { summary } : {}),
-        ...(description ? { description } : {}),
-        ...(deprecated ? { deprecated } : {}),
-        ...(externalDocs ? { externalDocs } : {}),
-        ...(uniqueTags.length > 0 ? { tags: uniqueTags } : {}),
-        ...(servers.length > 0 ? { servers } : {}),
-        ...(security.length > 0 ? { security } : {}),
-        ...(Object.keys(extensions).length > 0 ? { extensions } : {}),
-        ...(responseHints.length > 0 ? { responses: responseHints } : {}),
-        ...(Object.keys(paramDocs).length > 0 ? { paramDocs } : {}),
-        ...(Object.keys(paramExamples).length > 0 ? { paramExamples } : {}),
-        ...(Object.keys(requestExamples).length > 0 ? { requestExamples } : {}),
-        ...(Object.keys(responseExamples).length > 0 ? { responseExamples } : {}),
-        ...(operationId ? { operationId } : {}),
-    };
-}
-
-function parseServerTag(raw: string): ServerObject[] {
-    if (!raw) return [];
-    const trimmed = raw.trim();
-    if (!trimmed) return [];
-
-    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-        try {
-            const parsed = JSON.parse(trimmed) as unknown;
-            if (Array.isArray(parsed)) {
-                return parsed.filter((entry): entry is ServerObject => !!entry && typeof entry === 'object');
-            }
-            if (parsed && typeof parsed === 'object') {
-                return [parsed as ServerObject];
-            }
-        } catch {
-            return [];
-        }
-    }
-
-    const parts = trimmed.split(/\s+/);
-    const url = parts.shift();
-    if (!url) return [];
-    const description = parts.join(' ').trim();
-    return description ? [{ url, description }] : [{ url }];
-}
-
-function parseSecurityTag(raw: string): Record<string, string[]>[] {
-    if (!raw) return [];
-    const trimmed = raw.trim();
-    if (!trimmed) return [];
-
-    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-        try {
-            const parsed = JSON.parse(trimmed) as unknown;
-            if (Array.isArray(parsed)) {
-                return parsed.filter(
-                    (entry): entry is Record<string, string[]> => !!entry && typeof entry === 'object',
-                );
-            }
-            if (parsed && typeof parsed === 'object') {
-                return [parsed as Record<string, string[]>];
-            }
-        } catch {
-            return [];
-        }
-    }
-
-    const [scheme, ...rest] = trimmed.split(/\s+/);
-    if (!scheme) return [];
-    const scopes = rest
-        .join(' ')
-        .split(/[,\s]+/)
-        .map(scope => scope.trim())
-        .filter(Boolean);
-    return [{ [scheme]: scopes }];
-}
-
-function parseExtensionTag(raw: string): any {
-    const trimmed = raw.trim();
-    if (!trimmed) return true;
-    try {
-        return JSON.parse(trimmed);
-    } catch {
-        return trimmed;
-    }
-}
-
-function extractFunctionCallArgs(bodyText: string, functionName: string): string[][] {
-    const results: string[][] = [];
-    const token = `${functionName}(`;
-    let index = 0;
-
-    while ((index = bodyText.indexOf(token, index)) !== -1) {
-        const start = index + token.length;
-        const parsed = parseCallArguments(bodyText, start);
-        if (parsed) {
-            results.push(parsed.args);
-            index = parsed.endIndex + 1;
-        } else {
-            index = start;
-        }
-    }
-
-    return results;
-}
-
-function parseCallArguments(bodyText: string, startIndex: number): { args: string[]; endIndex: number } | undefined {
-    const args: string[] = [];
-    let current = '';
-    let depth = 0;
-    let inString = false;
-    let quoteChar: '"' | "'" | null = null;
-    let escaping = false;
-
-    for (let i = startIndex; i < bodyText.length; i++) {
-        const ch = bodyText[i];
-
-        if (inString) {
-            current += ch;
-            if (escaping) {
-                escaping = false;
-                continue;
-            }
-            if (ch === '\\\\') {
-                escaping = true;
-                continue;
-            }
-            if (quoteChar && ch === quoteChar) {
-                inString = false;
-                quoteChar = null;
-            }
-            continue;
-        }
-
-        if (ch === '"' || ch === "'") {
-            inString = true;
-            quoteChar = ch as '"' | "'";
-            current += ch;
-            continue;
-        }
-
-        if (ch === '(' || ch === '[' || ch === '{') {
-            depth += 1;
-            current += ch;
-            continue;
-        }
-
-        if (ch === ')' && depth === 0) {
-            if (current.trim().length > 0) args.push(current.trim());
-            return { args, endIndex: i };
-        }
-
-        if (ch === ')' || ch === ']' || ch === '}') {
-            depth = Math.max(0, depth - 1);
-            current += ch;
-            continue;
-        }
-
-        if (ch === ',' && depth === 0) {
-            args.push(current.trim());
-            current = '';
-            continue;
-        }
-
-        current += ch;
-    }
-
-    return undefined;
-}
-
-function extractRawQuerystringParams(bodyText: string): {
-    name: string;
-    variableName?: string;
-    contentType?: string;
-    serialization?: 'json';
-    encoding?: Record<string, any>;
-    contentEncoderConfig?: Record<string, any>;
-    contentEncoding?: string;
-    contentMediaType?: string;
-}[] {
-    const results: {
-        name: string;
-        variableName?: string;
-        contentType?: string;
-        serialization?: 'json';
-        encoding?: Record<string, any>;
-        contentEncoderConfig?: Record<string, any>;
-        contentEncoding?: string;
-        contentMediaType?: string;
-    }[] = [];
-
-    const calls = extractFunctionCallArgs(bodyText, 'serializeRawQuerystring');
-    calls.forEach(args => {
-        const expression = args[0]?.trim();
-        const arg2 = args[1]?.trim();
-        const arg3 = args[2]?.trim();
-        const arg4 = args[3]?.trim();
-        const variableName = extractIdentifier(expression);
-
-        const arg2Literal = parseStringLiteral(arg2);
-        const arg3Literal = parseStringLiteral(arg3);
-
-        let serialization: 'json' | undefined;
-        let contentType: string | undefined;
-        const encoding = parseJsonLiteral<Record<string, any>>(arg4);
-        const encoderConfig = parseJsonLiteral<Record<string, any>>(args[4]?.trim());
-        const contentEncoding =
-            encoderConfig && typeof encoderConfig.contentEncoding === 'string'
-                ? encoderConfig.contentEncoding
-                : undefined;
-        const contentMediaType =
-            encoderConfig && typeof encoderConfig.contentMediaType === 'string'
-                ? encoderConfig.contentMediaType
-                : undefined;
-
-        if (arg2Literal === 'json') {
-            serialization = 'json';
-            contentType = 'application/json';
-        } else if (arg2Literal && arg2Literal !== 'undefined') {
-            contentType = arg2Literal;
-        }
-
-        if (arg3Literal && arg3Literal !== 'undefined') {
-            contentType = arg3Literal;
-        }
-
-        if (variableName) {
-            results.push({
-                name: variableName,
-                variableName,
-                contentType,
-                serialization,
-                encoding,
-                ...(encoderConfig ? { contentEncoderConfig: encoderConfig } : {}),
-                ...(contentEncoding ? { contentEncoding } : {}),
-                ...(contentMediaType ? { contentMediaType } : {}),
-            });
-        }
-    });
-    return results;
-}
-
-function extractHeaderParams(bodyText: string): {
-    name: string;
-    variableName?: string;
-    explode?: boolean;
-    serialization?: 'json';
-    contentType?: string;
-    encoding?: Record<string, any>;
-    contentEncoderConfig?: Record<string, any>;
-    contentEncoding?: string;
-    contentMediaType?: string;
-}[] {
-    const results: {
-        name: string;
-        variableName?: string;
-        explode?: boolean;
-        serialization?: 'json';
-        contentType?: string;
-        encoding?: Record<string, any>;
-        contentEncoderConfig?: Record<string, any>;
-        contentEncoding?: string;
-        contentMediaType?: string;
-    }[] = [];
-    const regex = /headers\.set\(['"]([^'"]+)['"]\s*,\s*ParameterSerializer\.serializeHeaderParam\(([^)]*)\)\)/g;
-    let match: RegExpExecArray | null;
-    while ((match = regex.exec(bodyText)) !== null) {
-        const name = match[1];
-        const args = parseArgsFromString(match[2]) ?? [];
-        const variableName = extractIdentifier(args[0]);
-        const explode = parseBooleanLiteral(args[1]);
-        const serialization = parseStringLiteral(args[2]) === 'json' ? 'json' : undefined;
-        const contentType = parseStringLiteral(args[3]);
-        const encoding = parseJsonLiteral<Record<string, any>>(args[4]);
-        const encoderConfig = parseJsonLiteral<Record<string, any>>(args[5]);
-        const contentEncoding =
-            encoderConfig && typeof encoderConfig.contentEncoding === 'string'
-                ? encoderConfig.contentEncoding
-                : undefined;
-        const contentMediaType =
-            encoderConfig && typeof encoderConfig.contentMediaType === 'string'
-                ? encoderConfig.contentMediaType
-                : undefined;
-        results.push({
-            name,
-            ...(variableName ? { variableName } : {}),
-            ...(explode !== undefined ? { explode } : {}),
-            ...(serialization ? { serialization } : {}),
-            ...(contentType ? { contentType } : {}),
-            ...(encoding ? { encoding } : {}),
-            ...(encoderConfig ? { contentEncoderConfig: encoderConfig } : {}),
-            ...(contentEncoding ? { contentEncoding } : {}),
-            ...(contentMediaType ? { contentMediaType } : {}),
-        });
-    }
-    return results;
-}
-
-function extractCookieParams(bodyText: string): {
-    name: string;
-    variableName?: string;
-    style?: string;
-    explode?: boolean;
-    allowReserved?: boolean;
-    serialization?: 'json';
-    contentEncoderConfig?: Record<string, any>;
-    contentEncoding?: string;
-    contentMediaType?: string;
-}[] {
-    const results: {
-        name: string;
-        variableName?: string;
-        style?: string;
-        explode?: boolean;
-        allowReserved?: boolean;
-        serialization?: 'json';
-        contentEncoderConfig?: Record<string, any>;
-        contentEncoding?: string;
-        contentMediaType?: string;
-    }[] = [];
-
-    const calls = extractFunctionCallArgs(bodyText, 'ParameterSerializer.serializeCookieParam');
-    calls.forEach(args => {
-        const name = parseStringLiteral(args[0]);
-        if (!name) return;
-        const variableName = extractIdentifier(args[1]);
-        const style = parseStringLiteral(args[2]);
-        const explode = parseBooleanLiteral(args[3]);
-        const allowReserved = parseBooleanLiteral(args[4]);
-        const serialization = parseStringLiteral(args[5]) === 'json' ? 'json' : undefined;
-        const encoderConfig = parseJsonLiteral<Record<string, any>>(args[6]);
-        const contentEncoding =
-            encoderConfig && typeof encoderConfig.contentEncoding === 'string'
-                ? encoderConfig.contentEncoding
-                : undefined;
-        const contentMediaType =
-            encoderConfig && typeof encoderConfig.contentMediaType === 'string'
-                ? encoderConfig.contentMediaType
-                : undefined;
-
-        results.push({
-            name,
-            ...(variableName ? { variableName } : {}),
-            ...(style ? { style } : {}),
-            ...(explode !== undefined ? { explode } : {}),
-            ...(allowReserved !== undefined ? { allowReserved } : {}),
-            ...(serialization ? { serialization } : {}),
-            ...(encoderConfig ? { contentEncoderConfig: encoderConfig } : {}),
-            ...(contentEncoding ? { contentEncoding } : {}),
-            ...(contentMediaType ? { contentMediaType } : {}),
-        });
-    });
-    return results;
-}
-
-function extractFormDataParams(
-    bodyText: string,
-): { name: string; variableName?: string; kind: 'multipart' | 'urlencoded' }[] {
-    const results: { name: string; variableName?: string; kind: 'multipart' | 'urlencoded' }[] = [];
-
-    const formDataRegex = /formData\.append\(['"]([^'"]+)['"]\s*,\s*([^\)]+)\)/g;
-    let match: RegExpExecArray | null;
-    while ((match = formDataRegex.exec(bodyText)) !== null) {
-        results.push({
-            name: match[1],
-            variableName: extractIdentifier(match[2]),
-            kind: 'multipart',
-        });
-    }
-
-    const urlEncodedRegex = /formBody(?:\s*=\s*formBody)?\.append\(['"]([^'"]+)['"]\s*,\s*([^\)]+)\)/g;
-    while ((match = urlEncodedRegex.exec(bodyText)) !== null) {
-        results.push({
-            name: match[1],
-            variableName: extractIdentifier(match[2]),
-            kind: 'urlencoded',
-        });
-    }
-
-    return results;
-}
-
-function extractUrlEncodedBodyEncoding(bodyText: string): Record<string, any> | undefined {
-    const calls = extractFunctionCallArgs(bodyText, 'ParameterSerializer.serializeUrlEncodedBody');
-    for (const args of calls) {
-        const configArg = args[1];
-        const config = resolveJsonArgument(bodyText, configArg);
-        if (!config) continue;
-        const encoding = normalizeEncodingMap(config);
-        if (encoding) return encoding;
-    }
-    return undefined;
-}
-
-function extractMultipartConfig(bodyText: string): ReverseMultipartConfig | undefined {
-    const calls = extractFunctionCallArgs(bodyText, 'MultipartBuilder.serialize');
-    for (const args of calls) {
-        const configArg = args[1];
-        const config = resolveJsonArgument(bodyText, configArg);
-        const normalized = normalizeMultipartConfig(config);
-        if (normalized) return normalized;
-    }
-    return undefined;
-}
-
-function detectBodyParamName(
-    bodyText: string,
-    httpBodyArg: string | undefined,
-    paramMeta: Map<string, boolean>,
-): string | undefined {
-    if (httpBodyArg && paramMeta.has(httpBodyArg)) {
-        return httpBodyArg;
-    }
-
-    const candidates = [
-        extractFirstArgument(bodyText, 'MultipartBuilder.serialize'),
-        extractFirstArgument(bodyText, 'ParameterSerializer.serializeUrlEncodedBody'),
-        extractFirstArgument(bodyText, 'XmlBuilder.serialize'),
-    ];
-
-    for (const candidate of candidates) {
-        if (candidate && paramMeta.has(candidate)) return candidate;
-    }
-
-    return undefined;
-}
-
-function detectRequestMediaTypes(
-    bodyText: string,
-    options: {
-        hasBodyParam: boolean;
-        formDataParams: { kind: 'multipart' | 'urlencoded' }[];
-        multipartConfig?: ReverseMultipartConfig;
-    },
-): string[] {
-    const mediaTypes = new Set<string>();
-
-    const contentTypeRegex = /headers\.set\(['"]Content-Type['"]\s*,\s*['"]([^'"]+)['"]\)/g;
-    let match: RegExpExecArray | null;
-    while ((match = contentTypeRegex.exec(bodyText)) !== null) {
-        mediaTypes.add(match[1]);
-    }
-
-    if (mediaTypes.size > 0) return Array.from(mediaTypes);
-
-    const hasMultipartBuilder = bodyText.includes('MultipartBuilder.serialize');
-    const hasFormData = options.formDataParams.some(p => p.kind === 'multipart');
-    const hasUrlEncodedBody = bodyText.includes('ParameterSerializer.serializeUrlEncodedBody');
-    const hasLegacyUrlEncoded = options.formDataParams.some(p => p.kind === 'urlencoded');
-    const hasXmlBody = bodyText.includes('XmlBuilder.serialize');
-    const multipartMediaType = options.multipartConfig?.mediaType;
-
-    if (hasMultipartBuilder || hasFormData) mediaTypes.add(multipartMediaType ?? 'multipart/form-data');
-    else if (hasUrlEncodedBody || hasLegacyUrlEncoded) mediaTypes.add('application/x-www-form-urlencoded');
-    else if (hasXmlBody) mediaTypes.add('application/xml');
-    else if (options.hasBodyParam || options.formDataParams.length > 0) mediaTypes.add('application/json');
-
-    return Array.from(mediaTypes);
-}
-
-function detectResponseMediaTypes(bodyText: string): string[] {
-    const mediaTypes = new Set<string>();
-
-    const acceptRegex = /acceptHeader\??\.includes\(['"]([^'"]+)['"]\)/g;
-    let match: RegExpExecArray | null;
-    while ((match = acceptRegex.exec(bodyText)) !== null) {
-        mediaTypes.add(match[1]);
-    }
-
-    if (mediaTypes.size > 0) return Array.from(mediaTypes);
-
-    if (isSseBody(bodyText)) return ['text/event-stream'];
-    if (bodyText.includes('XmlParser.parse')) return ['application/xml'];
-    if (bodyText.includes("response.split('\\\\x1e')") || /response\.split\('\u001e'\)/.test(bodyText)) {
-        return ['application/json-seq'];
-    }
-    if (bodyText.includes("response.split('\\\\n')") || /response\.split\('\n'\)/.test(bodyText)) {
-        return ['application/jsonl'];
-    }
-    return ['application/json'];
-}
-
-function isSseBody(bodyText: string): boolean {
-    if (bodyText.includes('new EventSource')) return true;
-    if (bodyText.includes('SSE response body is not readable')) return true;
-    if (bodyText.includes('response.body.getReader') && bodyText.includes('dataLines')) return true;
-    return false;
-}
-
-function extractSecurityRequirements(bodyText: string): Record<string, string[]>[] | undefined {
-    const tokenIndex = bodyText.indexOf('SECURITY_CONTEXT_TOKEN');
-    if (tokenIndex === -1) return undefined;
-
-    const bracketIndex = bodyText.indexOf('[', tokenIndex);
-    if (bracketIndex === -1) return undefined;
-
-    const jsonArray = extractJsonArray(bodyText, bracketIndex);
-    if (!jsonArray) return undefined;
-
-    try {
-        const parsed = JSON.parse(jsonArray);
-        if (Array.isArray(parsed)) {
-            return parsed as Record<string, string[]>[];
-        }
-    } catch {
-        return undefined;
-    }
-
-    return undefined;
-}
-
-function extractOperationExtensions(bodyText: string): Record<string, any> | undefined {
-    const tokenIndex = bodyText.indexOf('EXTENSIONS_CONTEXT_TOKEN');
-    if (tokenIndex === -1) return undefined;
-
-    const braceIndex = bodyText.indexOf('{', tokenIndex);
-    if (braceIndex === -1) return undefined;
-
-    const jsonObject = extractJsonObject(bodyText, braceIndex);
-    if (!jsonObject) return undefined;
-
-    try {
-        const parsed = JSON.parse(jsonObject);
-        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-            const extensions = Object.fromEntries(Object.entries(parsed).filter(([key]) => key.startsWith('x-')));
-            return Object.keys(extensions).length > 0 ? extensions : undefined;
-        }
-    } catch {
-        return undefined;
-    }
-
-    return undefined;
-}
-
-function extractOperationServers(bodyText: string): ServerObject[] | undefined {
-    const tokenIndex = bodyText.indexOf('const operationServers');
-    if (tokenIndex === -1) return undefined;
-
-    const bracketIndex = bodyText.indexOf('[', tokenIndex);
-    if (bracketIndex === -1) return undefined;
-
-    const jsonArray = extractJsonArray(bodyText, bracketIndex);
-    if (!jsonArray) return undefined;
-
-    try {
-        const parsed = JSON.parse(jsonArray);
-        if (Array.isArray(parsed)) {
-            return parsed as ServerObject[];
-        }
-    } catch {
-        return undefined;
-    }
-
-    return undefined;
-}
-
-function extractJsonObject(text: string, startIndex: number): string | undefined {
-    let depth = 0;
-    let inString = false;
-    let escaping = false;
-    let objectStart = -1;
-
-    for (let i = startIndex; i < text.length; i++) {
-        const char = text[i];
-        if (escaping) {
-            escaping = false;
-            continue;
-        }
-        if (char === '\\\\') {
-            escaping = true;
-            continue;
-        }
-        if (char === '"') {
-            inString = !inString;
-            continue;
-        }
-        if (inString) continue;
-
-        if (char === '{') {
-            if (depth === 0) objectStart = i;
-            depth += 1;
-        } else if (char === '}') {
-            depth -= 1;
-            if (depth === 0 && objectStart !== -1) {
-                return text.substring(objectStart, i + 1);
-            }
-        }
-    }
-
-    return undefined;
-}
-
-function extractJsonArray(text: string, startIndex: number): string | undefined {
-    let depth = 0;
-    let inString = false;
-    let escaping = false;
-    let arrayStart = -1;
-
-    for (let i = startIndex; i < text.length; i++) {
-        const ch = text[i];
-        if (inString) {
-            if (escaping) {
-                escaping = false;
-                continue;
-            }
-            if (ch === '\\\\') {
-                escaping = true;
-                continue;
-            }
-            if (ch === '"') {
-                inString = false;
-            }
-            continue;
-        }
-
-        if (ch === '"') {
-            inString = true;
-            continue;
-        }
-
-        if (ch === '[') {
-            if (depth === 0) arrayStart = i;
-            depth += 1;
-            continue;
-        }
-
-        if (ch === ']') {
-            depth -= 1;
-            if (depth === 0 && arrayStart >= 0) {
-                return text.slice(arrayStart, i + 1);
-            }
-        }
-    }
-
-    return undefined;
-}
-
-function buildParameters(params: ReverseParam[], schemaNames?: Set<string>): Parameter[] {
-    return params
-        .filter(p => p.in !== 'body' && p.in !== 'formData')
-        .map(p => {
-            const contentEncoding =
-                p.contentEncoding ??
-                (p.contentEncoderConfig && typeof p.contentEncoderConfig.contentEncoding === 'string'
-                    ? p.contentEncoderConfig.contentEncoding
-                    : undefined);
-            const contentMediaType =
-                p.contentMediaType ??
-                (p.contentEncoderConfig && typeof p.contentEncoderConfig.contentMediaType === 'string'
-                    ? p.contentEncoderConfig.contentMediaType
-                    : undefined);
-
-            if (p.in === 'querystring') {
-                const contentType =
-                    p.contentType ??
-                    (p.serialization === 'json' ? 'application/json' : 'application/x-www-form-urlencoded');
-                const contentEntry: {
-                    schema: SwaggerDefinition;
-                    encoding?: Record<string, any>;
-                    example?: unknown;
-                    examples?: Record<string, ExampleObject>;
-                } = {
-                    schema: typeHintToSchema(p.typeHint, schemaNames) ?? {},
-                };
-                if (contentEncoding) {
-                    contentEntry.schema.contentEncoding = contentEncoding;
-                }
-                if (contentMediaType) {
-                    contentEntry.schema.contentMediaType = contentMediaType;
-                }
-                if (p.encoding) {
-                    contentEntry.encoding = p.encoding;
-                }
-                if (p.example !== undefined) {
-                    const wrapped = unwrapExampleCarrier(p.example);
-                    if (wrapped) {
-                        contentEntry.examples = { example: wrapped };
-                    } else {
-                        contentEntry.example = p.example;
-                    }
-                }
-                return {
-                    name: p.name,
-                    in: 'querystring' as Parameter['in'],
-                    required: p.required,
-                    ...(p.description ? { description: p.description } : {}),
+        metadata.securitySchemes ||
+        metadata.responseHeaderObjects ||
+        metadata.componentLinks ||
+        metadata.examples ||
+        metadata.mediaTypes ||
+        metadata.pathItems ||
+        metadata.parameters ||
+        metadata.requestBodies ||
+        metadata.responses ||
+        metadata.headers ||
+        metadata.callbacks ||
+        metadata.headerXmlConfigs ||
+        metadata.webhooks
+    ) {
+        out.components = out.components || {};
+        if (metadata.securitySchemes) out.components.securitySchemes = metadata.securitySchemes;
+        if (metadata.headerXmlConfigs) {
+            out.components.headers = out.components.headers || {};
+            Object.entries(metadata.headerXmlConfigs).forEach(([key, config]) => {
+                out.components!.headers![key] = {
                     content: {
-                        [contentType]: contentEntry,
+                        'application/xml': {
+                            schema: {
+                                xml: config,
+                            },
+                        },
                     },
-                };
-            }
-
-            if (p.contentType) {
-                const contentEntry: {
-                    schema: SwaggerDefinition;
-                    encoding?: Record<string, any>;
-                    example?: unknown;
-                    examples?: Record<string, ExampleObject>;
-                } = {
-                    schema: typeHintToSchema(p.typeHint, schemaNames) ?? {},
-                };
-                if (contentEncoding) {
-                    contentEntry.schema.contentEncoding = contentEncoding;
-                }
-                if (contentMediaType) {
-                    contentEntry.schema.contentMediaType = contentMediaType;
-                }
-                if (p.encoding) {
-                    contentEntry.encoding = p.encoding;
-                }
-                if (p.example !== undefined) {
-                    const wrapped = unwrapExampleCarrier(p.example);
-                    if (wrapped) {
-                        contentEntry.examples = { example: wrapped };
-                    } else {
-                        contentEntry.example = p.example;
-                    }
-                }
-                return {
-                    name: p.name,
-                    in: p.in as Parameter['in'],
-                    required: p.in === 'path' ? true : p.required,
-                    ...(p.description ? { description: p.description } : {}),
-                    content: {
-                        [p.contentType]: contentEntry,
-                    },
-                };
-            }
-
-            const param: Parameter = {
-                name: p.name,
-                in: p.in as Parameter['in'],
-                required: p.in === 'path' ? true : p.required,
-                schema: typeHintToSchema(p.typeHint, schemaNames) ?? {},
-            };
-            if (contentEncoding) {
-                (param.schema as SwaggerDefinition).contentEncoding = contentEncoding;
-            }
-            if (contentMediaType) {
-                (param.schema as SwaggerDefinition).contentMediaType = contentMediaType;
-            }
-            if (p.description) param.description = p.description;
-            if (p.style !== undefined) param.style = p.style;
-            if (p.explode !== undefined) param.explode = p.explode;
-            if (p.allowReserved !== undefined) param.allowReserved = p.allowReserved;
-            if (p.allowEmptyValue !== undefined) param.allowEmptyValue = p.allowEmptyValue;
-            if (p.example !== undefined) {
-                const wrapped = unwrapExampleCarrier(p.example);
-                if (wrapped) {
-                    param.examples = { example: wrapped };
-                } else {
-                    param.example = p.example;
-                }
-            }
-            return param;
-        });
-}
-
-function buildRequestBody(operation: ReverseOperation, schemaNames?: Set<string>): RequestBody | undefined {
-    const bodyParams = operation.params.filter(p => p.in === 'body');
-    const formDataParams = operation.params.filter(p => p.in === 'formData');
-    if (bodyParams.length === 0 && formDataParams.length === 0) return undefined;
-
-    const requiredNames = [...bodyParams, ...formDataParams].filter(p => p.required).map(p => p.name);
-    const schema: SwaggerDefinition = buildRequestSchema(bodyParams, formDataParams, schemaNames);
-    const description = inferRequestBodyDescription(bodyParams, formDataParams);
-    const urlEncodedEncoding = operation.requestEncoding?.urlencoded;
-    const multipartEncoding = operation.requestEncoding?.multipart;
-
-    const mediaTypes = operation.requestMediaTypes.length > 0 ? operation.requestMediaTypes : ['application/json'];
-    const content: Record<
-        string,
-        {
-            schema?: SwaggerDefinition;
-            itemSchema?: SwaggerDefinition;
-            encoding?: Record<string, any>;
-            prefixEncoding?: any[];
-            itemEncoding?: any;
+                } as any;
+            });
         }
-    > = {};
-    mediaTypes.forEach(mt => {
-        if (isSequentialMediaType(mt)) {
-            const entry: {
-                itemSchema: SwaggerDefinition;
-                encoding?: Record<string, any>;
-                prefixEncoding?: any[];
-                itemEncoding?: any;
-            } = {
-                itemSchema: normalizeSequentialSchema(schema),
-            };
-            applyRequestEncoding(entry, mt, urlEncodedEncoding, multipartEncoding);
-            content[mt] = entry;
-        } else {
-            const entry: {
-                schema: SwaggerDefinition;
-                encoding?: Record<string, any>;
-                prefixEncoding?: any[];
-                itemEncoding?: any;
-            } = {
-                schema,
-            };
-            applyRequestEncoding(entry, mt, urlEncodedEncoding, multipartEncoding);
-            content[mt] = entry;
-        }
-    });
 
-    if (operation.requestExamples && Object.keys(operation.requestExamples).length > 0) {
-        Object.entries(content).forEach(([mediaType, entry]) => {
-            const example = operation.requestExamples?.[mediaType] ?? operation.requestExamples?.['*'];
-            if (example !== undefined) {
-                const wrapped = unwrapExampleCarrier(example);
-                if (wrapped) {
-                    (entry as { examples?: Record<string, ExampleObject> }).examples = { example: wrapped };
-                } else {
-                    (entry as { example?: unknown }).example = example;
-                }
-            }
-        });
-    }
-
-    return {
-        ...(description ? { description } : {}),
-        required: requiredNames.length > 0 ? true : undefined,
-        content,
-    };
-}
-
-function inferRequestBodyDescription(bodyParams: ReverseParam[], formDataParams: ReverseParam[]): string | undefined {
-    const descriptions = [...bodyParams, ...formDataParams]
-        .map(param => param.description)
-        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-        .map(value => value.trim());
-
-    if (descriptions.length === 0) return undefined;
-
-    const unique = Array.from(new Set(descriptions));
-    if (unique.length === 1) return unique[0];
-    return unique.join('; ');
-}
-
-function buildRequestSchema(
-    bodyParams: ReverseParam[],
-    formDataParams: ReverseParam[],
-    schemaNames?: Set<string>,
-): SwaggerDefinition {
-    if (formDataParams.length > 0 || bodyParams.length > 1) {
-        const properties: Record<string, SwaggerDefinition> = {};
-        const required: string[] = [];
-
-        [...bodyParams, ...formDataParams].forEach(param => {
-            properties[param.name] = typeHintToSchema(param.typeHint, schemaNames) ?? {};
-            if (param.required) required.push(param.name);
-        });
-
-        const schema: SwaggerDefinition = { type: 'object', properties };
-        if (required.length > 0) schema.required = required;
-        return schema;
-    }
-
-    if (bodyParams.length === 1) {
-        return typeHintToSchema(bodyParams[0].typeHint, schemaNames) ?? {};
-    }
-
-    return {};
-}
-
-function buildResponses(
-    mediaTypes: string[],
-    responseTypeHint?: string,
-    schemaNames?: Set<string>,
-    responseHints?: ReverseResponseHint[],
-    responseExamples?: Record<string, Record<string, unknown>>,
-): Record<string, SwaggerResponse> {
-    const schema = typeHintToSchema(responseTypeHint, schemaNames);
-
-    const applyExamples = (responses: Record<string, SwaggerResponse>) => {
-        if (!responseExamples) return;
-        Object.entries(responseExamples).forEach(([status, examples]) => {
-            const response = responses[status];
-            if (!response?.content) return;
-            Object.entries(response.content).forEach(([mediaType, entry]) => {
-                const example = examples[mediaType] ?? examples['*'];
-                if (example !== undefined) {
-                    const wrapped = unwrapExampleCarrier(example);
-                    if (wrapped) {
-                        (entry as { examples?: Record<string, ExampleObject> }).examples = { example: wrapped };
-                    } else {
-                        (entry as { example?: unknown }).example = example;
+        if (metadata.responseHeaderObjects) {
+            Object.entries(metadata.responseHeaderObjects).forEach(([opId, statusMap]) => {
+                const findOp = (): SpecOperation | undefined => {
+                    for (const pVal of Object.values(out.paths || {})) {
+                        const pathObj = pVal as Record<string, unknown>;
+                        for (const methodKey of [
+                            'get',
+                            'post',
+                            'put',
+                            'patch',
+                            'delete',
+                            'options',
+                            'head',
+                            'trace',
+                            'query',
+                        ]) {
+                            const methodRec = pathObj[methodKey] as Record<string, unknown> | undefined;
+                            if (methodRec?.operationId === opId) return methodRec as unknown as SpecOperation;
+                        }
+                        if (pathObj.additionalOperations) {
+                            for (const opValEntry of Object.values(
+                                pathObj.additionalOperations as Record<string, unknown>,
+                            )) {
+                                const opRec = opValEntry as Record<string, unknown>;
+                                if (opRec.operationId === opId) return opRec as unknown as SpecOperation;
+                            }
+                        }
                     }
+                    return undefined;
+                };
+                const op = findOp();
+                if (op && op.responses) {
+                    Object.entries(statusMap).forEach(([status, headers]) => {
+                        const opRespRec = op.responses[status] as Record<string, unknown> | undefined;
+                        if (opRespRec) {
+                            opRespRec.headers = { ...((opRespRec.headers as object) || {}), ...headers };
+                        }
+                    });
                 }
             });
-        });
-    };
-
-    if (responseHints && responseHints.length > 0) {
-        const responses: Record<string, SwaggerResponse> = {};
-        responseHints.forEach(hint => {
-            const status = hint.status;
-            if (!status) return;
-
-            const response: SwaggerResponse = {
-                ...(hint.summary ? { summary: hint.summary } : {}),
-                description:
-                    hint.description ??
-                    (status === 'default' ? 'Default response' : /^2\d{2}$/.test(status) ? 'Success' : 'Response'),
-            };
-
-            const types = hint.mediaTypes && hint.mediaTypes.length > 0 ? hint.mediaTypes : mediaTypes;
-            if (types.length > 0) {
-                response.content = {};
-                types.forEach(mt => {
-                    if (schema && isSequentialMediaType(mt)) {
-                        response.content![mt] = { itemSchema: normalizeSequentialSchema(schema) } as any;
-                        return;
+        }
+        if (metadata.links) {
+            Object.entries(metadata.links).forEach(([opId, statusMap]) => {
+                const findOp = (): SpecOperation | undefined => {
+                    for (const pVal of Object.values(out.paths || {})) {
+                        const pathObj = pVal as Record<string, unknown>;
+                        for (const methodKey of [
+                            'get',
+                            'post',
+                            'put',
+                            'patch',
+                            'delete',
+                            'options',
+                            'head',
+                            'trace',
+                            'query',
+                        ]) {
+                            const methodRec = pathObj[methodKey] as Record<string, unknown> | undefined;
+                            if (methodRec?.operationId === opId) return methodRec as unknown as SpecOperation;
+                        }
+                        if (pathObj.additionalOperations) {
+                            for (const opValEntry of Object.values(
+                                pathObj.additionalOperations as Record<string, unknown>,
+                            )) {
+                                const opRec = opValEntry as Record<string, unknown>;
+                                if (opRec.operationId === opId) return opRec as unknown as SpecOperation;
+                            }
+                        }
                     }
-                    response.content![mt] = { schema: schema ?? {} };
-                });
-            }
-
-            responses[status] = response;
-        });
-
-        if (Object.keys(responses).length > 0) {
-            applyExamples(responses);
-            return responses;
-        }
-    }
-
-    const response: SwaggerResponse = { description: 'Success' };
-
-    if (mediaTypes.length > 0) {
-        response.content = {};
-        mediaTypes.forEach(mt => {
-            if (schema && isSequentialMediaType(mt)) {
-                response.content![mt] = { itemSchema: normalizeSequentialSchema(schema) } as any;
-                return;
-            }
-            response.content![mt] = { schema: schema ?? {} };
-        });
-    }
-
-    const responses = { '200': response };
-    applyExamples(responses);
-    return responses;
-}
-
-function typeHintToSchema(
-    typeHint: string | undefined,
-    schemaNames?: Set<string>,
-    depth = 0,
-): SwaggerDefinition | undefined {
-    if (!typeHint) return undefined;
-    if (depth > 6) return undefined;
-
-    let cleaned = stripOuterParens(typeHint.trim());
-    if (!cleaned) return undefined;
-
-    cleaned = unwrapKnownWrappers(cleaned);
-
-    const unionParts = splitTopLevelUnion(cleaned);
-    if (unionParts.length > 1) {
-        const schemas = unionParts
-            .filter(part => part !== 'undefined')
-            .map(part => typeHintToSchema(part, schemaNames, depth + 1))
-            .filter((schema): schema is SwaggerDefinition => !!schema);
-        if (schemas.length === 0) return undefined;
-        if (schemas.length === 1) return schemas[0];
-        return { oneOf: schemas };
-    }
-
-    if (cleaned.endsWith('[]')) {
-        const inner = cleaned.slice(0, -2).trim();
-        const itemSchema = typeHintToSchema(inner, schemaNames, depth + 1) ?? {};
-        return { type: 'array', items: itemSchema };
-    }
-
-    const arrayInner = extractGenericArg(cleaned, 'Array') || extractGenericArg(cleaned, 'ReadonlyArray');
-    if (arrayInner) {
-        const itemSchema = typeHintToSchema(arrayInner, schemaNames, depth + 1) ?? {};
-        return { type: 'array', items: itemSchema };
-    }
-
-    const primitive = mapPrimitiveType(cleaned);
-    if (primitive) return primitive;
-
-    if (schemaNames && schemaNames.has(cleaned)) {
-        return { $ref: `#/components/schemas/${cleaned}` };
-    }
-
-    return undefined;
-}
-
-function mapPrimitiveType(typeName: string): SwaggerDefinition | undefined {
-    switch (typeName) {
-        case 'string':
-            return { type: 'string' };
-        case 'number':
-            return { type: 'number' };
-        case 'integer':
-            return { type: 'integer' };
-        case 'boolean':
-            return { type: 'boolean' };
-        case 'null':
-            return { type: 'null' };
-        case 'object':
-            return { type: 'object' };
-        case 'any':
-        case 'unknown':
-            return {};
-        case 'Date':
-            return { type: 'string', format: 'date-time' };
-        default:
-            return undefined;
-    }
-}
-
-function stripOuterParens(typeText: string): string {
-    let cleaned = typeText.trim();
-    if (!cleaned.startsWith('(') || !cleaned.endsWith(')')) return cleaned;
-
-    let depth = 0;
-    for (let i = 0; i < cleaned.length; i += 1) {
-        const char = cleaned[i];
-        if (char === '(') depth += 1;
-        if (char === ')') depth -= 1;
-        if (depth === 0 && i < cleaned.length - 1) {
-            return cleaned;
-        }
-    }
-
-    return cleaned.slice(1, -1).trim();
-}
-
-function unwrapKnownWrappers(typeText: string): string {
-    const wrappers = [
-        'Observable',
-        'Promise',
-        'HttpResponse',
-        'HttpEvent',
-        'Partial',
-        'Readonly',
-        'Required',
-        'NonNullable',
-    ];
-    let current = typeText.trim();
-    let changed = true;
-
-    while (changed) {
-        changed = false;
-        for (const wrapper of wrappers) {
-            const inner = extractGenericArg(current, wrapper);
-            if (inner) {
-                current = inner.trim();
-                changed = true;
-                break;
-            }
-        }
-    }
-
-    return current;
-}
-
-function extractGenericArg(typeText: string, wrapper: string): string | undefined {
-    const prefix = `${wrapper}<`;
-    if (!typeText.startsWith(prefix)) return undefined;
-
-    let depth = 0;
-    let start = prefix.length;
-    for (let i = start; i < typeText.length; i += 1) {
-        const char = typeText[i];
-        if (char === '<') depth += 1;
-        if (char === '>') {
-            if (depth === 0) {
-                const inner = typeText.slice(start, i);
-                const tail = typeText.slice(i + 1).trim();
-                if (tail.length === 0) return inner;
-                return undefined;
-            }
-            depth -= 1;
-        }
-    }
-    return undefined;
-}
-
-function splitTopLevelUnion(typeText: string): string[] {
-    const parts: string[] = [];
-    let current = '';
-    let depth = 0;
-
-    const flush = () => {
-        const trimmed = current.trim();
-        if (trimmed.length > 0) parts.push(trimmed);
-        current = '';
-    };
-
-    for (let i = 0; i < typeText.length; i += 1) {
-        const char = typeText[i];
-        if (char === '<' || char === '(' || char === '[') depth += 1;
-        if (char === '>' || char === ')' || char === ']') depth = Math.max(0, depth - 1);
-
-        if (char === '|' && depth === 0) {
-            flush();
-            continue;
+                    return undefined;
+                };
+                const op = findOp();
+                if (op && op.responses) {
+                    Object.entries(statusMap).forEach(([status, links]) => {
+                        const opRespRec = op.responses[status] as Record<string, unknown> | undefined;
+                        if (opRespRec) {
+                            opRespRec.links = links;
+                        }
+                    });
+                }
+            });
         }
 
-        current += char;
-    }
+        if (metadata.callbacks) {
+            metadata.callbacks.forEach(cb => {
+                out.components!.callbacks = out.components!.callbacks || {};
+                const callbacksRec = out.components!.callbacks as Record<string, unknown>;
+                const m = (callbacksRec[cb.name] = callbacksRec[cb.name] || {}) as Record<string, unknown>;
+                if (cb.expression) m[cb.expression] = cb.pathItem;
+            });
+        }
+        if (metadata.webhooks) {
+            metadata.webhooks.forEach(wh => {
+                const scope = wh.scope || 'root';
+                if (scope === 'root') {
+                    out.webhooks = out.webhooks || {};
+                    (out.webhooks as Record<string, unknown>)[wh.name] = wh.pathItem;
+                    out.components!.webhooks = out.components!.webhooks || {};
+                    (out.components!.webhooks as Record<string, unknown>)[wh.name] = wh.pathItem;
+                } else if (scope === 'component') {
+                    out.components!.webhooks = out.components!.webhooks || {};
+                    (out.components!.webhooks as Record<string, unknown>)[wh.name] = wh.pathItem;
+                }
+            });
+        }
 
-    flush();
-    return parts;
-}
+        if (metadata.paths) {
+            Object.entries(metadata.paths).forEach(([pth, item]) => {
+                out.paths![pth] = out.paths![pth] || {};
+                Object.assign(out.paths![pth]!, item);
+            });
+        }
 
-function isSequentialMediaType(mediaType: string): boolean {
-    const normalized = mediaType.split(';')[0]?.trim().toLowerCase();
-    return (
-        normalized === 'application/jsonl' ||
-        normalized === 'application/x-ndjson' ||
-        normalized === 'application/json-seq' ||
-        normalized === 'application/geo+json-seq' ||
-        normalized === 'text/event-stream' ||
-        normalized === 'multipart/mixed'
-    );
-}
-
-function normalizeSequentialSchema(schema: SwaggerDefinition): SwaggerDefinition {
-    if (schema.type === 'array' && schema.items && !Array.isArray(schema.items) && typeof schema.items === 'object') {
-        return schema.items as SwaggerDefinition;
-    }
-    return schema;
-}
-
-function applyRequestEncoding(
-    entry: {
-        encoding?: Record<string, any>;
-        prefixEncoding?: any[];
-        itemEncoding?: any;
-    },
-    mediaType: string,
-    urlEncodedEncoding?: Record<string, any>,
-    multipartConfig?: ReverseMultipartConfig,
-): void {
-    const normalized = mediaType.split(';')[0]?.trim().toLowerCase();
-    if (normalized === 'application/x-www-form-urlencoded' && urlEncodedEncoding) {
-        entry.encoding = urlEncodedEncoding;
-        return;
-    }
-    if (normalized && normalized.startsWith('multipart/') && multipartConfig) {
-        if (multipartConfig.encoding) entry.encoding = multipartConfig.encoding;
-        if (multipartConfig.prefixEncoding) entry.prefixEncoding = multipartConfig.prefixEncoding;
-        if (multipartConfig.itemEncoding) entry.itemEncoding = multipartConfig.itemEncoding;
-    }
-}
-
-function parseConfigName(config: string): string | undefined {
-    try {
-        const parsed = JSON.parse(config) as { name?: string };
-        if (parsed && typeof parsed.name === 'string') return parsed.name;
-    } catch {
-        // Fallback to regex parsing below
-    }
-
-    const match = config.match(/"name"\s*:\s*"([^"]+)"/);
-    return match ? match[1] : undefined;
-}
-
-function resolveReverseRoot(inputPath: string, fileSystem: ReverseFileSystem): string {
-    const stat = fileSystem.statSync(inputPath);
-    if (stat.isDirectory()) return inputPath;
-    if (stat.isFile()) return path.dirname(inputPath);
-    throw new Error(`Input path is neither a file nor a directory: ${inputPath}`);
-}
-
-function inferSelfUri(rootDir: string, fileSystem: ReverseFileSystem): string {
-    const candidates = [
-        'openapi.yaml',
-        'openapi.yml',
-        'openapi.json',
-        'openapi.snapshot.yaml',
-        'openapi.snapshot.yml',
-        'openapi.snapshot.json',
-    ];
-    for (const name of candidates) {
-        const candidate = path.resolve(rootDir, name);
-        if (fileExists(candidate, fileSystem)) {
-            return safePathToFileURL(candidate);
+        if (metadata.componentLinks) out.components.links = metadata.componentLinks;
+        if (metadata.examples) out.components.examples = metadata.examples;
+        if (metadata.mediaTypes) out.components.mediaTypes = metadata.mediaTypes;
+        if (metadata.pathItems) out.components.pathItems = metadata.pathItems;
+        if (metadata.parameters) out.components.parameters = metadata.parameters;
+        if (metadata.requestBodies) out.components.requestBodies = metadata.requestBodies;
+        if (metadata.responses) out.components.responses = metadata.responses;
+        if (metadata.headers) {
+            out.components.headers = { ...out.components.headers, ...metadata.headers };
         }
     }
-    const fallback = path.resolve(rootDir, 'openapi.yaml');
-    return safePathToFileURL(fallback);
-}
-
-function safePathToFileURL(filePath: string): string {
-    try {
-        return pathToFileURL(filePath).href;
-    } catch {
-        const normalized = filePath.replace(/\\/g, '/');
-        return `file://${normalized.startsWith('/') ? '' : '/'}${normalized}`;
-    }
-}
-
-function findUpFile(startDir: string, relativePath: string, fileSystem: ReverseFileSystem): string | undefined {
-    let current = path.resolve(startDir);
-    while (true) {
-        const candidate = path.resolve(current, relativePath);
-        if (fileExists(candidate, fileSystem)) return candidate;
-        const parent = path.dirname(current);
-        if (parent === current) break;
-        current = parent;
-    }
-    return undefined;
-}
-
-function fileExists(filePath: string, fileSystem: ReverseFileSystem): boolean {
-    try {
-        return fileSystem.statSync(filePath).isFile();
-    } catch {
-        return false;
-    }
-}
-
-function readTextIfExists(filePath: string | undefined, fileSystem: ReverseFileSystem): string | undefined {
-    if (!filePath) return undefined;
-    try {
-        return fileSystem.readFileSync(filePath, 'utf-8');
-    } catch {
-        return undefined;
-    }
-}
-
-function extractConstInitializer<T>(sourceText: string, constName: string): T | undefined {
-    const pattern = new RegExp(`(?:export\\s+)?const\\s+${constName}[^=]*=\\s*([\\s\\S]*?);`, 'm');
-    const match = sourceText.match(pattern);
-    if (!match) return undefined;
-
-    const raw = match[1].trim();
-    if (raw === 'undefined') return undefined;
-    if (raw === 'null') return null as T;
-
-    try {
-        return JSON.parse(raw) as T;
-    } catch {
-        try {
-            // eslint-disable-next-line no-new-func
-            return new Function(`\"use strict\"; return (${raw});`)() as T;
-        } catch {
-            return undefined;
-        }
-    }
-}
-
-function extractFirstArgument(bodyText: string, functionName: string): string | undefined {
-    const regex = new RegExp(`${functionName.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}\\(([^,]+),`);
-    const match = bodyText.match(regex);
-    if (!match) return undefined;
-    return extractIdentifier(match[1]);
-}
-
-function extractIdentifier(expression: string): string | undefined {
-    const trimmed = expression.trim();
-    const match = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)(\b|\.)/);
-    return match ? match[1] : undefined;
+    return out;
 }

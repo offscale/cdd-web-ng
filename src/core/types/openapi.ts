@@ -7,7 +7,7 @@ export interface LicenseObject {
     url?: string;
     identifier?: string;
 
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface ContactObject {
@@ -15,7 +15,7 @@ export interface ContactObject {
     url?: string;
     email?: string;
 
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface InfoObject {
@@ -27,14 +27,14 @@ export interface InfoObject {
     license?: LicenseObject;
     version: string;
 
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface ExternalDocumentationObject {
     description?: string;
     url: string;
 
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface ReferenceObject {
@@ -42,7 +42,7 @@ export interface ReferenceObject {
     summary?: string;
     description?: string;
 
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface DynamicReferenceObject {
@@ -50,7 +50,7 @@ export interface DynamicReferenceObject {
     summary?: string;
     description?: string;
 
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export type ReferenceLike = ReferenceObject | DynamicReferenceObject;
@@ -63,7 +63,7 @@ export interface TagObject {
     parent?: string;
     kind?: string;
 
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface ServerVariableObject {
@@ -71,7 +71,7 @@ export interface ServerVariableObject {
     default: string;
     description?: string;
 
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface ServerObject {
@@ -80,7 +80,7 @@ export interface ServerObject {
     name?: string;
     variables?: { [variable: string]: ServerVariableObject };
 
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface DiscriminatorObject {
@@ -88,7 +88,7 @@ export interface DiscriminatorObject {
     mapping?: { [key: string]: string };
     defaultMapping?: string;
 
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface XmlObject {
@@ -99,18 +99,18 @@ export interface XmlObject {
     wrapped?: boolean;
     nodeType?: 'element' | 'attribute' | 'text' | 'cdata' | 'none' | string;
 
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface LinkObject {
     operationRef?: string;
     operationId?: string;
-    parameters?: { [name: string]: any | string };
-    requestBody?: any | string;
+    parameters?: { [name: string]: unknown | string };
+    requestBody?: unknown;
     description?: string;
     server?: ServerObject;
 
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface ExampleObject {
@@ -120,7 +120,7 @@ export interface ExampleObject {
      * Embedded literal example. The `value` field and `externalValue` field are mutually exclusive.
      * @deprecated for non-JSON serialization targets in OAS 3.2. Use `dataValue` and/or `serializedValue` instead.
      */
-    value?: any;
+    value?: unknown;
     /**
      * A URI that identifies the literal example.
      */
@@ -130,7 +130,7 @@ export interface ExampleObject {
      * If this field is present, `value` MUST be absent.
      * (OAS 3.2)
      */
-    dataValue?: any;
+    dataValue?: unknown;
     /**
      * An example of the serialized form of the value.
      * If `dataValue` is present, then this field SHOULD contain the serialization of the given data.
@@ -138,7 +138,7 @@ export interface ExampleObject {
      */
     serializedValue?: string;
 
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface HeaderObject {
@@ -153,10 +153,10 @@ export interface HeaderObject {
     explode?: boolean;
     allowReserved?: boolean;
     content?: Record<string, MediaTypeObject | ReferenceLike>;
-    example?: any;
+    example?: unknown;
     examples?: Record<string, ExampleObject | ReferenceLike>;
 
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface Parameter {
@@ -173,15 +173,15 @@ export interface Parameter {
     allowEmptyValue?: boolean;
     content?: Record<string, MediaTypeObject | ReferenceLike>;
     deprecated?: boolean;
-    example?: any;
+    example?: unknown;
     examples?: Record<string, ExampleObject | ReferenceLike>;
 
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface EncodingProperty {
     contentType?: string;
-    headers?: Record<string, any>;
+    headers?: Record<string, unknown>;
     style?: string;
     explode?: boolean;
     allowReserved?: boolean;
@@ -189,7 +189,7 @@ export interface EncodingProperty {
     prefixEncoding?: EncodingProperty[];
     itemEncoding?: EncodingProperty;
 
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface RequestBody {
@@ -197,19 +197,19 @@ export interface RequestBody {
     required?: boolean;
     content?: Record<string, MediaTypeObject | ReferenceLike>;
 
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface MediaTypeObject {
     schema?: SwaggerDefinition | boolean | { $ref: string } | { $dynamicRef?: string };
     itemSchema?: SwaggerDefinition | boolean | { $ref: string } | { $dynamicRef?: string };
-    example?: any;
+    example?: unknown;
     examples?: Record<string, ExampleObject | ReferenceLike>;
     encoding?: Record<string, EncodingProperty>;
     prefixEncoding?: EncodingProperty[];
     itemEncoding?: EncodingProperty;
 
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface SwaggerResponse {
@@ -219,7 +219,7 @@ export interface SwaggerResponse {
     links?: Record<string, LinkObject | ReferenceLike>;
     headers?: Record<string, HeaderObject | ReferenceLike>;
 
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface SwaggerDefinition {
@@ -292,7 +292,7 @@ export interface SwaggerDefinition {
     xml?: XmlObject;
     externalDocs?: ExternalDocumentationObject;
 
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface SecurityScheme {
@@ -307,7 +307,7 @@ export interface SecurityScheme {
     oauth2MetadataUrl?: string;
     deprecated?: boolean;
 
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface SpecOperation {
@@ -318,16 +318,16 @@ export interface SpecOperation {
     operationId?: string;
     consumes?: string[];
     produces?: string[];
-    parameters?: any[];
-    requestBody?: any;
-    responses: Record<string, any>;
+    parameters?: unknown[];
+    requestBody?: unknown;
+    responses: Record<string, unknown>;
     schemes?: string[];
     deprecated?: boolean;
     security?: Record<string, string[]>[];
     servers?: ServerObject[];
     callbacks?: Record<string, PathItem | ReferenceLike>;
 
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface PathItem {
@@ -344,10 +344,10 @@ export interface PathItem {
     trace?: SpecOperation;
     query?: SpecOperation;
     additionalOperations?: Record<string, SpecOperation>;
-    parameters?: any[];
+    parameters?: unknown[];
     servers?: ServerObject[];
 
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface SwaggerSpec {
@@ -389,5 +389,5 @@ export interface SwaggerSpec {
     };
     securityDefinitions?: { [securityDefinitionName: string]: SecurityScheme };
 
-    [key: string]: any;
+    [key: string]: unknown;
 }

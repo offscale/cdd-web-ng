@@ -738,6 +738,12 @@ describe('Generated Code: Service Test Generators', () => {
             };
 
             const { parser, testGen } = setupTestGen(spec);
+
+            // Set methodNames which is needed by test generator to find the schema correctly from op properties (it simulates group behavior)
+            for (const op of parser.operations) {
+                if (!op.methodName && op.operationId) op.methodName = op.operationId;
+            }
+
             const imports = (testGen as any).collectModelImports(parser.operations);
 
             expect(imports.has('Filter')).toBe(true);

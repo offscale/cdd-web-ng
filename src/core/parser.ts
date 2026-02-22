@@ -13,6 +13,7 @@ import {
     ServerObject,
     SwaggerDefinition,
     SwaggerSpec,
+    SpecOperation,
 } from './types/index.js';
 import { extractPaths, isUriReference, normalizeSecurityKey, pascalCase } from './utils/index.js';
 import { SpecValidationError, validateSpec } from './validator.js';
@@ -27,7 +28,6 @@ export interface PolymorphicOption {
 
 /**
  * A wrapper class for a raw OpenAPI/Swagger specification object.
- * It provides a structured and reliable API to access different parts of the spec.
  */
 export class SwaggerParser {
     public readonly spec: SwaggerSpec;
@@ -52,10 +52,6 @@ export class SwaggerParser {
     ) {
         validateSpec(spec);
 
-        // OAS 3.2 Update: Allow any jsonSchemaDialect pass-through without warning.
-        // The default is implicit (OAS_3_1_DIALECT) if not provided, but explicit custom dialects
-        // are now valid without restriction.
-
         if (config.validateInput && !config.validateInput(spec)) {
             throw new Error('Custom input validation failed.');
         }
@@ -66,8 +62,6 @@ export class SwaggerParser {
 
         this.specCache = specCache || new Map<string, SwaggerSpec>([[this.documentUri, spec]]);
 
-        // Initialize the resolver logic
-        // If cache wasn't provided, we must self-index local IDs
         if (!specCache) {
             const baseUri = spec.$self ? new URL(spec.$self, documentUri).href : documentUri;
             if (baseUri !== documentUri) {
@@ -77,29 +71,27 @@ export class SwaggerParser {
         }
 
         this.resolver = new ReferenceResolver(this.specCache, this.documentUri);
-
-        // Analysis Logic (Extracting simplified views)
         this.schemas = this.collectSchemas();
-
-        // OAS 3.2 Requirement:
-        // 1. If the servers field is not provided (or empty), default to a single server with url '/'.
-        // 2. Relative URLs MUST be resolved against the document location (or $self).
         this.servers = this.resolveServers(this.spec.servers);
 
-        // We bind resolveRef to this instance so extractPaths can call back into the parser
         const resolveRef = (ref: string) => this.resolveReference(ref);
-        const resolveObj = (obj: unknown) => this.resolve(obj as any);
+        const resolveObj = (obj: unknown) => this.resolve(obj);
 
-        // Pass components context to extractPaths for strict security matching
-        const extractOptions = {
+        const extractOptions: {
+            isOpenApi3: boolean;
+            defaultConsumes?: string[];
+            defaultProduces?: string[];
+        } = {
             isOpenApi3: !!this.spec.openapi,
-            defaultConsumes: this.spec.swagger ? this.spec.consumes : undefined,
-            defaultProduces: this.spec.swagger ? this.spec.produces : undefined,
         };
+        if (this.spec.swagger) {
+            if (this.spec.consumes) extractOptions.defaultConsumes = this.spec.consumes;
+            if (this.spec.produces) extractOptions.defaultProduces = this.spec.produces;
+        }
+
         const operations = extractPaths(this.spec.paths, resolveRef, this.spec.components, extractOptions, resolveObj);
         const webhooks = extractPaths(this.spec.webhooks, resolveRef, this.spec.components, extractOptions, resolveObj);
 
-        // Resolve operation/path-level server URLs relative to retrieval URI (OAS 3.2).
         const resolveOpServers = (items: PathInfo[]): PathInfo[] =>
             items.map(item => {
                 if (item.servers === undefined) return item;
@@ -121,28 +113,16 @@ export class SwaggerParser {
         return new SwaggerParser(entrySpec, config, cache, documentUri);
     }
 
-    /**
-     * Resolves server URLs relative to the document URI using the URL API.
-     * Handles OAS 3.x defaults and Swagger 2.0 exclusions.
-     */
     private resolveServers(servers?: ServerObject[]): ServerObject[] {
-        // Swagger 2.0 compatibility: Derive servers from host/basePath/schemes when present.
         if (this.spec.swagger) {
             return this.resolveSwagger2Servers(servers);
         }
-
-        // OAS 3.x Default behavior for missing servers
         if (!servers || servers.length === 0) {
             return [{ url: '/' }];
         }
-
         return this.resolveServerUrls(servers, this.documentUri);
     }
 
-    /**
-     * Resolves relative server URLs against the retrieval URI (documentUri).
-     * OAS 3.2: `$self` is ignored for API URLs; the retrieval URI is the base.
-     */
     private resolveServerUrls(servers: ServerObject[] | undefined, baseUri: string): ServerObject[] {
         if (!servers || servers.length === 0) return servers ?? [];
 
@@ -151,37 +131,22 @@ export class SwaggerParser {
 
             const rawUrl = server.url.trim();
 
-            // If the URL starts with a variable {scheme}://... we cannot use the URL constructor
-            // as valid schemes are strict. We preserve it as-is.
             if (rawUrl.startsWith('{')) {
                 return server;
             }
 
             try {
                 const serverBaseUri = ReferenceResolver.getDocumentUri(server as object) ?? baseUri;
-                // new URL() resolves relative paths against baseUri.
-                // It also normalizes the path (e.g., 'https://example.com' -> 'https://example.com/')
                 const resolvedUrl = new URL(rawUrl, serverBaseUri).href;
-
-                // The URL constructor percent-encodes braces (e.g., {id} -> %7Bid%7D).
-                // We must revert this to preserve OAS Server Variables syntax.
                 const decodedUrl = resolvedUrl.replace(/%7B/g, '{').replace(/%7D/g, '}');
-
                 return { ...server, url: decodedUrl };
             } catch {
-                // If URL parsing fails (e.g., complex variables inside the authority part),
-                // fallback to returning the original string.
                 return server;
             }
         });
     }
 
-    /**
-     * Resolves Swagger 2.0 host/basePath/schemes into OAS-style servers.
-     * Falls back to the document URI's host/scheme when available.
-     */
     private resolveSwagger2Servers(servers?: ServerObject[]): ServerObject[] {
-        // If users supplied servers via extensions, respect them.
         if (servers && servers.length > 0) {
             return servers;
         }
@@ -201,7 +166,6 @@ export class SwaggerParser {
                   : ['http'];
 
         if (!host) {
-            // Without a host, we cannot build an absolute URL. Preserve relative basePath if meaningful.
             if (basePath && basePath !== '/') {
                 return [{ url: basePath }];
             }
@@ -221,7 +185,7 @@ export class SwaggerParser {
                 return url;
             }
         } catch {
-            // Ignore invalid URI
+            // ignore
         }
         return undefined;
     }
@@ -284,10 +248,8 @@ export class SwaggerParser {
             });
         };
 
-        // Always start with the entry document's explicit schemas/definitions.
         addDefinitions(this.getDefinitions(), this.documentUri);
 
-        // Collect schemas from any referenced OpenAPI/Swagger documents and standalone schema documents.
         for (const [uri, doc] of this.specCache.entries()) {
             if (!doc || typeof doc !== 'object') continue;
             if (seenDocs.has(doc)) continue;
@@ -300,7 +262,6 @@ export class SwaggerParser {
                 continue;
             }
 
-            // Standalone JSON Schema document support (no OpenAPI root, just a Schema Object).
             if (this.isSchemaDocument(doc)) {
                 if (definitionValues.has(doc as SwaggerDefinition)) {
                     continue;
@@ -402,17 +363,18 @@ export class SwaggerParser {
             });
         };
 
-        const scanPathSecurity = (paths?: Record<string, any>) => {
+        const scanPathSecurity = (paths?: Record<string, PathItem>) => {
             if (!paths) return;
             const methods = ['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'trace', 'query'];
             Object.values(paths).forEach(pathItem => {
                 if (!pathItem || typeof pathItem !== 'object') return;
+                const pathRec = pathItem as Extract<PathItem, Record<string, unknown>>;
                 methods.forEach(method => {
-                    const op = (pathItem as any)[method];
+                    const op = pathRec[method] as SpecOperation | undefined;
                     if (op?.security) scanSecurityRequirements(op.security);
                 });
-                if ((pathItem as any).additionalOperations) {
-                    Object.values((pathItem as any).additionalOperations as Record<string, any>).forEach(op => {
+                if (pathRec.additionalOperations) {
+                    Object.values(pathRec.additionalOperations as Record<string, SpecOperation>).forEach(op => {
                         if (op?.security) scanSecurityRequirements(op.security);
                     });
                 }
@@ -420,8 +382,8 @@ export class SwaggerParser {
         };
 
         scanSecurityRequirements(this.spec.security);
-        scanPathSecurity(this.spec.paths as Record<string, any>);
-        scanPathSecurity(this.spec.webhooks as Record<string, any>);
+        scanPathSecurity(this.spec.paths as Record<string, PathItem>);
+        scanPathSecurity(this.spec.webhooks as Record<string, PathItem>);
 
         return schemes;
     }
@@ -448,10 +410,6 @@ export class SwaggerParser {
         return this.resolver.resolveReference(ref, currentDocUri);
     }
 
-    /**
-     * Retrieves the possible options for a polymorphic schema based on `oneOf`/`anyOf` and `discriminator`.
-     * Supports strict mapping, explicit enum values, and implicit mapping (OAS 3.2).
-     */
     public getPolymorphicSchemaOptions(schema: SwaggerDefinition): PolymorphicOption[] {
         if (!schema.discriminator) {
             return [];
@@ -476,8 +434,11 @@ export class SwaggerParser {
         return variants
             .map(refSchema => {
                 let ref: string | undefined;
-                if (refSchema.$ref) ref = refSchema.$ref;
-                else if (refSchema.$dynamicRef) ref = refSchema.$dynamicRef;
+                if (typeof refSchema === 'object') {
+                    const refObj = refSchema as { $ref?: string; $dynamicRef?: string };
+                    if (refObj.$ref) ref = refObj.$ref;
+                    else if (refObj.$dynamicRef) ref = refObj.$dynamicRef;
+                }
 
                 if (!ref) return null;
 
@@ -486,22 +447,23 @@ export class SwaggerParser {
                     return null;
                 }
 
-                // Ensure the resolved schema actually has the discriminator property
-                // This prevents implicit mapping from picking up incompatible schemas (Fixes regression tests)
-                // Note: Ideally we should check allOf merges, but for this basic utility check, properties is the primary target
-                const hasProp = resolvedSchema.properties && resolvedSchema.properties[dPropName];
+                const hasProp =
+                    typeof resolvedSchema === 'object' &&
+                    resolvedSchema.properties &&
+                    resolvedSchema.properties[dPropName];
                 if (!hasProp) {
                     return null;
                 }
 
-                // Strategy A: Explicit Enum in Schema
-                if (resolvedSchema.properties![dPropName]?.enum) {
-                    const name = resolvedSchema.properties![dPropName].enum![0] as string;
+                if (
+                    typeof resolvedSchema === 'object' &&
+                    resolvedSchema.properties &&
+                    (resolvedSchema.properties[dPropName] as SwaggerDefinition)?.enum
+                ) {
+                    const name = (resolvedSchema.properties[dPropName] as SwaggerDefinition).enum![0] as string;
                     return { name, schema: resolvedSchema };
                 }
 
-                // Strategy B: Implicit Mapping (Component Name derived from Ref) - OAS 3.2 Support
-                // e.g. "#/components/schemas/Cat" -> "Cat"
                 const implicitName = ref.split('/').pop();
                 if (implicitName) {
                     return { name: implicitName, schema: resolvedSchema };
@@ -525,10 +487,6 @@ export class SwaggerParser {
         return null;
     }
 
-    /**
-     * Ensures operationId uniqueness across resolved operations and webhooks.
-     * This complements input validation by considering $ref-resolved Path Items.
-     */
     private assertUniqueResolvedOperationIds(): void {
         const operationIdLocations = new Map<string, string[]>();
         const operationKeys = ['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'trace', 'query'];
@@ -544,10 +502,12 @@ export class SwaggerParser {
             }
         };
 
-        const recordFromPathItem = (pathItem: any, pathKey: string, prefix: string) => {
+        const recordFromPathItem = (pathItem: unknown, pathKey: string, prefix: string) => {
             if (!pathItem || typeof pathItem !== 'object') return;
+            const pi = pathItem as Record<string, unknown>;
+
             for (const method of operationKeys) {
-                const operation = pathItem[method];
+                const operation = pi[method] as SpecOperation | undefined;
                 if (operation?.operationId) {
                     const location = `${prefix}${method.toUpperCase()} ${pathKey}`;
                     const existing = operationIdLocations.get(operation.operationId);
@@ -558,15 +518,18 @@ export class SwaggerParser {
                     }
                 }
             }
-            if (pathItem.additionalOperations) {
-                for (const [method, operation] of Object.entries(pathItem.additionalOperations)) {
-                    if ((operation as any)?.operationId) {
+            if (pi.additionalOperations) {
+                for (const [method, operationVal] of Object.entries(
+                    pi.additionalOperations as Record<string, SpecOperation>,
+                )) {
+                    const operation = operationVal as SpecOperation | undefined;
+                    if (operation?.operationId) {
                         const location = `${prefix}${method} ${pathKey}`;
-                        const existing = operationIdLocations.get((operation as any).operationId);
+                        const existing = operationIdLocations.get(operation.operationId);
                         if (existing) {
                             existing.push(location);
                         } else {
-                            operationIdLocations.set((operation as any).operationId, [location]);
+                            operationIdLocations.set(operation.operationId, [location]);
                         }
                     }
                 }
@@ -580,9 +543,12 @@ export class SwaggerParser {
         if (this.spec.paths) {
             for (const [pathKey, pathItem] of Object.entries(this.spec.paths)) {
                 if (!pathItem || typeof pathItem !== 'object') continue;
-                if (!(pathItem as any).$ref) continue;
+                if (!(pathItem as Record<string, unknown>).$ref) continue;
                 if (resolvedPaths.has(pathKey)) continue;
-                const resolved = this.resolveReference<PathItem>((pathItem as any).$ref, this.documentUri);
+                const resolved = this.resolveReference<PathItem>(
+                    (pathItem as Record<string, unknown>).$ref as string,
+                    this.documentUri,
+                );
                 if (resolved) {
                     recordFromPathItem(resolved, pathKey, 'paths: ');
                 }
@@ -593,9 +559,12 @@ export class SwaggerParser {
             const resolvedWebhookPaths = new Set(this.webhooks.map(op => op.path));
             for (const [pathKey, pathItem] of Object.entries(this.spec.webhooks)) {
                 if (!pathItem || typeof pathItem !== 'object') continue;
-                if (!(pathItem as any).$ref) continue;
+                if (!(pathItem as Record<string, unknown>).$ref) continue;
                 if (resolvedWebhookPaths.has(pathKey)) continue;
-                const resolved = this.resolveReference<PathItem>((pathItem as any).$ref, this.documentUri);
+                const resolved = this.resolveReference<PathItem>(
+                    (pathItem as Record<string, unknown>).$ref as string,
+                    this.documentUri,
+                );
                 if (resolved) {
                     recordFromPathItem(resolved, pathKey, 'webhooks: ');
                 }

@@ -37,7 +37,6 @@ function classifyAction(path: PathInfo, method: string): ResourceOperation['acti
     const opId = path.operationId || '';
     const opIdLower = opId.toLowerCase();
 
-    // OAS 3.2 QUERY method support: Treat as list if collection, or getById if item
     if ((m === 'get' || m === 'query') && !hasIdSuffix) return 'list';
     if ((m === 'get' || m === 'query') && hasIdSuffix) return 'getById';
 
@@ -91,7 +90,6 @@ function findSchema(
     return schema as SwaggerDefinition;
 }
 
-// Exported for testing
 export function getFormProperties(operations: PathInfo[], parser: SwaggerParser): FormProperty[] {
     const allSchemas: SwaggerDefinition[] = [];
     const formDataProperties: Record<string, SwaggerDefinition> = {};
@@ -129,13 +127,16 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
                 param.in === 'formData' &&
                 param.schema &&
                 typeof param.schema === 'object' &&
-                !('$ref' in param.schema)
+                !('$ref' in param.schema) &&
+                !('$dynamicRef' in param.schema)
             ) {
+                const schemaObj = param.schema as SwaggerDefinition;
                 const prop: Partial<SwaggerDefinition> = {};
-                if (param.schema.format) prop.format = param.schema.format;
+                if (schemaObj.format) prop.format = schemaObj.format;
                 if (param.description) prop.description = param.description;
-                const paramType = param.schema.type;
-                if (paramType && !Array.isArray(paramType)) prop.type = paramType;
+                const paramType = schemaObj.type;
+                if (paramType && !Array.isArray(paramType))
+                    prop.type = paramType as Exclude<SwaggerDefinition['type'], undefined>;
                 formDataProperties[param.name] = prop as SwaggerDefinition;
             }
         });
@@ -157,7 +158,6 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
         if (schema.oneOf) mergedOneOf = schema.oneOf;
         if (schema.discriminator) mergedDiscriminator = schema.discriminator;
 
-        // Handle allOf inheritance (recursively)
         if (schema.allOf) {
             schema.allOf.forEach(sub => {
                 const resolvedSub = findSchema(sub, parser);
@@ -221,7 +221,6 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
     return properties.length > 0 ? properties : [{ name: 'id', schema: { type: 'string' } }];
 }
 
-// Exported for testing
 export function getModelName(resourceName: string, operations: PathInfo[]): string {
     const op =
         operations.find(o => o.method === 'POST') ??
@@ -231,12 +230,12 @@ export function getModelName(resourceName: string, operations: PathInfo[]): stri
         op?.requestBody?.content?.['application/json']?.schema ??
         op?.responses?.['200']?.content?.['application/json']?.schema;
     if (schema && typeof schema === 'object') {
-        const ref =
-            '$ref' in schema
-                ? schema.$ref
-                : schema.type === 'array' && schema.items && !Array.isArray(schema.items) && '$ref' in schema.items
-                  ? schema.items.$ref
-                  : null;
+        let ref: string | null | undefined = null;
+        if ('$ref' in schema) {
+            ref = schema.$ref as string | undefined;
+        } else if (schema.type === 'array' && schema.items && !Array.isArray(schema.items) && '$ref' in schema.items) {
+            ref = (schema.items as { $ref?: string }).$ref;
+        }
         if (ref) return pascalCase(ref.split('/').pop()!);
     }
     return singular(pascalCase(resourceName));
@@ -292,8 +291,6 @@ export function discoverAdminResources(parser: SwaggerParser): Resource[] {
             name: group.name,
             modelName: getModelName(group.name, group.operations),
             operations: classifiedOps,
-            // Fix: DELETE operations do not imply a form interface, so they don't make a resource 'editable' in the context of form generation.
-            // QUERY doesn't either (safe method)
             isEditable: group.operations.some(op => ['POST', 'PUT', 'PATCH'].includes(op.method)),
             formProperties,
             listProperties: formProperties.filter(

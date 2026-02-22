@@ -10,12 +10,11 @@ import {
     SwaggerDefinition,
     SwaggerResponse,
 } from '../types/index.js';
-import { camelCase, isUriReference, normalizeSecurityKey, pascalCase } from './index.js';
-import { SwaggerParser } from '@src/core/parser.js';
+import { isUriReference, pascalCase } from './string.js';
+import { normalizeSecurityKey } from './naming.js';
 
-// Union type handling both Swagger 2.0 and OpenAPI 3.x property names
 type UnifiedParameter = SwaggerOfficialParameter & {
-    schema?: SwaggerDefinition | { $ref: string };
+    schema?: SwaggerDefinition | { $ref: string } | boolean;
     type?: string;
     format?: string;
     items?: SwaggerDefinition | { $ref: string };
@@ -24,32 +23,35 @@ type UnifiedParameter = SwaggerOfficialParameter & {
     explode?: boolean;
     allowReserved?: boolean;
     allowEmptyValue?: boolean;
-    content?: Record<string, { schema?: SwaggerDefinition }>;
+    content?: Record<string, { schema?: SwaggerDefinition | boolean }>;
     deprecated?: boolean;
-    example?: any;
-    examples?: Record<string, any>;
-    [key: string]: any;
+    example?: unknown;
+    examples?: Record<string, unknown>;
+    [key: string]: unknown;
 };
 
-/**
- * Flattens the nested `paths` object from an OpenAPI spec into a linear array of `PathInfo` objects.
- * This function handles:
- * - Merging path-level and operation-level parameters.
- * - Resolving references (if a resolver is provided).
- * - Normalizing Swagger 2.0 properties to OpenAPI 3.0 compatible structures.
- * - Applying OAS 3.2 default serialization rules (style/explode).
- *
- * @param swaggerPaths The raw `paths` object from the specification.
- * @param resolveRef Optional callback to resolve `$ref` pointers within path items (string-based resolution).
- * @param components Optional components object for resolving security precedence.
- * @param options Optional flags (e.g., `isOpenApi3`) and Swagger 2 defaults to enable OAS-specific behavior.
- * @param resolveObj Optional callback to resolve full objects (context-aware `$ref`/`$dynamicRef` resolution).
- * @returns An array of normalized `PathInfo` objects ready for analysis.
- */
+export function groupPathsByController(parser: { operations: PathInfo[] }): Record<string, PathInfo[]> {
+    const groups: Record<string, PathInfo[]> = {};
+    for (const op of parser.operations) {
+        let group = 'Default';
+        if (Array.isArray(op.tags) && op.tags.length > 0 && op.tags[0]) {
+            group = pascalCase(op.tags[0].toString());
+        } else {
+            const firstSegment = op.path.split('/').filter(Boolean)[0];
+            if (firstSegment) {
+                group = pascalCase(firstSegment);
+            }
+        }
+        if (!groups[group]) groups[group] = [];
+        groups[group].push(op);
+    }
+    return groups;
+}
+
 export function extractPaths(
     swaggerPaths: { [p: string]: PathItem } | undefined,
     resolveRef?: (ref: string) => unknown,
-    components?: { securitySchemes?: Record<string, any> } | undefined,
+    components?: { securitySchemes?: Record<string, unknown> } | undefined,
     options?: { isOpenApi3?: boolean; defaultConsumes?: string[]; defaultProduces?: string[] },
     resolveObj?: (obj: unknown) => unknown,
 ): PathInfo[] {
@@ -65,7 +67,7 @@ export function extractPaths(
     const paths: PathInfo[] = [];
     const methods = ['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'trace', 'query'];
 
-    const resolveMaybeRef = <T extends { summary?: string; description?: string }>(
+    const resolveMaybeRef = <T>(
         obj: T | { $ref?: string; $dynamicRef?: string; summary?: string; description?: string } | undefined | null,
     ): T | undefined => {
         if (!obj) return undefined;
@@ -78,17 +80,18 @@ export function extractPaths(
 
         if (!resolveRef || typeof obj !== 'object') return obj as T;
 
-        const ref = (obj as any).$ref || (obj as any).$dynamicRef;
+        const objRec = obj as { $ref?: string; $dynamicRef?: string; summary?: string; description?: string };
+        const ref = objRec.$ref || objRec.$dynamicRef;
         if (typeof ref !== 'string') return obj as T;
 
         const resolved = resolveRef(ref) as T | undefined;
         if (!resolved) return obj as T;
 
-        const summary = (obj as any).summary;
-        const description = (obj as any).description;
+        const summary = objRec.summary;
+        const description = objRec.description;
         if (summary !== undefined || description !== undefined) {
             return {
-                ...(resolved as any),
+                ...(resolved as object),
                 ...(summary !== undefined ? { summary } : {}),
                 ...(description !== undefined ? { description } : {}),
             } as T;
@@ -105,10 +108,9 @@ export function extractPaths(
         const resolvedHeaders: Record<string, HeaderObject> = {};
         for (const [name, header] of Object.entries(headers)) {
             if (name.toLowerCase() === 'content-type') {
-                // OAS 3.2: Response header definitions named "Content-Type" are ignored.
                 continue;
             }
-            const resolvedHeader = resolveMaybeRef<HeaderObject>(header as any);
+            const resolvedHeader = resolveMaybeRef<HeaderObject>(header);
             if (resolvedHeader) {
                 resolvedHeaders[name] = resolvedHeader;
             }
@@ -122,7 +124,7 @@ export function extractPaths(
         if (!content) return undefined;
         const resolvedContent: Record<string, MediaTypeObject> = {};
         for (const [mediaType, mediaObj] of Object.entries(content)) {
-            const resolvedMedia = resolveMaybeRef<MediaTypeObject>(mediaObj as any);
+            const resolvedMedia = resolveMaybeRef<MediaTypeObject>(mediaObj);
             if (resolvedMedia) {
                 resolvedContent[mediaType] = resolvedMedia;
             }
@@ -130,7 +132,6 @@ export function extractPaths(
         return Object.keys(resolvedContent).length > 0 ? resolvedContent : undefined;
     };
 
-    // Create a lookup Set for security schemes to enforce precedence rules (OAS 3.2 Security Requirements)
     const securitySchemeNames = new Set(components?.securitySchemes ? Object.keys(components.securitySchemes) : []);
 
     for (const [path, rawPathItem] of Object.entries(swaggerPaths)) {
@@ -148,28 +149,29 @@ export function extractPaths(
             }
         }
 
-        /** Defensive: ensure top-level pathParameters is always an array */
         const rawPathParameters: UnifiedParameter[] = Array.isArray(pathItem.parameters)
-            ? pathItem.parameters.filter(Boolean)
+            ? (pathItem.parameters.filter(Boolean) as UnifiedParameter[])
             : [];
         const pathParameters: UnifiedParameter[] = rawPathParameters
-            .map(param => resolveMaybeRef<UnifiedParameter>(param as any))
+            .map(param => resolveMaybeRef<UnifiedParameter>(param))
             .filter((param): param is UnifiedParameter => !!param && 'name' in param && 'in' in param);
 
         const pathServers = pathItem.servers;
         const operationsToProcess: { method: string; operation: SpecOperation }[] = [];
 
-        // Fixed Methods
+        const pathItemRec = pathItem as Record<string, unknown>;
+
         for (const method of methods) {
-            const operation = (pathItem as any)[method] as SpecOperation;
+            const operation = pathItemRec[method] as SpecOperation | undefined;
             if (operation) {
                 operationsToProcess.push({ method, operation });
             }
         }
 
-        // Additional Operations (OAS 3.2)
         if (pathItem.additionalOperations) {
-            for (const [method, operation] of Object.entries(pathItem.additionalOperations)) {
+            for (const [method, operation] of Object.entries(
+                pathItem.additionalOperations as Record<string, SpecOperation>,
+            )) {
                 operationsToProcess.push({ method, operation });
             }
         }
@@ -180,7 +182,7 @@ export function extractPaths(
                 paramsMap.set(`${p.name}:${p.in}`, p);
             });
             (Array.isArray(operation.parameters) ? operation.parameters : []).forEach(p => {
-                const resolvedParam = resolveMaybeRef<UnifiedParameter>(p as any);
+                const resolvedParam = resolveMaybeRef<UnifiedParameter>(p as UnifiedParameter);
                 if (resolvedParam && 'name' in resolvedParam && 'in' in resolvedParam) {
                     paramsMap.set(`${resolvedParam.name}:${resolvedParam.in}`, resolvedParam);
                 }
@@ -193,9 +195,12 @@ export function extractPaths(
             const parameters = nonBodyParams
                 .filter(p => p !== undefined && p !== null)
                 .map((p): Parameter => {
-                    let finalSchema = p.schema;
+                    let finalSchema: SwaggerDefinition | boolean | undefined = p.schema as
+                        | SwaggerDefinition
+                        | boolean
+                        | undefined;
 
-                    const resolvedContent = resolveContentMap(p.content as any);
+                    const resolvedContent = resolveContentMap(p.content as Record<string, MediaTypeObject>);
                     if (resolvedContent) {
                         const contentType = Object.keys(resolvedContent)[0];
                         if (contentType && resolvedContent[contentType].schema !== undefined) {
@@ -220,27 +225,25 @@ export function extractPaths(
 
                     const param: Parameter = {
                         name: p.name,
-                        // Explicit cast is safe here as we've filtered/processed known 'in' types
                         in: p.in as 'query' | 'path' | 'header' | 'cookie' | 'querystring',
-                        schema: finalSchema as SwaggerDefinition,
+                        schema: finalSchema,
                     };
 
                     if (resolvedContent) {
-                        param.content = resolvedContent as Record<string, { schema?: SwaggerDefinition }>;
+                        param.content = resolvedContent;
                     } else if (p.content) {
-                        param.content = p.content as Record<string, { schema?: SwaggerDefinition }>;
+                        param.content = p.content as Record<string, MediaTypeObject>;
                     }
+
                     if (p.style !== undefined) param.style = p.style;
                     if (p.explode !== undefined) param.explode = p.explode;
                     if (p.allowReserved !== undefined) param.allowReserved = p.allowReserved;
                     if (p.allowEmptyValue !== undefined) param.allowEmptyValue = p.allowEmptyValue;
                     if (p.deprecated !== undefined) param.deprecated = p.deprecated;
 
-                    // --- Fix for Parameter Examples (OAS 3.0 support) ---
                     if (p.example !== undefined) param.example = p.example;
-                    if (p.examples !== undefined) param.examples = p.examples;
+                    if (p.examples !== undefined) param.examples = p.examples as Record<string, ExampleObject>;
 
-                    // Normalize swagger 2 collectionFormat to style/explode
                     if (p.collectionFormat) {
                         switch (p.collectionFormat) {
                             case 'csv':
@@ -266,7 +269,6 @@ export function extractPaths(
                         }
                     }
 
-                    // OAS 3.2 Serialization Defaults
                     if (!param.style) {
                         if (param.in === 'query' || param.in === 'cookie') {
                             param.style = 'form';
@@ -276,17 +278,16 @@ export function extractPaths(
                     }
 
                     if (param.explode === undefined) {
-                        // "When style is form, the default value is true. For all other styles, the default value is false."
-                        // Note: This applies to cookie style='form' as well.
                         param.explode = param.style === 'form';
                     }
 
                     if (p.required !== undefined) param.required = p.required;
+
                     if (p.description) param.description = p.description;
 
                     Object.keys(p).forEach(key => {
                         if (key.startsWith('x-')) {
-                            (param as any)[key] = (p as any)[key];
+                            (param as Record<string, unknown>)[key] = p[key];
                         }
                     });
 
@@ -299,9 +300,10 @@ export function extractPaths(
                 });
 
             let requestBody: RequestBody | undefined;
+
             if (operation.requestBody !== undefined) {
                 requestBody =
-                    resolveMaybeRef<RequestBody>(operation.requestBody as any) ??
+                    resolveMaybeRef<RequestBody>(operation.requestBody as RequestBody) ??
                     (operation.requestBody as RequestBody);
             } else if (bodyParam) {
                 const consumes = (operation.consumes && operation.consumes.length > 0
@@ -318,8 +320,9 @@ export function extractPaths(
                 if (bodyParam.description) requestBody.description = bodyParam.description;
                 if (bodyParam.required !== undefined) requestBody.required = bodyParam.required;
             }
+
             if (requestBody?.content) {
-                const resolvedContent = resolveContentMap(requestBody.content as any);
+                const resolvedContent = resolveContentMap(requestBody.content as Record<string, MediaTypeObject>);
                 if (resolvedContent) {
                     requestBody = { ...requestBody, content: resolvedContent };
                 }
@@ -329,9 +332,12 @@ export function extractPaths(
             if (operation.responses) {
                 for (const [code, resp] of Object.entries(operation.responses)) {
                     const resolvedResp =
-                        resolveMaybeRef<SwaggerResponse | Response>(resp as any) ?? (resp as SwaggerResponse);
+                        resolveMaybeRef<SwaggerResponse | Response>(resp as SwaggerResponse | Response) ??
+                        (resp as SwaggerResponse);
                     const swagger2Response = resolvedResp as Response;
-                    const headers = resolveHeaders((resolvedResp as any).headers as Record<string, HeaderObject>);
+                    const headers = resolveHeaders(
+                        (resolvedResp as Record<string, unknown>).headers as Record<string, HeaderObject>,
+                    );
 
                     if (swagger2Response && swagger2Response.schema !== undefined) {
                         const produces = (operation.produces && operation.produces.length > 0
@@ -341,20 +347,22 @@ export function extractPaths(
                         const content: Record<string, MediaTypeObject> = {};
                         produces.forEach(mediaType => {
                             content[mediaType] = {
-                                schema: swagger2Response.schema as unknown as SwaggerDefinition,
+                                schema: swagger2Response.schema as SwaggerDefinition,
                             };
                         });
 
                         normalizedResponses[code] = {
-                            description: swagger2Response.description,
-                            headers: headers,
+                            description: swagger2Response.description || '',
+                            ...(headers ? { headers } : {}),
                             content,
                         };
                     } else {
-                        const resolvedContent = resolveContentMap((resolvedResp as SwaggerResponse).content as any);
+                        const resolvedContent = resolveContentMap(
+                            (resolvedResp as SwaggerResponse).content as Record<string, MediaTypeObject>,
+                        );
                         normalizedResponses[code] = {
                             ...(resolvedResp as SwaggerResponse),
-                            headers: headers,
+                            ...(headers ? { headers } : {}),
                             ...(resolvedContent ? { content: resolvedContent } : {}),
                         };
                     }
@@ -367,18 +375,15 @@ export function extractPaths(
                 effectiveSecurity = effectiveSecurity.map(req => {
                     const normalizedReq: { [key: string]: string[] } = {};
                     Object.keys(req).forEach(key => {
-                        // OAS 3.2 Precedence: If key matches a component name exactly, assume it is a Component Name.
-                        // Otherwise, treat as URI reference (used for splitting last segment).
-                        // This prevents ambiguity when a Component Name looks like a URI (e.g. "http://auth")
                         if (securitySchemeNames.has(key)) {
                             normalizedReq[key] = req[key];
                         } else if (isUriReference(key)) {
-                            // Preserve URI reference keys exactly (OAS 3.2)
                             normalizedReq[key] = req[key];
                         } else {
                             normalizedReq[normalizeSecurityKey(key)] = req[key];
                         }
                     });
+
                     return normalizedReq;
                 });
             }
@@ -392,7 +397,7 @@ export function extractPaths(
             };
 
             if (effectiveServers !== undefined) pathInfo.servers = effectiveServers;
-            if (operation.callbacks) pathInfo.callbacks = operation.callbacks;
+            if (operation.callbacks) pathInfo.callbacks = operation.callbacks as Record<string, PathItem>;
             if (operation.operationId) pathInfo.operationId = operation.operationId;
 
             const summary = operation.summary || pathItem.summary;
@@ -406,92 +411,28 @@ export function extractPaths(
             } else if (!isOpenApi3 && defaultConsumes) {
                 pathInfo.consumes = defaultConsumes;
             }
+
             if (operation.produces) {
                 pathInfo.produces = operation.produces;
             } else if (!isOpenApi3 && defaultProduces) {
                 pathInfo.produces = defaultProduces;
             }
+
             if (operation.deprecated) pathInfo.deprecated = operation.deprecated;
             if (operation.externalDocs) pathInfo.externalDocs = operation.externalDocs;
             if (effectiveSecurity) pathInfo.security = effectiveSecurity;
 
             Object.keys(operation).forEach(key => {
-                if (key.startsWith('x-') && !(key in pathInfo)) {
-                    pathInfo[key] = operation[key];
+                const piRec = pathInfo as Record<string, unknown>;
+                const opRec = operation as Record<string, unknown>;
+                if (key.startsWith('x-') && !(key in piRec)) {
+                    piRec[key] = opRec[key];
                 }
             });
 
             paths.push(pathInfo);
         }
     }
+
     return paths;
-}
-
-/**
- * Derives a controller name from an operation (PathInfo).
- * Prefers the first tag, falls back to first non-param path segment, then "Default".
- */
-function getControllerName(operation: PathInfo): string {
-    if (Array.isArray(operation.tags) && typeof operation.tags[0] === 'string' && operation.tags[0]) {
-        return pascalCase(operation.tags[0]);
-    }
-    const pathSegment = operation.path.split('/').filter(p => p && !p.startsWith('{'))[0];
-    if (pathSegment) return pascalCase(pathSegment);
-    return 'Default';
-}
-
-/**
- * Helper function to generate a method name from a URL path.
- */
-function path_to_method_name_suffix(path: string): string {
-    return path
-        .split('/')
-        .filter(Boolean)
-        .map(segment => {
-            if (segment.startsWith('{') && segment.endsWith('}')) {
-                return `By${pascalCase(segment.slice(1, -1))}`;
-            }
-            return pascalCase(segment);
-        })
-        .join('');
-}
-
-/**
- * Groups all API operations by controller name and ensures method names are unique.
- * The controller name is derived from tag or path, and all operations are assigned a unique `methodName`.
- *
- * @param parser The SwaggerParser instance containing the spec.
- * @returns A record mapping controller names to lists of path operations.
- */
-export function groupPathsByController(parser: SwaggerParser): Record<string, PathInfo[]> {
-    const usedMethodNames = new Set<string>();
-    // Use parser.operations which is already extracted
-    const allOperations = parser.operations;
-    const groups: Record<string, PathInfo[]> = {};
-
-    for (const operation of allOperations) {
-        const customizer = parser.config.options?.customizeMethodName;
-        let baseMethodName: string;
-        if (customizer && operation.operationId) {
-            baseMethodName = customizer(operation.operationId);
-        } else {
-            baseMethodName = operation.operationId
-                ? camelCase(operation.operationId)
-                : `${operation.method.toLowerCase()}${path_to_method_name_suffix(operation.path)}`;
-        }
-        let uniqueMethodName = baseMethodName;
-        let counter = 1;
-        while (usedMethodNames.has(uniqueMethodName)) {
-            uniqueMethodName = `${baseMethodName}${++counter}`;
-        }
-        usedMethodNames.add(uniqueMethodName);
-        operation.methodName = uniqueMethodName;
-
-        const controllerName = getControllerName(operation);
-        if (!groups[controllerName]) {
-            groups[controllerName] = [];
-        }
-        groups[controllerName].push(operation);
-    }
-    return groups;
 }

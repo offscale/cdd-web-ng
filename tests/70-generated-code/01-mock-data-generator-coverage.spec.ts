@@ -156,9 +156,11 @@ describe('Generated Code: MockDataGenerator (Coverage)', () => {
     });
 
     it('should handle allOf with a bad ref by ignoring the bad part', () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
         const mockString = generator.generate('WithBadRef');
         const mock = JSON.parse(mockString);
         expect(mock).toEqual({ id: 'string-value' });
+        warnSpy.mockRestore();
     });
 
     it('should handle allOf with a primitive type by returning an empty object', () => {
@@ -180,10 +182,12 @@ describe('Generated Code: MockDataGenerator (Coverage)', () => {
     });
 
     it('should handle an unresolvable ref inside an object', () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
         // This tests the `resolve()` fallback logic within `generateValue()`
         const mockString = generator.generate('UnresolvableRefWrapper');
         const mock = JSON.parse(mockString);
         expect(mock).toEqual({ badProp: { id: 'string-value' } });
+        warnSpy.mockRestore();
     });
 
     it('should generate a boolean value', () => {
@@ -341,6 +345,7 @@ describe('Generated Code: MockDataGenerator (Coverage)', () => {
     });
 
     it('should fall back when externalValue file is missing or invalid', () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
         const config: GeneratorConfig = {
             input: '',
             output: '/out',
@@ -358,6 +363,8 @@ describe('Generated Code: MockDataGenerator (Coverage)', () => {
         (fs.existsSync as any).mockReturnValue(false);
         const missing = JSON.parse(customGenerator.generate('ExternalMissingFile'));
         expect(missing).toContain('External Content: missing.json');
+
+        warnSpy.mockRestore();
     });
 
     it('should return undefined for deep recursion to hit maxDepth', () => {

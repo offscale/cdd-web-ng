@@ -1,15 +1,10 @@
+// src/generators/angular/admin/html/form-controls-html.builder.ts
 import { FormControlModel } from '@src/analysis/form-types.js';
 import { SwaggerDefinition } from '@src/core/types/index.js';
 import { camelCase, pascalCase, singular } from '@src/core/utils/index.js';
 
 import { HtmlElementBuilder, HtmlElementBuilder as _ } from '../html-element.builder.js';
 
-/**
- * Generates an array of <mat-error> HtmlElementBuilder instances based on the
- * validation rules in the FormControlModel. This is the single source of truth for error messages.
- * @param control The FormControlModel from the IR.
- * @returns An array of builders for each potential validation error.
- */
 export function buildErrorMessages(control: FormControlModel): HtmlElementBuilder[] {
     const errors: HtmlElementBuilder[] = [];
 
@@ -126,7 +121,6 @@ export function buildErrorMessages(control: FormControlModel): HtmlElementBuilde
 }
 
 export function buildFormControl(control: FormControlModel): HtmlElementBuilder | null {
-    // CHANGE: Removed check for control.schema.readOnly to allow ReadOnly fields to be generated
     if (!control || !control.schema) return null;
     const labelText = pascalCase(control.name);
 
@@ -269,7 +263,12 @@ function createToggle(control: FormControlModel, label: string): HtmlElementBuil
     return group;
 }
 
-function createSlider(control: FormControlModel, label: string, min: any, max: any): HtmlElementBuilder {
+function createSlider(
+    control: FormControlModel,
+    label: string,
+    min: number | string,
+    max: number | string,
+): HtmlElementBuilder {
     const container = _.create('div').addClass('admin-slider-container');
     container.appendChild(_.create('label').addClass('mat-label').setTextContent(label));
     container.appendChild(
@@ -358,8 +357,6 @@ function createMapEditor(control: FormControlModel, label: string): HtmlElementB
 
     const arrayContainer = _.create('div').setAttribute('formArrayName', control.name);
 
-    // We iterate the FormArray of KV pairs
-    // The control name for the list getter (e.g. 'metadataMap') needs to be derived
     const mapGetter = `${camelCase(control.name)}Map`;
 
     const loopContainer = _.create('div').setAttribute(
@@ -368,25 +365,20 @@ function createMapEditor(control: FormControlModel, label: string): HtmlElementB
     );
     loopContainer.setAttribute('[formGroupName]', 'i').addClass('map-pair-row');
 
-    // Key Input (Always string for now)
     const keyField = _.create('mat-form-field').addClass('map-key-field');
     keyField.appendChild(_.create('mat-label').setTextContent('Key'));
     keyField.appendChild(_.create('input').setAttribute('matInput', '').setAttribute('formControlName', 'key'));
 
-    // Value Input - Delegate to buildFormControl but fake the control name as 'value'
     if (control.mapValueControl) {
-        // Create a fake control model for the value field inside the loop
         const valueControlFake = { ...control.mapValueControl, name: 'value' };
         const valueBuilder = buildFormControl(valueControlFake);
 
         if (valueBuilder) {
-            // Style tweak: make it look line-inline
             loopContainer.appendChild(keyField);
             loopContainer.appendChild(valueBuilder);
         }
     }
 
-    // Remove Button
     loopContainer.appendChild(
         _.create('button')
             .setAttribute('mat-icon-button', '')
@@ -398,7 +390,6 @@ function createMapEditor(control: FormControlModel, label: string): HtmlElementB
     arrayContainer.appendChild(loopContainer);
     container.appendChild(arrayContainer);
 
-    // Add Button
     container.appendChild(
         _.create('button')
             .setAttribute('mat-stroked-button', '')

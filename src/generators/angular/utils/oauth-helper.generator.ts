@@ -1,3 +1,4 @@
+// src/generators/angular/utils/oauth-helper.generator.ts
 import * as path from 'node:path';
 import { ClassDeclaration, Project, Scope } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
@@ -29,7 +30,6 @@ export class OAuthHelperGenerator {
             return;
         }
 
-        // Aggregate capabilities across all schemes (if multiple, we support the superset of flows)
         const config: OAuthFlowConfig = {
             type: 'oauth2',
             hasImplicit: false,
@@ -41,36 +41,47 @@ export class OAuthHelperGenerator {
 
         for (const scheme of oauthSchemes) {
             if (scheme.type === 'openIdConnect') {
-                // OIDC implies authorization code usually, explicitly handled by OIDC lib
                 config.hasAuthorizationCode = true;
-                // URLs are discovered via well-known, so we don't start with them hardcoded
             } else if (scheme.flows) {
                 if (scheme.flows.implicit) {
                     config.hasImplicit = true;
                     if (!config.authorizationUrl)
-                        config.authorizationUrl = (scheme.flows.implicit as any).authorizationUrl;
+                        config.authorizationUrl = (scheme.flows.implicit as Record<string, unknown>)
+                            .authorizationUrl as string | undefined;
                 }
                 if (scheme.flows.password) {
                     config.hasPassword = true;
-                    if (!config.tokenUrl) config.tokenUrl = (scheme.flows.password as any).tokenUrl;
+                    if (!config.tokenUrl)
+                        config.tokenUrl = (scheme.flows.password as Record<string, unknown>).tokenUrl as
+                            | string
+                            | undefined;
                 }
                 if (scheme.flows.clientCredentials) {
                     config.hasClientCredentials = true;
-                    if (!config.tokenUrl) config.tokenUrl = (scheme.flows.clientCredentials as any).tokenUrl;
+                    if (!config.tokenUrl)
+                        config.tokenUrl = (scheme.flows.clientCredentials as Record<string, unknown>).tokenUrl as
+                            | string
+                            | undefined;
                 }
                 if (scheme.flows.authorizationCode) {
                     config.hasAuthorizationCode = true;
                     if (!config.authorizationUrl)
-                        config.authorizationUrl = (scheme.flows.authorizationCode as any).authorizationUrl;
-                    if (!config.tokenUrl) config.tokenUrl = (scheme.flows.authorizationCode as any).tokenUrl;
+                        config.authorizationUrl = (scheme.flows.authorizationCode as Record<string, unknown>)
+                            .authorizationUrl as string | undefined;
+                    if (!config.tokenUrl)
+                        config.tokenUrl = (scheme.flows.authorizationCode as Record<string, unknown>).tokenUrl as
+                            | string
+                            | undefined;
                 }
                 if (scheme.flows.deviceAuthorization) {
                     config.hasDeviceAuthorization = true;
                     if (!config.deviceAuthorizationUrl)
-                        config.deviceAuthorizationUrl = (
-                            scheme.flows.deviceAuthorization as any
-                        ).deviceAuthorizationUrl;
-                    if (!config.tokenUrl) config.tokenUrl = (scheme.flows.deviceAuthorization as any).tokenUrl;
+                        config.deviceAuthorizationUrl = (scheme.flows.deviceAuthorization as Record<string, unknown>)
+                            .deviceAuthorizationUrl as string | undefined;
+                    if (!config.tokenUrl)
+                        config.tokenUrl = (scheme.flows.deviceAuthorization as Record<string, unknown>).tokenUrl as
+                            | string
+                            | undefined;
                 }
             }
         }
@@ -78,7 +89,6 @@ export class OAuthHelperGenerator {
         const authDir = path.join(outputDir, 'auth');
         this.generateService(authDir, config);
 
-        // Only generate redirect component if we have a flow that uses browser redirects
         if (config.hasImplicit || config.hasAuthorizationCode) {
             this.generateRedirectComponent(authDir);
         }
@@ -109,7 +119,6 @@ export class OAuthHelperGenerator {
             docs: ['Service to manage OAuth2 tokens and flows.'],
         });
 
-        // Properties
         serviceClass.addProperties([
             { name: 'oAuthService', scope: Scope.Private, isReadonly: true, initializer: 'inject(OAuthService)' },
             { name: 'router', scope: Scope.Private, isReadonly: true, initializer: 'inject(Router)' },
@@ -147,7 +156,6 @@ export class OAuthHelperGenerator {
             });
         }
 
-        // Methods
         this.addCommonMethods(serviceClass);
 
         if (config.hasAuthorizationCode) {
@@ -191,10 +199,10 @@ export class OAuthHelperGenerator {
                 parameters: [{ name: 'config', type: 'AuthConfig', hasQuestionToken: true }],
                 returnType: 'Promise<void>',
                 statements: `
-        if (config) {
-            this.oAuthService.configure(config);
-        }
-        await this.oAuthService.loadDiscoveryDocumentAndTryLogin();
+        if (config) { 
+            this.oAuthService.configure(config); 
+        } 
+        await this.oAuthService.loadDiscoveryDocumentAndTryLogin(); 
                 `,
             },
         ]);
@@ -228,22 +236,21 @@ export class OAuthHelperGenerator {
             ],
             returnType: 'Promise<any>',
             statements: `
-        const body = new URLSearchParams();
-        body.set('grant_type', 'password');
-        body.set('username', username);
-        body.set('password', password);
-        // Add client_id/secret if configured in authConfig
+        const body = new URLSearchParams(); 
+        body.set('grant_type', 'password'); 
+        body.set('username', username); 
+        body.set('password', password); 
         
-        return new Promise((resolve, reject) => {
-            this.http.post(this.tokenUrl, body.toString(), {
-                headers: new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' })
-            }).subscribe({
-                next: (res: any) => {
-                    if (res.access_token) this.setToken(res.access_token);
-                    resolve(res);
-                },
+        return new Promise((resolve, reject) => { 
+            this.http.post(this.tokenUrl, body.toString(), { 
+                headers: new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' }) 
+            }).subscribe({ 
+                next: (res: any) => { 
+                    if (res.access_token) this.setToken(res.access_token); 
+                    resolve(res); 
+                }, 
                 error: reject
-            });
+            }); 
         });`,
         });
     }
@@ -258,21 +265,21 @@ export class OAuthHelperGenerator {
             ],
             returnType: 'Promise<any>',
             statements: `
-        const body = new URLSearchParams();
-        body.set('grant_type', 'client_credentials');
-        body.set('client_id', clientId);
-        body.set('client_secret', clientSecret);
+        const body = new URLSearchParams(); 
+        body.set('grant_type', 'client_credentials'); 
+        body.set('client_id', clientId); 
+        body.set('client_secret', clientSecret); 
 
-        return new Promise((resolve, reject) => {
-            this.http.post(this.tokenUrl, body.toString(), {
-                headers: new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' })
-            }).subscribe({
-                next: (res: any) => {
-                    if (res.access_token) this.setToken(res.access_token);
-                    resolve(res);
-                },
+        return new Promise((resolve, reject) => { 
+            this.http.post(this.tokenUrl, body.toString(), { 
+                headers: new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' }) 
+            }).subscribe({ 
+                next: (res: any) => { 
+                    if (res.access_token) this.setToken(res.access_token); 
+                    resolve(res); 
+                }, 
                 error: reject
-            });
+            }); 
         });`,
         });
     }
@@ -291,17 +298,17 @@ export class OAuthHelperGenerator {
             ],
             returnType: 'Promise<any>',
             statements: `
-        const body = new URLSearchParams();
-        body.set('client_id', clientId);
-        if (scope) body.set('scope', scope);
+        const body = new URLSearchParams(); 
+        body.set('client_id', clientId); 
+        if (scope) body.set('scope', scope); 
 
-        return new Promise((resolve, reject) => {
-            this.http.post(this.deviceAuthorizationUrl, body.toString(), {
-                headers: new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' })
-            }).subscribe({
-                next: (res: any) => resolve(res),
+        return new Promise((resolve, reject) => { 
+            this.http.post(this.deviceAuthorizationUrl, body.toString(), { 
+                headers: new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' }) 
+            }).subscribe({ 
+                next: (res: any) => resolve(res), 
                 error: reject
-            });
+            }); 
         });`,
         });
 
@@ -320,22 +327,22 @@ export class OAuthHelperGenerator {
             ],
             returnType: 'Promise<any>',
             statements: `
-        const body = new URLSearchParams();
-        body.set('grant_type', 'urn:ietf:params:oauth:grant-type:device_code');
-        body.set('device_code', deviceCode);
-        body.set('client_id', clientId);
-        if (clientSecret) body.set('client_secret', clientSecret);
+        const body = new URLSearchParams(); 
+        body.set('grant_type', 'urn:ietf:params:oauth:grant-type:device_code'); 
+        body.set('device_code', deviceCode); 
+        body.set('client_id', clientId); 
+        if (clientSecret) body.set('client_secret', clientSecret); 
 
-        return new Promise((resolve, reject) => {
-            this.http.post(this.tokenUrl, body.toString(), {
-                headers: new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' })
-            }).subscribe({
-                next: (res: any) => {
-                    if (res.access_token) this.setToken(res.access_token);
-                    resolve(res);
-                },
+        return new Promise((resolve, reject) => { 
+            this.http.post(this.tokenUrl, body.toString(), { 
+                headers: new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' }) 
+            }).subscribe({ 
+                next: (res: any) => { 
+                    if (res.access_token) this.setToken(res.access_token); 
+                    resolve(res); 
+                }, 
                 error: reject
-            });
+            }); 
         });`,
         });
     }
@@ -369,9 +376,13 @@ export class OAuthHelperGenerator {
                     name: 'Component',
                     arguments: [
                         `{ 
+
                     selector: 'app-oauth-redirect', 
+
                     templateUrl: './oauth-redirect.component.html', 
+
                     changeDetection: ChangeDetectionStrategy.OnPush
+
                 }`,
                     ],
                 },

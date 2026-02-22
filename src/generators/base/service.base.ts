@@ -44,17 +44,31 @@ export abstract class AbstractServiceGenerator {
         // 1. Abstraction: Generate Imports
         this.generateImports(sourceFile, operations);
 
+        const usedNames = new Set<string>();
+
         // 2. Normalize Operation Names
         for (const op of operations) {
-            if (!op.methodName) {
-                if (op.operationId) {
-                    op.methodName = toTsIdentifier(op.operationId);
-                } else {
-                    op.methodName = toTsIdentifier(op.method.toLowerCase() + '_' + op.path);
-                }
-            } else if (op.methodName.includes('-') || !/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(op.methodName)) {
-                op.methodName = toTsIdentifier(op.methodName);
+            let suggestedName = op.methodName;
+            if (this.config.options.customizeMethodName && op.operationId) {
+                suggestedName = this.config.options.customizeMethodName(op.operationId);
             }
+            if (!suggestedName) {
+                if (op.operationId) {
+                    suggestedName = toTsIdentifier(op.operationId);
+                } else {
+                    suggestedName = toTsIdentifier(op.method.toLowerCase() + '_' + op.path);
+                }
+            } else if (suggestedName.includes('-') || !/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(suggestedName)) {
+                suggestedName = toTsIdentifier(suggestedName);
+            }
+
+            let finalName = suggestedName;
+            let counter = 2;
+            while (usedNames.has(finalName)) {
+                finalName = `${suggestedName}${counter++}`;
+            }
+            usedNames.add(finalName);
+            op.methodName = finalName;
         }
 
         // 3. Abstraction: Generate Class/Function Body

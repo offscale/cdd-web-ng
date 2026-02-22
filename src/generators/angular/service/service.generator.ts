@@ -1,6 +1,7 @@
+// src/generators/angular/service/service.generator.ts
 import { ClassDeclaration, Project, Scope, SourceFile } from 'ts-morph';
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig, PathInfo } from '@src/core/types/index.js';
+import { GeneratorConfig, PathInfo, SwaggerDefinition } from '@src/core/types/index.js';
 import {
     getBasePathTokenName,
     getClientContextTokenName,
@@ -20,9 +21,6 @@ export class ServiceGenerator extends AbstractServiceGenerator {
         this.methodGenerator = new ServiceMethodGenerator(this.config, this.parser);
     }
 
-    // Override to expose explicit file generation if needed by legacy tests,
-    // or simply rely on the base class 'generate' method for bulk operations.
-    // For consistency with interface, we expose the specific single file method used by existing tests.
     public override generateServiceFile(controllerName: string, operations: PathInfo[], outputDir: string): void {
         super.generateServiceFile(controllerName, operations, outputDir);
     }
@@ -58,13 +56,11 @@ export class ServiceGenerator extends AbstractServiceGenerator {
             namedImports: ['createRequestOption', 'RequestOptions', 'HttpRequestOptions'],
         });
 
-        // CHANGE: Use new generic serializer
         sourceFile.addImportDeclaration({
             moduleSpecifier: '../utils/parameter-serializer',
             namedImports: ['ParameterSerializer'],
         });
 
-        // CHANGE: Use Identity Codec for Angular HttpParams compatibility
         sourceFile.addImportDeclaration({
             moduleSpecifier: '../utils/http-params-builder',
             namedImports: ['ApiParameterCodec'],
@@ -110,17 +106,21 @@ export class ServiceGenerator extends AbstractServiceGenerator {
             });
         }
 
-        // Check for ContentDecoder/ContentEncoder needs
         let hasDecoding = false;
         let hasEncoding = false;
 
-        const schemaHasDecodingHints = (schema: any, depth: number = 6): boolean => {
+        const schemaHasDecodingHints = (
+            schema: SwaggerDefinition | boolean | undefined,
+            depth: number = 6,
+        ): boolean => {
             if (!schema || typeof schema !== 'object' || depth <= 0) return false;
             if ('contentEncoding' in schema || 'contentSchema' in schema) return true;
             if (Array.isArray(schema)) {
-                return schema.some(item => schemaHasDecodingHints(item, depth - 1));
+                return schema.some(item => schemaHasDecodingHints(item as SwaggerDefinition | boolean, depth - 1));
             }
-            return Object.values(schema).some(value => schemaHasDecodingHints(value as any, depth - 1));
+            return Object.values(schema).some(value =>
+                schemaHasDecodingHints(value as SwaggerDefinition | boolean, depth - 1),
+            );
         };
 
         for (const op of operations) {
@@ -130,23 +130,20 @@ export class ServiceGenerator extends AbstractServiceGenerator {
                     if (!r.content) return false;
                     return Object.values(r.content).some(media => {
                         const schema = media?.schema ?? media?.itemSchema;
-                        return schemaHasDecodingHints(schema);
+                        return schemaHasDecodingHints(schema as SwaggerDefinition | boolean);
                     });
                 });
 
-            // Check request body for encoding
             if (op.requestBody?.content?.['application/json']?.schema) {
                 const s = op.requestBody.content['application/json'].schema;
-                // Simple heuristic check for recursive property
                 hasEncoding = hasEncoding || JSON.stringify(s).includes('contentMediaType');
             }
 
-            // Check parameters for content encoding/media type hints
             if (op.parameters && op.parameters.length > 0) {
                 const hasParamEncoding = op.parameters.some(param => {
                     const contentSchema =
                         param.content && Object.keys(param.content).length > 0
-                            ? param.content[Object.keys(param.content)[0]]?.schema
+                            ? param.content[Object.keys(param.content)[0]!]?.schema
                             : undefined;
                     const schema = param.schema ?? contentSchema;
                     if (!schema) return false;
@@ -192,21 +189,20 @@ export class ServiceGenerator extends AbstractServiceGenerator {
             });
         }
 
-        // Model Imports Analysis
         const knownTypes = this.parser.schemas.map(s => s.name);
         const modelImports = new Set<string>(['RequestOptions']);
 
         for (const op of operations) {
-            // Check all responses for models
             for (const resp of Object.values(op.responses!)) {
                 if (resp.content) {
                     Object.values(resp.content).forEach(media => {
                         const schema = media?.schema ?? media?.itemSchema;
                         if (!schema) return;
-                        const typeName = getTypeScriptType(schema, this.config, knownTypes).replace(
-                            /\[\]| \| null/g,
-                            '',
-                        );
+                        const typeName = getTypeScriptType(
+                            schema as SwaggerDefinition,
+                            this.config,
+                            knownTypes,
+                        ).replace(/\[\]| \| null/g, '');
                         if (isDataTypeInterface(typeName)) {
                             modelImports.add(typeName);
                         }
@@ -215,7 +211,7 @@ export class ServiceGenerator extends AbstractServiceGenerator {
             }
 
             op.parameters!.forEach(param => {
-                const paramType = getTypeScriptType(param.schema, this.config, knownTypes).replace(
+                const paramType = getTypeScriptType(param.schema as SwaggerDefinition, this.config, knownTypes).replace(
                     /\[\]| \| null/g,
                     '',
                 );
@@ -226,7 +222,7 @@ export class ServiceGenerator extends AbstractServiceGenerator {
 
             if (op.requestBody?.content?.['application/json']?.schema) {
                 const bodyType = getTypeScriptType(
-                    op.requestBody.content['application/json'].schema,
+                    op.requestBody.content['application/json'].schema as SwaggerDefinition,
                     this.config,
                     knownTypes,
                 ).replace(/\[\]| \| null/g, '');
@@ -237,7 +233,7 @@ export class ServiceGenerator extends AbstractServiceGenerator {
         }
 
         const validModels = Array.from(modelImports).filter(
-            m => /^[A-Z]/.test(m) && !['Date', 'Blob', 'File'].includes(m),
+            (m: string) => /^[A-Z]/.test(m) && !['Date', 'Blob', 'File'].includes(m),
         );
         sourceFile.addImportDeclaration({
             moduleSpecifier: '../models',
@@ -285,7 +281,6 @@ export class ServiceGenerator extends AbstractServiceGenerator {
             scope: Scope.Private,
             isReadonly: true,
             type: 'string',
-            // Priority: 1. Explicitly Provided Path -> 2. Calculated path from Servers[0] + Injected Variables
             initializer: `inject(${basePathToken}, { optional: true }) || getServerUrl(0, inject(${varsToken}, { optional: true }) ?? {})`,
         });
         const clientContextTokenName = getClientContextTokenName(this.config.clientName);

@@ -1,138 +1,88 @@
+// src/analysis/service-method-types.ts
 import { OptionalKind, ParameterDeclarationStructure } from 'ts-morph';
 import { ServerObject } from '@src/core/types/index.js';
 
-/**
- * Represents the serialization strategy for a specific parameter.
- * This abstracts "How" a parameter interacts with the URL/Headers/Body.
- */
 export interface ParamSerialization {
-    paramName: string; // The name of the variable in the method signature
-    originalName: string; // The name in the HTTP request (e.g. header name)
+    paramName: string;
+    originalName: string;
     style?: string;
     explode: boolean;
     allowReserved: boolean;
-    /** Media type when the parameter uses `content` instead of `schema`. */
     contentType?: string;
-    /** Encoding map when the parameter uses `content` with form media types. */
-    encoding?: Record<string, any>;
-    /** ContentEncoder configuration derived from schema contentEncoding/contentMediaType. */
-    contentEncoderConfig?: Record<string, any>;
-    /**
-     * Explicit hint if complex serialization needed.
-     * - 'json': Standard JSON.stringify
-     * - 'json-subset': Used for parameters that are technically strings but contain JSON via contentMediaType.
-     */
+    encoding?: Record<string, unknown>;
+    contentEncoderConfig?: Record<string, unknown>;
     serializationLink?: 'json' | 'json-subset' | undefined;
 }
 
-/**
- * Describes the request body configuration.
- */
 export type BodyVariant =
     | { type: 'json'; paramName: string }
     | { type: 'json-lines'; paramName: string }
     | { type: 'json-seq'; paramName: string }
-    | { type: 'xml'; paramName: string; rootName: string; config: any }
-    | { type: 'multipart'; paramName: string; config: any }
-    | { type: 'urlencoded'; paramName: string; config: any }
+    | { type: 'xml'; paramName: string; rootName: string; config: Record<string, unknown> }
+    | { type: 'multipart'; paramName: string; config: Record<string, unknown> }
+    | { type: 'urlencoded'; paramName: string; config: Record<string, unknown> }
     | { type: 'raw'; paramName: string }
-    | { type: 'encoded-form-data'; paramName: string; mappings: string[] }; // For legacy formdata loops
+    | { type: 'encoded-form-data'; paramName: string; mappings: string[] };
 
-/**
- * Defines how the response should be deserialized.
- */
 export type ResponseSerialization =
     | 'json'
     | 'text'
     | 'blob'
     | 'arraybuffer'
-    | 'sse' // text/event-stream
-    | 'json-seq' // application/json-seq (RFC 7464)
-    | 'json-lines' // application/jsonl, application/x-ndjson
-    | 'xml'; // application/xml
+    | 'sse'
+    | 'json-seq'
+    | 'json-lines'
+    | 'xml';
 
-/**
- * Describes a single response variant for Content Negotiation.
- * e.g. 'application/json' -> User[], 'application/xml' -> UserListXml
- */
 export interface ResponseVariant {
     mediaType: string;
     type: string;
     serialization: ResponseSerialization;
-    xmlConfig?: any;
-    decodingConfig?: any;
-    /**
-     * For Server-Sent Events, indicates whether the stream should emit full event envelopes
-     * (data/event/id/retry) or only the data payload.
-     */
+    xmlConfig?: Record<string, unknown>;
+    decodingConfig?: Record<string, unknown>;
     sseMode?: 'event' | 'data';
     isDefault: boolean;
 }
 
-/**
- * Describes a potential error response from the API.
- */
 export interface ErrorResponseInfo {
     code: string;
     type: string;
     description?: string;
 }
 
-/**
- * The Intermediate Representation (IR) of a Service Method.
- * This model is framework-agnostic regarding *how* the request is made,
- * but specific about *what* the request consists of.
- */
 export interface ServiceMethodModel {
     methodName: string;
     httpMethod: string;
-    urlTemplate: string; // e.g. "/users/{id}"
+    urlTemplate: string;
 
-    // Documentation
     docs?: string;
     isDeprecated: boolean;
 
-    // Method Signature
     parameters: OptionalKind<ParameterDeclarationStructure>[];
 
-    // Primary Response (Default for backward compatibility and simplified signatures)
     responseType: string;
     responseSerialization: ResponseSerialization;
-    responseXmlConfig?: any;
-    responseDecodingConfig?: any;
-    /** SSE response emission mode: 'event' for full SSE envelope, 'data' for data-only. */
+    responseXmlConfig?: Record<string, unknown>;
+    responseDecodingConfig?: Record<string, unknown>;
     sseMode?: 'event' | 'data';
 
-    // Content Negotiation: All possible success response shapes
     responseVariants: ResponseVariant[];
 
-    // Request Handling (Encoding)
-    requestEncodingConfig?: any; // OAS 3.1 ContentEncoder config
+    requestEncodingConfig?: Record<string, unknown>;
 
-    // Error Handling
     errorResponses: ErrorResponseInfo[];
 
-    // Request Construction Logic
     pathParams: ParamSerialization[];
     queryParams: ParamSerialization[];
     headerParams: ParamSerialization[];
     cookieParams: ParamSerialization[];
 
-    // Body Logic
     body?: BodyVariant;
-    /**
-     * The selected request body Content-Type (if any).
-     * Used to set explicit Content-Type headers for non-JSON payloads.
-     */
     requestContentType?: string;
 
-    // Context / Config
-    /** Effective security requirements */
     security: Record<string, string[]>[];
-    /** Specification Extensions (x-*) defined on the operation */
-    extensions: Record<string, any>;
-    hasServers: boolean; // If true, method overrides base path
-    basePath?: string; // If hasServers is true
-    /** Operation-level servers (if defined), used for per-request server selection */
+    extensions: Record<string, unknown>;
+    hasServers: boolean;
+    basePath?: string;
     operationServers?: ServerObject[];
 }

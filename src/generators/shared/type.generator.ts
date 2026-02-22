@@ -1,5 +1,6 @@
 import * as path from 'node:path';
 import {
+    InterfaceDeclaration,
     JSDocStructure,
     JSDocTagStructure,
     OptionalKind,
@@ -46,7 +47,7 @@ export class TypeGenerator {
         const spec = this.parser.getSpec();
         if (spec.webhooks) {
             Object.entries(spec.webhooks).forEach(([name, pathItem]) => {
-                const postOp = (pathItem as any).post;
+                const postOp = (pathItem as PathItem).post;
                 if (postOp && postOp.requestBody) {
                     const content = postOp.requestBody.content || {};
                     const jsonContent = content['application/json'] || content['*/*'];
@@ -68,7 +69,7 @@ export class TypeGenerator {
                     if (!resolvedCallback) return;
 
                     Object.values(resolvedCallback).forEach((pathItem: PathItem) => {
-                        ['post', 'put', 'patch'].forEach(method => {
+                        (['post', 'put', 'patch'] as const).forEach(method => {
                             const operation = pathItem[method];
                             if (operation && operation.requestBody) {
                                 const content = operation.requestBody.content || {};
@@ -197,7 +198,7 @@ export class TypeGenerator {
         if (typeof def === 'boolean') return false;
         if (def.anyOf || def.oneOf) return false;
         // dependentSchemas/dependentRequired involve intersection/union logic which can only be represented by type alias
-        if (def.dependentSchemas || (def as any).dependentRequired) return false;
+        if (def.dependentSchemas || (def as Record<string, unknown>).dependentRequired) return false;
         return def.type === 'object' || !!def.properties || !!def.allOf || !!def.patternProperties;
     }
 
@@ -282,7 +283,7 @@ export class TypeGenerator {
     }
 
     private applyComposition(
-        interfaceDecl: any,
+        interfaceDecl: InterfaceDeclaration,
         def: SwaggerDefinition,
         options: {
             excludeReadOnly?: boolean;
@@ -291,11 +292,18 @@ export class TypeGenerator {
     ): void {
         if (def.allOf) {
             const extendsTypes: string[] = [];
-            def.allOf.forEach(sub => {
+            def.allOf.forEach(subObj => {
+                if (typeof subObj !== 'object') return;
+                const sub = subObj as SwaggerDefinition;
                 if (sub.$ref) {
                     let refName = pascalCase(sub.$ref.split('/').pop() || '');
                     const refDef = this.parser.resolve(sub);
-                    if (refDef && this.needsRequestModel(refDef) && options.excludeReadOnly) {
+                    if (
+                        refDef &&
+                        typeof refDef === 'object' &&
+                        this.needsRequestModel(refDef as SwaggerDefinition) &&
+                        options.excludeReadOnly
+                    ) {
                         refName = `${refName}Request`;
                     }
                     if (refName) extendsTypes.push(refName);
@@ -310,7 +318,7 @@ export class TypeGenerator {
         }
     }
 
-    private applyIndexSignature(interfaceDecl: any, def: SwaggerDefinition): void {
+    private applyIndexSignature(interfaceDecl: InterfaceDeclaration, def: SwaggerDefinition): void {
         const returnTypes: string[] = [];
 
         if (def.additionalProperties) {
@@ -341,7 +349,7 @@ export class TypeGenerator {
             Object.values(def.patternProperties).forEach(p => {
                 returnTypes.push(
                     getTypeScriptType(
-                        p,
+                        p as SwaggerDefinition | boolean,
                         this.config,
                         this.parser.schemas.map(s => s.name),
                     ),
@@ -370,7 +378,9 @@ export class TypeGenerator {
     ): OptionalKind<PropertySignatureStructure>[] {
         const props: OptionalKind<PropertySignatureStructure>[] = [];
         if (def.properties) {
-            Object.entries(def.properties).forEach(([propName, propDef]) => {
+            Object.entries(def.properties).forEach(([propName, propDefObj]) => {
+                if (typeof propDefObj !== 'object') return;
+                const propDef = propDefObj as SwaggerDefinition;
                 if (options.excludeReadOnly && propDef.readOnly) return;
                 if (options.excludeWriteOnly && propDef.writeOnly) return;
 
@@ -387,7 +397,7 @@ export class TypeGenerator {
                     type: type,
                     hasQuestionToken: !isRequired,
                     docs: this.buildJSDoc(propDef),
-                    ...(options.excludeWriteOnly && !!propDef.readOnly && { isReadonly: true }),
+                    ...(options.excludeWriteOnly && !!propDef.readOnly ? { isReadonly: true } : {}),
                 });
             });
         }
@@ -395,15 +405,22 @@ export class TypeGenerator {
     }
 
     private needsRequestModel(def: SwaggerDefinition): boolean {
-        const hasDirect = def.properties && Object.values(def.properties).some(p => p.readOnly || p.writeOnly);
+        const hasDirect =
+            def.properties &&
+            Object.values(def.properties).some(p => typeof p === 'object' && (p.readOnly || p.writeOnly));
         if (hasDirect) return true;
         if (def.allOf) {
-            return def.allOf.some(sub => {
+            return def.allOf.some(subObj => {
+                if (typeof subObj !== 'object') return false;
+                const sub = subObj as SwaggerDefinition;
                 if (sub.$ref) {
                     const resolved = this.parser.resolve(sub);
-                    return resolved ? this.needsRequestModel(resolved) : false;
+                    return resolved ? this.needsRequestModel(resolved as SwaggerDefinition) : false;
                 }
-                return sub.properties && Object.values(sub.properties).some(p => p.readOnly || p.writeOnly);
+                return (
+                    sub.properties &&
+                    Object.values(sub.properties).some(p => typeof p === 'object' && (p.readOnly || p.writeOnly))
+                );
             });
         }
         return false;
@@ -429,7 +446,7 @@ export class TypeGenerator {
             tags.push({ tagName, text });
         };
 
-        if ((def as any).deprecated) tags.push({ tagName: 'deprecated' });
+        if ((def as Record<string, unknown>).deprecated) tags.push({ tagName: 'deprecated' });
         if (def.example !== undefined) {
             tags.push({ tagName: 'example', text: JSON.stringify(def.example, null, 2) });
         }
@@ -458,42 +475,42 @@ export class TypeGenerator {
         pushTag('uniqueItems', def.uniqueItems);
         pushTag('minProperties', def.minProperties);
         pushTag('maxProperties', def.maxProperties);
-        pushTag('propertyNames', (def as any).propertyNames);
+        pushTag('propertyNames', (def as Record<string, unknown>).propertyNames);
         if (Object.prototype.hasOwnProperty.call(def as Record<string, unknown>, 'additionalProperties')) {
-            pushTag('additionalProperties', (def as any).additionalProperties);
+            pushTag('additionalProperties', (def as Record<string, unknown>).additionalProperties);
         }
         pushTag('readOnly', def.readOnly, { omitTrue: true });
         pushTag('writeOnly', def.writeOnly, { omitTrue: true });
-        pushTag('nullable', (def as any).nullable, { omitTrue: true });
+        pushTag('nullable', (def as Record<string, unknown>).nullable, { omitTrue: true });
         pushTag('title', def.title);
-        pushTag('schemaDialect', (def as any).$schema);
-        pushTag('schemaId', (def as any).$id);
-        pushTag('schemaAnchor', (def as any).$anchor);
-        pushTag('schemaDynamicAnchor', (def as any).$dynamicAnchor);
-        pushTag('const', (def as any).const);
-        pushTag('if', (def as any).if);
-        pushTag('then', (def as any).then);
-        pushTag('else', (def as any).else);
-        pushTag('not', (def as any).not);
-        pushTag('oneOf', (def as any).oneOf);
-        pushTag('anyOf', (def as any).anyOf);
-        pushTag('contains', (def as any).contains);
-        pushTag('minContains', (def as any).minContains);
-        pushTag('maxContains', (def as any).maxContains);
-        pushTag('contentMediaType', (def as any).contentMediaType);
-        pushTag('contentEncoding', (def as any).contentEncoding);
-        pushTag('contentSchema', (def as any).contentSchema);
-        pushTag('patternProperties', (def as any).patternProperties);
-        pushTag('dependentSchemas', (def as any).dependentSchemas);
-        pushTag('dependentRequired', (def as any).dependentRequired);
-        pushTag('unevaluatedProperties', (def as any).unevaluatedProperties);
-        pushTag('unevaluatedItems', (def as any).unevaluatedItems);
-        pushTag('schemaDialect', (def as any).$schema);
-        pushTag('schemaId', (def as any).$id);
-        pushTag('schemaAnchor', (def as any).$anchor);
-        pushTag('schemaDynamicAnchor', (def as any).$dynamicAnchor);
-        pushTag('xml', (def as any).xml);
-        pushTag('discriminator', (def as any).discriminator);
+        pushTag('schemaDialect', (def as Record<string, unknown>).$schema);
+        pushTag('schemaId', (def as Record<string, unknown>).$id);
+        pushTag('schemaAnchor', (def as Record<string, unknown>).$anchor);
+        pushTag('schemaDynamicAnchor', (def as Record<string, unknown>).$dynamicAnchor);
+        pushTag('const', (def as Record<string, unknown>).const);
+        pushTag('if', (def as Record<string, unknown>).if);
+        pushTag('then', (def as Record<string, unknown>).then);
+        pushTag('else', (def as Record<string, unknown>).else);
+        pushTag('not', (def as Record<string, unknown>).not);
+        pushTag('oneOf', (def as Record<string, unknown>).oneOf);
+        pushTag('anyOf', (def as Record<string, unknown>).anyOf);
+        pushTag('contains', (def as Record<string, unknown>).contains);
+        pushTag('minContains', (def as Record<string, unknown>).minContains);
+        pushTag('maxContains', (def as Record<string, unknown>).maxContains);
+        pushTag('contentMediaType', (def as Record<string, unknown>).contentMediaType);
+        pushTag('contentEncoding', (def as Record<string, unknown>).contentEncoding);
+        pushTag('contentSchema', (def as Record<string, unknown>).contentSchema);
+        pushTag('patternProperties', (def as Record<string, unknown>).patternProperties);
+        pushTag('dependentSchemas', (def as Record<string, unknown>).dependentSchemas);
+        pushTag('dependentRequired', (def as Record<string, unknown>).dependentRequired);
+        pushTag('unevaluatedProperties', (def as Record<string, unknown>).unevaluatedProperties);
+        pushTag('unevaluatedItems', (def as Record<string, unknown>).unevaluatedItems);
+        pushTag('schemaDialect', (def as Record<string, unknown>).$schema);
+        pushTag('schemaId', (def as Record<string, unknown>).$id);
+        pushTag('schemaAnchor', (def as Record<string, unknown>).$anchor);
+        pushTag('schemaDynamicAnchor', (def as Record<string, unknown>).$dynamicAnchor);
+        pushTag('xml', (def as Record<string, unknown>).xml);
+        pushTag('discriminator', (def as Record<string, unknown>).discriminator);
 
         const extensionEntries = Object.entries(def as Record<string, unknown>).filter(([key]) => key.startsWith('x-'));
         extensionEntries.forEach(([key, value]) => {

@@ -42,7 +42,7 @@ describe('Core: Example Object validation (OAS 3.2)', () => {
 
     it('should reject Example Object with both value and dataValue', () => {
         const spec = cloneSpec();
-        spec.paths['/pets'].get!.parameters = [
+        spec.paths!['/pets'].get!.parameters = [
             {
                 name: 'q',
                 in: 'query',
@@ -60,7 +60,7 @@ describe('Core: Example Object validation (OAS 3.2)', () => {
 
     it('should reject Example Object with both serializedValue and externalValue', () => {
         const spec = cloneSpec();
-        spec.paths['/pets'].get!.responses!['200']!.content!['application/json']!.examples = {
+        spec.paths!['/pets'].get!.responses!['200']!.content!['application/json']!.examples = {
             bad: {
                 serializedValue: '{"a":1}',
                 externalValue: 'http://example.com/example.json',

@@ -1,10 +1,16 @@
+// tests/fixtures/ast/ignored.spec.ts
+
 const app = {
-    get: (..._args: any[]) => {
+    get: (..._args: unknown[]) => {
         void _args;
     },
 };
 
-app.get('/ignored', (_req: any, res: any) => {
+interface MockResponse {
+    send: (body: string) => void;
+}
+
+app.get('/ignored', (_req: unknown, res: MockResponse) => {
     void _req;
     res.send('ignored');
 });

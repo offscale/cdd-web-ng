@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import { discoverAdminResources } from '@src/generators/angular/admin/resource-discovery.js';
 import { SwaggerParser } from '@src/core/parser.js';
-import { FormProperty, GeneratorConfig, Resource, ResourceOperation } from '@src/core/types/index.js';
+import {
+    FormProperty,
+    GeneratorConfig,
+    Resource,
+    ResourceOperation,
+    SwaggerDefinition,
+} from '@src/core/types/index.js';
 
 import { branchCoverageSpec } from '../shared/specs.js';
 
@@ -185,7 +191,7 @@ describe('Admin: resource-discovery (Coverage)', () => {
         const resource = resources.find((r: Resource) => r.name === 'inlineSchemaProperty');
         expect(resource).toBeDefined();
         const prop = resource!.formProperties.find((p: FormProperty) => p.name === 'inline');
-        expect(prop?.schema.properties).toHaveProperty('prop');
+        expect((prop?.schema as SwaggerDefinition).properties).toHaveProperty('prop');
     });
 
     it('should not classify custom actions like "addItem" as a standard "create"', () => {
@@ -324,13 +330,11 @@ describe('Admin: resource-discovery (Coverage)', () => {
     });
 
     it('should correctly identify item vs collection actions based on parameters', () => {
-        // This spec explicitly tests lines 116-119 in resource-discovery.ts
         const spec = {
             openapi: '3.0.0',
             info: { title: 'Test', version: '1.0' },
             paths: {
                 '/items/custom-collection': {
-                    // No path parameter -> Collection Action
                     post: {
                         tags: ['Items'],
                         operationId: 'customCol',
@@ -338,7 +342,6 @@ describe('Admin: resource-discovery (Coverage)', () => {
                     },
                 },
                 '/items/{id}/custom-item': {
-                    // Path parameter present -> Item Action
                     post: {
                         tags: ['Items'],
                         operationId: 'customItem',

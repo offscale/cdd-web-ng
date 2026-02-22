@@ -10,10 +10,6 @@ import { validateSpec } from '../validator.js';
 import { ReferenceResolver } from './reference-resolver.js';
 
 export class SpecLoader {
-    /**
-     * Asynchronously loads an OpenAPI specification and all its references.
-     * @returns A map cache of all loaded specifications and the entry document URI.
-     */
     public static async load(inputPath: string): Promise<{
         entrySpec: SwaggerSpec;
         cache: Map<string, SwaggerSpec>;
@@ -29,7 +25,6 @@ export class SpecLoader {
             throw new Error(`Failed to load entry spec from ${documentUri}`);
         }
 
-        // Validate every OpenAPI/Swagger document in the cache (skip schema-only documents).
         const validated = new Set<SwaggerSpec>();
         for (const doc of cache.values()) {
             if (!doc || typeof doc !== 'object') continue;
@@ -58,15 +53,12 @@ export class SpecLoader {
 
         const baseUri = spec.$self ? new URL(spec.$self, uri).href : uri;
 
-        // Aliasing
         if (baseUri !== uri) {
             cache.set(baseUri, spec);
         }
 
-        // Index internal IDs via helper to ensure internal refs can be resolved in the next recursion step
         ReferenceResolver.indexSchemaIds(spec, baseUri, cache, uri);
 
-        // Find external refs to load next (includes $ref/$dynamicRef and Link operationRef targets)
         const refs = ReferenceResolver.findRefs(spec);
         const operationRefs = this.findOperationRefs(spec);
         const fileRefs = new Set<string>();
@@ -169,39 +161,42 @@ export class SpecLoader {
         const isRefLike = (value: unknown): boolean =>
             !!value && typeof value === 'object' && ('$ref' in (value as object) || '$dynamicRef' in (value as object));
 
-        const collectFromPathItem = (pathItem: any, pathKey: string, prefix: string) => {
+        const collectFromPathItem = (pathItem: unknown, pathKey: string, prefix: string) => {
             if (!pathItem || typeof pathItem !== 'object') return;
             if (isRefLike(pathItem)) return;
 
+            const pi = pathItem as Record<string, unknown>;
+
             for (const method of operationKeys) {
-                const operation = (pathItem as any)[method];
-                if (operation?.operationId) {
+                const operation = pi[method] as Record<string, unknown> | undefined;
+                if (operation && typeof operation.operationId === 'string') {
                     recordOperationId(operation.operationId, `${prefix}${method.toUpperCase()} ${pathKey}`);
                 }
             }
 
-            if ((pathItem as any).additionalOperations) {
-                for (const [method, operation] of Object.entries((pathItem as any).additionalOperations)) {
-                    if ((operation as any)?.operationId) {
-                        recordOperationId((operation as any).operationId, `${prefix}${method} ${pathKey}`);
+            if (pi.additionalOperations) {
+                for (const [method, opVal] of Object.entries(pi.additionalOperations as Record<string, unknown>)) {
+                    const operation = opVal as Record<string, unknown> | undefined;
+                    if (operation && typeof operation.operationId === 'string') {
+                        recordOperationId(operation.operationId, `${prefix}${method} ${pathKey}`);
                     }
                 }
             }
         };
 
-        const collectFromPaths = (paths: Record<string, any> | undefined, prefix: string) => {
+        const collectFromPaths = (paths: Record<string, unknown> | undefined, prefix: string) => {
             if (!paths) return;
             for (const [pathKey, pathItem] of Object.entries(paths)) {
                 collectFromPathItem(pathItem, pathKey, prefix);
             }
         };
 
-        const collectFromCallbacks = (callbacks: Record<string, any> | undefined, prefix: string) => {
+        const collectFromCallbacks = (callbacks: Record<string, unknown> | undefined, prefix: string) => {
             if (!callbacks) return;
             for (const [callbackName, callbackObj] of Object.entries(callbacks)) {
                 if (!callbackObj || typeof callbackObj !== 'object') continue;
                 if (isRefLike(callbackObj)) continue;
-                for (const [expression, callbackPathItem] of Object.entries(callbackObj as Record<string, any>)) {
+                for (const [expression, callbackPathItem] of Object.entries(callbackObj as Record<string, unknown>)) {
                     collectFromPathItem(callbackPathItem, expression, `${prefix}${callbackName}.`);
                 }
             }
@@ -215,18 +210,18 @@ export class SpecLoader {
 
             const prefix = `${uri}::`;
             const spec = doc as SwaggerSpec;
-            collectFromPaths(spec.paths as Record<string, any> | undefined, `${prefix}paths.`);
-            collectFromPaths(spec.webhooks as Record<string, any> | undefined, `${prefix}webhooks.`);
+            collectFromPaths(spec.paths as Record<string, unknown> | undefined, `${prefix}paths.`);
+            collectFromPaths(spec.webhooks as Record<string, unknown> | undefined, `${prefix}webhooks.`);
 
             const components = spec.components;
             if (components?.pathItems) {
-                collectFromPaths(components.pathItems as Record<string, any>, `${prefix}components.pathItems.`);
+                collectFromPaths(components.pathItems as Record<string, unknown>, `${prefix}components.pathItems.`);
             }
             if (components?.webhooks) {
-                collectFromPaths(components.webhooks as Record<string, any>, `${prefix}components.webhooks.`);
+                collectFromPaths(components.webhooks as Record<string, unknown>, `${prefix}components.webhooks.`);
             }
             if (components?.callbacks) {
-                collectFromCallbacks(components.callbacks as Record<string, any>, `${prefix}components.callbacks.`);
+                collectFromCallbacks(components.callbacks as Record<string, unknown>, `${prefix}components.callbacks.`);
             }
         }
 

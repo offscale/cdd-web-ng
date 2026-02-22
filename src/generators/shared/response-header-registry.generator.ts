@@ -4,10 +4,6 @@ import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../core/constants.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { HeaderObject, PathInfo, SwaggerDefinition } from '@src/core/types/index.js';
 
-/**
- * Generates the `response-headers.ts` file.
- * This logic now includes detection for `Link` headers and `application/linkset` content types based on OAS 3.2.
- */
 export class ResponseHeaderRegistryGenerator {
     constructor(
         private readonly parser: SwaggerParser,
@@ -29,6 +25,7 @@ export class ResponseHeaderRegistryGenerator {
 
         this.parser.operations.forEach((op: PathInfo) => {
             if (!op.operationId || !op.responses) return;
+            const opId = op.operationId;
 
             const opHeaders: Record<string, Record<string, string>> = {};
             let hasHeadersForOp = false;
@@ -43,18 +40,14 @@ export class ResponseHeaderRegistryGenerator {
                         if (!headerDef) return;
 
                         const humanReadableName = headerName.toLowerCase();
-                        // OAS 3.2: "Content-Type" response header definitions SHALL be ignored.
                         if (humanReadableName === 'content-type') {
                             return;
                         }
                         headerObjects[headerName] = headerOrRef as HeaderObject | { $ref: string };
-                        // OAS 3.2: "Set-Cookie" is a special-case header that cannot be comma-joined.
-                        // Treat it as a multi-value header regardless of schema.
                         if (humanReadableName === 'set-cookie') {
                             headerConfig[headerName] = 'set-cookie';
                             return;
                         }
-                        // Special case: OAS 3.2 explicitly mentions HTTP Link header implies linkset semantics
                         if (humanReadableName === 'link') {
                             headerConfig[headerName] = 'linkset';
                             return;
@@ -63,9 +56,8 @@ export class ResponseHeaderRegistryGenerator {
                         const { typeHint, xmlConfig } = this.getHeaderTypeInfo(headerDef);
                         if (typeHint) {
                             headerConfig[headerName] = typeHint;
-                            // Store XML config if present, keyed uniquely by context
                             if (typeHint === 'xml' && xmlConfig) {
-                                const key = `${op.operationId}_${statusCode}_${headerName}`;
+                                const key = `${opId}_${statusCode}_${headerName}`;
                                 headerConfigMap[key] = xmlConfig;
                             }
                         }
@@ -78,16 +70,16 @@ export class ResponseHeaderRegistryGenerator {
                     }
 
                     if (Object.keys(headerObjects).length > 0) {
-                        const opHeaderObjects = headerObjectsRegistry[op.operationId] ?? {};
+                        const opHeaderObjects = headerObjectsRegistry[opId] ?? {};
                         opHeaderObjects[statusCode] = headerObjects;
-                        headerObjectsRegistry[op.operationId] = opHeaderObjects;
+                        headerObjectsRegistry[opId] = opHeaderObjects;
                         headerObjectCount += Object.keys(headerObjects).length;
                     }
                 }
             });
 
             if (hasHeadersForOp) {
-                registry[op.operationId] = opHeaders;
+                registry[opId] = opHeaders;
             }
         });
 
@@ -118,8 +110,6 @@ export class ResponseHeaderRegistryGenerator {
                 });
             }
 
-            // If we have any XML configs, export them.
-            // We always export the variable to simplify imports in the service, defaulting to empty object.
             sourceFile.addVariableStatement({
                 isExported: true,
                 declarationKind: VariableDeclarationKind.Const,
@@ -163,7 +153,6 @@ export class ResponseHeaderRegistryGenerator {
             return { typeHint: 'string' };
         }
 
-        // Swagger 2.0 / OAS 3.0 simple schema support
         const schema = header.schema || header;
         const resolvedSchema = this.parser.resolve(schema) as SwaggerDefinition;
 
@@ -174,7 +163,6 @@ export class ResponseHeaderRegistryGenerator {
         if (resolvedSchema.type === 'boolean') return { typeHint: 'boolean' };
         if (resolvedSchema.type === 'object') return { typeHint: 'json' };
 
-        // Check for Date type if configured
         if (
             resolvedSchema.type === 'string' &&
             (resolvedSchema.format === 'date' || resolvedSchema.format === 'date-time')
@@ -212,7 +200,7 @@ export class ResponseHeaderRegistryGenerator {
         if (resolved.properties) {
             config.properties = {};
             Object.entries(resolved.properties).forEach(([propName, propSchema]) => {
-                const propConfig = this.getXmlConfig(propSchema, depth - 1);
+                const propConfig = this.getXmlConfig(propSchema as SwaggerDefinition, depth - 1);
                 if (Object.keys(propConfig).length > 0) {
                     config.properties[propName] = propConfig;
                 }

@@ -1,10 +1,4 @@
-/**
- * @fileoverview
- * Defines a framework-agnostic Intermediate Representation (IR) for validation rules
- * derived from an OpenAPI/JSON Schema. This allows the analysis layer to remain pure
- * and decoupled from any specific client-side framework (e.g., Angular, React).
- */
-
+// src/analysis/validation-types.ts
 export type ValidationRule =
     | { type: 'required' }
     | { type: 'minLength'; value: number }
@@ -22,5 +16,5 @@ export type ValidationRule =
     | { type: 'minProperties'; value: number }
     | { type: 'maxProperties'; value: number }
     | { type: 'contains'; schema: unknown; min?: number; max?: number }
-    | { type: 'const'; value: any }
+    | { type: 'const'; value: Exclude<unknown, undefined> }
     | { type: 'not'; rules: ValidationRule[] };

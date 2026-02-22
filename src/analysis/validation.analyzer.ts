@@ -1,11 +1,7 @@
+// src/analysis/validation.analyzer.ts
 import { SwaggerDefinition } from '@src/core/types/index.js';
 import { ValidationRule } from './validation-types.js';
 
-/**
- * Analyzes a SwaggerDefinition to extract a framework-agnostic list of validation rules.
- * @param schema The Swagger/OpenAPI schema object for a property.
- * @returns An array of ValidationRule objects.
- */
 export function analyzeValidationRules(schema: SwaggerDefinition | boolean): ValidationRule[] {
     if (!schema || typeof schema !== 'object' || schema.readOnly) {
         return [];
@@ -13,11 +9,8 @@ export function analyzeValidationRules(schema: SwaggerDefinition | boolean): Val
 
     const rules: ValidationRule[] = [];
 
-    // The 'required' keyword is on the parent object's `required` array,
-    // but the resource discovery logic denormalizes this for convenience.
-    if ((schema as any).required) rules.push({ type: 'required' });
+    if ('required' in schema && schema.required) rules.push({ type: 'required' });
 
-    // OAS 3.1 const keyword
     if (schema.const !== undefined) {
         rules.push({ type: 'const', value: schema.const });
     }
@@ -75,7 +68,6 @@ export function analyzeValidationRules(schema: SwaggerDefinition | boolean): Val
         });
     }
 
-    // JSON Schema 'not' keyword (Inverse validation)
     if (schema.not) {
         const innerRules = analyzeValidationRules(schema.not);
         if (innerRules.length > 0) {

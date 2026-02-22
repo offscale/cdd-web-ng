@@ -1,5 +1,13 @@
 import path from 'node:path';
-import { Node, Project, SyntaxKind } from 'ts-morph';
+import {
+    Node,
+    Project,
+    SyntaxKind,
+    FunctionDeclaration,
+    MethodDeclaration,
+    FunctionExpression,
+    ArrowFunction,
+} from 'ts-morph';
 import type { CallExpression, Expression, FunctionLikeDeclaration, SourceFile, TypeNode } from 'ts-morph';
 import { camelCase } from './string.js';
 import {
@@ -39,7 +47,7 @@ const DEFAULT_INFO: InfoObject = { title: 'Recovered OpenAPI', version: '0.0.0' 
 /** File system requirements for AST scanning helpers. */
 export type CodeScanFileSystem = {
     statSync: (filePath: string) => { isFile: () => boolean; isDirectory: () => boolean };
-    readFileSync: (filePath: string, encoding: string) => string;
+    readFileSync: (filePath: string, encoding: BufferEncoding | string) => string;
     readdirSync: (dirPath: string) => string[];
 };
 
@@ -251,7 +259,7 @@ export function buildOpenApiSpecFromScan(ir: CodeScanIr, infoOverrides: Partial<
         const requestBody = buildRequestBody(op.requestBody);
         const responses = buildResponses(op.responses);
         const methodKey = op.method.toLowerCase();
-        const pathItem = paths[op.path] ?? {};
+        const pathItem: Record<string, unknown> = paths[op.path] ?? {};
 
         const operation = {
             operationId: op.operationId,
@@ -271,7 +279,7 @@ export function buildOpenApiSpecFromScan(ir: CodeScanIr, infoOverrides: Partial<
         if (standardMethods.has(methodKey)) {
             pathItem[methodKey] = operation;
         } else {
-            const additional = pathItem.additionalOperations ?? {};
+            const additional = (pathItem.additionalOperations as Record<string, unknown>) ?? {};
             additional[op.method] = operation;
             pathItem.additionalOperations = additional;
         }
@@ -401,7 +409,7 @@ function scanDecoratedControllers(sourceFile: SourceFile): CodeScanOperation[] {
                 const methodPath = extractDecoratorPath(entry.dec) ?? '';
                 const fullPath = joinPaths(basePath, methodPath);
                 const paramMap = new Map<string, CodeScanParam>();
-                extractDecoratorParams(method, paramMap);
+                extractDecoratorParams(method as any, paramMap);
                 addPathParams(fullPath, paramMap);
 
                 const docMeta = extractDocMeta(method);
@@ -409,8 +417,17 @@ function scanDecoratedControllers(sourceFile: SourceFile): CodeScanOperation[] {
                 applyParamDocs(paramMap, docMeta.paramDocs);
                 applyParamExamples(paramMap, docMeta.paramExamples);
                 applyParamSchemas(paramMap, docMeta.paramSchemas);
-                const statusCode = extractHttpCode(method) ?? '200';
-                const responseSchema = inferReturnSchemaFromSignature(method);
+                const statusCode = extractHttpCode(method as any) ?? '200';
+                const responseSchema = inferReturnSchemaFromSignature(method as any);
+
+                // Execute closure pattern for request body variable processing to match interfaces correctly
+                const processRequestBody = () => {
+                    const rb = buildRequestBodyFromDecoratorParams(method as any);
+                    applyRequestExamples(rb, docMeta.requestExamples);
+                    return rb;
+                };
+
+                const requestBody = processRequestBody();
 
                 const responses = mergeResponseHints(
                     [
@@ -418,12 +435,12 @@ function scanDecoratedControllers(sourceFile: SourceFile): CodeScanOperation[] {
                             status: statusCode,
                             description: 'Response',
                             contentTypes: ['application/json'],
-                            ...(responseSchema ? { schema: responseSchema } : {}),
+                            ...(responseSchema !== undefined ? { schema: responseSchema } : {}),
                         },
                     ],
                     docMeta.responses,
                 ).map(response =>
-                    responseSchema && response.contentTypes.length > 0 && !response.schema
+                    responseSchema !== undefined && response.contentTypes.length > 0 && response.schema === undefined
                         ? { ...response, schema: responseSchema }
                         : response,
                 );
@@ -432,15 +449,11 @@ function scanDecoratedControllers(sourceFile: SourceFile): CodeScanOperation[] {
 
                 operations.push({
                     operationId: docMeta.operationId ?? method.getName(),
-                    method: entry.method,
+                    method: entry.method!,
                     path: fullPath,
                     filePath: sourceFile.getFilePath(),
                     params: Array.from(paramMap.values()),
-                    requestBody: (() => {
-                        const requestBody = buildRequestBodyFromDecoratorParams(method);
-                        applyRequestExamples(requestBody, docMeta.requestExamples);
-                        return requestBody;
-                    })(),
+                    ...(requestBody ? { requestBody } : {}),
                     responses,
                     ...stripInternalDocMeta(docMeta),
                 });
@@ -463,7 +476,7 @@ function extractRouteCall(call: CallExpression): RouteCallInfo | undefined {
     if (!method) return undefined;
 
     const args = call.getArguments();
-    const directPath = args[0] ? extractPathFromExpression(args[0]) : undefined;
+    const directPath = args[0] ? extractPathFromExpression(args[0] as any) : undefined;
     if (directPath) {
         return {
             method,
@@ -494,7 +507,7 @@ function extractRouteChainPath(call: CallExpression): string | undefined {
     if (!Node.isPropertyAccessExpression(callee)) return undefined;
     if (callee.getName() !== 'route') return undefined;
     const arg = call.getArguments()[0];
-    return arg ? extractPathFromExpression(arg) : undefined;
+    return arg ? extractPathFromExpression(arg as any) : undefined;
 }
 
 function resolveHttpMethodName(expression: Expression): string | undefined {
@@ -506,7 +519,7 @@ function resolveHttpMethodName(expression: Expression): string | undefined {
 function extractHandler(call: CallExpression, offset: number): FunctionLikeDeclaration | undefined {
     const args = call.getArguments().slice(offset);
     for (let i = args.length - 1; i >= 0; i -= 1) {
-        const handler = resolveFunctionLike(args[i]);
+        const handler = resolveFunctionLike(args[i] as Node);
         if (handler) return handler;
     }
     return undefined;
@@ -514,19 +527,19 @@ function extractHandler(call: CallExpression, offset: number): FunctionLikeDecla
 
 function resolveFunctionLike(node: Node): FunctionLikeDeclaration | undefined {
     if (Node.isArrowFunction(node) || Node.isFunctionExpression(node) || Node.isFunctionDeclaration(node)) {
-        return node;
+        return node as FunctionLikeDeclaration;
     }
 
     if (Node.isIdentifier(node)) {
         for (const definition of node.getDefinitions()) {
             const decl = definition.getDeclarationNode();
             if (!decl) continue;
-            if (Node.isFunctionDeclaration(decl)) return decl;
-            if (Node.isMethodDeclaration(decl)) return decl;
+            if (Node.isFunctionDeclaration(decl)) return decl as FunctionLikeDeclaration;
+            if (Node.isMethodDeclaration(decl)) return decl as FunctionLikeDeclaration;
             if (Node.isVariableDeclaration(decl)) {
                 const init = decl.getInitializer();
                 if (init && (Node.isArrowFunction(init) || Node.isFunctionExpression(init))) {
-                    return init;
+                    return init as FunctionLikeDeclaration;
                 }
             }
         }
@@ -555,7 +568,7 @@ function buildExpressOperation(
     addPathParams(pathValue, paramMap);
 
     const operationId = inferOperationId(handler, method, pathValue);
-    const docMeta = handler ? extractDocMeta(handler) : {};
+    const docMeta = handler ? extractDocMeta(handler as any) : {};
     applyQuerystringMeta(docMeta, paramMap);
     applyParamDocs(paramMap, docMeta.paramDocs);
     applyParamExamples(paramMap, docMeta.paramExamples);
@@ -573,7 +586,7 @@ function buildExpressOperation(
     applyRequestExamples(analysis.requestBody, docMeta.requestExamples);
 
     const responses = mergeResponseHints(analysis.responses, docMeta.responses).map(response =>
-        analysis.responseSchema && response.contentTypes.length > 0 && !response.schema
+        analysis.responseSchema !== undefined && response.contentTypes.length > 0 && response.schema === undefined
             ? { ...response, schema: analysis.responseSchema }
             : response,
     );
@@ -585,7 +598,7 @@ function buildExpressOperation(
         path: pathValue,
         filePath,
         params: Array.from(paramMap.values()),
-        requestBody: analysis.requestBody,
+        ...(analysis.requestBody ? { requestBody: analysis.requestBody } : {}),
         responses,
         ...stripInternalDocMeta(docMeta),
     };
@@ -634,13 +647,13 @@ function analyzeExpressHandler(
                     if (access.location === 'body') {
                         bodyUsed = true;
                     } else if (access.name) {
-                        addParam(paramMap, { name: access.name, in: access.location });
+                        addParam(paramMap, { name: access.name, in: access.location as any });
                     }
                 }
             }
 
             if (Node.isVariableDeclaration(node)) {
-                const destructured = extractDestructuredParams(node, bindings);
+                const destructured = extractDestructuredParams(node as any, bindings);
                 if (destructured.bodyUsed) {
                     bodyUsed = true;
                 }
@@ -652,15 +665,15 @@ function analyzeExpressHandler(
         body.forEachDescendant(descendant => visit(descendant));
     }
 
-    if (inferredSchemas.requestSchema) {
+    if (inferredSchemas.requestSchema !== undefined) {
         bodyUsed = true;
     }
 
     const responses = finalizeResponses(responseIndex, '200', false);
-    if (inferredSchemas.responseSchema) {
+    if (inferredSchemas.responseSchema !== undefined) {
         responses.forEach(response => {
             if (response.contentTypes.length > 0) {
-                response.schema = inferredSchemas.responseSchema;
+                response.schema = inferredSchemas.responseSchema as any;
             }
         });
     }
@@ -669,11 +682,15 @@ function analyzeExpressHandler(
         ? {
               required: true,
               contentTypes: requestContentTypes.size > 0 ? Array.from(requestContentTypes) : ['application/json'],
-              ...(inferredSchemas.requestSchema ? { schema: inferredSchemas.requestSchema } : {}),
+              ...(inferredSchemas.requestSchema !== undefined ? { schema: inferredSchemas.requestSchema } : {}),
           }
         : undefined;
 
-    return { requestBody, responses, responseSchema: inferredSchemas.responseSchema };
+    return {
+        ...(requestBody ? { requestBody } : {}),
+        responses,
+        ...(inferredSchemas.responseSchema !== undefined ? { responseSchema: inferredSchemas.responseSchema } : {}),
+    };
 }
 
 function getFunctionBody(handler: FunctionLikeDeclaration): Node | undefined {
@@ -747,20 +764,20 @@ function extractRequestAccess(node: Node, bindings: RequestBindings): RequestAcc
         const name = node.getName();
         const nestedLocation = resolveRequestLocation(node.getExpression(), bindings);
         if (nestedLocation) {
-            return { location: nestedLocation, name };
+            return { location: nestedLocation as any, ...(name ? { name } : {}) };
         }
-        const rootLocation = resolveRequestLocation(node, bindings);
+        const rootLocation = resolveRequestLocation(node as any, bindings);
         if (rootLocation === 'body') {
-            return { location: rootLocation };
+            return { location: rootLocation as any };
         }
         return undefined;
     }
 
     if (Node.isElementAccessExpression(node)) {
-        const name = extractStringLiteral(node.getArgumentExpression());
+        const name = extractStringLiteral(node.getArgumentExpression() as any);
         const location = resolveRequestLocation(node.getExpression(), bindings);
         if (!location) return undefined;
-        return { location, name };
+        return { location: location as any, ...(name ? { name } : {}) };
     }
 
     return undefined;
@@ -779,7 +796,7 @@ function extractDestructuredParams(
         return { params, bodyUsed };
     }
 
-    const location = resolveRequestLocation(initializer, bindings);
+    const location = resolveRequestLocation(initializer as any, bindings);
     if (!location) return { params, bodyUsed };
 
     if (location === 'body') {
@@ -789,7 +806,7 @@ function extractDestructuredParams(
 
     for (const element of nameNode.getElements()) {
         const propName = element.getPropertyNameNode()?.getText() ?? element.getName();
-        params.push({ name: trimQuotes(propName), in: location });
+        params.push({ name: trimQuotes(propName), in: location as any });
     }
 
     return { params, bodyUsed };
@@ -837,8 +854,8 @@ function extractResponseHint(call: CallExpression, resName?: string): ResponseHi
     if (!isResponseChain(callee.getExpression(), resName)) return undefined;
 
     if (method === 'sendStatus') {
-        const status = extractLiteralText(call.getArguments()[0]) ?? '200';
-        return { status, contentType: undefined };
+        const status = extractLiteralText(call.getArguments()[0] as any) ?? '200';
+        return { status };
     }
 
     if (method === 'json' || method === 'send' || method === 'end') {
@@ -848,11 +865,11 @@ function extractResponseHint(call: CallExpression, resName?: string): ResponseHi
             contentType = 'application/json';
         }
         if (method === 'send' && !contentType) {
-            contentType = inferContentTypeFromSend(call.getArguments()[0]);
+            contentType = inferContentTypeFromSend(call.getArguments()[0] as any);
         }
         return {
             status: chainMeta.status ?? '200',
-            contentType,
+            ...(contentType ? { contentType } : {}),
         };
     }
 
@@ -865,30 +882,30 @@ function extractResponseChainMeta(expression: Expression, resName: string): { st
     let contentType: string | undefined;
 
     while (Node.isCallExpression(current) && Node.isPropertyAccessExpression(current.getExpression())) {
-        const method = current.getExpression().getName();
-        const target = current.getExpression().getExpression();
+        const method = (current.getExpression() as any).getName();
+        const target = (current.getExpression() as any).getExpression();
         if (!isResponseChain(target, resName)) break;
 
         if (method === 'status') {
-            status = extractLiteralText(current.getArguments()[0]) ?? status;
+            status = extractLiteralText(current.getArguments()[0] as any) ?? status;
         }
 
         if (method === 'type') {
-            contentType = extractStringLiteral(current.getArguments()[0]) ?? contentType;
+            contentType = extractStringLiteral(current.getArguments()[0] as any) ?? contentType;
         }
 
         if (method === 'set' || method === 'header') {
             const [nameArg, valueArg] = current.getArguments();
-            const headerName = extractStringLiteral(nameArg);
+            const headerName = extractStringLiteral(nameArg as any);
             if (headerName && headerName.toLowerCase() === 'content-type') {
-                contentType = extractStringLiteral(valueArg) ?? contentType;
+                contentType = extractStringLiteral(valueArg as any) ?? contentType;
             }
         }
 
         current = target;
     }
 
-    return { status, contentType };
+    return { ...(status ? { status } : {}), ...(contentType ? { contentType } : {}) };
 }
 
 function isResponseChain(expression: Expression, resName: string): boolean {
@@ -896,10 +913,10 @@ function isResponseChain(expression: Expression, resName: string): boolean {
         return expression.getText() === resName;
     }
     if (Node.isCallExpression(expression) && Node.isPropertyAccessExpression(expression.getExpression())) {
-        return isResponseChain(expression.getExpression().getExpression(), resName);
+        return isResponseChain((expression as any).getExpression().getExpression(), resName);
     }
     if (Node.isPropertyAccessExpression(expression)) {
-        return isResponseChain(expression.getExpression(), resName);
+        return isResponseChain(expression.getExpression() as any, resName);
     }
     return false;
 }
@@ -921,7 +938,7 @@ function extractRequestContentType(call: CallExpression, reqName: string): strin
     if (callee.getName() !== 'is') return undefined;
     if (!Node.isIdentifier(callee.getExpression())) return undefined;
     if (callee.getExpression().getText() !== reqName) return undefined;
-    return extractStringLiteral(call.getArguments()[0]);
+    return extractStringLiteral(call.getArguments()[0] as any);
 }
 
 function extractRequestHeaderName(call: CallExpression, reqName: string): string | undefined {
@@ -931,7 +948,7 @@ function extractRequestHeaderName(call: CallExpression, reqName: string): string
     if (method !== 'get' && method !== 'header') return undefined;
     if (!Node.isIdentifier(callee.getExpression())) return undefined;
     if (callee.getExpression().getText() !== reqName) return undefined;
-    return extractStringLiteral(call.getArguments()[0]);
+    return extractStringLiteral(call.getArguments()[0] as any);
 }
 
 function recordResponse(
@@ -1031,7 +1048,7 @@ function getFunctionLikeName(handler: FunctionLikeDeclaration): string | undefin
 
 function extractDecoratorPath(decorator: import('ts-morph').Decorator): string | undefined {
     const arg = decorator.getArguments()[0];
-    return arg ? extractPathFromExpression(arg) : undefined;
+    return arg ? extractPathFromExpression(arg as any) : undefined;
 }
 
 function extractDecoratorParams(
@@ -1043,7 +1060,7 @@ function extractDecoratorParams(
         for (const decorator of param.getDecorators()) {
             const name = decorator.getName();
             const arg = decorator.getArguments()[0];
-            const paramName = trimQuotes(extractStringLiteral(arg) ?? param.getName());
+            const paramName = trimQuotes(extractStringLiteral(arg as any) ?? param.getName());
 
             if (name === 'Param' || name === 'Path' || name === 'PathParam') {
                 addParam(paramMap, { name: paramName, in: 'path', required: true });
@@ -1079,7 +1096,7 @@ function buildRequestBodyFromDecoratorParams(
                 return {
                     required: !param.hasQuestionToken(),
                     contentTypes: ['application/json'],
-                    ...(schema ? { schema } : {}),
+                    ...(schema !== undefined ? { schema } : {}),
                 };
             }
         }
@@ -1090,7 +1107,7 @@ function buildRequestBodyFromDecoratorParams(
 function extractHttpCode(method: import('ts-morph').MethodDeclaration): string | undefined {
     const decorator = method.getDecorators().find(dec => ['HttpCode', 'Status', 'Code'].includes(dec.getName()));
     if (!decorator) return undefined;
-    return extractLiteralText(decorator.getArguments()[0]);
+    return extractLiteralText(decorator.getArguments()[0] as any);
 }
 
 function extractPathFromExpression(expression: Expression): string | undefined {
@@ -1161,6 +1178,7 @@ function extractDocMeta(node: Node): {
     const primary = docs[0];
     const rawComment = normalizeDocComment(primary.getComment());
     const lines = rawComment
+
         .split(/\r?\n/)
         .map(line => line.trim())
         .filter(Boolean);
@@ -1173,6 +1191,7 @@ function extractDocMeta(node: Node): {
         tags.some(tag => tag.getTagName() === 'deprecated') || rawComment.toLowerCase().includes('@deprecated');
 
     const parsedTags = tags
+
         .filter(tag => tag.getTagName() === 'tag' || tag.getTagName() === 'tags')
         .map(tag => parseTagInput(normalizeDocComment(tag.getComment())))
         .reduce(
@@ -1396,9 +1415,9 @@ function applyQuerystringMeta(docMeta: { querystring?: QuerystringMeta }, paramM
     addParam(paramMap, {
         name: querystring.name,
         in: 'querystring',
-        required: querystring.required,
-        description: querystring.description,
-        contentType: querystring.contentType,
+        ...(querystring.required !== undefined ? { required: querystring.required } : {}),
+        ...(querystring.description ? { description: querystring.description } : {}),
+        ...(querystring.contentType ? { contentType: querystring.contentType } : {}),
         ...(querystring.encoding ? { encoding: querystring.encoding } : {}),
     });
 }
@@ -1517,6 +1536,7 @@ function parseResponseDocMeta(raw: string): ResponseDocMeta | undefined {
     if (parts.length > 0 && parts[0].includes('/')) {
         const mediaRaw = parts.shift() as string;
         contentTypes = mediaRaw
+
             .split(',')
             .map(entry => entry.trim())
             .filter(Boolean);
@@ -1550,6 +1570,7 @@ function parseParamDoc(tag: import('ts-morph').JSDocTag): { name: string; descri
     }
 
     const rawText = tag
+
         .getText()
         .replace(/^\s*\*?\s*@param\s+/i, '')
         .trim();
@@ -1636,8 +1657,8 @@ function extractExternalDocs(tags: import('ts-morph').JSDocTag[]): ExternalDocum
     const parts = raw.split(/\s+/);
     const url = parts.shift();
     if (!url) return undefined;
-    const description = parts.join(' ').trim();
-    return description ? { url, description } : { url };
+    const descriptionStr = parts.join(' ').trim();
+    return descriptionStr ? { url, description: descriptionStr } : { url };
 }
 
 function extractServers(tags: import('ts-morph').JSDocTag[]): ServerObject[] {
@@ -1681,6 +1702,7 @@ function extractSecurity(tags: import('ts-morph').JSDocTag[]): Record<string, st
         const [scheme, ...rest] = raw.split(/\s+/);
         if (!scheme) return;
         const scopes = rest
+
             .join(' ')
             .split(/[,\s]+/)
             .map(scope => scope.trim())
@@ -1695,7 +1717,9 @@ function parseSecurityJson(raw: string): Record<string, string[]>[] {
     try {
         const parsed = JSON.parse(raw) as unknown;
         if (Array.isArray(parsed)) {
-            return parsed.filter((entry): entry is Record<string, string[]> => !!entry && typeof entry === 'object');
+            return parsed.filter(
+                (entry: unknown): entry is Record<string, string[]> => !!entry && typeof entry === 'object',
+            );
         }
         if (parsed && typeof parsed === 'object') {
             return [parsed as Record<string, string[]>];
@@ -1719,6 +1743,7 @@ function getJsDocs(node: Node): import('ts-morph').JSDoc[] {
 
 function parseTagList(comment: string): string[] {
     return comment
+
         .split(',')
         .flatMap(part => part.trim().split(/\s+/))
         .map(part => part.trim())
@@ -1752,7 +1777,7 @@ function normalizeTagJson(parsed: unknown): { names: string[]; objects: TagObjec
     };
 
     if (Array.isArray(parsed)) {
-        parsed.forEach(pushTag);
+        parsed.forEach((entry: unknown) => pushTag(entry));
     } else {
         pushTag(parsed);
     }
@@ -1767,7 +1792,7 @@ function parseServerJson(raw: string): ServerObject[] | null {
     if (!parsed) return [];
     const entries = Array.isArray(parsed) ? parsed : [parsed];
     const servers: ServerObject[] = [];
-    entries.forEach(entry => {
+    entries.forEach((entry: unknown) => {
         if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return;
         const candidate = entry as ServerObject;
         if (typeof candidate.url !== 'string' || candidate.url.trim().length === 0) return;
@@ -1828,7 +1853,7 @@ function normalizeParamSchemaOverride(value: unknown): SwaggerDefinition | boole
 
     const primitiveTypes = new Set(['string', 'number', 'integer', 'boolean', 'object', 'array', 'null']);
     if (primitiveTypes.has(trimmed)) {
-        return { type: trimmed as SwaggerDefinition['type'] };
+        return { type: trimmed as any };
     }
 
     if (
@@ -1875,6 +1900,7 @@ function isReservedHeaderParam(name?: string): boolean {
 
 function buildParameters(params: CodeScanParam[]): Parameter[] {
     return params
+
         .filter(param => !(param.in === 'header' && isReservedHeaderParam(param.name)))
         .map(param => {
             if (param.in === 'querystring') {
@@ -1900,19 +1926,23 @@ function buildParameters(params: CodeScanParam[]): Parameter[] {
                 }
                 return {
                     name: param.name,
-                    in: param.in,
-                    required: param.required,
+                    in: param.in as Parameter['in'],
+                    ...(param.required !== undefined ? { required: param.required } : {}),
                     description: param.description,
                     content: {
                         [contentType]: contentEntry,
                     },
-                };
+                } as Parameter;
             }
 
             return {
                 name: param.name,
-                in: param.in,
-                required: param.in === 'path' ? true : param.required,
+                in: param.in as Parameter['in'],
+                ...(param.in === 'path'
+                    ? { required: true }
+                    : param.required !== undefined
+                      ? { required: param.required }
+                      : {}),
                 description: param.description,
                 schema: param.schema ?? { type: 'string' },
                 ...(param.example !== undefined && !unwrapExampleCarrier(param.example)
@@ -1921,7 +1951,7 @@ function buildParameters(params: CodeScanParam[]): Parameter[] {
                 ...(param.example !== undefined && unwrapExampleCarrier(param.example)
                     ? { examples: { example: unwrapExampleCarrier(param.example) as ExampleObject } }
                     : {}),
-            };
+            } as Parameter;
         });
 }
 
@@ -1948,9 +1978,9 @@ function buildRequestBody(requestBody?: CodeScanRequestBody): RequestBody | unde
         });
     }
     return {
-        required: requestBody.required ?? true,
+        ...(requestBody.required !== undefined ? { required: requestBody.required } : { required: true }),
         content,
-    };
+    } as RequestBody;
 }
 
 function buildResponses(responses: CodeScanResponse[]): Record<string, SwaggerResponse> {
@@ -2026,10 +2056,10 @@ function inferExpressSchemaHints(handler: FunctionLikeDeclaration): {
     if (reqParam) {
         const reqTypeNode = reqParam.getTypeNode();
         const extracted = extractSchemasFromRequestType(reqTypeNode);
-        if (extracted.requestSchema) {
+        if (extracted.requestSchema !== undefined) {
             requestSchema = extracted.requestSchema;
         }
-        if (extracted.responseSchema) {
+        if (extracted.responseSchema !== undefined) {
             responseSchema = extracted.responseSchema;
         }
     }
@@ -2037,18 +2067,23 @@ function inferExpressSchemaHints(handler: FunctionLikeDeclaration): {
     if (resParam) {
         const resTypeNode = resParam.getTypeNode();
         const inferred = extractSchemaFromResponseType(resTypeNode);
-        if (inferred) {
+        if (inferred !== undefined) {
             responseSchema = inferred;
         }
     }
 
-    return { requestSchema, responseSchema };
+    const result: { requestSchema?: SwaggerDefinition | boolean; responseSchema?: SwaggerDefinition | boolean } = {};
+    if (requestSchema !== undefined) result.requestSchema = requestSchema;
+    if (responseSchema !== undefined) result.responseSchema = responseSchema;
+    return result;
 }
 
 function inferReturnSchemaFromSignature(handler: FunctionLikeDeclaration): SwaggerDefinition | boolean | undefined {
     const returnTypeNode =
-        'getReturnTypeNode' in handler && typeof handler.getReturnTypeNode === 'function'
-            ? handler.getReturnTypeNode()
+        'getReturnTypeNode' in handler &&
+        typeof (handler as unknown as { getReturnTypeNode: () => TypeNode | undefined }).getReturnTypeNode ===
+            'function'
+            ? (handler as unknown as { getReturnTypeNode: () => TypeNode | undefined }).getReturnTypeNode()
             : undefined;
     if (!returnTypeNode) return undefined;
     const unwrapped = unwrapContainerTypeNode(returnTypeNode);
@@ -2066,10 +2101,17 @@ function extractSchemasFromRequestType(typeNode?: TypeNode): {
     const args = typeNode.getTypeArguments();
     const responseArg = args[1];
     const requestArg = args[2];
-    return {
-        ...(requestArg ? { requestSchema: inferSchemaFromTypeNode(requestArg) } : {}),
-        ...(responseArg ? { responseSchema: inferSchemaFromTypeNode(responseArg) } : {}),
-    };
+
+    const result: { requestSchema?: SwaggerDefinition | boolean; responseSchema?: SwaggerDefinition | boolean } = {};
+    if (requestArg) {
+        const infReq = inferSchemaFromTypeNode(requestArg);
+        if (infReq !== undefined) result.requestSchema = infReq;
+    }
+    if (responseArg) {
+        const infRes = inferSchemaFromTypeNode(responseArg);
+        if (infRes !== undefined) result.responseSchema = infRes;
+    }
+    return result;
 }
 
 function extractSchemaFromResponseType(typeNode?: TypeNode): SwaggerDefinition | boolean | undefined {
@@ -2091,7 +2133,7 @@ function inferSchemaFromTypeNode(typeNode?: TypeNode): SwaggerDefinition | boole
     }
 
     const schema = schemaFromTypeNode(unwrapped);
-    return isEmptySchema(schema) ? undefined : schema;
+    return isEmptySchema(schema as SwaggerDefinition) ? undefined : schema;
 }
 
 function unwrapContainerTypeNode(typeNode: TypeNode): TypeNode {

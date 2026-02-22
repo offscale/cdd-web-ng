@@ -1,3 +1,4 @@
+// src/generators/angular/service/service-method.generator.ts
 import {
     ClassDeclaration,
     MethodDeclarationOverloadStructure,
@@ -7,13 +8,13 @@ import {
 
 import {
     GeneratorConfig,
-    MediaTypeObject,
     Parameter,
     PathInfo,
     ReferenceLike,
     RequestBody,
     SwaggerDefinition,
     SwaggerResponse,
+    MediaTypeObject,
 } from '@src/core/types/index.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { ServiceMethodAnalyzer } from '@src/analysis/service-method-analyzer.js';
@@ -39,12 +40,10 @@ export class ServiceMethodGenerator {
             return;
         }
 
-        // Handle error typing generation (explicit export only if errors exist)
         let errorTypeAlias: string | undefined;
         if (model.errorResponses && model.errorResponses.length > 0) {
             const typeName = `${pascalCase(model.methodName)}Error`;
             const union = [...new Set(model.errorResponses.map(e => e.type))].join(' | ');
-            // Add export type alias to source file
             classDeclaration.getSourceFile().addTypeAlias({
                 name: typeName,
                 isExported: true,
@@ -57,8 +56,6 @@ export class ServiceMethodGenerator {
         const isSSE = model.responseSerialization === 'sse';
         const serverOptionType = '{ server?: number | string; serverVariables?: Record<string, string> }';
 
-        // Determine if we need content negotiation overloads
-        // We have negotiation if there are multiple valid success variants with different mediaTypes
         const negotiationVariants = this.getDistinctNegotiationVariants(model.responseVariants);
         const hasContentNegotiation = negotiationVariants.length > 1;
         const distinctTypes = [...new Set(model.responseVariants.map(v => v.type))];
@@ -72,12 +69,10 @@ export class ServiceMethodGenerator {
             model.isDeprecated,
             isSSE,
             model.responseVariants,
-            negotiationVariants,
             serverOptionType,
+            negotiationVariants,
         );
 
-        // Default return type for implementation signature (widest type)
-        // If multiple variants, we return a union of their types.
         let returnType = `Observable<${model.responseType}>`;
         if (hasContentNegotiation || hasMultipleSuccessTypes) {
             const unionType = distinctTypes.join(' | ');
@@ -208,7 +203,8 @@ export class ServiceMethodGenerator {
 
         if (operation.responses) {
             Object.entries(operation.responses).forEach(([code, response]) => {
-                const resolved = this.parser.resolve<SwaggerResponse>(response as any) ?? (response as SwaggerResponse);
+                const resolved =
+                    this.parser.resolve<SwaggerResponse>(response as ReferenceLike) ?? (response as SwaggerResponse);
                 if (!resolved?.content) return;
                 Object.entries(resolved.content).forEach(([mediaType, mediaObj]) => {
                     const example = this.extractMediaTypeExample(mediaObj, mediaType);
@@ -241,28 +237,28 @@ export class ServiceMethodGenerator {
             if (Object.prototype.hasOwnProperty.call(exampleObj, 'serializedValue')) {
                 return {
                     found: true,
-                    value: (exampleObj as { serializedValue?: unknown }).serializedValue,
+                    value: (exampleObj as Record<string, unknown>).serializedValue,
                     kind: 'serialized',
                 };
             }
             if (Object.prototype.hasOwnProperty.call(exampleObj, 'externalValue')) {
                 return {
                     found: true,
-                    value: (exampleObj as { externalValue?: unknown }).externalValue,
+                    value: (exampleObj as Record<string, unknown>).externalValue,
                     kind: 'external',
                 };
             }
             if (Object.prototype.hasOwnProperty.call(exampleObj, 'dataValue')) {
                 return {
                     found: true,
-                    value: (exampleObj as { dataValue?: unknown }).dataValue,
+                    value: (exampleObj as Record<string, unknown>).dataValue,
                     kind: 'data',
                 };
             }
             if (Object.prototype.hasOwnProperty.call(exampleObj, 'value')) {
                 return {
                     found: true,
-                    value: (exampleObj as { value?: unknown }).value,
+                    value: (exampleObj as Record<string, unknown>).value,
                     kind: 'value',
                 };
             }
@@ -270,28 +266,28 @@ export class ServiceMethodGenerator {
             if (Object.prototype.hasOwnProperty.call(exampleObj, 'dataValue')) {
                 return {
                     found: true,
-                    value: (exampleObj as { dataValue?: unknown }).dataValue,
+                    value: (exampleObj as Record<string, unknown>).dataValue,
                     kind: 'data',
                 };
             }
             if (Object.prototype.hasOwnProperty.call(exampleObj, 'value')) {
                 return {
                     found: true,
-                    value: (exampleObj as { value?: unknown }).value,
+                    value: (exampleObj as Record<string, unknown>).value,
                     kind: 'value',
                 };
             }
             if (Object.prototype.hasOwnProperty.call(exampleObj, 'serializedValue')) {
                 return {
                     found: true,
-                    value: (exampleObj as { serializedValue?: unknown }).serializedValue,
+                    value: (exampleObj as Record<string, unknown>).serializedValue,
                     kind: 'serialized',
                 };
             }
             if (Object.prototype.hasOwnProperty.call(exampleObj, 'externalValue')) {
                 return {
                     found: true,
-                    value: (exampleObj as { externalValue?: unknown }).externalValue,
+                    value: (exampleObj as Record<string, unknown>).externalValue,
                     kind: 'external',
                 };
             }
@@ -315,7 +311,7 @@ export class ServiceMethodGenerator {
         if (param.examples && typeof param.examples === 'object') {
             const firstExample = Object.values(param.examples)[0];
             if (firstExample !== undefined) {
-                const resolved = this.parser.resolve(firstExample as ReferenceLike | any) ?? firstExample;
+                const resolved = this.parser.resolve(firstExample as ReferenceLike) ?? firstExample;
                 const picked = this.extractExampleValue(resolved, true);
                 if (picked.found) return this.wrapExampleValue(picked);
                 if (resolved !== null && typeof resolved !== 'object') return resolved;
@@ -328,7 +324,7 @@ export class ServiceMethodGenerator {
             !Array.isArray(param.schema) &&
             !('$ref' in param.schema)
         ) {
-            const schema = param.schema as any;
+            const schema = param.schema as Record<string, unknown>;
             if (schema.dataValue !== undefined) return schema.dataValue;
             if (schema.example !== undefined) return schema.example;
             if (Array.isArray(schema.examples) && schema.examples.length > 0) return schema.examples[0];
@@ -348,13 +344,14 @@ export class ServiceMethodGenerator {
         mediaObj: MediaTypeObject | ReferenceLike,
         mediaType?: string,
     ): unknown | undefined {
-        const resolved = this.parser.resolve<MediaTypeObject>(mediaObj as any) ?? (mediaObj as MediaTypeObject);
+        const resolved =
+            this.parser.resolve<MediaTypeObject>(mediaObj as ReferenceLike) ?? (mediaObj as MediaTypeObject);
         if (!resolved) return undefined;
         if (resolved.example !== undefined) return resolved.example;
         if (resolved.examples && typeof resolved.examples === 'object') {
             const firstExample = Object.values(resolved.examples)[0];
             if (firstExample !== undefined) {
-                const resolvedExample = this.parser.resolve(firstExample as any) ?? firstExample;
+                const resolvedExample = this.parser.resolve(firstExample as ReferenceLike) ?? firstExample;
                 const preferSerialized = this.shouldPreferSerializedExample(mediaType);
                 const picked = this.extractExampleValue(resolvedExample, preferSerialized);
                 if (picked.found) return this.wrapExampleValue(picked);
@@ -379,7 +376,6 @@ export class ServiceMethodGenerator {
     private buildOperationMetaTags(operation: PathInfo): string[] {
         const tags: string[] = [];
 
-        // Operation tags (for reverse generation without snapshots)
         if (operation.tags && operation.tags.length > 0) {
             const joined = operation.tags
                 .map(t => String(t).trim())
@@ -390,7 +386,6 @@ export class ServiceMethodGenerator {
             }
         }
 
-        // External docs -> @see <url> <description?>
         if (operation.externalDocs?.url) {
             const desc = sanitizeComment(operation.externalDocs.description);
             tags.push(`@see ${operation.externalDocs.url}${desc ? ` ${desc}` : ''}`);
@@ -398,25 +393,24 @@ export class ServiceMethodGenerator {
 
         const rawOperation = this.getRawOperation(operation);
 
-        // Operation-level servers (only if explicitly defined)
         if (rawOperation && Object.prototype.hasOwnProperty.call(rawOperation, 'servers')) {
             const servers = rawOperation.servers ?? [];
             tags.push(`@server ${JSON.stringify(servers)}`);
         }
 
-        // Operation-level security (only if explicitly defined, including empty array)
         if (rawOperation && Object.prototype.hasOwnProperty.call(rawOperation, 'security')) {
             const security = rawOperation.security ?? [];
             tags.push(`@security ${JSON.stringify(security)}`);
         }
 
-        // Querystring parameter hint for AST scanner
-        const querystringParam = (operation.parameters ?? []).find(p => (p as any).in === 'querystring');
+        const querystringParam = (operation.parameters ?? []).find(
+            p => (p as Record<string, unknown>).in === 'querystring',
+        );
         if (querystringParam) {
             const contentType = querystringParam.content ? Object.keys(querystringParam.content)[0] : undefined;
             const encoding =
                 contentType && querystringParam.content?.[contentType]?.encoding
-                    ? querystringParam.content[contentType].encoding
+                    ? querystringParam.content[contentType]!.encoding
                     : undefined;
             const meta: Record<string, unknown> = {
                 name: querystringParam.name,
@@ -428,7 +422,6 @@ export class ServiceMethodGenerator {
             tags.push(`@querystring ${JSON.stringify(meta)}`);
         }
 
-        // Operation extensions (x-*)
         Object.entries(operation).forEach(([key, value]) => {
             if (!key.startsWith('x-')) return;
             if (value === undefined) {
@@ -441,26 +434,28 @@ export class ServiceMethodGenerator {
         return tags;
     }
 
-    private getRawOperation(operation: PathInfo): any | undefined {
+    private getRawOperation(operation: PathInfo): Record<string, unknown> | undefined {
         const pathItem = this.parser.spec.paths?.[operation.path];
         if (!pathItem || typeof pathItem !== 'object') return undefined;
 
         const methodKey = operation.method.toLowerCase();
-        const direct = (pathItem as any)[methodKey];
-        if (direct) return direct;
+        const direct = (pathItem as Record<string, unknown>)[methodKey];
+        if (direct) return direct as Record<string, unknown>;
 
-        const additional = (pathItem as any).additionalOperations as Record<string, any> | undefined;
+        const additional = (pathItem as Record<string, unknown>).additionalOperations as
+            | Record<string, unknown>
+            | undefined;
         if (!additional) return undefined;
 
         for (const [key, value] of Object.entries(additional)) {
-            if (key.toLowerCase() === methodKey) return value;
+            if (key.toLowerCase() === methodKey) return value as Record<string, unknown>;
         }
 
         return undefined;
     }
 
     private normalizeMediaType(mediaType: string): string {
-        return mediaType.split(';')[0]?.trim().toLowerCase();
+        return mediaType.split(';')[0]?.trim().toLowerCase() || '';
     }
 
     private isJsonMediaType(mediaType?: string): boolean {
@@ -573,7 +568,6 @@ export class ServiceMethodGenerator {
             ? (negotiationVariants ?? model.responseVariants)
             : model.responseVariants;
 
-        // 1. XML Logic (Legacy Support)
         const xmlParams =
             rawOp.parameters
                 ?.map(p => {
@@ -585,7 +579,9 @@ export class ServiceMethodGenerator {
         xmlParams.forEach(({ param, schema }) => {
             const paramName = camelCase(param.name);
             const rootName = typeof schema === 'object' && schema.xml?.name ? schema.xml.name : param.name;
-            const xmlConfig = (this.analyzer as any).getXmlConfig(schema, 5);
+            const xmlConfig = (
+                this.analyzer as unknown as { getXmlConfig: (a: unknown, b: number) => unknown }
+            ).getXmlConfig(schema, 5);
             lines.push(`let ${paramName}Serialized: any = ${paramName};`);
             lines.push(`if (${paramName} !== null && ${paramName} !== undefined) {`);
             lines.push(
@@ -594,9 +590,8 @@ export class ServiceMethodGenerator {
             lines.push(`}`);
         });
 
-        // 2. Path Construction (Using generic serializer)
         let urlTemplate = model.urlTemplate;
-        model.pathParams.forEach(p => {
+        model.pathParams.forEach((p: ParamSerialization) => {
             const pathArgs: string[] = [
                 `'${p.originalName}'`,
                 p.paramName,
@@ -614,21 +609,19 @@ export class ServiceMethodGenerator {
             urlTemplate = urlTemplate.replace(`{${p.originalName}}`, `\${${serializeCall}}`);
         });
 
-        // 3. Query String Logic (Legacy) - adapted to generic serializer
-        const qsParam = rawOp.parameters?.find(p => (p.in as any) === 'querystring');
+        const qsParam = rawOp.parameters?.find((p: Parameter) => (p.in as string) === 'querystring');
         let queryStringVariable = '';
         if (qsParam) {
             const pName = camelCase(qsParam.name);
-            const contentKeys = (qsParam as any).content ? Object.keys((qsParam as any).content) : [];
+            const contentKeys = qsParam.content ? Object.keys(qsParam.content) : [];
             const contentType = contentKeys.length > 0 ? contentKeys[0] : undefined;
             const isJson =
-                (qsParam as any).content?.['application/json'] ||
-                (contentType && contentType.includes('application/json'));
+                qsParam.content?.['application/json'] || (contentType && contentType.includes('application/json'));
             const qsConfig = model.queryParams.find(p => p.originalName === qsParam.name);
 
             const encodingConfig =
-                contentType && (qsParam as any).content?.[contentType]?.encoding
-                    ? (qsParam as any).content?.[contentType]?.encoding
+                contentType && qsParam.content?.[contentType]?.encoding
+                    ? qsParam.content[contentType]?.encoding
                     : undefined;
 
             const serializationArg = isJson ? "'json'" : 'undefined';
@@ -647,7 +640,6 @@ export class ServiceMethodGenerator {
             queryStringVariable = "${queryString ? '?' + queryString : ''}";
         }
 
-        // 4. Base Path
         if (model.operationServers && model.operationServers.length > 0) {
             lines.push(`const operationServers = ${JSON.stringify(model.operationServers, null, 2)};`);
             lines.push(
@@ -660,15 +652,13 @@ export class ServiceMethodGenerator {
         }
         lines.push(`const url = \`\${basePath}${urlTemplate}${queryStringVariable}\`;`);
 
-        // 5. Query Params (Using generic serializer and adapting to Angular HttpParams)
         const standardQueryParams = model.queryParams.filter(p => p.originalName !== qsParam?.name);
 
         if (standardQueryParams.length > 0) {
-            // Angular HttpParams requires 'encoder'
             lines.push(
                 `let params = new HttpParams({ encoder: new ApiParameterCodec(), fromObject: options?.params ?? {} });`,
             );
-            standardQueryParams.forEach(p => {
+            standardQueryParams.forEach((p: ParamSerialization) => {
                 const configObj = JSON.stringify({
                     name: p.originalName,
                     in: 'query',
@@ -676,8 +666,7 @@ export class ServiceMethodGenerator {
                     explode: p.explode,
                     allowReserved: p.allowReserved,
                     serialization: p.serializationLink,
-                    // Support for OAS 3.2 allowEmptyValue - passed via config object
-                    allowEmptyValue: (p as any).allowEmptyValue,
+                    allowEmptyValue: (p as Record<string, unknown>).allowEmptyValue,
                     ...(p.contentType ? { contentType: p.contentType } : {}),
                     ...(p.encoding ? { encoding: p.encoding } : {}),
                     ...(p.contentEncoderConfig ? { contentEncoderConfig: p.contentEncoderConfig } : {}),
@@ -686,16 +675,15 @@ export class ServiceMethodGenerator {
                     `const serialized_${p.paramName} = ParameterSerializer.serializeQueryParam(${configObj}, ${p.paramName});`,
                 );
                 lines.push(
-                    `serialized_${p.paramName}.forEach(entry => params = params.append(entry.key, entry.value));`,
+                    `serialized_${p.paramName}.forEach((entry: any) => params = params.append(entry.key, entry.value));`,
                 );
             });
         }
 
-        // 6. Headers
         lines.push(
             `let headers = options?.headers instanceof HttpHeaders ? options.headers : new HttpHeaders(options?.headers ?? {});`,
         );
-        model.headerParams.forEach(p => {
+        model.headerParams.forEach((p: ParamSerialization) => {
             const headerArgs: string[] = [p.paramName, `${p.explode}`];
             const hasEncoderConfig = !!p.contentEncoderConfig;
             if (p.serializationLink === 'json') {
@@ -721,7 +709,6 @@ export class ServiceMethodGenerator {
             );
         });
 
-        // 7. Cookies
         if (model.cookieParams.length > 0) {
             if (this.config.options.platform !== 'node') {
                 lines.push(`// WARNING: Setting 'Cookie' headers manually is forbidden in browsers.`);
@@ -730,7 +717,7 @@ export class ServiceMethodGenerator {
                 );
             }
             lines.push(`const __cookies: string[] = [];`);
-            model.cookieParams.forEach(p => {
+            model.cookieParams.forEach((p: ParamSerialization) => {
                 const hasEncoderConfig = !!p.contentEncoderConfig;
                 const hint = p.serializationLink === 'json' ? ", 'json'" : hasEncoderConfig ? ', undefined' : '';
                 const encoderArg = hasEncoderConfig ? `, ${JSON.stringify(p.contentEncoderConfig)}` : '';
@@ -741,12 +728,10 @@ export class ServiceMethodGenerator {
             lines.push(`if (__cookies.length > 0) { headers = headers.set('Cookie', __cookies.join('; ')); }`);
         }
 
-        // 8. Content Negotiation Setup
         if (hasContentNegotiation) {
             lines.push(`const acceptHeader = headers.get('Accept');`);
         }
 
-        // 9. Security & Options
         let contextConstruction = `this.createContextWithClientId(options?.context)`;
         if (model.security.length > 0) {
             contextConstruction += `.set(SECURITY_CONTEXT_TOKEN, ${JSON.stringify(model.security)})`;
@@ -759,13 +744,19 @@ export class ServiceMethodGenerator {
 
         if (hasContentNegotiation) {
             const xmlOrSeqCondition = variantsForNegotiation
+
                 .filter(v => v.serialization === 'xml' || v.serialization.startsWith('json-'))
+
                 .map(v => `acceptHeader?.includes('${v.mediaType}')`)
+
                 .join(' || ');
 
             const binaryCondition = variantsForNegotiation
+
                 .filter(v => v.serialization === 'blob' || v.serialization === 'arraybuffer')
+
                 .map(v => `acceptHeader?.includes('${v.mediaType}')`)
+
                 .join(' || ');
 
             if (binaryCondition || xmlOrSeqCondition) {
@@ -787,10 +778,10 @@ export class ServiceMethodGenerator {
         }
 
         let optionProperties = `
-  observe: options?.observe,
-  reportProgress: options?.reportProgress,
-  responseType: ${responseTypeVal},
-  withCredentials: options?.withCredentials,
+  observe: options?.observe, 
+  reportProgress: options?.reportProgress, 
+  responseType: ${responseTypeVal}, 
+  withCredentials: options?.withCredentials, 
   context: ${contextConstruction}`;
 
         if (standardQueryParams.length > 0) optionProperties += `,\n  params`;
@@ -798,23 +789,22 @@ export class ServiceMethodGenerator {
 
         lines.push(`let requestOptions: HttpRequestOptions = {${optionProperties}\n};`);
 
-        // 10. Body Handling
         let bodyArgument = 'null';
         const body = model.body;
-        const legacyFormData = rawOp.parameters?.filter(p => (p as any).in === 'formData');
+        const legacyFormData = rawOp.parameters?.filter(p => (p as Record<string, unknown>).in === 'formData');
         const isUrlEnc = rawOp.consumes?.includes('application/x-www-form-urlencoded');
 
         if (legacyFormData && legacyFormData.length > 0) {
             if (isUrlEnc) {
                 lines.push(`let formBody = new HttpParams();`);
-                legacyFormData.forEach(p => {
+                legacyFormData.forEach((p: Parameter) => {
                     const paramName = camelCase(p.name);
                     lines.push(`if (${paramName} != null) { formBody = formBody.append('${p.name}', ${paramName}); }`);
                 });
                 bodyArgument = 'formBody';
             } else {
                 lines.push(`const formData = new FormData();`);
-                legacyFormData.forEach(p => {
+                legacyFormData.forEach((p: Parameter) => {
                     const paramName = camelCase(p.name);
                     lines.push(`if (${paramName} != null) { formData.append('${p.name}', ${paramName}); }`);
                 });
@@ -831,7 +821,6 @@ export class ServiceMethodGenerator {
                     lines.push(`}`);
                 }
             } else if (body.type === 'urlencoded') {
-                // Use generic serializer then adapt to Angular HttpParams
                 let encodedBodyName = body.paramName;
                 if (model.requestEncodingConfig) {
                     encodedBodyName = 'encodedBody';
@@ -846,7 +835,9 @@ export class ServiceMethodGenerator {
                     `const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(${encodedBodyName}, ${JSON.stringify(body.config)});`,
                 );
                 lines.push(`let formBody = new HttpParams({ encoder: new ApiParameterCodec() });`);
-                lines.push(`urlParamEntries.forEach(entry => formBody = formBody.append(entry.key, entry.value));`);
+                lines.push(
+                    `urlParamEntries.forEach((entry: any) => formBody = formBody.append(entry.key, entry.value));`,
+                );
                 bodyArgument = 'formBody';
             } else if (body.type === 'json-lines' || body.type === 'json-seq') {
                 const bodyVar = body.type === 'json-seq' ? 'jsonSeqBody' : 'jsonLinesBody';
@@ -861,13 +852,15 @@ export class ServiceMethodGenerator {
 
                 if (body.type === 'json-seq') {
                     lines.push(`if (Array.isArray(${bodyVar})) {`);
-                    lines.push(`  ${bodyVar} = ${bodyVar}.map(item => '\\x1e' + JSON.stringify(item)).join('');`);
+                    lines.push(
+                        `  ${bodyVar} = ${bodyVar}.map((item: any) => '\\x1e' + JSON.stringify(item)).join('');`,
+                    );
                     lines.push(`} else if (${bodyVar} != null && typeof ${bodyVar} !== 'string') {`);
                     lines.push(`  ${bodyVar} = '\\x1e' + JSON.stringify(${bodyVar});`);
                     lines.push(`}`);
                 } else {
                     lines.push(`if (Array.isArray(${bodyVar})) {`);
-                    lines.push(`  ${bodyVar} = ${bodyVar}.map(item => JSON.stringify(item)).join('\\n');`);
+                    lines.push(`  ${bodyVar} = ${bodyVar}.map((item: any) => JSON.stringify(item)).join('\\n');`);
                     lines.push(`} else if (${bodyVar} != null && typeof ${bodyVar} !== 'string') {`);
                     lines.push(`  ${bodyVar} = JSON.stringify(${bodyVar});`);
                     lines.push(`}`);
@@ -911,177 +904,186 @@ export class ServiceMethodGenerator {
                 lines.push(`const sseDecodingConfig = ${JSON.stringify(model.responseDecodingConfig)};`);
             }
             lines.push(`
-            return new Observable<${model.responseType}>(observer => {
-                const abortController = typeof AbortController !== 'undefined' ? new AbortController() : undefined;
-                const fetchHeaders = (() => {
-                    if (typeof Headers !== 'undefined') {
-                        const h = new Headers();
-                        if (headers instanceof HttpHeaders) {
-                            headers.keys().forEach(key => {
-                                const values = headers.getAll(key);
-                                if (values && values.length > 0) {
-                                    values.forEach(v => h.append(key, v));
-                                } else {
-                                    const value = headers.get(key);
-                                    if (value !== null) h.set(key, value);
-                                }
-                            });
-                        } else if (headers) {
-                            Object.entries(headers as any).forEach(([key, value]) => {
-                                if (Array.isArray(value)) {
-                                    value.forEach(v => h.append(key, String(v)));
-                                } else if (value !== undefined && value !== null) {
-                                    h.set(key, String(value));
-                                }
-                            });
-                        }
-                        return h;
-                    }
-                    const raw: Record<string, string> = {};
-                    if (headers instanceof HttpHeaders) {
-                        headers.keys().forEach(key => {
-                            const values = headers.getAll(key);
-                            if (values && values.length > 0) {
-                                raw[key] = values.join(', ');
-                            } else {
-                                const value = headers.get(key);
-                                if (value !== null) raw[key] = value;
-                            }
-                        });
-                    } else if (headers) {
-                        Object.entries(headers as any).forEach(([key, value]) => {
-                            if (Array.isArray(value)) raw[key] = value.map(v => String(v)).join(', ');
-                            else if (value !== undefined && value !== null) raw[key] = String(value);
-                        });
-                    }
-                    return raw;
-                })();
+            return new Observable<${model.responseType}>(observer => { 
+                const abortController = typeof AbortController !== 'undefined' ? new AbortController() : undefined; 
+                const fetchHeaders = (() => { 
+                    if (typeof Headers !== 'undefined') { 
+                        const h = new Headers(); 
+                        if (headers instanceof HttpHeaders) { 
+                            headers.keys().forEach((key: string) => { 
+                                const values = headers.getAll(key); 
+                                if (values && values.length > 0) { 
+                                    values.forEach((v: string) => h.append(key, v)); 
+                                } else { 
+                                    const value = headers.get(key); 
+                                    if (value !== null) h.set(key, value); 
+                                } 
+                            }); 
+                        } else if (headers) { 
+                            Object.entries(headers as any).forEach(([key, value]) => { 
+                                if (Array.isArray(value)) { 
+                                    value.forEach((v: any) => h.append(key, String(v))); 
+                                } else if (value !== undefined && value !== null) { 
+                                    h.set(key, String(value)); 
+                                } 
+                            }); 
+                        } 
+                        return h; 
+                    } 
+                    const raw: Record<string, string> = {}; 
+                    if (headers instanceof HttpHeaders) { 
+                        headers.keys().forEach((key: string) => { 
+                            const values = headers.getAll(key); 
+                            if (values && values.length > 0) { 
+                                raw[key] = values.join(', '); 
+                            } else { 
+                                const value = headers.get(key); 
+                                if (value !== null) raw[key] = value; 
+                            } 
+                        }); 
+                    } else if (headers) { 
+                        Object.entries(headers as any).forEach(([key, value]) => { 
+                            if (Array.isArray(value)) raw[key] = value.map((v: any) => String(v)).join(', '); 
+                            else if (value !== undefined && value !== null) raw[key] = String(value); 
+                        }); 
+                    } 
+                    return raw; 
+                })(); 
                 
-                const fetchOptions: RequestInit = { method: '${model.httpMethod}', headers: fetchHeaders as any };
-                if (abortController) fetchOptions.signal = abortController.signal;
-                if (options?.withCredentials) fetchOptions.credentials = 'include';
-                ${bodyArgument !== 'null' ? `fetchOptions.body = ${bodyArgument} as any;` : ''}
 
-                fetch(url, fetchOptions).then(response => {
-                    if (!response.ok) { observer.error(response); return; }
-                    if (!response.body || !response.body.getReader) {
-                        observer.error(new Error('SSE response body is not readable in this environment.'));
-                        return;
-                    }
+                const fetchOptions: RequestInit = { method: '${model.httpMethod}', headers: fetchHeaders as any }; 
+                if (abortController) fetchOptions.signal = abortController.signal; 
 
-                    const reader = response.body.getReader();
-                    const decoder = new TextDecoder();
-                    let buffer = '';
-                    let isFirstLine = true;
-                    let dataLines: string[] = [];
-                    let eventName: string | undefined;
-                    let eventId: string | undefined;
-                    let lastEventId: string | undefined;
-                    let retry: number | undefined;
+                if (options?.withCredentials) fetchOptions.credentials = 'include'; 
 
-                    const resetEvent = () => {
-                        dataLines = [];
-                        eventName = undefined;
-                        eventId = undefined;
-                        retry = undefined;
-                    };
+                ${bodyArgument !== 'null' ? `fetchOptions.body = ${bodyArgument} as any;` : ''} 
 
-                    const dispatch = () => {
-                        if (dataLines.length === 0) {
-                            resetEvent();
-                            return;
-                        }
+                fetch(url, fetchOptions).then(response => { 
+                    if (!response.ok) { observer.error(response); return; } 
 
-                        const data = dataLines.join('\\n');
-                        let payload: any;
-                        if ('${sseMode}' === 'event') {
-                            payload = { data };
-                            const resolvedEvent = eventName ?? 'message';
-                            if (resolvedEvent !== undefined) payload.event = resolvedEvent;
-                            const resolvedId = eventId !== undefined ? eventId : lastEventId;
-                            if (resolvedId !== undefined) payload.id = resolvedId;
-                            if (retry !== undefined) payload.retry = retry;
-                        } else {
-                            payload = data;
-                        }
-                        ${hasSseDecoding ? 'payload = ContentDecoder.decode(payload, sseDecodingConfig);' : ''}
-                        observer.next(payload as any);
-                        resetEvent();
-                    };
+                    if (!response.body || !response.body.getReader) { 
+                        observer.error(new Error('SSE response body is not readable in this environment.')); 
+                        return; 
+                    } 
 
-                    const processLine = (line: string) => {
-                        let currentLine = line;
-                        if (isFirstLine) {
-                            isFirstLine = false;
-                            if (currentLine.charCodeAt(0) === 0xfeff) {
-                                currentLine = currentLine.slice(1);
-                            }
-                        }
+                    const reader = response.body.getReader(); 
+                    const decoder = new TextDecoder(); 
+                    let buffer = ''; 
+                    let isFirstLine = true; 
+                    let dataLines: string[] = []; 
+                    let eventName: string | undefined; 
+                    let eventId: string | undefined; 
+                    let lastEventId: string | undefined; 
+                    let retry: number | undefined; 
 
-                        if (currentLine === '') { dispatch(); return; }
-                        if (currentLine.startsWith(':')) return; // Comment
+                    const resetEvent = () => { 
+                        dataLines = []; 
+                        eventName = undefined; 
+                        eventId = undefined; 
+                        retry = undefined; 
+                    }; 
 
-                        const idx = currentLine.indexOf(':');
-                        const field = idx === -1 ? currentLine : currentLine.slice(0, idx);
-                        let value = idx === -1 ? '' : currentLine.slice(idx + 1);
-                        if (value.startsWith(' ')) value = value.slice(1);
+                    const dispatch = () => { 
+                        if (dataLines.length === 0) { 
+                            resetEvent(); 
+                            return; 
+                        } 
 
-                        switch (field) {
-                            case 'data':
-                                dataLines.push(value);
-                                break;
-                            case 'event':
-                                eventName = value;
-                                break;
-                            case 'id':
-                                if (!value.includes('\\u0000')) {
-                                    eventId = value;
-                                    lastEventId = value;
-                                }
-                                break;
-                            case 'retry': {
-                                const parsed = parseInt(value, 10);
-                                if (!Number.isNaN(parsed) && parsed >= 0) retry = parsed;
-                                break;
-                            }
-                            default:
-                                break;
-                        }
-                    };
+                        const data = dataLines.join('\\n'); 
+                        let payload: any; 
+                        if ('${sseMode}' === 'event') { 
+                            payload = { data }; 
+                            const resolvedEvent = eventName ?? 'message'; 
+                            if (resolvedEvent !== undefined) payload.event = resolvedEvent; 
+                            const resolvedId = eventId !== undefined ? eventId : lastEventId; 
+                            if (resolvedId !== undefined) payload.id = resolvedId; 
+                            if (retry !== undefined) payload.retry = retry; 
+                        } else { 
+                            payload = data; 
+                        } 
+                        ${hasSseDecoding ? 'payload = ContentDecoder.decode(payload, sseDecodingConfig);' : ''} 
 
-                    const read = (): void => {
-                        reader.read().then(({ value, done }) => {
-                            if (done) {
-                                const tail = decoder.decode();
-                                if (tail) buffer += tail;
-                                if (buffer.length > 0) {
-                                    const leftover = buffer.split(/\\r?\\n/);
-                                    buffer = '';
-                                    leftover.forEach(processLine);
-                                }
-                                dispatch();
-                                observer.complete();
-                                return;
-                            }
-                            buffer += decoder.decode(value, { stream: true });
-                            const lines = buffer.split(/\\r?\\n/);
-                            buffer = lines.pop() ?? '';
-                            lines.forEach(processLine);
-                            read();
-                        }).catch(error => observer.error(error));
-                    };
+                        observer.next(payload as any); 
+                        resetEvent(); 
+                    }; 
 
-                    read();
-                }).catch(error => observer.error(error));
+                    const processLine = (line: string) => { 
+                        let currentLine = line; 
+                        if (isFirstLine) { 
+                            isFirstLine = false; 
+                            if (currentLine.charCodeAt(0) === 0xfeff) { 
+                                currentLine = currentLine.slice(1); 
+                            } 
+                        } 
 
-                return () => {
-                    if (abortController) abortController.abort();
-                };
+                        if (currentLine === '') { dispatch(); return; } 
+
+                        if (currentLine.startsWith(':')) return; 
+
+                        const idx = currentLine.indexOf(':'); 
+
+                        const field = idx === -1 ? currentLine : currentLine.slice(0, idx); 
+                        let value = idx === -1 ? '' : currentLine.slice(idx + 1); 
+
+                        if (value.startsWith(' ')) value = value.slice(1); 
+
+                        switch (field) { 
+                            case 'data': 
+                                dataLines.push(value); 
+                                break; 
+                            case 'event': 
+                                eventName = value; 
+                                break; 
+                            case 'id': 
+                                if (!value.includes('\\u0000')) { 
+                                    eventId = value; 
+                                    lastEventId = value; 
+                                } 
+                                break; 
+                            case 'retry': { 
+                                const parsed = parseInt(value, 10); 
+                                if (!Number.isNaN(parsed) && parsed >= 0) retry = parsed; 
+                                break; 
+                            } 
+                            default: 
+                                break; 
+                        } 
+                    }; 
+
+                    const read = (): void => { 
+                        reader.read().then(({ value, done }) => { 
+                            if (done) { 
+                                const tail = decoder.decode(); 
+                                if (tail) buffer += tail; 
+                                if (buffer.length > 0) { 
+                                    const leftover = buffer.split(/\\r?\\n/); 
+                                    buffer = ''; 
+                                    leftover.forEach(processLine); 
+                                } 
+                                dispatch(); 
+
+                                observer.complete(); 
+                                return; 
+                            } 
+                            buffer += decoder.decode(value, { stream: true }); 
+                            const lines = buffer.split(/\\r?\\n/); 
+                            buffer = lines.pop() ?? ''; 
+                            lines.forEach(processLine); 
+                            read(); 
+                        }).catch(error => observer.error(error)); 
+                    }; 
+
+                    read(); 
+                }).catch(error => observer.error(error)); 
+
+                return () => { 
+                    if (abortController) abortController.abort(); 
+                }; 
             });`);
+
             return lines.join('\n');
         }
 
-        // 11. HTTP Call
         const httpMethod = model.httpMethod.toLowerCase();
         const isStandardBody = ['post', 'put', 'patch', 'query'].includes(httpMethod);
         const isStandardNonBody = ['get', 'delete', 'head', 'options', 'jsonp'].includes(httpMethod);
@@ -1089,6 +1091,7 @@ export class ServiceMethodGenerator {
         const returnGeneric = `any`;
 
         let httpCall: string;
+
         if (isStandardBody) {
             if (httpMethod === 'query') {
                 httpCall = `this.http.request('QUERY', url, { ...requestOptions, body: ${bodyArgument} } as any)`;
@@ -1103,13 +1106,13 @@ export class ServiceMethodGenerator {
             httpCall = `this.http.request<${returnGeneric}>('${model.httpMethod}', url, requestOptions as any)`;
         }
 
-        // 12. Response Transformation Logic
         if (hasContentNegotiation) {
             lines.push(`return ${httpCall}.pipe(`);
             lines.push(`  map(response => {`);
 
             variantsForNegotiation.forEach(v => {
                 const check = `acceptHeader?.includes('${v.mediaType}')`;
+
                 lines.push(`    // Handle ${v.mediaType}`);
                 if (v.isDefault) lines.push(`    // Default fallback`);
 
@@ -1153,22 +1156,24 @@ export class ServiceMethodGenerator {
             if (isSeq) {
                 const delimiter = model.responseSerialization === 'json-seq' ? '\\x1e' : '\\n';
                 lines.push(`return ${httpCall}.pipe(`);
-                lines.push(`  map(response => {`);
-                lines.push(`    if (typeof response !== 'string') return response as any;`);
-                lines.push(`    const items = response.split('${delimiter}').filter(part => part.trim().length > 0);`);
-                lines.push(`    return items.map(item => JSON.parse(item));`);
+                lines.push(`  map((response: any) => {`);
+                lines.push(`    if (typeof response !== 'string') return response;`);
+                lines.push(
+                    `    const items = response.split('${delimiter}').filter((part: string) => part.trim().length > 0);`,
+                );
+                lines.push(`    return items.map((item: string) => JSON.parse(item));`);
                 lines.push(`  })`);
                 lines.push(`);`);
             } else if (isXmlResp) {
                 lines.push(`return ${httpCall}.pipe(`);
-                lines.push(`  map(response => {`);
-                lines.push(`    if (typeof response !== 'string') return response as any;`);
+                lines.push(`  map((response: any) => {`);
+                lines.push(`    if (typeof response !== 'string') return response;`);
                 lines.push(`    return XmlParser.parse(response, ${JSON.stringify(model.responseXmlConfig)});`);
                 lines.push(`  })`);
                 lines.push(`);`);
             } else if (model.responseDecodingConfig) {
                 lines.push(`return ${httpCall}.pipe(`);
-                lines.push(`  map(response => {`);
+                lines.push(`  map((response: any) => {`);
                 lines.push(
                     `    return ContentDecoder.decode(response, ${JSON.stringify(model.responseDecodingConfig)});`,
                 );
@@ -1189,11 +1194,13 @@ export class ServiceMethodGenerator {
         isDeprecated: boolean,
         isSSE: boolean,
         variants: ResponseVariant[],
-        negotiationVariants?: ResponseVariant[],
         serverOptionType: string,
+        negotiationVariants?: ResponseVariant[],
     ): OptionalKind<MethodDeclarationOverloadStructure>[] {
         const paramsDocs = parameters
+
             .map(p => `@param ${p.name} ${p.hasQuestionToken ? '(optional) ' : ''}`)
+
             .join('\n');
         const uniqueTypes = [...new Set(variants.map(v => v.type))];
         const unionType = uniqueTypes.join(' | ');

@@ -32,12 +32,12 @@ afterEach(() => {
 });
 
 const serviceSource = `
-export class UsersService {
-  /**
-   * Get a user by id.
-   *
-   * Returns a user payload.
-   *
+export class UsersService { 
+  /** 
+   * Get a user by id. 
+   * 
+   * Returns a user payload. 
+   * 
    * @see https://example.com/users User docs
    * @tags users, admin
    * @operationId getUserById
@@ -45,237 +45,237 @@ export class UsersService {
    * @response 404 Not found
    * @responseSummary 200 User response
    * @paramExample id 123
-   * @requestExample application/json {"name":"Ada"}
-   * @responseExample 200 application/json {"id":123,"name":"Ada"}
+   * @requestExample application/json {"name":"Ada"} 
+   * @responseExample 200 application/json {"id":123,"name":"Ada"} 
    * @deprecated
-   */
-  public getUser(id: string, search?: string, filter?: string, q?: string, headerVal?: string, cookieVal?: string, body?: any, options?: any) {
-    const queryString = ParameterSerializer.serializeRawQuerystring(q, undefined, 'application/x-www-form-urlencoded', {"tags":{"style":"pipeDelimited","explode":false}});
-    const url = \`\${basePath}/users/\${ParameterSerializer.serializePathParam('id', id, 'simple', false, false)}\${queryString ? '?' + queryString : ''}\`;
-    let params = new HttpParams({ encoder: new ApiParameterCodec(), fromObject: options?.params ?? {} });
-    const serialized_search = ParameterSerializer.serializeQueryParam({"name":"search","in":"query","style":"form","explode":true,"allowReserved":false,"allowEmptyValue":true,"contentEncoderConfig":{"contentMediaType":"application/json","encode":true}}, search);
-    const serialized_filter = ParameterSerializer.serializeQueryParam({"name":"filter","in":"query","style":"simple","explode":false,"allowReserved":true,"contentEncoderConfig":{"contentEncoding":"base64"}}, filter);
-    serialized_search.forEach(entry => params = params.append(entry.key, entry.value));
-    serialized_filter.forEach(entry => params = params.append(entry.key, entry.value));
-    let headers = options?.headers instanceof HttpHeaders ? options.headers : new HttpHeaders(options?.headers ?? {});
-    if (headerVal != null) { headers = headers.set('X-Test', ParameterSerializer.serializeHeaderParam(headerVal, false)); }
-    const __cookies: string[] = [];
-    if (cookieVal != null) { __cookies.push(ParameterSerializer.serializeCookieParam('session', cookieVal, 'form', true, false)); }
-    if (__cookies.length > 0) { headers = headers.set('Cookie', __cookies.join('; ')); }
-    if (body != null && !headers.has('Content-Type')) { headers = headers.set('Content-Type', 'application/json'); }
-    let requestOptions: any = { headers, params, context: this.createContextWithClientId(options?.context).set(SECURITY_CONTEXT_TOKEN, [{"api_key":[]},{"petstore_auth":["read:pets"]}]).set(EXTENSIONS_CONTEXT_TOKEN, {"x-rate-limit":120,"x-feature-flag":"alpha"}) };
-    return this.http.post<any>(url, body, requestOptions as any);
-  }
+   */ 
+  public getUser(id: string, search?: string, filter?: string, q?: string, headerVal?: string, cookieVal?: string, body?: any, options?: any) { 
+    const queryString = ParameterSerializer.serializeRawQuerystring(q, undefined, 'application/x-www-form-urlencoded', {"tags":{"style":"pipeDelimited","explode":false}}); 
+    const url = \`\${basePath}/users/\${ParameterSerializer.serializePathParam('id', id, 'simple', false, false)}\${queryString ? '?' + queryString : ''}\`; 
+    let params = new HttpParams({ encoder: new ApiParameterCodec(), fromObject: options?.params ?? {} }); 
+    const serialized_search = ParameterSerializer.serializeQueryParam({"name":"search","in":"query","style":"form","explode":true,"allowReserved":false,"allowEmptyValue":true,"contentEncoderConfig":{"contentMediaType":"application/json","encode":true}}, search); 
+    const serialized_filter = ParameterSerializer.serializeQueryParam({"name":"filter","in":"query","style":"simple","explode":false,"allowReserved":true,"contentEncoderConfig":{"contentEncoding":"base64"}}, filter); 
+    serialized_search.forEach(entry => params = params.append(entry.key, entry.value)); 
+    serialized_filter.forEach(entry => params = params.append(entry.key, entry.value)); 
+    let headers = options?.headers instanceof HttpHeaders ? options.headers : new HttpHeaders(options?.headers ?? {}); 
+    if (headerVal != null) { headers = headers.set('X-Test', ParameterSerializer.serializeHeaderParam(headerVal, false)); } 
+    const __cookies: string[] = []; 
+    if (cookieVal != null) { __cookies.push(ParameterSerializer.serializeCookieParam('session', cookieVal, 'form', true, false)); } 
+    if (__cookies.length > 0) { headers = headers.set('Cookie', __cookies.join('; ')); } 
+    if (body != null && !headers.has('Content-Type')) { headers = headers.set('Content-Type', 'application/json'); } 
+    let requestOptions: any = { headers, params, context: this.createContextWithClientId(options?.context).set(SECURITY_CONTEXT_TOKEN, [{"api_key":[]},{"petstore_auth":["read:pets"]}]).set(EXTENSIONS_CONTEXT_TOKEN, {"x-rate-limit":120,"x-feature-flag":"alpha"}) }; 
+    return this.http.post<any>(url, body, requestOptions as any); 
+  } 
 
-  public submitEncoded(payload: any, options?: any) {
-    const url = \`\${basePath}/encode\`;
-    const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(payload, {"style":"form"});
-    let formBody = new HttpParams({ encoder: new ApiParameterCodec() });
-    urlParamEntries.forEach(entry => formBody = formBody.append(entry.key, entry.value));
-    return this.http.post<any>(url, formBody, requestOptions as any);
-  }
+  public submitEncoded(payload: any, options?: any) { 
+    const url = \`\${basePath}/encode\`; 
+    const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(payload, {"style":"form"}); 
+    let formBody = new HttpParams({ encoder: new ApiParameterCodec() }); 
+    urlParamEntries.forEach(entry => formBody = formBody.append(entry.key, entry.value)); 
+    return this.http.post<any>(url, formBody, requestOptions as any); 
+  } 
 
-  public submitEncodedWithMap(payload: any, options?: any) {
-    const url = \`\${basePath}/encode-map\`;
-    const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(payload, {"foo":{"style":"form","explode":true},"bar":{"allowReserved":true}});
-    let formBody = new HttpParams({ encoder: new ApiParameterCodec() });
-    urlParamEntries.forEach(entry => formBody = formBody.append(entry.key, entry.value));
-    return this.http.post<any>(url, formBody, requestOptions as any);
-  }
+  public submitEncodedWithMap(payload: any, options?: any) { 
+    const url = \`\${basePath}/encode-map\`; 
+    const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(payload, {"foo":{"style":"form","explode":true},"bar":{"allowReserved":true}}); 
+    let formBody = new HttpParams({ encoder: new ApiParameterCodec() }); 
+    urlParamEntries.forEach(entry => formBody = formBody.append(entry.key, entry.value)); 
+    return this.http.post<any>(url, formBody, requestOptions as any); 
+  } 
 
-  public uploadAvatar(file: Blob, options?: any) {
-    const url = \`\${basePath}/upload\`;
-    const formData = new FormData();
-    if (file != null) { formData.append('file', file); }
-    return this.http.post<any>(url, formData, requestOptions as any);
-  }
+  public uploadAvatar(file: Blob, options?: any) { 
+    const url = \`\${basePath}/upload\`; 
+    const formData = new FormData(); 
+    if (file != null) { formData.append('file', file); } 
+    return this.http.post<any>(url, formData, requestOptions as any); 
+  } 
 
-  public uploadAdvanced(payload: any, options?: any) {
-    const url = \`\${basePath}/upload-advanced\`;
-    const multipartConfig = {"mediaType":"multipart/form-data","encoding":{"meta":{"contentType":"application/json"},"file":{"contentType":"image/png"}}};
-    const multipartResult = MultipartBuilder.serialize(payload, multipartConfig);
-    return this.http.post<any>(url, multipartResult.content, requestOptions as any);
-  }
+  public uploadAdvanced(payload: any, options?: any) { 
+    const url = \`\${basePath}/upload-advanced\`; 
+    const multipartConfig = {"mediaType":"multipart/form-data","encoding":{"meta":{"contentType":"application/json"},"file":{"contentType":"image/png"}}}; 
+    const multipartResult = MultipartBuilder.serialize(payload, multipartConfig); 
+    return this.http.post<any>(url, multipartResult.content, requestOptions as any); 
+  } 
 
-  public uploadMixed(payload: any, options?: any) {
-    const url = \`\${basePath}/mixed\`;
-    const multipartConfig = {"mediaType":"multipart/mixed","itemEncoding":{"contentType":"image/png"}};
-    const multipartResult = MultipartBuilder.serialize(payload, multipartConfig);
-    return this.http.post<any>(url, multipartResult.content, requestOptions as any);
-  }
+  public uploadMixed(payload: any, options?: any) { 
+    const url = \`\${basePath}/mixed\`; 
+    const multipartConfig = {"mediaType":"multipart/mixed","itemEncoding":{"contentType":"image/png"}}; 
+    const multipartResult = MultipartBuilder.serialize(payload, multipartConfig); 
+    return this.http.post<any>(url, multipartResult.content, requestOptions as any); 
+  } 
 
-  public sendXml(payload: any, options?: any) {
-    const url = \`\${basePath}/xml\`;
-    const xmlBody = XmlBuilder.serialize(payload, 'root', {});
-    return this.http.post<any>(url, xmlBody, requestOptions as any);
-  }
+  public sendXml(payload: any, options?: any) { 
+    const url = \`\${basePath}/xml\`; 
+    const xmlBody = XmlBuilder.serialize(payload, 'root', {}); 
+    return this.http.post<any>(url, xmlBody, requestOptions as any); 
+  } 
 
-  public contentTypeOnly(body: any, options?: any) {
-    const url = \`\${basePath}/text\`;
-    let headers = new HttpHeaders();
-    if (body != null && !headers.has('Content-Type')) { headers = headers.set('Content-Type', 'text/plain'); }
-    return this.http.post<any>(url, body, requestOptions as any);
-  }
+  public contentTypeOnly(body: any, options?: any) { 
+    const url = \`\${basePath}/text\`; 
+    let headers = new HttpHeaders(); 
+    if (body != null && !headers.has('Content-Type')) { headers = headers.set('Content-Type', 'text/plain'); } 
+    return this.http.post<any>(url, body, requestOptions as any); 
+  } 
 
-  public xmlResponse(options?: any) {
-    const url = \`\${basePath}/xml-response\`;
-    return this.http.get<any>(url, requestOptions as any).pipe(map(response => { return XmlParser.parse(response, {}); }));
-  }
+  public xmlResponse(options?: any) { 
+    const url = \`\${basePath}/xml-response\`; 
+    return this.http.get<any>(url, requestOptions as any).pipe(map(response => { return XmlParser.parse(response, {}); })); 
+  } 
 
-  public jsonSeqResponse(options?: any) {
-    const url = \`\${basePath}/seq\`;
-    return this.http.get<any>(url, requestOptions as any).pipe(map(response => { return response.split('\\\\x1e'); }));
-  }
+  public jsonSeqResponse(options?: any) { 
+    const url = \`\${basePath}/seq\`; 
+    return this.http.get<any>(url, requestOptions as any).pipe(map(response => { return response.split('\\\\x1e'); })); 
+  } 
 
-  public jsonLinesResponse(options?: any) {
-    const url = \`\${basePath}/lines\`;
-    return this.http.get<any>(url, requestOptions as any).pipe(map(response => { return response.split('\\\\n'); }));
-  }
+  public jsonLinesResponse(options?: any) { 
+    const url = \`\${basePath}/lines\`; 
+    return this.http.get<any>(url, requestOptions as any).pipe(map(response => { return response.split('\\\\n'); })); 
+  } 
 
-  public acceptVariants(options?: any) {
-    const url = \`\${basePath}/accept\`;
-    let headers = new HttpHeaders();
-    const acceptHeader = headers.get('Accept');
-    if (acceptHeader?.includes('application/xml')) { return this.http.get<any>(url, requestOptions as any); }
-    if (acceptHeader?.includes('application/json-seq')) { return this.http.get<any>(url, requestOptions as any); }
-    return this.http.get<any>(url, requestOptions as any);
-  }
+  public acceptVariants(options?: any) { 
+    const url = \`\${basePath}/accept\`; 
+    let headers = new HttpHeaders(); 
+    const acceptHeader = headers.get('Accept'); 
+    if (acceptHeader?.includes('application/xml')) { return this.http.get<any>(url, requestOptions as any); } 
+    if (acceptHeader?.includes('application/json-seq')) { return this.http.get<any>(url, requestOptions as any); } 
+    return this.http.get<any>(url, requestOptions as any); 
+  } 
 
-  public sseResponse(options?: any) {
-    const url = \`\${basePath}/events\`;
-    return new Observable<any>(observer => {
-      fetch(url).then(response => {
-        if (!response.body || !response.body.getReader) {
-          observer.error(new Error('SSE response body is not readable in this environment.'));
-          return;
-        }
-      });
-      return () => {};
-    });
-  }
+  public sseResponse(options?: any) { 
+    const url = \`\${basePath}/events\`; 
+    return new Observable<any>(observer => { 
+      fetch(url).then(response => { 
+        if (!response.body || !response.body.getReader) { 
+          observer.error(new Error('SSE response body is not readable in this environment.')); 
+          return; 
+        } 
+      }); 
+      return () => {}; 
+    }); 
+  } 
 
-  public requestWithBodyOption(payload: any, options?: any) {
-    const url = \`\${basePath}/request-body\`;
-    return this.http.request('PATCH', url, { ...requestOptions, body: payload } as any);
-  }
+  public requestWithBodyOption(payload: any, options?: any) { 
+    const url = \`\${basePath}/request-body\`; 
+    return this.http.request('PATCH', url, { ...requestOptions, body: payload } as any); 
+  } 
 
-  public requestWithBodyAssertion(payload: any, options?: any) {
-    const url = \`\${basePath}/request-body-assertion\`;
-    return this.http.request('PATCH', url, <any>{ body: payload });
-  }
+  public requestWithBodyAssertion(payload: any, options?: any) { 
+    const url = \`\${basePath}/request-body-assertion\`; 
+    return this.http.request('PATCH', url, <any>{ body: payload }); 
+  } 
 
-  public requestWithoutBody(options?: any) {
-    const url = \`\${basePath}/request-without-body\`;
-    return this.http.request('POST', url, requestOptions as any);
-  }
+  public requestWithoutBody(options?: any) { 
+    const url = \`\${basePath}/request-without-body\`; 
+    return this.http.request('POST', url, requestOptions as any); 
+  } 
 
-  public listWithServer(options?: any) {
-    const operationServers = [{"url":"https://api.example.com/v1","description":"primary"}];
-    const basePath = resolveServerUrl(operationServers, options?.server ?? 0, options?.serverVariables ?? {});
-    const url = \`\${basePath}/server-test\`;
-    return this.http.get<any>(url, requestOptions as any);
-  }
+  public listWithServer(options?: any) { 
+    const operationServers = [{"url":"https://api.example.com/v1","description":"primary"}]; 
+    const basePath = resolveServerUrl(operationServers, options?.server ?? 0, options?.serverVariables ?? {}); 
+    const url = \`\${basePath}/server-test\`; 
+    return this.http.get<any>(url, requestOptions as any); 
+  } 
 
-  public invalidRequest(method: string, options?: any) {
-    const url = \`\${basePath}/invalid\`;
-    return this.http.request(method, url, requestOptions as any);
-  }
+  public invalidRequest(method: string, options?: any) { 
+    const url = \`\${basePath}/invalid\`; 
+    return this.http.request(method, url, requestOptions as any); 
+  } 
 
-  private helper() {
-    return null;
-  }
-}
+  private helper() { 
+    return null; 
+  } 
+} 
 
-export class OtherService {
-  public getNoLeadingSlash(options?: any) {
-    const url = \`\${basePath}status\`;
-    return this.http.get<any>(url, requestOptions as any);
-  }
+export class OtherService { 
+  public getNoLeadingSlash(options?: any) { 
+    const url = \`\${basePath}status\`; 
+    return this.http.get<any>(url, requestOptions as any); 
+  } 
 
-  public getRoot(options?: any) {
-    const url = \`\${basePath}\`;
-    return this.http.get<any>(url, requestOptions as any);
-  }
-}
+  public getRoot(options?: any) { 
+    const url = \`\${basePath}\`; 
+    return this.http.get<any>(url, requestOptions as any); 
+  } 
+} 
 `;
 
 const typedServiceSource = `
-import { Observable } from 'rxjs';
+import { Observable } from 'rxjs'; 
 
-export class TypedService {
-  public createUser(payload: CreateUserRequest): Observable<User> {
-    const url = \`\${basePath}/users\`;
-    return this.http.post<User>(url, payload, requestOptions as any);
-  }
+export class TypedService { 
+  public createUser(payload: CreateUserRequest): Observable<User> { 
+    const url = \`\${basePath}/users\`; 
+    return this.http.post<User>(url, payload, requestOptions as any); 
+  } 
 
-  public streamUsers(): Observable<User[]> {
-    const url = \`\${basePath}/users/stream\`;
-    return this.http.get<any>(url, requestOptions as any).pipe(map(response => response.split('\\\\n')));
-  }
-}
+  public streamUsers(): Observable<User[]> { 
+    const url = \`\${basePath}/users/stream\`; 
+    return this.http.get<any>(url, requestOptions as any).pipe(map(response => response.split('\\\\n'))); 
+  } 
+} 
 `;
 
 const paramDocServiceSource = `
-export class ParamDocService {
-  /**
-   * Update a user.
-   * @param userId The user id.
-   * @param verbose Include extra details.
-   * @param body Updated payload.
-   */
-  public updateUser(userId: string, verbose?: boolean, body?: any, options?: any) {
-    const url = \`\${basePath}/users/\${ParameterSerializer.serializePathParam('userId', userId, 'simple', false, false)}\`;
-    let params = new HttpParams({ encoder: new ApiParameterCodec(), fromObject: options?.params ?? {} });
-    const serialized_verbose = ParameterSerializer.serializeQueryParam({"name":"verbose","in":"query","style":"form","explode":true,"allowReserved":false}, verbose);
-    serialized_verbose.forEach(entry => params = params.append(entry.key, entry.value));
-    let headers = new HttpHeaders();
-    let requestOptions: any = { headers, params };
-    return this.http.put<any>(url, body, requestOptions as any);
-  }
-}
+export class ParamDocService { 
+  /** 
+   * Update a user. 
+   * @param userId The user id. 
+   * @param verbose Include extra details. 
+   * @param body Updated payload. 
+   */ 
+  public updateUser(userId: string, verbose?: boolean, body?: any, options?: any) { 
+    const url = \`\${basePath}/users/\${ParameterSerializer.serializePathParam('userId', userId, 'simple', false, false)}\`; 
+    let params = new HttpParams({ encoder: new ApiParameterCodec(), fromObject: options?.params ?? {} }); 
+    const serialized_verbose = ParameterSerializer.serializeQueryParam({"name":"verbose","in":"query","style":"form","explode":true,"allowReserved":false}, verbose); 
+    serialized_verbose.forEach(entry => params = params.append(entry.key, entry.value)); 
+    let headers = new HttpHeaders(); 
+    let requestOptions: any = { headers, params }; 
+    return this.http.put<any>(url, body, requestOptions as any); 
+  } 
+} 
 `;
 
 const docTagServiceSource = `
-export class DocTagService {
-  /**
-   * List items.
-   * @server {"url":"https://example.com","description":"Primary","name":"prod"}
-   * @security [{"ApiKey":[]}]
-   * @x-feature-flag "beta"
-   */
-  public list(options?: any) {
-    const url = \`\${basePath}/items\`;
-    return this.http.get<any>(url, requestOptions as any);
-  }
-}
+export class DocTagService { 
+  /** 
+   * List items. 
+   * @server {"url":"https://example.com","description":"Primary","name":"prod"} 
+   * @security [{"ApiKey":[]}] 
+   * @x-feature-flag "beta" 
+   */ 
+  public list(options?: any) { 
+    const url = \`\${basePath}/items\`; 
+    return this.http.get<any>(url, requestOptions as any); 
+  } 
+} 
 `;
 
 const exampleCarrierServiceSource = `
-export class ExampleCarrierService {
-  /**
-   * Returns plain text.
+export class ExampleCarrierService { 
+  /** 
+   * Returns plain text. 
    * @response 200 text/plain OK
-   * @responseExample 200 text/plain {"__oasExample":{"serializedValue":"OK"}}
-   */
-  public getPlain(options?: any) {
-    const url = \`\${basePath}/plain\`;
-    let headers = new HttpHeaders();
-    const acceptHeader = headers.get('Accept');
-    if (acceptHeader?.includes('text/plain')) { return this.http.get<any>(url, requestOptions as any); }
-    return this.http.get<any>(url, requestOptions as any);
-  }
+   * @responseExample 200 text/plain {"__oasExample":{"serializedValue":"OK"}} 
+   */ 
+  public getPlain(options?: any) { 
+    const url = \`\${basePath}/plain\`; 
+    let headers = new HttpHeaders(); 
+    const acceptHeader = headers.get('Accept'); 
+    if (acceptHeader?.includes('text/plain')) { return this.http.get<any>(url, requestOptions as any); } 
+    return this.http.get<any>(url, requestOptions as any); 
+  } 
 
-  /**
-   * Sends plain text.
-   * @requestExample text/plain {"__oasExample":{"externalValue":"./examples/request.txt"}}
-   */
-  public postPlain(body?: any, options?: any) {
-    const url = \`\${basePath}/plain\`;
-    let headers = new HttpHeaders();
-    if (body != null && !headers.has('Content-Type')) { headers = headers.set('Content-Type', 'text/plain'); }
-    return this.http.post<any>(url, body, requestOptions as any);
-  }
-}
+  /** 
+   * Sends plain text. 
+   * @requestExample text/plain {"__oasExample":{"externalValue":"./examples/request.txt"}} 
+   */ 
+  public postPlain(body?: any, options?: any) { 
+    const url = \`\${basePath}/plain\`; 
+    let headers = new HttpHeaders(); 
+    if (body != null && !headers.has('Content-Type')) { headers = headers.set('Content-Type', 'text/plain'); } 
+    return this.http.post<any>(url, body, requestOptions as any); 
+  } 
+} 
 `;
 
 describe('Core Utils: OpenAPI Reverse', () => {
@@ -548,12 +548,12 @@ describe('Core Utils: OpenAPI Reverse', () => {
         fs.writeFileSync(path.join(dir, 'users.service.d.ts'), 'ignored');
 
         const nestedSource = `
-        export class NestedService {
-          public ping(options?: any) {
-            const url = \`\${basePath}/ping\`;
-            return this.http.get<any>(url, requestOptions as any);
-          }
-        }
+        export class NestedService { 
+          public ping(options?: any) { 
+            const url = \`\${basePath}/ping\`; 
+            return this.http.get<any>(url, requestOptions as any); 
+          } 
+        } 
         `;
         fs.writeFileSync(path.join(nestedDir, 'nested.service.ts'), nestedSource);
 
@@ -715,9 +715,9 @@ describe('Core Utils: OpenAPI Reverse', () => {
 
         fs.writeFileSync(
             path.join(dir, 'response-headers.ts'),
-            `export const API_RESPONSE_HEADERS = {\"ping\":{\"200\":{\"X-Rate-Limit\":\"number\",\"X-Xml\":\"xml\",\"X-Linkset-Json\":\"linkset+json\",\"Link\":\"linkset\"}}};\n` +
-                `export const API_RESPONSE_HEADER_OBJECTS = {\"ping\":{\"200\":{\"X-Rate-Limit\":{\"description\":\"Rate limit\",\"schema\":{\"type\":\"integer\"}}}}};\n` +
-                `export const API_HEADER_XML_CONFIGS = {\"ping_200_X-Xml\":{\"name\":\"Root\"}};`,
+            `export const API_RESPONSE_HEADERS = {"ping":{"200":{"X-Rate-Limit":"number","X-Xml":"xml","X-Linkset-Json":"linkset+json","Link":"linkset"}}};\n` +
+                `export const API_RESPONSE_HEADER_OBJECTS = {"ping":{"200":{"X-Rate-Limit":{"description":"Rate limit","schema":{"type":"integer"}},"X-Xml":{"content":{"application/xml":{"schema":{"xml":{"name":"Root"}}}}},"X-Linkset-Json":{"content":{"application/linkset+json":{}}}}}};\n` +
+                `export const API_HEADER_XML_CONFIGS = {"ping_200_X-Xml":{"name":"Root"}};\n`,
         );
 
         fs.writeFileSync(

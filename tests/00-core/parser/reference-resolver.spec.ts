@@ -74,7 +74,6 @@ describe('Core: ReferenceResolver', () => {
         it('should warn if property access fails during traversal', () => {
             const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
             cache.set(rootUri, { a: { b: 1 } } as any);
-            // 'c' doesn't exist on { b: 1 }
             const res = resolver.resolveReference('#/a/c');
             expect(res).toBeUndefined();
             expect(spy).toHaveBeenCalledWith(expect.stringContaining('Failed to resolve reference part "c"'));
@@ -222,7 +221,6 @@ describe('Core: ReferenceResolver', () => {
 
     describe('$dynamicRef Resolution', () => {
         it('should prefer properties from the resolution stack over static definition', () => {
-            // 1. Base Generic schema (defines fallback 'item')
             const genericSchema = {
                 $id: 'http://base/generic',
                 $dynamicAnchor: 'meta',
@@ -239,7 +237,6 @@ describe('Core: ReferenceResolver', () => {
                 },
             };
 
-            // 2. Specific usage (defines override 'item')
             const specificSchema = {
                 $id: 'http://base/specific',
                 allOf: [{ $ref: 'http://base/generic' }],
@@ -252,13 +249,11 @@ describe('Core: ReferenceResolver', () => {
                 },
             };
 
-            // Pre-seed cache (mimic loader)
             cache.set('http://base/generic', genericSchema as any);
             cache.set('http://base/specific', specificSchema as any);
             ReferenceResolver.indexSchemaIds(genericSchema, 'http://base/generic', cache);
             ReferenceResolver.indexSchemaIds(specificSchema, 'http://base/specific', cache);
 
-            // Manually triggering resolve with stack: [Specific, Generic]
             const stack = ['http://base/specific', 'http://base/generic'];
             const resolved = resolver.resolveReference('#item', 'http://base/generic', stack) as any;
 
@@ -290,7 +285,7 @@ describe('Core: ReferenceResolver', () => {
         });
 
         it('should return undefined when dynamic anchor is not found in stack', () => {
-            const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            vi.spyOn(console, 'warn').mockImplementation(() => {});
             cache.set('http://base/generic', { openapi: '3.0.0', paths: {} } as any);
             const resolved = resolver.resolveReference('#missing', 'http://base/generic', ['http://base/generic']);
             expect(resolved).toBeUndefined();
@@ -335,7 +330,6 @@ describe('Core: ReferenceResolver', () => {
 
         it('should skip JSON pointer traversal when no fragment is present and cache has() returns false', () => {
             class NonHasCache extends Map<string, SwaggerSpec> {
-                // Force has() to return false to bypass the early cache hit
                 override has(_key: string): boolean {
                     return false;
                 }

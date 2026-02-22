@@ -1,4 +1,5 @@
-import { FormProperty, Resource, SwaggerDefinition } from '@src/core/types/index.js';
+// src/analysis/form-model.builder.ts
+import { FormProperty, GeneratorConfig, Resource, SwaggerDefinition } from '@src/core/types/index.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { camelCase, getTypeScriptType, pascalCase, singular } from '@src/core/utils/index.js';
 import { analyzeValidationRules } from './validation.analyzer.js';
@@ -27,7 +28,6 @@ export class FormModelBuilder {
         const formInterfaceName = `${pascalCase(resource.modelName)}Form`;
         const definitions = this.parser.schemas;
 
-        // 1. Detect Polymorphism
         const polymorphicProps = resource.formProperties.filter(
             p => typeof p.schema === 'object' && p.schema.oneOf && p.schema.discriminator,
         );
@@ -43,9 +43,8 @@ export class FormModelBuilder {
             }
         }
 
-        // 2. Detect Dependent Schemas/Required (Optimization: check generic schema lookup for this model)
         const modelDef = definitions.find(d => d.name === resource.modelName)?.definition;
-        if (modelDef) {
+        if (modelDef && typeof modelDef === 'object') {
             if (modelDef.dependentSchemas) {
                 this.analyzeDependentSchemas(modelDef);
             }
@@ -53,17 +52,9 @@ export class FormModelBuilder {
                 this.analyzeDependentRequired(modelDef);
             }
         }
-        // Also check if the resource properties themselves originated from a schema with dependentSchemas
-        // (Handling cases where the Resource object was built from flattened paths)
-        /*for (const prop of resource.formProperties) {
-            // We can't easily climb back up to the parent form schema from a property alone here without context,
-            // but the previous check covers the main model definition which is the primary source for forms.
-        }*/
 
-        // 3. Build Top Level Controls & Interfaces
         this.result.topLevelControls = this.analyzeControls(resource.formProperties, formInterfaceName, true);
 
-        // 4. Global Flags
         this.result.hasFileUploads = resource.formProperties.some(
             p => typeof p.schema === 'object' && p.schema.format === 'binary',
         );
@@ -75,10 +66,9 @@ export class FormModelBuilder {
         if (!modelSchema.dependentSchemas) return;
 
         Object.entries(modelSchema.dependentSchemas).forEach(([triggerProp, schemaOrRef]) => {
-            const dependentSchema = this.parser.resolve(schemaOrRef);
+            const dependentSchema = this.parser.resolve(schemaOrRef as SwaggerDefinition);
             if (!dependentSchema || typeof dependentSchema !== 'object') return;
 
-            // Start with 'required' array
             if (dependentSchema.required) {
                 dependentSchema.required.forEach(reqProp => {
                     this.result.dependencyRules.push({
@@ -87,14 +77,6 @@ export class FormModelBuilder {
                         type: 'required',
                     });
                 });
-            }
-
-            // Also check for nested properties that implicitly become required
-            if (dependentSchema.properties) {
-                // For simply defining the property structure, we don't necessarily force 'required'
-                // unless it's in the 'required' array. However, if the property only exists via dependent schema,
-                // UI might want to toggle visibility.
-                // For now, we strictly follow JSON Schema 'required' semantics for validation logic.
             }
         });
     }
@@ -106,7 +88,7 @@ export class FormModelBuilder {
             if (!Array.isArray(requiredList)) return;
             requiredList
                 .filter((req): req is string => typeof req === 'string' && req.length > 0)
-                .forEach(reqProp => {
+                .forEach((reqProp: string) => {
                     this.result.dependencyRules.push({
                         triggerField: triggerProp,
                         targetField: reqProp,
@@ -116,9 +98,6 @@ export class FormModelBuilder {
         });
     }
 
-    /**
-     * Recursively analyzes properties to build Control Models and Interface Definitions.
-     */
     private analyzeControls(
         properties: FormProperty[],
         interfaceName: string,
@@ -153,12 +132,10 @@ export class FormModelBuilder {
             const defaultValue = schema.default !== undefined ? schema.default : null;
             interfaceProps.push({ name: prop.name });
 
-            // 2a. Nested Group
             if (schema.type === 'object' && schema.properties) {
                 const nestedInterfaceName = `${pascalCase(prop.name)}Form`;
-                // Recurse
                 const nestedControls = this.analyzeControls(
-                    Object.entries(schema.properties).map(([k, v]) => ({ name: k, schema: v })),
+                    Object.entries(schema.properties).map(([k, v]) => ({ name: k, schema: v as SwaggerDefinition })),
                     nestedInterfaceName,
                     false,
                 );
@@ -174,17 +151,14 @@ export class FormModelBuilder {
                     nestedControls,
                     schema,
                 };
-            }
-            // 2b. Map / Dictionary (additionalProperties OR patternProperties)
-            else if (
+            } else if (
                 schema.type === 'object' &&
                 !schema.properties &&
                 (schema.additionalProperties || schema.unevaluatedProperties || schema.patternProperties)
             ) {
                 this.result.hasMaps = true;
 
-                // extract the schema for map values
-                let rawValueSchema: any = {};
+                let rawValueSchema: SwaggerDefinition | boolean | undefined;
                 let keyPattern: string | undefined;
                 let keyMinLength: number | undefined;
                 let keyMaxLength: number | undefined;
@@ -192,8 +166,8 @@ export class FormModelBuilder {
                 if (schema.patternProperties) {
                     const patterns = Object.keys(schema.patternProperties);
                     if (patterns.length > 0) {
-                        keyPattern = patterns[0]; // Using first pattern as constraint for the KEY
-                        rawValueSchema = schema.patternProperties[keyPattern];
+                        keyPattern = patterns[0];
+                        rawValueSchema = schema.patternProperties[keyPattern!];
                     }
                 }
 
@@ -217,7 +191,10 @@ export class FormModelBuilder {
                     }
                 }
 
-                if (Object.keys(rawValueSchema).length === 0) {
+                if (
+                    !rawValueSchema ||
+                    (typeof rawValueSchema === 'object' && Object.keys(rawValueSchema).length === 0)
+                ) {
                     rawValueSchema =
                         (typeof schema.additionalProperties === 'object' ? schema.additionalProperties : undefined) ||
                         (typeof schema.unevaluatedProperties === 'object' ? schema.unevaluatedProperties : undefined) ||
@@ -246,21 +223,22 @@ export class FormModelBuilder {
                     mapValueControl: valueControl,
                     schema,
                     ...(valueControl.nestedFormInterface && { nestedFormInterface: valueControl.nestedFormInterface }),
-                    ...(keyPattern && { keyPattern }), // Attach the pattern for renderer usage
+                    ...(keyPattern && { keyPattern }),
                     ...(keyMinLength !== undefined && { keyMinLength }),
                     ...(keyMaxLength !== undefined && { keyMaxLength }),
                 };
-            }
-            // 2c. Form Array
-            else if (schema.type === 'array') {
+            } else if (schema.type === 'array') {
                 const itemSchema = (schema.items ?? schema.unevaluatedItems ?? {}) as SwaggerDefinition | boolean;
 
-                if (itemSchema?.properties) {
+                if (typeof itemSchema === 'object' && itemSchema.properties) {
                     this.result.hasFormArrays = true;
                     const arrayItemInterfaceName = `${pascalCase(singular(prop.name))}Form`;
 
                     const nestedItemControls = this.analyzeControls(
-                        Object.entries(itemSchema.properties).map(([k, v]) => ({ name: k, schema: v })),
+                        Object.entries(itemSchema.properties).map(([k, v]) => ({
+                            name: k,
+                            schema: v as SwaggerDefinition,
+                        })),
                         arrayItemInterfaceName,
                         false,
                     );
@@ -289,9 +267,7 @@ export class FormModelBuilder {
                         schema,
                     };
                 }
-            }
-            // 2d. Primitive Control
-            else {
+            } else {
                 const tsType = this.getFormControlTypeString(schema);
 
                 controlModel = {
@@ -332,32 +308,38 @@ export class FormModelBuilder {
         const explicitMapping = prop.schema.discriminator?.mapping || {};
 
         for (const subSchemaRef of prop.schema.oneOf || []) {
-            const refString = subSchemaRef.$ref || subSchemaRef.$dynamicRef;
+            const refString =
+                typeof subSchemaRef === 'object' ? subSchemaRef.$ref || subSchemaRef.$dynamicRef : undefined;
             if (!refString) continue;
 
-            const subSchema = this.parser.resolve(subSchemaRef);
-            if (!subSchema) continue;
+            const subSchema = this.parser.resolve(subSchemaRef as SwaggerDefinition);
+            if (!subSchema || typeof subSchema !== 'object') continue;
 
-            const allProperties: Record<string, SwaggerDefinition> = { ...(subSchema.properties || {}) };
+            const allProperties: Record<string, SwaggerDefinition> = {
+                ...(((subSchema as SwaggerDefinition).properties || {}) as Record<string, SwaggerDefinition>),
+            };
 
-            const collectAllOfProps = (schema: SwaggerDefinition) => {
-                if (schema.allOf) {
+            const collectAllOfProps = (schema: SwaggerDefinition | boolean) => {
+                if (typeof schema === 'object' && schema.allOf) {
                     for (const inner of schema.allOf) {
-                        const resolved = this.parser.resolve(inner);
-                        if (resolved) {
+                        const resolved = this.parser.resolve(inner as SwaggerDefinition);
+                        if (resolved && typeof resolved === 'object') {
                             Object.assign(allProperties, resolved.properties || {});
-                            collectAllOfProps(resolved);
+                            collectAllOfProps(resolved as SwaggerDefinition);
                         }
                     }
                 }
             };
-            collectAllOfProps(subSchema);
+            collectAllOfProps(subSchema as SwaggerDefinition);
 
             if (Object.keys(allProperties).length === 0) continue;
 
             if (!allProperties[dPropName]) continue;
 
-            let typeName = allProperties[dPropName]?.enum?.[0] as string;
+            let typeName =
+                typeof allProperties[dPropName] === 'object'
+                    ? (allProperties[dPropName]?.enum?.[0] as string)
+                    : undefined;
 
             if (!typeName) {
                 const mappedKey = Object.keys(explicitMapping).find(key => explicitMapping[key] === refString);
@@ -379,7 +361,7 @@ export class FormModelBuilder {
             const subControls: FormControlModel[] = [];
             for (const subProp of subProperties) {
                 const controls = this.analyzeControls([subProp], `Temp${refName}`, false);
-                this.result.interfaces.pop(); // Remove temp interface
+                this.result.interfaces.pop();
                 subControls.push(...controls);
             }
 
@@ -407,8 +389,12 @@ export class FormModelBuilder {
 
     private getFormControlTypeString(schema: SwaggerDefinition | boolean): string {
         const knownTypes = this.parser.schemas.map(s => s.name);
-        const dummyConfig = { options: { dateType: 'Date', enumStyle: 'enum' } } as any;
-        const type = getTypeScriptType(schema as any, dummyConfig, knownTypes);
+        const dummyConfig: GeneratorConfig = {
+            options: { dateType: 'Date', enumStyle: 'enum' },
+            input: '',
+            output: '',
+        };
+        const type = getTypeScriptType(schema, dummyConfig, knownTypes);
         return `${type} | null`;
     }
 }

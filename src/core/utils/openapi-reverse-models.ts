@@ -9,7 +9,7 @@ import {
     TypeAliasDeclaration,
     TypeNode,
 } from 'ts-morph';
-import { DiscriminatorObject, SwaggerDefinition } from '../types/index.js';
+import { SwaggerDefinition } from '../types/index.js';
 
 /** Map of schema names to reconstructed schema definitions. */
 export type ReverseSchemaMap = Record<string, SwaggerDefinition | boolean>;
@@ -128,6 +128,7 @@ function inferDiscriminators(schemas: ReverseSchemaMap): void {
         if (!candidate) return;
 
         const mapping: Record<string, string> = {};
+
         const seenValues = new Set<string>();
         for (const variant of variants) {
             const value = getDiscriminatorValue(variant.schema, candidate);
@@ -176,6 +177,7 @@ function findDiscriminatorProperty(variants: DiscriminatorVariant[]): string | u
 
     const orderedCandidates = Array.from(candidateNames);
     const preferredOrder = ['type', 'kind', 'petType', 'variant', 'discriminator'];
+
     orderedCandidates.sort((a, b) => {
         const ai = preferredOrder.indexOf(a);
         const bi = preferredOrder.indexOf(b);
@@ -192,7 +194,12 @@ function findDiscriminatorProperty(variants: DiscriminatorVariant[]): string | u
                 const props = schema.properties ?? {};
                 const propSchema = props[name];
                 const required = Array.isArray(schema.required) && schema.required.includes(name);
-                return required && !!propSchema && getDiscriminatorValueSchema(propSchema) !== undefined;
+                return (
+                    required &&
+                    !!propSchema &&
+                    typeof propSchema === 'object' &&
+                    getDiscriminatorValueSchema(propSchema as SwaggerDefinition) !== undefined
+                );
             })
         ) {
             return name;
@@ -206,11 +213,13 @@ function getDiscriminatorValue(schema: SwaggerDefinition, propName: string): str
     const props = schema.properties ?? {};
     const propSchema = props[propName];
     if (!propSchema || typeof propSchema !== 'object' || Array.isArray(propSchema)) return undefined;
+
     return getDiscriminatorValueSchema(propSchema as SwaggerDefinition);
 }
 
 function getDiscriminatorValueSchema(schema: SwaggerDefinition): string | number | boolean | undefined {
     if (schema.const !== undefined) return schema.const as string | number | boolean;
+
     if (Array.isArray(schema.enum) && schema.enum.length === 1) {
         return schema.enum[0] as string | number | boolean;
     }
@@ -273,12 +282,14 @@ function schemaFromEnum(enumDecl: EnumDeclaration): SwaggerDefinition {
             return Number(init.getText());
         }
         if (init.getKind() === SyntaxKind.TrueKeyword) return true;
+
         if (init.getKind() === SyntaxKind.FalseKeyword) return false;
         return init.getText();
     });
 
     const allNumbers = values.every(v => typeof v === 'number');
     const allStrings = values.every(v => typeof v === 'string');
+
     const schema: SwaggerDefinition = {
         enum: values as (string | number)[],
         ...(allNumbers ? { type: 'number' } : allStrings ? { type: 'string' } : {}),
@@ -339,11 +350,13 @@ function buildObjectSchema(
     if (Object.keys(props).length > 0) {
         schema.properties = props;
     }
+
     if (required.length > 0) {
         schema.required = required;
     }
 
     const indexSignature = indexSignatures[0];
+
     if (indexSignature) {
         const returnTypeNode = indexSignature.getReturnTypeNode();
         schema.additionalProperties = returnTypeNode ? schemaFromTypeNode(returnTypeNode) : {};
@@ -357,6 +370,7 @@ function normalizePropertyName(prop: PropertySignature): string {
     if (Node.isStringLiteral(nameNode) || Node.isNoSubstitutionTemplateLiteral(nameNode)) {
         return nameNode.getLiteralText();
     }
+
     return prop.getName();
 }
 
@@ -364,10 +378,13 @@ export function schemaFromTypeNode(node: TypeNode): SwaggerDefinition {
     switch (node.getKind()) {
         case SyntaxKind.StringKeyword:
             return { type: 'string' };
+
         case SyntaxKind.NumberKeyword:
             return { type: 'number' };
+
         case SyntaxKind.BooleanKeyword:
             return { type: 'boolean' };
+
         case SyntaxKind.AnyKeyword:
         case SyntaxKind.UnknownKeyword:
         case SyntaxKind.ObjectKeyword:
@@ -395,10 +412,12 @@ export function schemaFromTypeNode(node: TypeNode): SwaggerDefinition {
                 (node as import('ts-morph').TypeLiteralNode).getMembers().filter(Node.isPropertySignature),
                 (node as import('ts-morph').TypeLiteralNode).getMembers().filter(Node.isIndexSignatureDeclaration),
             );
+
         case SyntaxKind.ParenthesizedType:
             return schemaFromTypeNode((node as import('ts-morph').ParenthesizedTypeNode).getTypeNode());
         case SyntaxKind.TypeOperator:
-            return schemaFromTypeNode((node as import('ts-morph').TypeOperatorNode).getTypeNode());
+            const typeOp = node as unknown as { getTypeNode?: () => TypeNode };
+            return schemaFromTypeNode(typeOp.getTypeNode ? typeOp.getTypeNode!() : node);
         default:
             return {};
     }
@@ -409,18 +428,23 @@ function schemaFromLiteral(node: import('ts-morph').LiteralTypeNode): SwaggerDef
     if (Node.isStringLiteral(literal) || Node.isNoSubstitutionTemplateLiteral(literal)) {
         return { type: 'string', const: literal.getLiteralText() };
     }
+
     if (Node.isNumericLiteral(literal)) {
         return { type: 'number', const: Number(literal.getText()) };
     }
+
     if (literal.getKind() === SyntaxKind.TrueKeyword) {
         return { type: 'boolean', const: true };
     }
+
     if (literal.getKind() === SyntaxKind.FalseKeyword) {
         return { type: 'boolean', const: false };
     }
+
     if (literal.getKind() === SyntaxKind.NullKeyword) {
         return { type: 'null', const: null };
     }
+
     return {};
 }
 
@@ -439,6 +463,7 @@ function schemaFromTypeReference(node: import('ts-morph').TypeReferenceNode): Sw
     }
 
     if (typeName === 'Date') return { type: 'string', format: 'date-time' };
+
     if (typeName === 'Blob' || typeName === 'File') return { type: 'string', format: 'binary' };
 
     return { $ref: `#/components/schemas/${typeName}` };
@@ -474,6 +499,7 @@ function schemaFromTupleType(tupleNode: import('ts-morph').TupleTypeNode): Swagg
         }
 
         if (!typeNode) continue;
+
         prefixItems.push(schemaFromTypeNode(typeNode));
         if (!isOptional && !sawOptional) {
             minItems += 1;
@@ -491,10 +517,12 @@ function schemaFromTupleType(tupleNode: import('ts-morph').TupleTypeNode): Swagg
     }
 
     const schema: SwaggerDefinition = { type: 'array', prefixItems };
+
     if (restSchema) {
         if (typeof restSchema === 'object' && restSchema !== null && restSchema.type === 'array') {
             restSchema = (restSchema as SwaggerDefinition).items ?? {};
         }
+
         if (minItems > 0) schema.minItems = minItems;
         schema.items = restSchema;
         return schema;
@@ -543,16 +571,18 @@ function schemaFromUnion(node: import('ts-morph').UnionTypeNode): SwaggerDefinit
         if (includesNull) types.add('null');
 
         const schema: SwaggerDefinition = { enum: enumValues };
+
         if (types.size === 1) {
             const [onlyType] = Array.from(types);
-            if (onlyType) schema.type = onlyType as SwaggerDefinition['type'];
+            if (onlyType) (schema as { type?: unknown }).type = onlyType;
         } else if (types.size > 1) {
-            schema.type = Array.from(types) as SwaggerDefinition['type'];
+            (schema as { type?: unknown }).type = Array.from(types);
         }
         return schema;
     }
 
     const anyOf = filtered.map(schemaFromTypeNode);
+
     if (includesNull) anyOf.push({ type: 'null' });
     return { anyOf };
 }
@@ -564,11 +594,13 @@ function schemaFromIntersection(node: import('ts-morph').IntersectionTypeNode): 
 
 function isNullTypeNode(node: TypeNode): boolean {
     if (node.getKind() === SyntaxKind.NullKeyword) return true;
+
     return Node.isLiteralTypeNode(node) && node.getLiteral().getKind() === SyntaxKind.NullKeyword;
 }
 
 function isUndefinedTypeNode(node: TypeNode): boolean {
     if (node.getKind() === SyntaxKind.UndefinedKeyword) return true;
+
     if (node.getKind() === SyntaxKind.TypeReference) {
         return (node as import('ts-morph').TypeReferenceNode).getTypeName().getText() === 'undefined';
     }
@@ -589,6 +621,7 @@ function extractEnumValues(literals: SwaggerDefinition[]): unknown[] {
             values.push(...schema.enum);
         }
     });
+
     return values;
 }
 
@@ -604,6 +637,7 @@ function extractLiteralTypes(literals: SwaggerDefinition[]): Set<string> {
             });
         }
     });
+
     return types;
 }
 
@@ -615,7 +649,9 @@ function applyNullability(schema: SwaggerDefinition): SwaggerDefinition {
     if (schema.type) {
         const existing = Array.isArray(schema.type) ? [...schema.type] : [schema.type];
         if (!existing.includes('null')) existing.push('null');
-        return { ...schema, type: existing };
+        const cloned: SwaggerDefinition = { ...schema };
+        cloned.type = existing as ('string' | 'number' | 'integer' | 'boolean' | 'object' | 'array' | 'null')[];
+        return cloned;
     }
 
     if (schema.anyOf) {
@@ -630,12 +666,15 @@ function applyNullability(schema: SwaggerDefinition): SwaggerDefinition {
 }
 
 function applyDocs(schema: SwaggerDefinition, node: Node): void {
-    const jsDocs = node.getJsDocs();
+    const nodeAsAny = node as unknown as { getJsDocs?: () => import('ts-morph').JSDoc[] };
+    const jsDocs = nodeAsAny.getJsDocs ? nodeAsAny.getJsDocs() : [];
     if (jsDocs.length === 0) return;
+
     const primaryDoc = jsDocs[0];
     const exampleValues: unknown[] = [];
 
     const description = primaryDoc.getDescription().trim();
+
     if (description) schema.description = description;
 
     for (const tag of primaryDoc.getTags()) {
@@ -645,6 +684,7 @@ function applyDocs(schema: SwaggerDefinition, node: Node): void {
 
         if (tagName === 'deprecated') {
             schema.deprecated = true;
+
             continue;
         }
 
@@ -654,100 +694,120 @@ function applyDocs(schema: SwaggerDefinition, node: Node): void {
                 .replace(/^@see\s*/i, '')
                 .trim();
             if (!rawText) continue;
+
             const [rawUrl, ...rest] = rawText.split(' - ');
             const url = rawUrl?.trim();
+
             if (url) {
-                const description = rest.length > 0 ? rest.join(' - ').trim() : undefined;
-                schema.externalDocs = description ? { url, description } : { url };
+                const desc = rest.length > 0 ? rest.join(' - ').trim() : undefined;
+                schema.externalDocs = desc ? { url, description: desc } : { url };
             }
             continue;
         }
 
         if (tagName === 'example' && text) {
             exampleValues.push(parseDocValue(text));
+
             continue;
         }
 
         if (tagName === 'default' && text) {
             schema.default = parseDocValue(text);
+
             continue;
         }
 
         if (tagName.startsWith('x-')) {
             schema[tagName] = text ? parseDocValue(text) : true;
+
             continue;
         }
 
         const rawValue = text ? parseDocValue(text) : true;
+        const schemaRec = schema as Record<string, unknown>;
 
         switch (normalized) {
             case 'minimum':
             case 'min': {
                 const value = asNumber(rawValue);
                 if (value !== undefined) schema.minimum = value;
+
                 break;
             }
             case 'maximum':
             case 'max': {
                 const value = asNumber(rawValue);
                 if (value !== undefined) schema.maximum = value;
+
                 break;
             }
             case 'exclusiveminimum': {
                 const value = asNumber(rawValue);
                 schema.exclusiveMinimum = value !== undefined ? value : !!rawValue;
+
                 break;
             }
             case 'exclusivemaximum': {
                 const value = asNumber(rawValue);
                 schema.exclusiveMaximum = value !== undefined ? value : !!rawValue;
+
                 break;
             }
             case 'minlength': {
                 const value = asNumber(rawValue);
                 if (value !== undefined) schema.minLength = value;
+
                 break;
             }
             case 'maxlength': {
                 const value = asNumber(rawValue);
                 if (value !== undefined) schema.maxLength = value;
+
                 break;
             }
             case 'pattern': {
                 if (typeof rawValue === 'string') schema.pattern = rawValue;
+
                 break;
             }
             case 'format': {
                 if (typeof rawValue === 'string') schema.format = rawValue;
+
                 break;
             }
             case 'multipleof': {
                 const value = asNumber(rawValue);
                 if (value !== undefined) schema.multipleOf = value;
+
                 break;
             }
             case 'minitems': {
                 const value = asNumber(rawValue);
                 if (value !== undefined) schema.minItems = value;
+
                 break;
             }
             case 'maxitems': {
                 const value = asNumber(rawValue);
                 if (value !== undefined) schema.maxItems = value;
+
                 break;
             }
             case 'uniqueitems': {
                 schema.uniqueItems = asBoolean(rawValue);
+
                 break;
             }
             case 'minproperties': {
                 const value = asNumber(rawValue);
                 if (value !== undefined) schema.minProperties = value;
+
                 break;
             }
             case 'maxproperties': {
                 const value = asNumber(rawValue);
                 if (value !== undefined) schema.maxProperties = value;
+
                 break;
             }
             case 'propertynames': {
@@ -764,22 +824,27 @@ function applyDocs(schema: SwaggerDefinition, node: Node): void {
             }
             case 'readonly': {
                 schema.readOnly = asBoolean(rawValue);
+
                 break;
             }
             case 'writeonly': {
                 schema.writeOnly = asBoolean(rawValue);
+
                 break;
             }
             case 'nullable': {
                 schema.nullable = asBoolean(rawValue);
+
                 break;
             }
             case 'title': {
                 if (typeof rawValue === 'string') schema.title = rawValue;
+
                 break;
             }
             case 'const': {
                 if (text) schema.const = rawValue;
+
                 break;
             }
             case 'if': {
@@ -809,15 +874,19 @@ function applyDocs(schema: SwaggerDefinition, node: Node): void {
             case 'oneof': {
                 if (text && Array.isArray(rawValue)) {
                     schema.oneOf = rawValue as (SwaggerDefinition | boolean)[];
+
                     if (schema.anyOf) delete schema.anyOf;
                 }
+
                 break;
             }
             case 'anyof': {
                 if (text && Array.isArray(rawValue)) {
                     schema.anyOf = rawValue as (SwaggerDefinition | boolean)[];
+
                     if (schema.oneOf) delete schema.oneOf;
                 }
+
                 break;
             }
             case 'contains': {
@@ -829,19 +898,23 @@ function applyDocs(schema: SwaggerDefinition, node: Node): void {
             case 'mincontains': {
                 const value = asNumber(rawValue);
                 if (value !== undefined) schema.minContains = value;
+
                 break;
             }
             case 'maxcontains': {
                 const value = asNumber(rawValue);
                 if (value !== undefined) schema.maxContains = value;
+
                 break;
             }
             case 'contentmediatype': {
                 if (typeof rawValue === 'string') schema.contentMediaType = rawValue;
+
                 break;
             }
             case 'contentencoding': {
                 if (typeof rawValue === 'string') schema.contentEncoding = rawValue;
+
                 break;
             }
             case 'contentschema': {
@@ -851,32 +924,32 @@ function applyDocs(schema: SwaggerDefinition, node: Node): void {
                 break;
             }
             case 'patternproperties': {
-                if (typeof rawValue === 'object' && rawValue !== null) {
-                    schema.patternProperties = rawValue as SwaggerDefinition['patternProperties'];
+                if (typeof rawValue === 'object' && rawValue !== null && !Array.isArray(rawValue)) {
+                    schemaRec.patternProperties = rawValue;
                 }
                 break;
             }
             case 'dependentschemas': {
-                if (typeof rawValue === 'object' && rawValue !== null) {
-                    schema.dependentSchemas = rawValue as SwaggerDefinition['dependentSchemas'];
+                if (typeof rawValue === 'object' && rawValue !== null && !Array.isArray(rawValue)) {
+                    schemaRec.dependentSchemas = rawValue;
                 }
                 break;
             }
             case 'dependentrequired': {
-                if (typeof rawValue === 'object' && rawValue !== null) {
-                    schema.dependentRequired = rawValue as SwaggerDefinition['dependentRequired'];
+                if (typeof rawValue === 'object' && rawValue !== null && !Array.isArray(rawValue)) {
+                    schemaRec.dependentRequired = rawValue;
                 }
                 break;
             }
             case 'unevaluatedproperties': {
                 if (typeof rawValue === 'object' || typeof rawValue === 'boolean') {
-                    schema.unevaluatedProperties = rawValue as SwaggerDefinition['unevaluatedProperties'];
+                    schemaRec.unevaluatedProperties = rawValue;
                 }
                 break;
             }
             case 'unevaluateditems': {
                 if (typeof rawValue === 'object' || typeof rawValue === 'boolean') {
-                    schema.unevaluatedItems = rawValue as SwaggerDefinition['unevaluatedItems'];
+                    schemaRec.unevaluatedItems = rawValue;
                 }
                 break;
             }
@@ -905,14 +978,14 @@ function applyDocs(schema: SwaggerDefinition, node: Node): void {
                 break;
             }
             case 'xml': {
-                if (typeof rawValue === 'object' && rawValue !== null) {
-                    schema.xml = rawValue as SwaggerDefinition['xml'];
+                if (typeof rawValue === 'object' && rawValue !== null && !Array.isArray(rawValue)) {
+                    schemaRec.xml = rawValue;
                 }
                 break;
             }
             case 'discriminator': {
-                if (typeof rawValue === 'object' && rawValue !== null) {
-                    schema.discriminator = rawValue as DiscriminatorObject;
+                if (typeof rawValue === 'object' && rawValue !== null && !Array.isArray(rawValue)) {
+                    schemaRec.discriminator = rawValue;
                 }
                 break;
             }
@@ -928,6 +1001,7 @@ function applyDocs(schema: SwaggerDefinition, node: Node): void {
 
 function asNumber(value: unknown): number | undefined {
     if (typeof value === 'number' && !Number.isNaN(value)) return value;
+
     if (typeof value === 'string' && value.trim().length > 0) {
         const parsed = Number(value);
         if (!Number.isNaN(parsed)) return parsed;
@@ -937,6 +1011,7 @@ function asNumber(value: unknown): number | undefined {
 
 function asBoolean(value: unknown): boolean {
     if (typeof value === 'boolean') return value;
+
     if (typeof value === 'string') {
         if (value.toLowerCase() === 'true') return true;
         if (value.toLowerCase() === 'false') return false;

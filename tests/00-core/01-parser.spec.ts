@@ -6,7 +6,7 @@ import * as path from 'node:path';
 import * as yaml from 'js-yaml';
 
 import { SwaggerParser } from '@src/core/parser.js';
-import { GeneratorConfig, SwaggerSpec } from '@src/core/types/index.js';
+import { GeneratorConfig, SwaggerDefinition, SwaggerSpec } from '@src/core/types/index.js';
 import { JSON_SCHEMA_2020_12_DIALECT, OAS_3_1_DIALECT } from '@src/core/constants.js';
 import * as validator from '@src/core/validator.js';
 import { ReferenceResolver } from '@src/core/parser/reference-resolver.js';
@@ -34,7 +34,6 @@ describe('Core: SwaggerParser', () => {
     let realValidateSpec: any;
 
     beforeAll(async () => {
-        // Load the real implementation once to avoid race conditions in tests
         const actual = await vi.importActual<typeof validator>('@src/core/validator.js');
         realValidateSpec = actual.validateSpec;
     });
@@ -46,7 +45,6 @@ describe('Core: SwaggerParser', () => {
             options: {},
         };
         consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-        // Default behavior for most tests: bypass validation logic
         (validator.validateSpec as Mock).mockImplementation(() => {});
     });
 
@@ -58,7 +56,6 @@ describe('Core: SwaggerParser', () => {
 
     describe('File Loading and Instantiation', () => {
         beforeEach(() => {
-            // For this section, we need the real validator behavior
             (validator.validateSpec as Mock).mockImplementation(realValidateSpec);
         });
 
@@ -139,8 +136,6 @@ describe('Core: SwaggerParser', () => {
 
         it('should correctly initialize when spec has no $self property', () => {
             const spec = { openapi: '3.0.0', info: validInfo, paths: {} };
-            // This test covers the branch by not providing a specCache,
-            // which forces the parser to calculate its own base URI.
             expect(() => new SwaggerParser(spec as any, config)).not.toThrow();
         });
     });
@@ -154,7 +149,6 @@ describe('Core: SwaggerParser', () => {
                 servers: [{ url: 'v1/api' }, { url: '/root/api' }],
             } as any;
 
-            // Parser treated as loaded from https://example.com/docs/openapi.json
             const parser = new SwaggerParser(spec, config, undefined, 'https://example.com/docs/openapi.json');
 
             expect(parser.servers[0].url).toBe('https://example.com/docs/v1/api');
@@ -258,14 +252,12 @@ describe('Core: SwaggerParser', () => {
 
             const parser = new SwaggerParser(spec, config, undefined, 'https://example.com/spec.json');
 
-            // Should resolve against document retrieval URI, not $self
             expect(parser.servers[0].url).toBe('https://example.com/v1');
         });
 
         it('should ignore relative $self when resolving server URLs', () => {
             const spec = {
                 openapi: '3.2.0',
-                // relative $self
                 $self: '../canon/spec.yaml',
                 info: validInfo,
                 paths: {},
@@ -274,7 +266,6 @@ describe('Core: SwaggerParser', () => {
 
             const parser = new SwaggerParser(spec, config, undefined, 'https://example.com/v2/draft/doc.json');
 
-            // Server resolves relative to retrieval URI -> https://example.com/v2/draft/api
             expect(parser.servers[0].url).toBe('https://example.com/v2/draft/api');
         });
 
@@ -295,14 +286,10 @@ describe('Core: SwaggerParser', () => {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
-                // Relative path containing a variable
                 servers: [{ url: 'api/{version}' }],
             } as any;
 
             const parser = new SwaggerParser(spec, config, undefined, 'https://example.com/spec.json');
-            // Resolved URL normalizes to include trailing matching logic if applied, but here just relative checking.
-            // new URL('api/{version}', 'https://example.com/spec.json') => 'https://example.com/api/%7Bversion%7D'
-            // The implementation should revert brace encoding.
             expect(parser.servers[0].url).toBe('https://example.com/api/{version}');
         });
 
@@ -385,11 +372,9 @@ describe('Core: SwaggerParser', () => {
                 schemas: {
                     User: { type: 'string' },
                     Broken: null,
-                    // For recursive static test
                     A_Static: { $ref: '#/components/schemas/B_Static' },
                     B_Static: { $ref: '#/components/schemas/C_Static' },
                     C_Static: { type: 'string', description: 'Final destination' },
-                    // For recursive dynamic test
                     A_Dynamic: { $dynamicRef: '#/components/schemas/B_Dynamic' },
                     B_Dynamic: { $dynamicRef: '#/components/schemas/C_Dynamic' },
                     C_Dynamic: { type: 'number' },
@@ -421,7 +406,7 @@ describe('Core: SwaggerParser', () => {
         it('should warn and return undefined for invalid reference paths', () => {
             const result = parser.resolve({ $ref: '#/components/schemas/NonExistent' });
             expect(result).toBeUndefined();
-            expect(console.warn).toHaveBeenCalledWith(
+            expect(consoleWarnSpy).toHaveBeenCalledWith(
                 expect.stringContaining('Failed to resolve reference part "NonExistent"'),
             );
         });
@@ -429,7 +414,7 @@ describe('Core: SwaggerParser', () => {
         it('should return undefined if an intermediate part of the ref path is null', () => {
             const result = parser.resolve({ $ref: '#/components/schemas/Broken/property' });
             expect(result).toBeUndefined();
-            expect(console.warn).toHaveBeenCalledWith(
+            expect(consoleWarnSpy).toHaveBeenCalledWith(
                 expect.stringContaining(
                     'Failed to resolve reference part "property" in path "#/components/schemas/Broken/property"',
                 ),
@@ -601,7 +586,7 @@ describe('Core: SwaggerParser', () => {
         it('should correctly use explicit discriminator mapping', () => {
             const parser = new SwaggerParser(parserCoverageSpec as any, { options: {} } as GeneratorConfig);
             const schema = parser.getDefinition('WithMapping');
-            const options = parser.getPolymorphicSchemaOptions(schema!);
+            const options = parser.getPolymorphicSchemaOptions(schema as SwaggerDefinition);
             expect(options).toHaveLength(1);
             expect(options[0].name).toBe('subtype3');
             expect(options[0].schema.properties).toHaveProperty('type');
@@ -626,14 +611,14 @@ describe('Core: SwaggerParser', () => {
             };
             const parser = new SwaggerParser(specWithBadMapping as any, { options: {} } as GeneratorConfig);
             const schema = parser.getDefinition('BadMap');
-            const options = parser.getPolymorphicSchemaOptions(schema!);
+            const options = parser.getPolymorphicSchemaOptions(schema as SwaggerDefinition);
             expect(options).toEqual([]);
         });
 
         it('should correctly infer discriminator mapping when it is not explicitly provided', () => {
             const parser = new SwaggerParser(parserCoverageSpec as any, { options: {} } as GeneratorConfig);
             const schema = parser.getDefinition('PolyWithInline');
-            const options = parser.getPolymorphicSchemaOptions(schema!);
+            const options = parser.getPolymorphicSchemaOptions(schema as SwaggerDefinition);
             expect(options).toHaveLength(1);
             expect(options[0].name).toBe('sub3');
         });
@@ -641,7 +626,7 @@ describe('Core: SwaggerParser', () => {
         it('getPolymorphicSchemaOptions should handle oneOf items that are not refs', () => {
             const parser = new SwaggerParser(parserCoverageSpec as any, { options: {} } as GeneratorConfig);
             const schema = parser.getDefinition('PolyWithInline');
-            const options = parser.getPolymorphicSchemaOptions(schema!);
+            const options = parser.getPolymorphicSchemaOptions(schema as SwaggerDefinition);
             expect(options.length).toBe(1);
             expect(options[0].name).toBe('sub3');
         });
@@ -649,11 +634,7 @@ describe('Core: SwaggerParser', () => {
         it('getPolymorphicSchemaOptions should handle refs to schemas without the discriminator property or enum', () => {
             const parser = new SwaggerParser(parserCoverageSpec as any, { options: {} } as GeneratorConfig);
             const schema = parser.getDefinition('PolyWithInvalidRefs');
-            const options = parser.getPolymorphicSchemaOptions(schema!);
-            // Updated Expectation:
-            // Sub1: has no 'type' property -> Skipped by stricter parser check
-            // Sub2: has 'type' property but no enum -> Accepted via Implicit Mapping (OAS 3.2) -> "Sub2"
-            // Total: 1 option
+            const options = parser.getPolymorphicSchemaOptions(schema as SwaggerDefinition);
             expect(options.length).toBe(1);
             expect(options[0].name).toBe('Sub2');
         });
@@ -677,8 +658,8 @@ describe('Core: SwaggerParser', () => {
                 },
             };
             const parser = new SwaggerParser(spec as any, config);
-            const polySchema = parser.getDefinition('Poly')!;
-            const options = parser.getPolymorphicSchemaOptions(polySchema);
+            const polySchema = parser.getDefinition('Poly');
+            const options = parser.getPolymorphicSchemaOptions(polySchema as SwaggerDefinition);
 
             expect(options).toHaveLength(1);
             expect(options[0].name).toBe('sub-type');
@@ -707,8 +688,8 @@ describe('Core: SwaggerParser', () => {
                 },
             };
             const parser = new SwaggerParser(spec as any, config);
-            const petSchema = parser.getDefinition('Pet')!;
-            const options = parser.getPolymorphicSchemaOptions(petSchema);
+            const petSchema = parser.getDefinition('Pet');
+            const options = parser.getPolymorphicSchemaOptions(petSchema as SwaggerDefinition);
 
             expect(options.map(opt => opt.name).sort()).toEqual(['cat', 'dog']);
         });
@@ -902,7 +883,7 @@ describe('Core: SwaggerParser', () => {
             const parser = new SwaggerParser(specWithInlineLink as any, config);
             const links = parser.getLinks();
             expect(links).toHaveProperty('MyLink');
-            expect(links.MyLink.description).toBe('An inline link');
+            expect(links['MyLink'].description).toBe('An inline link');
         });
 
         it('should resolve $ref LinkObjects from components', () => {
@@ -924,7 +905,7 @@ describe('Core: SwaggerParser', () => {
             };
             const parser = new SwaggerParser(specWithRefLink as any, config);
             const links = parser.getLinks();
-            expect(links.RefLink.description).toBe('Base link');
+            expect(links['RefLink'].description).toBe('Base link');
         });
 
         it('should skip unresolved $ref LinkObjects', () => {
@@ -942,13 +923,11 @@ describe('Core: SwaggerParser', () => {
             };
             const parser = new SwaggerParser(specWithMissingLink as any, config);
             const links = parser.getLinks();
-            expect(links.RefLink).toBeUndefined();
+            expect(links['RefLink']).toBeUndefined();
         });
 
         it('should return null for getSpecVersion on a spec without a version field', () => {
-            (validator.validateSpec as Mock).mockImplementation(() => {
-                /* Bypass for this test */
-            });
+            (validator.validateSpec as Mock).mockImplementation(() => {});
             const invalidSpec = { info: validInfo, paths: {} };
             const parser = new SwaggerParser(invalidSpec as any, config);
             expect(parser.getSpecVersion()).toBeNull();

@@ -4,6 +4,11 @@ import { pascalCase } from '@src/core/utils/index.js';
 import { ListAction, ListActionKind, ListColumn, ListViewModel } from './list-types.js';
 
 export class ListModelBuilder {
+    /**
+     * Builds the intermediate representation (IR) for a list view model.
+     * @param resource The API resource to analyze.
+     * @returns The generated list view model result.
+     */
     public build(resource: Resource): ListViewModel {
         const idProperty = this.getIdProperty(resource);
         const customActions = this.getCustomActions(resource);

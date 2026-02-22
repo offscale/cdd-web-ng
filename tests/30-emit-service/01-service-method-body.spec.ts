@@ -13,7 +13,6 @@ import { finalCoveragePushSpec, finalCoverageSpec } from '../fixtures/coverage.f
 
 const specBodyTests = {
     openapi: '3.0.0',
-    // ... (Keep spec definitions same as original)
     info: { title: 'Body Tests', version: '1.0' },
     paths: {
         '/multipart-encoding': {
@@ -305,14 +304,14 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
 
         const body = serviceClass.getMethodOrThrow('postUrlEncoded').getBodyText()!;
 
-        // Update: ParameterSerializer calls and iteration
         expect(body).toContain(
             'const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(body, {"tags":{"style":"spaceDelimited","explode":false}});',
         );
         expect(body).toContain('let formBody = new HttpParams({ encoder: new ApiParameterCodec() });');
-        expect(body).toContain('urlParamEntries.forEach(entry => formBody = formBody.append(entry.key, entry.value));');
+        expect(body).toContain(
+            'urlParamEntries.forEach((entry: any) => formBody = formBody.append(entry.key, entry.value));',
+        );
 
-        // Expect generic call
         expect(body).toContain('return this.http.post<any>(url, formBody, requestOptions as any);');
     });
 
@@ -347,7 +346,7 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
 
         const body = serviceClass.getMethodOrThrow('postJsonLines').getBodyText()!;
         expect(body).toContain('let jsonLinesBody = readOnlyModel;');
-        expect(body).toContain('jsonLinesBody = jsonLinesBody.map(item => JSON.stringify(item))');
+        expect(body).toContain("jsonLinesBody = jsonLinesBody.map((item: any) => JSON.stringify(item)).join('\\n')");
         expect(body).toContain("headers = headers.set('Content-Type', 'application/x-ndjson')");
     });
 
@@ -364,7 +363,7 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
 
         const body = serviceClass.getMethodOrThrow('postCustomJsonLines').getBodyText()!;
         expect(body).toContain('let jsonLinesBody = readOnlyModel;');
-        expect(body).toContain('jsonLinesBody = jsonLinesBody.map(item => JSON.stringify(item))');
+        expect(body).toContain("jsonLinesBody = jsonLinesBody.map((item: any) => JSON.stringify(item)).join('\\n')");
         expect(body).toContain("headers = headers.set('Content-Type', 'application/vnd.acme+json')");
     });
 
@@ -426,7 +425,6 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
         const body = serviceClass.getMethodOrThrow('postUrlencodedNoParams').getBodyText()!;
         expect(body).toContain('const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(body, {});');
         expect(body).toContain('let formBody = new HttpParams({ encoder: new ApiParameterCodec() });');
-        // Expect generic call
         expect(body).toContain('return this.http.post<any>(url, formBody, requestOptions as any);');
     });
 

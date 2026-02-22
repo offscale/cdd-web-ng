@@ -4,7 +4,7 @@ import { Project } from 'ts-morph';
 
 import { discoverAdminResources, getFormProperties } from '@src/generators/angular/admin/resource-discovery.js';
 import { SwaggerParser } from '@src/core/parser.js';
-import { Resource } from '@src/core/types/index.js';
+import { Resource, SwaggerDefinition } from '@src/core/types/index.js';
 import { ListComponentGenerator } from '@src/generators/angular/admin/list-component.generator.js';
 import { FormComponentGenerator } from '@src/generators/angular/admin/form-component.generator.js';
 
@@ -232,10 +232,10 @@ describe('Admin Generators (Coverage)', () => {
         const ops = parser.operations.filter(op => op.path === '/upload');
         const props = getFormProperties(ops, parser);
         const fileProp = props.find(p => p.name === 'file');
-        expect(fileProp?.schema.format).toBe('binary');
-        expect(fileProp?.schema.description).toBe('Upload file');
+        expect((fileProp?.schema as SwaggerDefinition).format).toBe('binary');
+        expect((fileProp?.schema as SwaggerDefinition).description).toBe('Upload file');
         const baseProp = props.find(p => p.name === 'base');
-        expect(baseProp?.schema.required).toContain('base');
+        expect((baseProp?.schema as SwaggerDefinition).required).toContain('base');
     });
 
     it('getFormProperties should skip array-typed formData params and tolerate unresolved array items', () => {
@@ -279,7 +279,7 @@ describe('Admin Generators (Coverage)', () => {
         const ops = parser.operations.filter(op => op.path === '/upload');
         const props = getFormProperties(ops, parser);
         const metaProp = props.find(p => p.name === 'meta');
-        expect(metaProp?.schema.type).toBeUndefined();
+        expect((metaProp?.schema as SwaggerDefinition).type).toBeUndefined();
     });
 
     it('resource-discovery should handle operations without parameters or method names', () => {
@@ -301,10 +301,6 @@ describe('Admin Generators (Coverage)', () => {
     });
 
     it('list-component-generator getIconForAction should fall back for unknown actions', () => {
-        // REFACTOR NOTICE: The method getIconForAction is now an internal logic of ListModelBuilder.
-        // We replicate the logic here to ensure the requirement (fallback icon) remains valid
-        // if we ever exposed it again or just to satisfy the coverage requirement of the logic itself.
-
         const getIconForAction = (action: string): string => {
             const lowerAction = action.toLowerCase();
             if (lowerAction.includes('delete') || lowerAction.includes('remove')) return 'delete';
@@ -325,7 +321,6 @@ describe('Admin Generators (Coverage)', () => {
     });
 
     it('list-component-generator handles listable resource with no actions', () => {
-        // This spec defines a resource that can be listed but has no edit/delete/custom actions.
         const spec = {
             openapi: '3.0.0',
             info: { title: 'Test', version: '1.0' },
@@ -345,7 +340,6 @@ describe('Admin Generators (Coverage)', () => {
             .getClassOrThrow('ReportsListComponent');
         const displayedColumns = listClass.getProperty('displayedColumns')?.getInitializer()?.getText() as string;
 
-        // This ensures the `if (hasActions)` branch is correctly NOT taken.
         expect(displayedColumns).not.toContain('actions');
     });
 
@@ -430,8 +424,6 @@ describe('Admin: FormComponentGenerator (Coverage)', () => {
 
         const patchMethod = formClass.getMethod('patchForm');
         expect(patchMethod).toBeDefined();
-        // Using new naming convention for multiple properties support: is{Prop}_{Model}
-        // Prop: type, Model: SubObject ==> isType_SubObject
         expect(patchMethod!.getBodyText()).toContain('if (this.isType_SubObject(entity))');
 
         const updateMethod = formClass.getMethod('updateFormForType');
@@ -454,7 +446,6 @@ describe('Admin: FormComponentGenerator (Coverage)', () => {
         const patchMethod = formClass.getMethod('patchForm');
         expect(patchMethod).toBeUndefined(); // Hits the early return
 
-        // Also check that ngOnInit uses the simpler patchValue
         const ngOnInitMethod = formClass.getMethod('ngOnInit');
         expect(ngOnInitMethod!.getBodyText()).toContain('this.form.patchValue(entity as any)');
     });
@@ -465,7 +456,6 @@ describe('Admin: FormComponentGenerator (Coverage)', () => {
             .getClassOrThrow('PolyPrimitiveOnlyFormComponent');
         const updateMethod = formClass.getMethod('updateFormForType');
         expect(updateMethod).toBeDefined();
-        // The method body is an empty block statement `{}`, which getBodyText() returns with spaces.
         expect(updateMethod!.getBodyText()).toBe('{ }');
     });
 
@@ -476,9 +466,7 @@ describe('Admin: FormComponentGenerator (Coverage)', () => {
         const payloadMethod = formClass.getMethodOrThrow('getPayload');
         const body = payloadMethod.getBodyText() ?? '';
 
-        // 'id' is readOnly in the fixture schemas for UpdateOnly
         expect(body).toContain("delete (payload as any)['id']");
-        // 'name' is not readOnly
         expect(body).not.toContain("delete (payload as any)['name']");
     });
 });

@@ -81,15 +81,10 @@ describe('Emitter: ServiceMethodGenerator (XML Response Parsing)', () => {
 
         const body = serviceClass.getMethodOrThrow('getXmlData').getBodyText()!;
 
-        // Expect responseType to be forced to 'text'
         expect(body).toContain(`responseType: 'text'`);
-
-        // Expect pipe and map chain
         expect(body).toContain('.pipe(');
-        expect(body).toContain('map(response => {');
+        expect(body).toContain('map((response: any) => {');
 
-        // Expect call to XmlParser.parse with correct Config structure.
-        // We check specific property existence to be robust against object key ordering
         expect(body).toContain('return XmlParser.parse(response,');
         expect(body).toContain('"name":"DataRoot"');
         expect(body).toContain('"nodeType":"element"');

@@ -189,7 +189,7 @@ program
         try {
             let spec: any;
             try {
-                ({ spec } = readOpenApiSnapshot(options.file, fs));
+                ({ spec } = readOpenApiSnapshot(options.file, fs as any));
             } catch (error) {
                 const message = error instanceof Error ? error.message : String(error);
                 const shouldFallback =
@@ -203,11 +203,11 @@ program
                 console.warn('ℹ️  Falling back to parsing generated service files.');
 
                 try {
-                    const services = parseGeneratedServices(options.file, fs);
+                    const services = parseGeneratedServices(options.file, fs as any);
                     let schemas: Record<string, any> | undefined;
 
                     try {
-                        schemas = parseGeneratedModels(options.file, fs);
+                        schemas = parseGeneratedModels(options.file, fs as any);
                     } catch (modelError) {
                         const modelMessage = modelError instanceof Error ? modelError.message : String(modelError);
                         console.warn(`⚠️  ${modelMessage}`);
@@ -217,7 +217,7 @@ program
                     spec = buildOpenApiSpecFromServices(services, {}, schemas);
 
                     try {
-                        const metadata = parseGeneratedMetadata(options.file, fs);
+                        const metadata = parseGeneratedMetadata(options.file, fs as any);
                         spec = applyReverseMetadata(spec, metadata);
                     } catch (metaError) {
                         const metaMessage = metaError instanceof Error ? metaError.message : String(metaError);
@@ -228,10 +228,10 @@ program
                     const serviceMessage = serviceError instanceof Error ? serviceError.message : String(serviceError);
                     console.warn(`⚠️  ${serviceMessage}`);
                     console.warn('ℹ️  Falling back to AST-based TypeScript scanning.');
-                    const scan = scanTypeScriptProject(options.file, fs);
+                    const scan = scanTypeScriptProject(options.file, fs as any);
                     spec = buildOpenApiSpecFromScan(scan);
                     try {
-                        const metadata = parseGeneratedMetadata(options.file, fs);
+                        const metadata = parseGeneratedMetadata(options.file, fs as any);
                         spec = applyReverseMetadata(spec, metadata);
                     } catch (metaError) {
                         const metaMessage = metaError instanceof Error ? metaError.message : String(metaError);

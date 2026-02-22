@@ -8,7 +8,6 @@ import { ParameterSerializerGenerator } from '@src/generators/shared/parameter-s
 
 const encodedContentSpec = {
     openapi: '3.1.0',
-    // ... (Keep spec as is)
     info: { title: 'Encoded Content Test', version: '1.0' },
     components: {
         schemas: {
@@ -38,7 +37,6 @@ const encodedContentSpec = {
                                     type: 'object',
                                     properties: {
                                         id: { type: 'integer' },
-                                        // This string property actually contains JSON data defined by InnerObject
                                         meta: {
                                             type: 'string',
                                             contentMediaType: 'application/json',
@@ -85,7 +83,6 @@ const encodedContentSpec = {
                         in: 'query',
                         schema: {
                             type: 'string',
-                            // Implicitly triggers JSON serialization for this string parameter
                             contentMediaType: 'application/json',
                         },
                     },
@@ -163,13 +160,9 @@ describe('Emitter: ServiceMethodGenerator (Auto Decoding & Encoding)', () => {
 
         const body = serviceClass.getMethodOrThrow('getBlobData').getBodyText()!;
 
-        // Expect pipe and map chain
         expect(body).toContain('.pipe(');
-        expect(body).toContain('map(response => {');
-
-        // Expect decoder call with correct config
+        expect(body).toContain('map((response: any) => {');
         expect(body).toContain('return ContentDecoder.decode(response,');
-        // The config should target the 'meta' property and set decode: true
         expect(body).toContain('"properties":{"meta":{"decode":true}}');
     });
 
@@ -187,10 +180,7 @@ describe('Emitter: ServiceMethodGenerator (Auto Decoding & Encoding)', () => {
         const method = serviceClass.getMethodOrThrow('getBlobData');
         const returnType = method.getReturnType().getText();
 
-        // It should be an Observable of an inline object type where meta is InnerObject
         expect(returnType).toContain('Observable');
-        // The property 'meta' should be of type 'InnerObject' (or equivalent reference)
-        // TypeConverter should have replaced `string` with `InnerObject`
         expect(returnType).toContain('meta?: InnerObject');
     });
 
@@ -207,9 +197,7 @@ describe('Emitter: ServiceMethodGenerator (Auto Decoding & Encoding)', () => {
 
         const body = serviceClass.getMethodOrThrow('getXmlEmbedded').getBodyText()!;
 
-        // Expect decoder call
         expect(body).toContain('ContentDecoder.decode(response,');
-        // Check for xml flag and config
         expect(body).toContain('"xmlContainer":{"decode":"xml"');
         expect(body).toContain('"xmlConfig":{');
         expect(body).toContain('"name":"Inner"');
@@ -220,7 +208,6 @@ describe('Emitter: ServiceMethodGenerator (Auto Decoding & Encoding)', () => {
         const op: PathInfo = {
             method: 'GET',
             path: '/json-param',
-            // Force method name, although parser does this usually
             methodName: 'getWithJsonParam',
             parameters: encodedContentSpec.paths['/json-param'].get.parameters as any,
             responses: encodedContentSpec.paths['/json-param'].get.responses,
@@ -230,10 +217,8 @@ describe('Emitter: ServiceMethodGenerator (Auto Decoding & Encoding)', () => {
 
         const body = serviceClass.getMethodOrThrow('getWithJsonParam').getBodyText()!;
 
-        // Verify custom serialization hint "json" is passed to the builder call.
-        // We check subsets of string to avoid failures on optional property ordering/presence like 'style' vs exploded defaults.
         expect(body).toContain('"serialization":"json"');
-        expect(body).toContain('ParameterSerializer.serializeQueryParam('); // New generic call
+        expect(body).toContain('ParameterSerializer.serializeQueryParam(');
         expect(body).toContain('"name":"filter"');
     });
 

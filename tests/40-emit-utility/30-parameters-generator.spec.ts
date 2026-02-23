@@ -38,17 +38,24 @@ describe('Emitter: ParametersGenerator', () => {
         const sourceFile = project.getSourceFileOrThrow('/out/parameters.ts');
         const code = sourceFile.getText();
         const jsCode = ts.transpile(code, { target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS });
+        // type-coverage:ignore-next-line
         const moduleHelper = { exports: {} as any };
+        // type-coverage:ignore-next-line
         new Function('exports', jsCode)(moduleHelper.exports);
+        // type-coverage:ignore-next-line
         return moduleHelper.exports;
     };
 
     it('should generate registry map for parameters', () => {
         const project = runGenerator(specWithParameters);
+        // type-coverage:ignore-next-line
         const { API_PARAMETERS } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_PARAMETERS.LimitParam).toBeDefined();
+        // type-coverage:ignore-next-line
         expect(API_PARAMETERS.LimitParam.name).toBe('limit');
+        // type-coverage:ignore-next-line
         expect(API_PARAMETERS.LimitParam.in).toBe('query');
     });
 

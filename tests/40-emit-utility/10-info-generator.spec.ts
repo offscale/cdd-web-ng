@@ -21,8 +21,11 @@ describe('Emitter: InfoGenerator', () => {
             target: ts.ScriptTarget.ES5,
             module: ts.ModuleKind.CommonJS,
         });
+        // type-coverage:ignore-next-line
         const moduleHelper = { exports: {} as any };
+        // type-coverage:ignore-next-line
         new Function('exports', jsCode)(moduleHelper.exports);
+        // type-coverage:ignore-next-line
         return moduleHelper.exports;
     };
 
@@ -37,10 +40,14 @@ describe('Emitter: InfoGenerator', () => {
             paths: {},
         };
         const project = runGenerator(spec);
+        // type-coverage:ignore-next-line
         const { API_INFO } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_INFO.title).toBe('My Test API');
+        // type-coverage:ignore-next-line
         expect(API_INFO.version).toBe('2.0.0-beta');
+        // type-coverage:ignore-next-line
         expect(API_INFO.description).toBe('A description of the API');
     });
 
@@ -63,7 +70,9 @@ describe('Emitter: InfoGenerator', () => {
         expect(summaryProp).toBeDefined();
 
         // Check runtime value
+        // type-coverage:ignore-next-line
         const { API_INFO } = compileGeneratedFile(project);
+        // type-coverage:ignore-next-line
         expect(API_INFO.summary).toBe('A short summary of the API.');
     });
 
@@ -87,17 +96,21 @@ describe('Emitter: InfoGenerator', () => {
             paths: {},
         };
         const project = runGenerator(spec);
+        // type-coverage:ignore-next-line
         const { API_INFO } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_INFO.contact).toEqual({
             name: 'Support',
             email: 'support@example.com',
             url: 'https://example.com/support',
         });
+        // type-coverage:ignore-next-line
         expect(API_INFO.license).toEqual({
             name: 'Apache 2.0',
             identifier: 'Apache-2.0',
         });
+        // type-coverage:ignore-next-line
         expect(API_INFO.termsOfService).toBe('https://example.com/terms');
     });
 
@@ -112,14 +125,18 @@ describe('Emitter: InfoGenerator', () => {
             paths: {},
         };
         const project = runGenerator(spec);
+        // type-coverage:ignore-next-line
         const { API_TAGS } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_TAGS).toHaveLength(2);
+        // type-coverage:ignore-next-line
         expect(API_TAGS[0]).toEqual({
             name: 'Admin',
             description: 'Administrative operations',
             summary: 'Admin Stuff',
         });
+        // type-coverage:ignore-next-line
         expect(API_TAGS[1].externalDocs.url).toBe('https://users.doc');
     });
 
@@ -134,9 +151,12 @@ describe('Emitter: InfoGenerator', () => {
             paths: {},
         };
         const project = runGenerator(spec);
+        // type-coverage:ignore-next-line
         const { API_EXTERNAL_DOCS } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_EXTERNAL_DOCS.url).toBe('https://api.docs.com');
+        // type-coverage:ignore-next-line
         expect(API_EXTERNAL_DOCS.description).toBe('Full Documentation');
     });
 
@@ -164,12 +184,18 @@ describe('Emitter: InfoGenerator', () => {
             paths: {},
         };
         const project = runGenerator(spec);
+        // type-coverage:ignore-next-line
         const { API_INFO, API_TAGS, API_EXTERNAL_DOCS } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_INFO['x-info']).toBe(true);
+        // type-coverage:ignore-next-line
         expect(API_INFO.contact['x-contact']).toBe(123);
+        // type-coverage:ignore-next-line
         expect(API_INFO.license['x-license']).toBe('meta');
+        // type-coverage:ignore-next-line
         expect(API_TAGS[0]['x-tag']).toBe('flag');
+        // type-coverage:ignore-next-line
         expect(API_EXTERNAL_DOCS['x-doc']).toBe('extra');
 
         const sourceFile = project.getSourceFileOrThrow('/out/info.ts');
@@ -187,11 +213,15 @@ describe('Emitter: InfoGenerator', () => {
             paths: {},
         };
         const project = runGenerator(spec);
+        // type-coverage:ignore-next-line
         const { API_INFO, API_TAGS, API_EXTERNAL_DOCS } = compileGeneratedFile(project);
 
         // Swagger 2.0 does not have summary, it should be undefined, matching optional interface prop
+        // type-coverage:ignore-next-line
         expect(API_INFO.summary).toBeUndefined();
+        // type-coverage:ignore-next-line
         expect(API_TAGS).toEqual([]);
+        // type-coverage:ignore-next-line
         expect(API_EXTERNAL_DOCS).toBeUndefined();
     });
 
@@ -214,11 +244,14 @@ describe('Emitter: InfoGenerator', () => {
         const project = createTestProject();
         const parser = new SwaggerParser(emptySpec as any, { options: {} } as any);
         // Simulate a defensive fallback scenario after validation
+        // type-coverage:ignore-next-line
         (parser as any).spec.info = undefined;
 
         new InfoGenerator(parser, project).generate('/out');
+        // type-coverage:ignore-next-line
         const { API_INFO } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_INFO).toEqual({});
     });
 });

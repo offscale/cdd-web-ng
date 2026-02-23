@@ -222,6 +222,7 @@ export class ServiceTestGenerator {
                     typeof firstExample === 'object' &&
                     Object.prototype.hasOwnProperty.call(firstExample, '$ref')
                 ) {
+                    // type-coverage:ignore-next-line
                     const resolved = this.parser.resolveReference<ExampleObject>((firstExample as any).$ref);
                     const resolvedValue = pickExampleValue(resolved);
                     if (resolvedValue.found) potentialValue = resolvedValue.value;

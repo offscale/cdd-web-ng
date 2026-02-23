@@ -80,13 +80,13 @@ export const listComponentSpec = {
             put: {
                 tags: ['IconTests'],
                 operationId: 'updateItem',
-                parameters: [{ name: 'id', in: 'path' }],
+                parameters: [{ name: 'id', in: 'path', required: true }],
                 responses: { '200': { description: 'ok' } },
             },
             delete: {
                 tags: ['IconTests'],
                 operationId: 'deleteItem',
-                parameters: [{ name: 'id', in: 'path' }],
+                parameters: [{ name: 'id', in: 'path', required: true }],
                 responses: { '200': { description: 'ok' } },
             },
         },
@@ -97,7 +97,7 @@ export const listComponentSpec = {
             post: {
                 tags: ['IconTests'],
                 operationId: 'removeItem',
-                parameters: [{ name: 'id', in: 'path' }],
+                parameters: [{ name: 'id', in: 'path', required: true }],
                 responses: { '200': { description: 'ok' } },
             },
         },
@@ -105,7 +105,7 @@ export const listComponentSpec = {
             post: {
                 tags: ['IconTests'],
                 operationId: 'startItem',
-                parameters: [{ name: 'id', in: 'path' }],
+                parameters: [{ name: 'id', in: 'path', required: true }],
                 responses: { '200': { description: 'ok' } },
             },
         },
@@ -113,7 +113,7 @@ export const listComponentSpec = {
             post: {
                 tags: ['IconTests'],
                 operationId: 'pauseProcess',
-                parameters: [{ name: 'id', in: 'path' }],
+                parameters: [{ name: 'id', in: 'path', required: true }],
                 responses: { '200': { description: 'ok' } },
             },
         },
@@ -124,7 +124,7 @@ export const listComponentSpec = {
             post: {
                 tags: ['IconTests'],
                 operationId: 'approveItem',
-                parameters: [{ name: 'id', in: 'path' }],
+                parameters: [{ name: 'id', in: 'path', required: true }],
                 responses: { '200': { description: 'ok' } },
             },
         },
@@ -132,7 +132,7 @@ export const listComponentSpec = {
             post: {
                 tags: ['IconTests'],
                 operationId: 'blockUser',
-                parameters: [{ name: 'id', in: 'path' }],
+                parameters: [{ name: 'id', in: 'path', required: true }],
                 responses: { '200': { description: 'ok' } },
             },
         },

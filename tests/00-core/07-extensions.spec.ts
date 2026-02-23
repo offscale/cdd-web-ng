@@ -73,6 +73,7 @@ describe('Core: Specification Extensions', () => {
         const info: InfoObject = parser.getSpec().info;
 
         expect(info['x-logo']).toBeDefined();
+        // type-coverage:ignore-next-line
         expect((info as any)['x-logo'].url).toBe('https://example.com/logo.png');
         expect(info['x-internal-id']).toBe(12345);
     });

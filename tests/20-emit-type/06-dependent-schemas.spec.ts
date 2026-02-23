@@ -7,6 +7,7 @@ import { SwaggerParser } from '@src/core/parser.js';
 import { GeneratorConfig } from '@src/core/types/index.js';
 
 describe('Emitter: TypeGenerator (dependentSchemas)', () => {
+    // type-coverage:ignore-next-line
     const setup = (schema: any) => {
         const project = new Project({ useInMemoryFileSystem: true });
         const config: GeneratorConfig = { input: '', output: '/out', options: {} };
@@ -14,6 +15,7 @@ describe('Emitter: TypeGenerator (dependentSchemas)', () => {
             openapi: '3.1.0',
             info: { title: 'Dependent', version: '1' },
             paths: {},
+            // type-coverage:ignore-next-line
             components: { schemas: { DependentModel: schema } },
         };
         const parser = new SwaggerParser(spec as any, config);
@@ -85,6 +87,7 @@ describe('Emitter: TypeGenerator (dependentSchemas)', () => {
 });
 
 describe('Emitter: TypeGenerator (dependentRequired)', () => {
+    // type-coverage:ignore-next-line
     const setup = (schema: any) => {
         const project = new Project({ useInMemoryFileSystem: true });
         const config: GeneratorConfig = { input: '', output: '/out', options: {} };
@@ -92,6 +95,7 @@ describe('Emitter: TypeGenerator (dependentRequired)', () => {
             openapi: '3.1.0',
             info: { title: 'Dependent', version: '1' },
             paths: {},
+            // type-coverage:ignore-next-line
             components: { schemas: { DependentModel: schema } },
         };
         const parser = new SwaggerParser(spec as any, config);

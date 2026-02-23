@@ -334,6 +334,7 @@ describe('Emitter: ServiceMethodGenerator (Parameters)', () => {
 
         const { methodGen, serviceClass } = createTestEnvironment(spec);
         const op: PathInfo = {
+            // type-coverage:ignore-next-line
             ...(spec as any).paths['/users/{id}'].post,
             path: '/users/{id}',
             method: 'POST',

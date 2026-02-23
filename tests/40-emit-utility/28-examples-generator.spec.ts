@@ -40,17 +40,24 @@ describe('Emitter: ExamplesGenerator', () => {
         const sourceFile = project.getSourceFileOrThrow('/out/examples.ts');
         const code = sourceFile.getText();
         const jsCode = ts.transpile(code, { target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS });
+        // type-coverage:ignore-next-line
         const moduleHelper = { exports: {} as any };
+        // type-coverage:ignore-next-line
         new Function('exports', jsCode)(moduleHelper.exports);
+        // type-coverage:ignore-next-line
         return moduleHelper.exports;
     };
 
     it('should generate registry map for examples', () => {
         const project = runGenerator(examplesSpec);
+        // type-coverage:ignore-next-line
         const { API_EXAMPLES } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_EXAMPLES.ExampleOne.summary).toBe('Example');
+        // type-coverage:ignore-next-line
         expect(API_EXAMPLES.ExampleOne.dataValue.foo).toBe('bar');
+        // type-coverage:ignore-next-line
         expect(API_EXAMPLES.ExampleTwo.serializedValue).toContain('world');
     });
 

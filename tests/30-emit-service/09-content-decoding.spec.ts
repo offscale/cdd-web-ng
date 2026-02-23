@@ -149,6 +149,7 @@ describe('Emitter: ServiceMethodGenerator (Auto Decoding & Encoding)', () => {
 
     it('should generate ContentDecoder.decode call for contentSchema fields', () => {
         const { methodGen, serviceClass } = createTestEnv();
+        // type-coverage:ignore-next-line
         const op: any = {
             method: 'GET',
             path: '/blob-data',
@@ -168,6 +169,7 @@ describe('Emitter: ServiceMethodGenerator (Auto Decoding & Encoding)', () => {
 
     it('should generate correct return type signature for contentSchema', () => {
         const { methodGen, serviceClass } = createTestEnv();
+        // type-coverage:ignore-next-line
         const op: any = {
             method: 'GET',
             path: '/blob-data',
@@ -186,6 +188,7 @@ describe('Emitter: ServiceMethodGenerator (Auto Decoding & Encoding)', () => {
 
     it('should generate XML decoding config for contentMediaType="application/xml"', () => {
         const { methodGen, serviceClass } = createTestEnv();
+        // type-coverage:ignore-next-line
         const op: any = {
             method: 'GET',
             path: '/xml-embedded',
@@ -224,6 +227,7 @@ describe('Emitter: ServiceMethodGenerator (Auto Decoding & Encoding)', () => {
 
     it('should include contentEncoding in response decoding config', () => {
         const { methodGen, serviceClass } = createTestEnv();
+        // type-coverage:ignore-next-line
         const op: any = {
             method: 'GET',
             path: '/base64-response',

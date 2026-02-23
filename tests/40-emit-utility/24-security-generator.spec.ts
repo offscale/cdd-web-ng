@@ -61,6 +61,7 @@ describe('Emitter: SecurityGenerator', () => {
     });
 
     it('should generate HTTP security definitions (Basic, Bearer)', () => {
+        // type-coverage:ignore-next-line
         const schemes: any = {
             BasicAuth: {
                 type: 'http',

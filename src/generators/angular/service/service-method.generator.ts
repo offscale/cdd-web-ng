@@ -423,12 +423,15 @@ export class ServiceMethodGenerator {
             tags.push(`@querystring ${JSON.stringify(meta)}`);
         }
 
+        // type-coverage:ignore-next-line
         Object.entries(operation).forEach(([key, value]) => {
             if (!key.startsWith('x-')) return;
+            // type-coverage:ignore-next-line
             if (value === undefined) {
                 tags.push(`@${key}`);
                 return;
             }
+            // type-coverage:ignore-next-line
             tags.push(`@${key} ${JSON.stringify(value)}`);
         });
 

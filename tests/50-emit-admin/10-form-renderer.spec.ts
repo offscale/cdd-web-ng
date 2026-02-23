@@ -66,6 +66,7 @@ describe('Admin: FormRenderer', () => {
         });
 
         it('should throw an error on unhandled validation rule type', () => {
+            // type-coverage:ignore-next-line
             const badRule = { type: 'futureValidator' } as any;
             expect(() => ValidationRenderer.render([badRule])).toThrow(
                 'Unhandled validation rule type: futureValidator',

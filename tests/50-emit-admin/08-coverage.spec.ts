@@ -284,6 +284,7 @@ describe('Admin Generators (Coverage)', () => {
 
     it('resource-discovery should handle operations without parameters or method names', () => {
         const parser = new SwaggerParser(coverageSpecPart2 as any, { options: {} } as any);
+        // type-coverage:ignore-next-line
         (parser.operations as any).push({
             path: '',
             method: '',

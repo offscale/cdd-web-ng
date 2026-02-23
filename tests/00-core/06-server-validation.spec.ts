@@ -6,6 +6,7 @@ describe('Core: Server Object Validation (Additional)', () => {
     const validInfo = { title: 'Valid API', version: '1.0.0' };
 
     it('should reject server URLs with undefined template variables', () => {
+        // type-coverage:ignore-next-line
         const spec: any = {
             openapi: '3.2.0',
             info: validInfo,
@@ -21,6 +22,7 @@ describe('Core: Server Object Validation (Additional)', () => {
     });
 
     it('should reject server variables missing required default', () => {
+        // type-coverage:ignore-next-line
         const spec: any = {
             openapi: '3.2.0',
             info: validInfo,
@@ -36,6 +38,7 @@ describe('Core: Server Object Validation (Additional)', () => {
     });
 
     it('should reject server variables with non-string default', () => {
+        // type-coverage:ignore-next-line
         const spec: any = {
             openapi: '3.2.0',
             info: validInfo,
@@ -51,6 +54,7 @@ describe('Core: Server Object Validation (Additional)', () => {
     });
 
     it('should reject duplicate server names', () => {
+        // type-coverage:ignore-next-line
         const spec: any = {
             openapi: '3.2.0',
             info: validInfo,

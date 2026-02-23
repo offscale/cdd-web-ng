@@ -39,16 +39,22 @@ describe('Emitter: MediaTypesGenerator', () => {
         const sourceFile = project.getSourceFileOrThrow('/out/media-types.ts');
         const code = sourceFile.getText();
         const jsCode = ts.transpile(code, { target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS });
+        // type-coverage:ignore-next-line
         const moduleHelper = { exports: {} as any };
+        // type-coverage:ignore-next-line
         new Function('exports', jsCode)(moduleHelper.exports);
+        // type-coverage:ignore-next-line
         return moduleHelper.exports;
     };
 
     it('should generate registry map for media types', () => {
         const project = runGenerator(mediaTypesSpec);
+        // type-coverage:ignore-next-line
         const { API_MEDIA_TYPES } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_MEDIA_TYPES.EventStream.schema.type).toBe('string');
+        // type-coverage:ignore-next-line
         expect(API_MEDIA_TYPES.JsonLines.itemSchema.type).toBe('object');
     });
 

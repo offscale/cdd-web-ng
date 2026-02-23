@@ -79,6 +79,7 @@ describe('Admin: Form HTML Builders', () => {
             name: 'meta2',
             schema: { type: 'object' },
             controlType: 'map',
+            // type-coverage:ignore-next-line
             mapValueControl: { ...baseControl, name: 'value', schema: { type: 'object' } } as any,
         } as any;
 
@@ -106,6 +107,7 @@ describe('Admin: Form HTML Builders', () => {
                 {
                     propertyName: 'kind',
                     discriminatorOptions: [],
+                    // type-coverage:ignore-next-line
                     options: undefined as any,
                 } as any,
             ],

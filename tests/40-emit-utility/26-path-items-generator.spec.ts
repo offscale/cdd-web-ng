@@ -39,16 +39,22 @@ describe('Emitter: PathItemsGenerator', () => {
         const sourceFile = project.getSourceFileOrThrow('/out/path-items.ts');
         const code = sourceFile.getText();
         const jsCode = ts.transpile(code, { target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS });
+        // type-coverage:ignore-next-line
         const moduleHelper = { exports: {} as any };
+        // type-coverage:ignore-next-line
         new Function('exports', jsCode)(moduleHelper.exports);
+        // type-coverage:ignore-next-line
         return moduleHelper.exports;
     };
 
     it('should generate registry map for path items', () => {
         const project = runGenerator(specWithPathItems);
+        // type-coverage:ignore-next-line
         const { API_PATH_ITEMS } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_PATH_ITEMS.Ping).toBeDefined();
+        // type-coverage:ignore-next-line
         expect(API_PATH_ITEMS.Ping.get.operationId).toBe('ping');
     });
 

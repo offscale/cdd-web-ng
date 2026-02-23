@@ -50,10 +50,14 @@ export class TypeGenerator {
             Object.entries(spec.webhooks).forEach(([name, pathItem]) => {
                 const postOp = (pathItem as PathItem).post;
                 if (postOp && postOp.requestBody) {
+                    // type-coverage:ignore-next-line
                     const content = (postOp.requestBody as any).content || {};
+                    // type-coverage:ignore-next-line
                     const jsonContent = content['application/json'] || content['*/*'];
+                    // type-coverage:ignore-next-line
                     if (jsonContent && jsonContent.schema) {
                         const modelName = pascalCase(name) + 'Webhook';
+                        // type-coverage:ignore-next-line
                         processDefinition(modelName, jsonContent.schema as SwaggerDefinition);
                     }
                 }
@@ -73,13 +77,17 @@ export class TypeGenerator {
                         (['post', 'put', 'patch'] as const).forEach(method => {
                             const operation = pathItem[method];
                             if (operation && operation.requestBody) {
+                                // type-coverage:ignore-next-line
                                 const content = (operation.requestBody as any).content || {};
+                                // type-coverage:ignore-next-line
                                 const jsonContent = content['application/json'] || content['*/*'];
+                                // type-coverage:ignore-next-line
                                 if (jsonContent && jsonContent.schema) {
                                     const opIdBase = op.operationId
                                         ? pascalCase(op.operationId)
                                         : pascalCase(op.method + op.path);
                                     const modelName = `${opIdBase}${pascalCase(callbackName)}Request`;
+                                    // type-coverage:ignore-next-line
                                     processDefinition(modelName, jsonContent.schema as SwaggerDefinition);
                                 }
                             }

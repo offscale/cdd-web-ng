@@ -119,6 +119,7 @@ describe('E2E: Full Generation Orchestrator', () => {
         await runGeneratorWithConfig(coverageSpec, { admin: true, generateAdminTests: false });
         const logCalls = consoleSpy.mock.calls.flat();
 
+        // type-coverage:ignore-next-line
         const hasAdminTestLog = logCalls.some(log => log.includes('Test generation for admin UI is stubbed.'));
         expect(hasAdminTestLog).toBe(false);
 

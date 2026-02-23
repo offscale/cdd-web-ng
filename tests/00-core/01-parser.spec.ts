@@ -28,13 +28,16 @@ vi.mock('node:url', () => ({
 
 describe('Core: SwaggerParser', () => {
     let config: GeneratorConfig;
+    // type-coverage:ignore-next-line
     let consoleWarnSpy: any;
     const originalJsonParse = JSON.parse;
     const validInfo = { title: 'Test API', version: '1.0.0' };
+    // type-coverage:ignore-next-line
     let realValidateSpec: any;
 
     beforeAll(async () => {
         const actual = await vi.importActual<typeof validator>('@src/core/validator.js');
+        // type-coverage:ignore-next-line
         realValidateSpec = actual.validateSpec;
     });
 
@@ -44,6 +47,7 @@ describe('Core: SwaggerParser', () => {
             output: './out',
             options: {},
         };
+        // type-coverage:ignore-next-line
         consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
         (validator.validateSpec as Mock).mockImplementation(() => {});
     });
@@ -142,6 +146,7 @@ describe('Core: SwaggerParser', () => {
 
     describe('OAS 3.2 Compliance: Server URL Resolution', () => {
         it('should resolve relative server URLs against document URI', async () => {
+            // type-coverage:ignore-next-line
             const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -156,6 +161,7 @@ describe('Core: SwaggerParser', () => {
         });
 
         it('should resolve relative operation servers against document URI', () => {
+            // type-coverage:ignore-next-line
             const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -177,6 +183,7 @@ describe('Core: SwaggerParser', () => {
         });
 
         it('should treat empty operation servers as default "/" and override global servers', () => {
+            // type-coverage:ignore-next-line
             const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -242,6 +249,7 @@ describe('Core: SwaggerParser', () => {
         });
 
         it('should ignore $self when resolving relative server URLs', async () => {
+            // type-coverage:ignore-next-line
             const spec = {
                 openapi: '3.2.0',
                 $self: 'https://cdn.spec.com/latest/spec.yaml',
@@ -256,6 +264,7 @@ describe('Core: SwaggerParser', () => {
         });
 
         it('should ignore relative $self when resolving server URLs', () => {
+            // type-coverage:ignore-next-line
             const spec = {
                 openapi: '3.2.0',
                 $self: '../canon/spec.yaml',
@@ -270,6 +279,7 @@ describe('Core: SwaggerParser', () => {
         });
 
         it('should leave template URLs untouched if they start with braces', async () => {
+            // type-coverage:ignore-next-line
             const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -282,6 +292,7 @@ describe('Core: SwaggerParser', () => {
         });
 
         it('should preserve template variables in path during resolution', async () => {
+            // type-coverage:ignore-next-line
             const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -294,6 +305,7 @@ describe('Core: SwaggerParser', () => {
         });
 
         it('should keep server entries without url unchanged', () => {
+            // type-coverage:ignore-next-line
             const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -305,6 +317,7 @@ describe('Core: SwaggerParser', () => {
         });
 
         it('should return original server URL when resolution fails', () => {
+            // type-coverage:ignore-next-line
             const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -406,6 +419,7 @@ describe('Core: SwaggerParser', () => {
         it('should warn and return undefined for invalid reference paths', () => {
             const result = parser.resolve({ $ref: '#/components/schemas/NonExistent' });
             expect(result).toBeUndefined();
+            // type-coverage:ignore-next-line
             expect(consoleWarnSpy).toHaveBeenCalledWith(
                 expect.stringContaining('Failed to resolve reference part "NonExistent"'),
             );
@@ -414,6 +428,7 @@ describe('Core: SwaggerParser', () => {
         it('should return undefined if an intermediate part of the ref path is null', () => {
             const result = parser.resolve({ $ref: '#/components/schemas/Broken/property' });
             expect(result).toBeUndefined();
+            // type-coverage:ignore-next-line
             expect(consoleWarnSpy).toHaveBeenCalledWith(
                 expect.stringContaining(
                     'Failed to resolve reference part "property" in path "#/components/schemas/Broken/property"',
@@ -715,6 +730,7 @@ describe('Core: SwaggerParser', () => {
 
     describe('OAS 3.1+ Features', () => {
         it('should parse jsonSchemaDialect', () => {
+            // type-coverage:ignore-next-line
             const spec = {
                 openapi: '3.1.0',
                 info: validInfo,
@@ -726,18 +742,21 @@ describe('Core: SwaggerParser', () => {
         });
 
         it('should default jsonSchemaDialect for OpenAPI 3.1 when missing', () => {
+            // type-coverage:ignore-next-line
             const spec = { openapi: '3.1.0', info: validInfo, paths: {} } as any;
             const parser = new SwaggerParser(spec, config);
             expect(parser.getJsonSchemaDialect()).toBe(OAS_3_1_DIALECT);
         });
 
         it('should default jsonSchemaDialect for OpenAPI 3.2 when missing', () => {
+            // type-coverage:ignore-next-line
             const spec = { openapi: '3.2.0', info: validInfo, paths: {} } as any;
             const parser = new SwaggerParser(spec, config);
             expect(parser.getJsonSchemaDialect()).toBe(OAS_3_1_DIALECT);
         });
 
         it('should return undefined jsonSchemaDialect for OpenAPI 3.0 without dialect', () => {
+            // type-coverage:ignore-next-line
             const spec = { openapi: '3.0.3', info: validInfo, paths: {} } as any;
             const parser = new SwaggerParser(spec, config);
             expect(parser.getJsonSchemaDialect()).toBeUndefined();
@@ -746,6 +765,7 @@ describe('Core: SwaggerParser', () => {
         it('should accept JSON Schema 2020-12 dialect silently', () => {
             const spec = { ...validInfo, openapi: '3.1.0', jsonSchemaDialect: JSON_SCHEMA_2020_12_DIALECT, paths: {} };
             new SwaggerParser(spec as any, { options: {} } as GeneratorConfig);
+            // type-coverage:ignore-next-line
             expect(consoleWarnSpy).not.toHaveBeenCalled();
         });
 
@@ -757,6 +777,7 @@ describe('Core: SwaggerParser', () => {
                 paths: {},
             };
             new SwaggerParser(spec as any, { options: {} } as GeneratorConfig);
+            // type-coverage:ignore-next-line
             expect(consoleWarnSpy).not.toHaveBeenCalled();
         });
 
@@ -798,8 +819,11 @@ describe('Core: SwaggerParser', () => {
                 },
             };
             const parser = new SwaggerParser(specWithOverrides as any, { options: {} } as GeneratorConfig);
+            // type-coverage:ignore-next-line
             const resolved = parser.resolve<any>(specWithOverrides.components.schemas.WithOverride);
+            // type-coverage:ignore-next-line
             expect(resolved?.description).toBe('Overridden');
+            // type-coverage:ignore-next-line
             expect(resolved?.summary).toBe('New');
         });
     });

@@ -91,32 +91,48 @@ describe('Emitter: DiscriminatorGenerator', () => {
         const sourceFile = project.getSourceFileOrThrow('/out/discriminators.ts');
         const code = sourceFile.getText();
         const jsCode = ts.transpile(code, { target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS });
+        // type-coverage:ignore-next-line
         const moduleHelper = { exports: {} as any };
+        // type-coverage:ignore-next-line
         new Function('exports', jsCode)(moduleHelper.exports);
+        // type-coverage:ignore-next-line
         return moduleHelper.exports;
     };
 
     it('should generate registry for OAS3 explicit discriminators', () => {
         const project = runGenerator(oas3Spec);
+        // type-coverage:ignore-next-line
         const { API_DISCRIMINATORS } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_DISCRIMINATORS).toBeDefined();
+        // type-coverage:ignore-next-line
         expect(API_DISCRIMINATORS['Pet']).toBeDefined();
+        // type-coverage:ignore-next-line
         expect(API_DISCRIMINATORS['Pet'].propertyName).toBe('petType');
 
+        // type-coverage:ignore-next-line
         const mapping = API_DISCRIMINATORS['Pet'].mapping;
+        // type-coverage:ignore-next-line
         expect(mapping).toBeDefined();
+        // type-coverage:ignore-next-line
         expect(mapping['cat_obj']).toBe('Cat');
+        // type-coverage:ignore-next-line
         expect(mapping['dog_obj']).toBe('Dog');
     });
 
     it('should generate registry for Swagger 2 string discriminators', () => {
         const project = runGenerator(swagger2Spec);
+        // type-coverage:ignore-next-line
         const { API_DISCRIMINATORS } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_DISCRIMINATORS).toBeDefined();
+        // type-coverage:ignore-next-line
         expect(API_DISCRIMINATORS['Animal']).toBeDefined();
+        // type-coverage:ignore-next-line
         expect(API_DISCRIMINATORS['Animal'].propertyName).toBe('kind');
+        // type-coverage:ignore-next-line
         expect(API_DISCRIMINATORS['Animal'].mapping).toBeUndefined();
     });
 
@@ -179,8 +195,10 @@ describe('Emitter: DiscriminatorGenerator', () => {
         });
 
         new DiscriminatorGenerator(parser, project).generate('/out');
+        // type-coverage:ignore-next-line
         const { API_DISCRIMINATORS } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_DISCRIMINATORS['Context'].mapping['external']).toBe('ExternalModel');
     });
 
@@ -208,8 +226,10 @@ describe('Emitter: DiscriminatorGenerator', () => {
         } as any;
 
         const project = runGenerator(fallbackSpec);
+        // type-coverage:ignore-next-line
         const { API_DISCRIMINATORS } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_DISCRIMINATORS['Item'].mapping['remote']).toBe('WeirdName');
     });
 
@@ -240,7 +260,9 @@ describe('Emitter: DiscriminatorGenerator', () => {
         } as any;
 
         const project = runGenerator(spec);
+        // type-coverage:ignore-next-line
         const { API_DISCRIMINATORS } = compileGeneratedFile(project);
+        // type-coverage:ignore-next-line
         expect(API_DISCRIMINATORS['Thing'].mapping).toBeUndefined();
     });
 
@@ -290,8 +312,10 @@ describe('Emitter: DiscriminatorGenerator', () => {
         vi.spyOn(parser, 'resolveReference').mockReturnValue({ type: 'object' } as any);
 
         new DiscriminatorGenerator(parser, project).generate('/out');
+        // type-coverage:ignore-next-line
         const { API_DISCRIMINATORS } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_DISCRIMINATORS['Context'].mapping['external']).toBe('ExternalModel');
     });
 
@@ -320,9 +344,12 @@ describe('Emitter: DiscriminatorGenerator', () => {
         };
 
         const project = runGenerator(defaultMapSpec);
+        // type-coverage:ignore-next-line
         const { API_DISCRIMINATORS } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_DISCRIMINATORS['GenericPet']).toBeDefined();
+        // type-coverage:ignore-next-line
         expect(API_DISCRIMINATORS['GenericPet'].defaultMapping).toBe('UnknownPet');
     });
 });

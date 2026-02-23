@@ -36,16 +36,22 @@ describe('Emitter: HeadersGenerator', () => {
         const sourceFile = project.getSourceFileOrThrow('/out/headers.ts');
         const code = sourceFile.getText();
         const jsCode = ts.transpile(code, { target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS });
+        // type-coverage:ignore-next-line
         const moduleHelper = { exports: {} as any };
+        // type-coverage:ignore-next-line
         new Function('exports', jsCode)(moduleHelper.exports);
+        // type-coverage:ignore-next-line
         return moduleHelper.exports;
     };
 
     it('should generate registry map for component headers', () => {
         const project = runGenerator(specWithHeaders);
+        // type-coverage:ignore-next-line
         const { API_HEADERS } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_HEADERS.TraceId).toBeDefined();
+        // type-coverage:ignore-next-line
         expect(API_HEADERS.TraceId.description).toBe('Request trace identifier');
     });
 

@@ -20,8 +20,11 @@ describe('Emitter: DocumentMetaGenerator', () => {
             target: ts.ScriptTarget.ES5,
             module: ts.ModuleKind.CommonJS,
         });
+        // type-coverage:ignore-next-line
         const moduleHelper = { exports: {} as any };
+        // type-coverage:ignore-next-line
         new Function('exports', jsCode)(moduleHelper.exports);
+        // type-coverage:ignore-next-line
         return moduleHelper.exports;
     };
 
@@ -34,10 +37,14 @@ describe('Emitter: DocumentMetaGenerator', () => {
             paths: {},
         };
         const project = runGenerator(spec);
+        // type-coverage:ignore-next-line
         const { API_DOCUMENT_META } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_DOCUMENT_META.openapi).toBe('3.2.0');
+        // type-coverage:ignore-next-line
         expect(API_DOCUMENT_META.$self).toBe('https://example.com/openapi');
+        // type-coverage:ignore-next-line
         expect(API_DOCUMENT_META.jsonSchemaDialect).toBe('https://example.com/dialect');
     });
 
@@ -48,10 +55,14 @@ describe('Emitter: DocumentMetaGenerator', () => {
             paths: {},
         };
         const project = runGenerator(spec);
+        // type-coverage:ignore-next-line
         const { API_DOCUMENT_META } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_DOCUMENT_META.swagger).toBe('2.0');
+        // type-coverage:ignore-next-line
         expect(API_DOCUMENT_META.openapi).toBeUndefined();
+        // type-coverage:ignore-next-line
         expect(API_DOCUMENT_META.jsonSchemaDialect).toBeUndefined();
     });
 });

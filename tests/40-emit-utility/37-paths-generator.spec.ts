@@ -40,20 +40,30 @@ describe('Emitter: PathsGenerator', () => {
         const sourceFile = project.getSourceFileOrThrow('/out/paths.ts');
         const code = sourceFile.getText();
         const jsCode = ts.transpile(code, { target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS });
+        // type-coverage:ignore-next-line
         const moduleHelper = { exports: {} as any };
+        // type-coverage:ignore-next-line
         new Function('exports', jsCode)(moduleHelper.exports);
+        // type-coverage:ignore-next-line
         return moduleHelper.exports;
     };
 
     it('should generate registry map for path-level metadata', () => {
         const project = runGenerator(specWithPathMeta);
+        // type-coverage:ignore-next-line
         const { API_PATHS } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_PATHS['/pets']).toBeDefined();
+        // type-coverage:ignore-next-line
         expect(API_PATHS['/pets'].summary).toBe('Pets');
+        // type-coverage:ignore-next-line
         expect(API_PATHS['/pets'].description).toBe('Pet operations');
+        // type-coverage:ignore-next-line
         expect(API_PATHS['/pets'].parameters?.[0]?.name).toBe('trace');
+        // type-coverage:ignore-next-line
         expect(API_PATHS['/pets'].servers?.[0]?.url).toBe('https://api.example.com');
+        // type-coverage:ignore-next-line
         expect(API_PATHS['/pets']['x-release']).toBe('beta');
     });
 

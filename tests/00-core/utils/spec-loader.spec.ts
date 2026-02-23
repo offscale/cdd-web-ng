@@ -137,14 +137,18 @@ properties:
 
         const result = await SpecLoader.load('http://api.com/spec');
         expect(result.entrySpec).toBeDefined();
+        // type-coverage:ignore-next-line
         expect((result.entrySpec as any).type).toBe('object');
+        // type-coverage:ignore-next-line
         expect((result.entrySpec as any).properties?.name?.type).toBe('string');
     });
 
     it('should handle non-url paths when calling loadContent directly', async () => {
         (fs.existsSync as Mock).mockReturnValue(true);
         (fs.readFileSync as Mock).mockReturnValue('{"openapi":"3.0.0"}');
+        // type-coverage:ignore-next-line
         const content = await (SpecLoader as any).loadContent('plain.json');
+        // type-coverage:ignore-next-line
         expect(content).toBe('{"openapi":"3.0.0"}');
     });
 

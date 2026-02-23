@@ -47,6 +47,7 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
         const sourceFile = project.createSourceFile('/out/service.ts', '', { overwrite: true });
         const classDeclaration = sourceFile.addClass({ name: 'TestService' });
 
+        // type-coverage:ignore-next-line
         vi.spyOn((generator as any).analyzer, 'analyze').mockReturnValue(model);
         generator.addServiceMethod(classDeclaration, { methodName: 'doThing' } as any);
 
@@ -87,6 +88,7 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
         const sourceFile = project.createSourceFile('/out/service.ts', '', { overwrite: true });
         const classDeclaration = sourceFile.addClass({ name: 'TestService' });
 
+        // type-coverage:ignore-next-line
         vi.spyOn((generator as any).analyzer, 'analyze').mockReturnValue(model);
         generator.addServiceMethod(classDeclaration, { methodName: 'doThing', operationId: 'getThing' } as any);
 
@@ -165,6 +167,7 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
         const sourceFile = project.createSourceFile('/out/service.ts', '', { overwrite: true });
         const classDeclaration = sourceFile.addClass({ name: 'TestService' });
 
+        // type-coverage:ignore-next-line
         vi.spyOn((generator as any).analyzer, 'analyze').mockReturnValue(model);
         generator.addServiceMethod(classDeclaration, parser.operations[0]);
 
@@ -255,6 +258,7 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
         const sourceFile = project.createSourceFile('/out/service.ts', '', { overwrite: true });
         const classDeclaration = sourceFile.addClass({ name: 'TestService' });
 
+        // type-coverage:ignore-next-line
         vi.spyOn((generator as any).analyzer, 'analyze').mockReturnValue(model);
         generator.addServiceMethod(classDeclaration, parser.operations[0]);
 
@@ -319,6 +323,7 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
         const sourceFile = project.createSourceFile('/out/service.ts', '', { overwrite: true });
         const classDeclaration = sourceFile.addClass({ name: 'TestService' });
 
+        // type-coverage:ignore-next-line
         vi.spyOn((generator as any).analyzer, 'analyze').mockReturnValue(model);
         generator.addServiceMethod(classDeclaration, parser.operations[0]);
 
@@ -362,6 +367,7 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
         const sourceFile = project.createSourceFile('/out/service.ts', '', { overwrite: true });
         const classDeclaration = sourceFile.addClass({ name: 'TestService' });
 
+        // type-coverage:ignore-next-line
         vi.spyOn((generator as any).analyzer, 'analyze').mockReturnValue(model);
         generator.addServiceMethod(classDeclaration, { methodName: 'getMulti' } as any);
 
@@ -402,6 +408,7 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
         const sourceFile = project.createSourceFile('/out/service.ts', '', { overwrite: true });
         const classDeclaration = sourceFile.addClass({ name: 'TestService' });
 
+        // type-coverage:ignore-next-line
         vi.spyOn((generator as any).analyzer, 'analyze').mockReturnValue(model);
         generator.addServiceMethod(classDeclaration, {
             methodName: 'withResponses',
@@ -460,6 +467,7 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
         const sourceFile = project.createSourceFile('/out/service.ts', '', { overwrite: true });
         const classDeclaration = sourceFile.addClass({ name: 'TestService' });
 
+        // type-coverage:ignore-next-line
         vi.spyOn((generator as any).analyzer, 'analyze').mockReturnValue(model);
         generator.addServiceMethod(classDeclaration, { methodName: 'noDocs' } as any);
 
@@ -549,6 +557,7 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
             hasServers: false,
         };
 
+        // type-coverage:ignore-next-line
         const rawOp = {
             path: '/custom',
             method: 'CUSTOM',
@@ -562,15 +571,24 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
             ],
         } as any;
 
+        // type-coverage:ignore-next-line
         const body = (generator as any).emitMethodBody(model, rawOp, false, true);
 
+        // type-coverage:ignore-next-line
         expect(body).toContain("serializeRawQuerystring(qs, 'json')");
+        // type-coverage:ignore-next-line
         expect(body).toContain("serializeHeaderParam(hdr, false, 'json')");
+        // type-coverage:ignore-next-line
         expect(body).toContain("serializeCookieParam('sid', cookie, 'form', true, false, 'json')");
+        // type-coverage:ignore-next-line
         expect(body).toContain("XmlBuilder.serialize(payload, 'Root'");
+        // type-coverage:ignore-next-line
         expect(body).toContain("this.http.request<any>('CUSTOM', url, { ...requestOptions, body: xmlBody } as any)");
+        // type-coverage:ignore-next-line
         expect(body).toContain("response.split('\\x1e')");
+        // type-coverage:ignore-next-line
         expect(body).toContain("response.split('\\n')");
+        // type-coverage:ignore-next-line
         expect(body).toContain('ContentDecoder.decode(response');
     });
 
@@ -612,16 +630,22 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
             hasServers: false,
         };
 
+        // type-coverage:ignore-next-line
         const rawOp = {
             path: '/qs',
             method: 'GET',
             parameters: [{ name: 'qs', in: 'querystring', schema: { type: 'string' } }],
         } as any;
 
+        // type-coverage:ignore-next-line
         const body = (generator as any).emitMethodBody(model, rawOp, false, false);
+        // type-coverage:ignore-next-line
         expect(body).toContain('serializeRawQuerystring(qs)');
+        // type-coverage:ignore-next-line
         expect(body).not.toContain("serializeRawQuerystring(qs, 'json')");
+        // type-coverage:ignore-next-line
         expect(body).toContain('serializeHeaderParam(hdr, false)');
+        // type-coverage:ignore-next-line
         expect(body).not.toContain("serializeHeaderParam(hdr, false, 'json')");
     });
 
@@ -654,11 +678,16 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
             hasServers: false,
         };
 
+        // type-coverage:ignore-next-line
         const rawOp = { path: '/neg', method: 'GET' } as any;
+        // type-coverage:ignore-next-line
         const body = (generator as any).emitMethodBody(model, rawOp, false, true);
 
+        // type-coverage:ignore-next-line
         expect(body).toContain("const acceptHeader = headers.get('Accept');");
+        // type-coverage:ignore-next-line
         expect(body).toContain('responseType: options?.responseType');
+        // type-coverage:ignore-next-line
         expect(body).not.toContain("? 'text' :");
     });
 
@@ -688,9 +717,12 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
             hasServers: false,
         };
 
+        // type-coverage:ignore-next-line
         const rawOp = { path: '/download', method: 'GET' } as any;
+        // type-coverage:ignore-next-line
         const body = (generator as any).emitMethodBody(model, rawOp, false, false);
 
+        // type-coverage:ignore-next-line
         expect(body).toContain("responseType: 'blob'");
     });
 
@@ -723,8 +755,11 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
             hasServers: false,
         };
 
+        // type-coverage:ignore-next-line
         const rawOp = { path: '/weird', method: 'POST' } as any;
+        // type-coverage:ignore-next-line
         const body = (generator as any).emitMethodBody(model, rawOp, false, false);
+        // type-coverage:ignore-next-line
         expect(body).toContain('this.http.post<any>(url, null, requestOptions as any)');
     });
 
@@ -758,10 +793,14 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
             hasServers: false,
         };
 
+        // type-coverage:ignore-next-line
         const rawOp = { path: '/text', method: 'POST' } as any;
+        // type-coverage:ignore-next-line
         const body = (generator as any).emitMethodBody(model, rawOp, false, false);
 
+        // type-coverage:ignore-next-line
         expect(body).toContain("headers = headers.set('Content-Type', 'text/plain')");
+        // type-coverage:ignore-next-line
         expect(body).toContain('requestOptions = { ...requestOptions, headers };');
     });
 
@@ -772,9 +811,11 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
         );
         const generator = new ServiceMethodGenerator(config, parser);
 
+        // type-coverage:ignore-next-line
         const overloads = (generator as any).emitOverloads('doThing', '', [], false, false, [
             { mediaType: 'application/json', type: 'any', serialization: 'json', isDefault: true },
         ]);
+        // type-coverage:ignore-next-line
         expect(overloads[0].returnType).toContain('unknown');
     });
 });

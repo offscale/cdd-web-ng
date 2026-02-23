@@ -226,13 +226,19 @@ describe('Emitter: AuthInterceptorGenerator', () => {
         const parser = new SwaggerParser(emptySpec as any, config);
         const generator = new AuthInterceptorGenerator(parser, project);
 
+        // type-coverage:ignore-next-line
         const prefix = (generator as any).getAuthPrefix({ type: 'apiKey' });
+        // type-coverage:ignore-next-line
         expect(prefix).toBe('Bearer');
 
+        // type-coverage:ignore-next-line
         const bearerDefault = (generator as any).getAuthPrefix({ type: 'http' });
+        // type-coverage:ignore-next-line
         expect(bearerDefault).toBe('Bearer');
 
+        // type-coverage:ignore-next-line
         const basicPrefix = (generator as any).getAuthPrefix({ type: 'http', scheme: 'basic' });
+        // type-coverage:ignore-next-line
         expect(basicPrefix).toBe('Basic');
     });
 });

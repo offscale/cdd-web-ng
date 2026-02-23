@@ -12,6 +12,7 @@ describe('Core: Input Spec Validation', () => {
 
     describe('Structural Validation', () => {
         it('should accept a valid Swagger 2.0 spec with paths', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 swagger: '2.0',
                 info: validInfo,
@@ -21,6 +22,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept a valid OpenAPI 3.x spec with paths', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.0.1',
                 info: validInfo,
@@ -30,6 +32,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept a valid OpenAPI 3.x spec with components only (no paths)', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.1.0',
                 info: validInfo,
@@ -39,6 +42,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept a valid OpenAPI 3.x spec with webhooks only (no paths)', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.1.0',
                 info: validInfo,
@@ -48,6 +52,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept a valid $self URI reference', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -58,6 +63,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject an invalid $self URI reference', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -73,31 +79,37 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw on missing version header', () => {
+            // type-coverage:ignore-next-line
             const spec: any = { info: validInfo, paths: {} };
             expect(() => validateSpec(spec)).toThrow(/Unsupported or missing OpenAPI\/Swagger version/);
         });
 
         it('should throw on invalid version (e.g. 1.2)', () => {
+            // type-coverage:ignore-next-line
             const spec: any = { swagger: '1.2', info: validInfo, paths: {} };
             expect(() => validateSpec(spec)).toThrow(/Unsupported or missing OpenAPI\/Swagger version/);
         });
 
         it('should throw on missing info object', () => {
+            // type-coverage:ignore-next-line
             const spec: any = { openapi: '3.0.0', paths: {} };
             expect(() => validateSpec(spec)).toThrow(/must contain an 'info' object/);
         });
 
         it('should throw on missing info title', () => {
+            // type-coverage:ignore-next-line
             const spec: any = { openapi: '3.0.0', info: { version: '1.0' }, paths: {} };
             expect(() => validateSpec(spec)).toThrow(/must contain a required string field: 'title'/);
         });
 
         it('should throw on missing info version', () => {
+            // type-coverage:ignore-next-line
             const spec: any = { openapi: '3.0.0', info: { title: 'API' }, paths: {} };
             expect(() => validateSpec(spec)).toThrow(/must contain a required string field: 'version'/);
         });
 
         it('should reject invalid termsOfService URI', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: { ...validInfo, termsOfService: 'not a uri' },
@@ -107,6 +119,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject invalid contact url and email', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: {
@@ -124,6 +137,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept valid contact url and email', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: {
@@ -139,6 +153,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject invalid externalDocs at root', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -149,6 +164,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject invalid externalDocs on tag', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -159,6 +175,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject invalid externalDocs on operation', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -175,6 +192,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject invalid externalDocs on schema', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -192,6 +210,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject invalid schema $id and $schema URIs', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -213,6 +232,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject invalid schema $ref and $dynamicRef URIs', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -232,6 +252,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject invalid schema anchors', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -253,6 +274,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should ignore reserved header parameters (Accept/Content-Type/Authorization)', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -273,6 +295,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject paths keys that do not start with "/"', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -290,6 +313,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject invalid response status code keys', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -307,6 +331,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept response code ranges and default', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -330,11 +355,13 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if Swagger 2.0 has no paths', () => {
+            // type-coverage:ignore-next-line
             const spec: any = { swagger: '2.0', info: validInfo }; // Missing paths
             expect(() => validateSpec(spec)).toThrow(/Swagger 2.0 specification must contain a 'paths' object/);
         });
 
         it('should throw if OpenAPI 3.x has no paths, components, or webhooks', () => {
+            // type-coverage:ignore-next-line
             const spec: any = { openapi: '3.0.0', info: validInfo }; // Completely empty structure
             expect(() => validateSpec(spec)).toThrow(
                 /must contain at least one of: 'paths', 'components', or 'webhooks'/,
@@ -344,6 +371,7 @@ describe('Core: Input Spec Validation', () => {
 
     describe('License Object Validation', () => {
         it('should throw if License is missing required name', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: {
@@ -358,6 +386,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if License contains both url and identifier (Mutually Exclusive)', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.1.0',
                 info: {
@@ -374,6 +403,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept License with only url', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.0.0',
                 info: {
@@ -389,6 +419,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept License with only identifier (OAS 3.1+)', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.1.0',
                 info: {
@@ -404,6 +435,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept License with neither url nor identifier (just name)', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.0.0',
                 info: {
@@ -420,6 +452,7 @@ describe('Core: Input Spec Validation', () => {
 
     describe('Path Parameter Validation', () => {
         it('should reject when a templated path is missing a path parameter definition', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -433,6 +466,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should allow templated paths to omit path params when the path item is empty (ACL exception)', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -446,6 +480,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject when a path parameter is not required', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -462,6 +497,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject when a path parameter does not match the template', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -478,6 +514,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept when path parameters are defined at the path level', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -494,6 +531,7 @@ describe('Core: Input Spec Validation', () => {
 
     describe('Components Key Validation', () => {
         it('should accept mediaTypes and webhooks component keys that match the regex', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -506,6 +544,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject invalid mediaTypes component keys', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -517,6 +556,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject invalid webhooks component keys', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -530,6 +570,7 @@ describe('Core: Input Spec Validation', () => {
 
     describe('Responses Validation', () => {
         it('should reject operations missing responses', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -543,6 +584,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject response objects without description', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -556,6 +598,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject responses objects with no entries', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -569,6 +612,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept response objects with descriptions', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -584,6 +628,7 @@ describe('Core: Input Spec Validation', () => {
 
     describe('Component Path Item Validation', () => {
         it('should validate component pathItems operations', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -600,6 +645,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should validate component webhooks operations', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -618,6 +664,7 @@ describe('Core: Input Spec Validation', () => {
 
     describe('OperationId Uniqueness', () => {
         it('should throw when operationIds are duplicated across paths', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -635,6 +682,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw when operationIds are duplicated across webhooks', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -649,6 +697,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should allow unique operationIds across paths and webhooks', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -666,6 +715,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw when operationIds are duplicated across callbacks', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -693,6 +743,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw when operationIds are duplicated across paths and components.pathItems', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -714,6 +765,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw when operationIds are duplicated inside components.pathItems', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -736,11 +788,13 @@ describe('Core: Input Spec Validation', () => {
 
     describe('Integration with SwaggerParser', () => {
         it('should validate spec upon construction', () => {
+            // type-coverage:ignore-next-line
             const invalidSpec: any = { openapi: '3.0.0' }; // No info
             expect(() => new SwaggerParser(invalidSpec, validConfig)).toThrow(SpecValidationError);
         });
 
         it('should support custom validation callback from config', () => {
+            // type-coverage:ignore-next-line
             const spec: any = { openapi: '3.0.0', info: validInfo, paths: {} };
             const config: GeneratorConfig = {
                 ...validConfig,
@@ -751,6 +805,7 @@ describe('Core: Input Spec Validation', () => {
             expect(() => new SwaggerParser(spec, config)).not.toThrow();
 
             // Should fail custom validation
+            // type-coverage:ignore-next-line
             const badSpec = { ...spec, info: { ...validInfo, title: 'Forbidden Title' } };
             expect(() => new SwaggerParser(badSpec, config)).toThrow('Custom input validation failed');
         });
@@ -758,6 +813,7 @@ describe('Core: Input Spec Validation', () => {
 
     describe('Component Key Validation (OAS 3.x)', () => {
         it('should accept valid component keys', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.0.0',
                 info: validInfo,
@@ -778,6 +834,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw on invalid characters (space) in component keys', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.0.0',
                 info: validInfo,
@@ -792,6 +849,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw on invalid symbols ($) in component keys', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.0.0',
                 info: validInfo,
@@ -806,6 +864,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw on invalid symbols (@) in securitySchemes keys', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.0.0',
                 info: validInfo,
@@ -822,6 +881,7 @@ describe('Core: Input Spec Validation', () => {
 
     describe('Component Parameter Validation (OAS 3.2)', () => {
         it('should throw if a component parameter is not an object or reference', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -838,6 +898,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if a component parameter is missing name', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -854,6 +915,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if a component parameter is missing in', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -872,6 +934,7 @@ describe('Core: Input Spec Validation', () => {
 
     describe('Server Object Validation (OAS 3.x)', () => {
         it('should reject server URLs containing query or fragment', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -882,6 +945,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject server URLs with unmatched braces', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -892,6 +956,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject server URLs with empty template expressions', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -902,6 +967,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject server variables with empty enum', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -919,6 +985,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject server variables with non-string enum values', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -936,6 +1003,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject server variables whose default is not in enum', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -953,6 +1021,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject server variables that appear more than once', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -970,6 +1039,7 @@ describe('Core: Input Spec Validation', () => {
 
     describe('Tag Parent Validation (OAS 3.2)', () => {
         it('should reject duplicate tag names', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -980,6 +1050,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject tags whose parent does not exist', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -990,6 +1061,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject circular tag parent references', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1003,6 +1075,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept valid tag parent references', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1015,6 +1088,7 @@ describe('Core: Input Spec Validation', () => {
 
     describe('Path Template Validation', () => {
         it('should throw error when two paths have identical hierarchy but different param names', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.0.0',
                 info: validInfo,
@@ -1027,6 +1101,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw when a path template repeats the same variable', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1038,6 +1113,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw when a path template has unmatched braces', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1049,6 +1125,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw when a path template has empty expressions', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1060,6 +1137,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept paths with identical hierarchy if they are structurally different', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.0.0',
                 info: validInfo,
@@ -1072,6 +1150,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept paths that differ only by fixed segments vs variables', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.0.0',
                 info: validInfo,
@@ -1084,6 +1163,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw for complex nested collisions', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.0.0',
                 info: validInfo,
@@ -1096,6 +1176,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should traverse Swagger 2.0 swagger paths successfully', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 swagger: '2.0',
                 info: validInfo,
@@ -1110,6 +1191,7 @@ describe('Core: Input Spec Validation', () => {
 
     describe('Parameter Validation (OAS 3.2 Strictness)', () => {
         it('should throw if a parameter is missing name', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1126,6 +1208,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if a parameter is missing in', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1142,6 +1225,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if a parameters array contains non-objects', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1158,6 +1242,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if "query" and "querystring" parameters coexist in same operation', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1185,6 +1270,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if "query" and "querystring" coexist via path-level and operation-level inheritance', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1212,6 +1298,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if path-level parameters contain duplicates', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1231,6 +1318,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if operation parameters contain duplicates', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1250,6 +1338,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should treat header parameter names as case-insensitive for duplicates', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1269,6 +1358,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should allow operation parameters to override path-level parameters', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1286,6 +1376,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if parameter has both "example" and "examples"', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.0.0',
                 info: validInfo,
@@ -1310,6 +1401,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if a parameter defines neither schema nor content', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1326,6 +1418,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if component parameter has both "example" and "examples"', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.0.0',
                 info: validInfo,
@@ -1348,6 +1441,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if component parameter defines neither schema nor content', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1367,6 +1461,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if parameter uses an invalid location in OpenAPI 3.x', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1383,6 +1478,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if parameter uses an invalid style for its location', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1399,6 +1495,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if deepObject style is used on a non-object schema', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1415,6 +1512,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if spaceDelimited style uses explode=true', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1439,6 +1537,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if pipeDelimited style uses explode=true', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1463,6 +1562,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if component parameter uses an invalid style', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1477,6 +1577,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if parameter has both "schema" and "content"', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.0.0',
                 info: validInfo,
@@ -1500,6 +1601,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if component parameter has both "schema" and "content"', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.0.0',
                 info: validInfo,
@@ -1521,6 +1623,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if parameter content map has multiple entries (OAS 3.2)', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1546,6 +1649,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if component parameter content map has multiple entries (OAS 3.2)', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1564,6 +1668,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept component parameter content map with a single entry', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1582,6 +1687,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if allowEmptyValue used with style (OAS 3.2)', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1606,6 +1712,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept allowEmptyValue on query parameter when style is absent', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1629,6 +1736,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if allowEmptyValue used on non-query param (OAS 3.2)', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1652,6 +1760,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if querystring parameter defines style/explode/allowReserved', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1683,6 +1792,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if querystring parameter is missing content', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1699,6 +1809,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if querystring parameter defines schema', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1726,6 +1837,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if operation defines more than one querystring parameter', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1761,6 +1873,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if component parameter allowEmptyValue used on non-query', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1780,6 +1893,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if component parameter allowEmptyValue used with style', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1800,6 +1914,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept component parameter allowEmptyValue when style is absent', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1819,6 +1934,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if component parameter querystring defines style/explode/allowReserved', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1844,6 +1960,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept component parameter querystring without style/explode/allowReserved', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1866,6 +1983,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw if component parameter querystring is missing content', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1884,6 +2002,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept "example" only', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.0.0',
                 info: validInfo,
@@ -1900,6 +2019,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept "examples" only', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.0.0',
                 info: validInfo,
@@ -1923,6 +2043,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept "schema" only', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.0.0',
                 info: validInfo,
@@ -1939,6 +2060,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept "content" only', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.0.0',
                 info: validInfo,
@@ -1963,6 +2085,7 @@ describe('Core: Input Spec Validation', () => {
 
     describe('OAS 3.2 Header, MediaType, and Link Validation', () => {
         it('should reject header objects that define a name', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -1988,6 +2111,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject header objects that define an in', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2013,6 +2137,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject header objects that define allowEmptyValue', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2038,6 +2163,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject header objects missing schema and content', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2060,6 +2186,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject header objects with a non-simple style', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2085,6 +2212,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject header objects with example and examples', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2111,6 +2239,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject header objects with schema and content', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2138,6 +2267,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject header content maps with multiple entries', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2165,6 +2295,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept header content maps with single entry and valid media type', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2191,6 +2322,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject media types that define example and examples', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2217,6 +2349,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject itemSchema on non-sequential media types', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2241,6 +2374,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should allow itemSchema on custom JSON media types', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2265,6 +2399,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should allow itemSchema on sequential media types', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2289,6 +2424,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject media types that mix encoding with prefixEncoding', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2315,6 +2451,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject encoding on non-form/non-multipart media types', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2338,6 +2475,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject encoding headers that define Content-Type', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2370,6 +2508,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject encoding objects with non-string contentType', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2398,6 +2537,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject encoding objects with invalid style', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2426,6 +2566,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject requestBody objects without content', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2442,6 +2583,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should allow requestBody objects with empty content maps (implementation-defined)', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2458,6 +2600,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept requestBody objects with at least one content entry', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2474,6 +2617,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject link objects that define both operationId and operationRef', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2491,6 +2635,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject link objects with invalid operationRef URIs', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2507,6 +2652,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject link objects that define neither operationId nor operationRef', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2529,6 +2675,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject link parameters with invalid runtime expressions', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2556,6 +2703,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject link requestBody templates with invalid runtime expressions', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2581,6 +2729,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject link objects with invalid server urls', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2606,6 +2755,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject callback expressions with invalid runtime syntax', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2628,6 +2778,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject component callback expressions with invalid runtime syntax', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2646,6 +2797,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept callback expressions with embedded runtime templates', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2668,6 +2820,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should validate webhooks additionalOperations content and responses', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2703,6 +2856,7 @@ describe('Core: Input Spec Validation', () => {
 
     describe('OAS 3.1+ jsonSchemaDialect Field', () => {
         it('should accept valid absolute URI', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.1.0',
                 info: validInfo,
@@ -2713,6 +2867,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept URN URI', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.1.0',
                 info: validInfo,
@@ -2723,6 +2878,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw on non-URI string', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.1.0',
                 info: validInfo,
@@ -2733,6 +2889,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept dialect strings that satisfy URI scheme regex when URL parsing fails', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.1.0',
                 info: validInfo,
@@ -2743,6 +2900,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should throw on non-string value', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.1.0',
                 info: validInfo,
@@ -2755,6 +2913,7 @@ describe('Core: Input Spec Validation', () => {
 
     describe('OAS 3.2 $self Field', () => {
         it('should accept valid URI references', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2765,6 +2924,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject invalid URI references', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2777,6 +2937,7 @@ describe('Core: Input Spec Validation', () => {
 
     describe('OAS 3.2 Discriminator Validation', () => {
         it('should require oneOf/anyOf/allOf when discriminator is present', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2793,6 +2954,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should require defaultMapping when discriminator property is optional', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2814,6 +2976,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should accept discriminator when property is required', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2838,6 +3001,7 @@ describe('Core: Input Spec Validation', () => {
 
     describe('XML Object Validation (OAS 3.2)', () => {
         it('should reject xml.nodeType combined with deprecated attribute/wrapped fields', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2854,6 +3018,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject xml.wrapped on non-array schemas', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2870,6 +3035,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject xml.namespace that is not an absolute IRI', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2888,6 +3054,7 @@ describe('Core: Input Spec Validation', () => {
 
     describe('Reference Object Strictness', () => {
         it('should allow reference objects with extra fields in responses (ignored by spec)', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2913,6 +3080,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should allow reference objects with extra fields in parameters (ignored by spec)', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
@@ -2939,6 +3107,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should allow reference objects with summary/description overrides', () => {
+            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,

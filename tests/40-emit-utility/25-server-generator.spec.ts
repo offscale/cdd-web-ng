@@ -32,19 +32,28 @@ describe('Emitter: ServerGenerator', () => {
         const sourceFile = project.getSourceFileOrThrow('/out/servers.ts');
         const code = sourceFile.getText();
         const jsCode = ts.transpile(code, { target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS });
+        // type-coverage:ignore-next-line
         const moduleHelper = { exports: {} as any };
+        // type-coverage:ignore-next-line
         new Function('exports', jsCode)(moduleHelper.exports);
+        // type-coverage:ignore-next-line
         return moduleHelper.exports;
     };
 
     it('should generate registry for static servers with name (OAS 3.2)', () => {
         const project = runGenerator(multiEnvSpec);
+        // type-coverage:ignore-next-line
         const { API_SERVERS } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_SERVERS).toHaveLength(2);
+        // type-coverage:ignore-next-line
         expect(API_SERVERS[0].url).toBe('https://api.production.com/v1');
+        // type-coverage:ignore-next-line
         expect(API_SERVERS[0].name).toBe('prod');
+        // type-coverage:ignore-next-line
         expect(API_SERVERS[1].description).toBe('Staging');
+        // type-coverage:ignore-next-line
         expect(API_SERVERS[1].name).toBe('staging');
     });
 

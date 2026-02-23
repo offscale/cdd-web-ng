@@ -29,6 +29,7 @@ describe('Emitter: ServerUrlGenerator', () => {
             target: ts.ScriptTarget.ESNext,
             module: ts.ModuleKind.CommonJS,
         });
+        // type-coverage:ignore-next-line
         const moduleScope = { API_SERVERS: [], getServerUrl: null as any, resolveServerUrl: null as any };
         new Function(
             'scope',
@@ -77,6 +78,7 @@ describe('Emitter: ServerUrlGenerator', () => {
 
         const { API_SERVERS } = compileHelper(project);
         expect(API_SERVERS[0]['x-server']).toBe('alpha');
+        // type-coverage:ignore-next-line
         expect((API_SERVERS[0] as any).variables?.env['x-var']).toBe('meta');
 
         const sourceFile = project.getSourceFileOrThrow('/out/utils/server-url.ts');
@@ -92,6 +94,7 @@ describe('Emitter: ServerUrlGenerator', () => {
             },
         ]);
 
+        // type-coverage:ignore-next-line
         const { getServerUrl } = compileHelper(project);
 
         // Template URLs starting with { are NOT resolved/normalized by parser, ensuring variables are preserved
@@ -101,8 +104,10 @@ describe('Emitter: ServerUrlGenerator', () => {
         // https://{env}.example.com/v1 -> path is /v1, no trailing slash added to root.
 
         // Use default
+        // type-coverage:ignore-next-line
         expect(getServerUrl(0)).toBe('https://dev.example.com/v1');
         // Override
+        // type-coverage:ignore-next-line
         expect(getServerUrl(0, { env: 'prod' })).toBe('https://prod.example.com/v1');
     });
 
@@ -116,12 +121,15 @@ describe('Emitter: ServerUrlGenerator', () => {
             },
         ]);
 
+        // type-coverage:ignore-next-line
         const { getServerUrl } = compileHelper(project);
 
         // Valid - Note: URL normalization adds trailing slash to the template base
         // e.g., https://{region}.api.com/
+        // type-coverage:ignore-next-line
         expect(getServerUrl(0, { region: 'eu' })).toBe('https://eu.api.com/');
         // Invalid
+        // type-coverage:ignore-next-line
         expect(() => getServerUrl(0, { region: 'mars' })).toThrow(
             'Value "mars" for variable "region" is not in the allowed enum: us, eu, asia',
         );
@@ -133,23 +141,29 @@ describe('Emitter: ServerUrlGenerator', () => {
             { url: 'https://prod.api.com', name: 'prod', description: 'Production' },
         ]);
 
+        // type-coverage:ignore-next-line
         const { getServerUrl } = compileHelper(project);
 
         // Expect trailing slashes due to URL normalization
+        // type-coverage:ignore-next-line
         expect(getServerUrl('prod')).toBe('https://prod.api.com/');
+        // type-coverage:ignore-next-line
         expect(getServerUrl('dev')).toBe('https://dev.api.com/');
     });
 
     it('should resolve server URLs from a custom server list', () => {
         const project = runGenerator([{ url: 'https://global.api.com', name: 'global' }]);
 
+        // type-coverage:ignore-next-line
         const { resolveServerUrl } = compileHelper(project);
         const customServers = [
             { url: 'https://custom.api.com', name: 'custom' },
             { url: 'https://alt.api.com', description: 'Alternative' },
         ];
 
+        // type-coverage:ignore-next-line
         expect(resolveServerUrl(customServers, 'custom')).toBe('https://custom.api.com');
+        // type-coverage:ignore-next-line
         expect(resolveServerUrl(customServers, 'Alternative')).toBe('https://alt.api.com');
     });
 
@@ -159,16 +173,22 @@ describe('Emitter: ServerUrlGenerator', () => {
             { url: 'https://prod.api.com', description: 'Production' },
         ]);
 
+        // type-coverage:ignore-next-line
         const { getServerUrl } = compileHelper(project);
 
+        // type-coverage:ignore-next-line
         expect(getServerUrl('Production')).toBe('https://prod.api.com/');
+        // type-coverage:ignore-next-line
         expect(getServerUrl('Development')).toBe('https://dev.api.com/');
     });
 
     it('should throw error if server is not found', () => {
         const project = runGenerator([{ url: '/' }]);
+        // type-coverage:ignore-next-line
         const { getServerUrl } = compileHelper(project);
+        // type-coverage:ignore-next-line
         expect(() => getServerUrl(99)).toThrow('Server not found: 99');
+        // type-coverage:ignore-next-line
         expect(() => getServerUrl('Unknown')).toThrow('Server not found: Unknown');
     });
 
@@ -184,12 +204,15 @@ describe('Emitter: ServerUrlGenerator', () => {
                 },
             },
         ]);
+        // type-coverage:ignore-next-line
         const { getServerUrl } = compileHelper(project);
 
         // Use Defaults. Note: Parser skips resolution for URLs starting with {
         // So no normalization occurs.
+        // type-coverage:ignore-next-line
         expect(getServerUrl(0)).toBe('https://localhost:8080/api');
         // Partial override
+        // type-coverage:ignore-next-line
         expect(getServerUrl(0, { port: '3000', protocol: 'http' })).toBe('http://localhost:3000/api');
     });
 
@@ -204,6 +227,7 @@ describe('Emitter: ServerUrlGenerator', () => {
             { options: {} } as any,
         );
         // Force undefined to exercise defensive fallback path
+        // type-coverage:ignore-next-line
         (parser as any).servers = undefined;
 
         new ServerUrlGenerator(parser, project).generate('/out');

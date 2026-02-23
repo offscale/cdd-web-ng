@@ -41,16 +41,22 @@ describe('Emitter: RequestBodiesGenerator', () => {
         const sourceFile = project.getSourceFileOrThrow('/out/request-bodies.ts');
         const code = sourceFile.getText();
         const jsCode = ts.transpile(code, { target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS });
+        // type-coverage:ignore-next-line
         const moduleHelper = { exports: {} as any };
+        // type-coverage:ignore-next-line
         new Function('exports', jsCode)(moduleHelper.exports);
+        // type-coverage:ignore-next-line
         return moduleHelper.exports;
     };
 
     it('should generate registry map for request bodies', () => {
         const project = runGenerator(specWithRequestBodies);
+        // type-coverage:ignore-next-line
         const { API_REQUEST_BODIES } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_REQUEST_BODIES.CreateUser).toBeDefined();
+        // type-coverage:ignore-next-line
         expect(API_REQUEST_BODIES.CreateUser.description).toBe('User payload');
     });
 

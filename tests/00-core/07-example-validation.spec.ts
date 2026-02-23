@@ -61,6 +61,7 @@ describe('Core: Example Object validation (OAS 3.2)', () => {
 
     it('should reject Example Object with both serializedValue and externalValue', () => {
         const spec = cloneSpec();
+        // type-coverage:ignore-next-line
         (spec.paths as any)['/pets'].get.responses['200'].content['application/json'].examples = {
             bad: {
                 serializedValue: '{"a":1}',

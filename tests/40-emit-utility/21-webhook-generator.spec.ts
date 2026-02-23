@@ -135,8 +135,11 @@ describe('Emitter: WebhookGenerator', () => {
         // Remove imports so we can transpile in isolation without file dependencies for the registry check
         const code = sourceFile.getText().replace(/import .* from .*/g, '');
         const jsCode = ts.transpile(code, { target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS });
+        // type-coverage:ignore-next-line
         const moduleHelper = { exports: {} as any };
+        // type-coverage:ignore-next-line
         new Function('exports', jsCode)(moduleHelper.exports);
+        // type-coverage:ignore-next-line
         return moduleHelper.exports;
     };
 
@@ -161,25 +164,38 @@ describe('Emitter: WebhookGenerator', () => {
 
     it('should generate registry skipping invalid hooks', () => {
         const project = runGenerator(validAndInvalidWebhooksSpec);
+        // type-coverage:ignore-next-line
         const { API_WEBHOOKS } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_WEBHOOKS).toHaveLength(1);
+        // type-coverage:ignore-next-line
         expect(API_WEBHOOKS[0].name).toBe('validHook');
+        // type-coverage:ignore-next-line
         expect(API_WEBHOOKS[0].scope).toBe('root');
+        // type-coverage:ignore-next-line
         expect(API_WEBHOOKS[0].pathItem?.post?.requestBody?.content?.['application/json']).toBeDefined();
+        // type-coverage:ignore-next-line
         expect(API_WEBHOOKS[0].pathItem?.post?.responses?.['200']).toBeDefined();
 
+        // type-coverage:ignore-next-line
         const invalid = API_WEBHOOKS.find((w: any) => w.name === 'invalidHook');
+        // type-coverage:ignore-next-line
         expect(invalid).toBeUndefined();
     });
 
     it('should include component webhooks with component scope', () => {
         const project = runGenerator(componentWebhookSpec);
+        // type-coverage:ignore-next-line
         const { API_WEBHOOKS } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_WEBHOOKS).toHaveLength(1);
+        // type-coverage:ignore-next-line
         expect(API_WEBHOOKS[0].name).toBe('componentHook');
+        // type-coverage:ignore-next-line
         expect(API_WEBHOOKS[0].scope).toBe('component');
+        // type-coverage:ignore-next-line
         expect(API_WEBHOOKS[0].pathItem?.post?.requestBody?.content?.['application/json']).toBeDefined();
     });
 

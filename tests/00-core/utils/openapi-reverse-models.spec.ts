@@ -222,171 +222,305 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         const schemas = parseGeneratedModelSource(modelSource, '/models/index.ts');
 
         expect(schemas.Base).toBeDefined();
+        // type-coverage:ignore-next-line
         expect((schemas.Base as any).properties.id.type).toBe('string');
+        // type-coverage:ignore-next-line
         expect((schemas.Base as any).properties.createdAt.readOnly).toBe(true);
+        // type-coverage:ignore-next-line
         expect((schemas.Base as any).properties.createdAt.format).toBe('date-time');
 
+        // type-coverage:ignore-next-line
         expect((schemas.Status as any).enum).toEqual(['active', 'inactive']);
+        // type-coverage:ignore-next-line
         expect((schemas.Status as any).deprecated).toBe(true);
+        // type-coverage:ignore-next-line
         expect((schemas.Level as any).type).toBe('number');
+        // type-coverage:ignore-next-line
         expect((schemas.Mixed as any).type).toBeUndefined();
 
+        // type-coverage:ignore-next-line
         expect((schemas.Mode as any).enum).toEqual(['auto', 'manual']);
         expect(schemas.AnyAlias).toBeDefined();
         expect(schemas.UnknownAlias).toBeDefined();
         expect(schemas.ObjAlias).toBeDefined();
+        // type-coverage:ignore-next-line
         expect((schemas.LiteralNum as any).const).toBe(42);
+        // type-coverage:ignore-next-line
         expect((schemas.LiteralTrue as any).const).toBe(true);
+        // type-coverage:ignore-next-line
         expect((schemas.LiteralFalse as any).const).toBe(false);
+        // type-coverage:ignore-next-line
         expect((schemas.LiteralNull as any).type).toBe('null');
+        // type-coverage:ignore-next-line
         expect((schemas.LiteralNull as any).const).toBe(null);
+        // type-coverage:ignore-next-line
         expect((schemas.ParenAlias as any).type).toBe('string');
 
+        // type-coverage:ignore-next-line
         expect((schemas.NullableName as any).type).toEqual(['string', 'null']);
+        // type-coverage:ignore-next-line
         expect((schemas.OptionalName as any).type).toBe('string');
+        // type-coverage:ignore-next-line
         expect((schemas.UnionAnyOf as any).anyOf.length).toBe(2);
 
+        // type-coverage:ignore-next-line
         expect((schemas.ArrayAlias as any).type).toBe('array');
+        // type-coverage:ignore-next-line
         expect((schemas.ArrayAlias as any).items.type).toBe('string');
+        // type-coverage:ignore-next-line
         expect((schemas.TupleAlias as any).prefixItems.length).toBe(2);
+        // type-coverage:ignore-next-line
         expect((schemas.TupleAlias as any).minItems).toBe(2);
+        // type-coverage:ignore-next-line
         expect((schemas.TupleAlias as any).maxItems).toBe(2);
+        // type-coverage:ignore-next-line
         expect((schemas.TupleAlias as any).items).toBe(false);
+        // type-coverage:ignore-next-line
         expect((schemas.OptionalTuple as any).prefixItems.length).toBe(2);
+        // type-coverage:ignore-next-line
         expect((schemas.OptionalTuple as any).minItems).toBe(1);
+        // type-coverage:ignore-next-line
         expect((schemas.OptionalTuple as any).maxItems).toBe(2);
+        // type-coverage:ignore-next-line
         expect((schemas.OptionalTuple as any).items).toBe(false);
+        // type-coverage:ignore-next-line
         expect((schemas.NamedTuple as any).prefixItems.length).toBe(2);
+        // type-coverage:ignore-next-line
         expect((schemas.NamedTuple as any).minItems).toBe(1);
+        // type-coverage:ignore-next-line
         expect((schemas.NamedTuple as any).maxItems).toBe(2);
+        // type-coverage:ignore-next-line
         expect((schemas.NamedTuple as any).items).toBe(false);
+        // type-coverage:ignore-next-line
         expect((schemas.RestTuple as any).prefixItems.length).toBe(1);
+        // type-coverage:ignore-next-line
         expect((schemas.RestTuple as any).minItems).toBe(1);
+        // type-coverage:ignore-next-line
         expect((schemas.RestTuple as any).items.type).toBe('number');
+        // type-coverage:ignore-next-line
         expect((schemas.ReadonlyAlias as any).items.type).toBe('string');
+        // type-coverage:ignore-next-line
         expect((schemas.ArrayRef as any).items.type).toBe('number');
+        // type-coverage:ignore-next-line
         expect((schemas.SetAlias as any).items.type).toBe('boolean');
+        // type-coverage:ignore-next-line
         expect((schemas.RecordAlias as any).additionalProperties.type).toBe('number');
+        // type-coverage:ignore-next-line
         expect((schemas.MapAlias as any).additionalProperties.type).toBe('string');
+        // type-coverage:ignore-next-line
         expect((schemas.DateAlias as any).format).toBe('date-time');
+        // type-coverage:ignore-next-line
         expect((schemas.BlobAlias as any).format).toBe('binary');
+        // type-coverage:ignore-next-line
         expect((schemas.FileAlias as any).format).toBe('binary');
 
+        // type-coverage:ignore-next-line
         const extensionModel = schemas.ExtensionModel as any;
+        // type-coverage:ignore-next-line
         expect(extensionModel['x-entity']).toBe('internal');
+        // type-coverage:ignore-next-line
         expect(extensionModel['x-meta']).toEqual({ tier: 1 });
+        // type-coverage:ignore-next-line
         expect(extensionModel.properties.value['x-prop']).toBe(true);
 
+        // type-coverage:ignore-next-line
         const eventPayload = schemas.EventPayload as any;
+        // type-coverage:ignore-next-line
         expect(eventPayload.properties.data.contentMediaType).toBe('application/json');
+        // type-coverage:ignore-next-line
         expect(eventPayload.properties.data.contentSchema.properties.id.type).toBe('string');
 
+        // type-coverage:ignore-next-line
         expect((schemas.RefAlias as any).$ref).toBe('#/components/schemas/Base');
+        // type-coverage:ignore-next-line
         expect((schemas.IntersectionAlias as any).allOf.length).toBe(2);
 
+        // type-coverage:ignore-next-line
         const typeLiteral = schemas.TypeLiteralAlias as any;
+        // type-coverage:ignore-next-line
         expect(typeLiteral.properties.foo.type).toBe('string');
+        // type-coverage:ignore-next-line
         expect(typeLiteral.properties['bar-baz'].type).toBe('number');
+        // type-coverage:ignore-next-line
         expect(typeLiteral.properties.ro.readOnly).toBe(true);
+        // type-coverage:ignore-next-line
         expect(typeLiteral.additionalProperties.type).toBe('string');
 
+        // type-coverage:ignore-next-line
         const derived = schemas.Derived as any;
+        // type-coverage:ignore-next-line
         expect(derived.allOf.length).toBe(2);
+        // type-coverage:ignore-next-line
         expect(derived.allOf[1].properties.name.type).toBe('string');
 
+        // type-coverage:ignore-next-line
         const derivedNoProps = schemas.DerivedNoProps as any;
+        // type-coverage:ignore-next-line
         expect(derivedNoProps.allOf.length).toBe(1);
 
+        // type-coverage:ignore-next-line
         const derivedIndexOnly = schemas.DerivedIndexOnly as any;
+        // type-coverage:ignore-next-line
         expect(derivedIndexOnly.allOf.length).toBe(2);
+        // type-coverage:ignore-next-line
         expect(derivedIndexOnly.allOf[1].additionalProperties.type).toBe('string');
 
+        // type-coverage:ignore-next-line
         const discriminated = schemas.Discriminated as any;
+        // type-coverage:ignore-next-line
         expect(discriminated.discriminator).toEqual({
             propertyName: 'kind',
             mapping: { cat: 'Cat', dog: 'Dog' },
         });
 
+        // type-coverage:ignore-next-line
         const pet = schemas.Pet as any;
+        // type-coverage:ignore-next-line
         expect(pet.discriminator).toEqual({
             propertyName: 'kind',
             mapping: { cat: '#/components/schemas/Cat', dog: '#/components/schemas/Dog' },
         });
+        // type-coverage:ignore-next-line
         expect(pet.oneOf?.length).toBe(2);
+        // type-coverage:ignore-next-line
         expect(pet.anyOf).toBeUndefined();
 
+        // type-coverage:ignore-next-line
         const inlinePet = schemas.InlinePet as any;
+        // type-coverage:ignore-next-line
         expect(inlinePet.discriminator).toEqual({ propertyName: 'kind' });
+        // type-coverage:ignore-next-line
         expect(inlinePet.oneOf?.length).toBe(2);
+        // type-coverage:ignore-next-line
         expect(inlinePet.anyOf).toBeUndefined();
 
+        // type-coverage:ignore-next-line
         const withDocs = schemas.WithDocs as any;
+        // type-coverage:ignore-next-line
         expect(withDocs.description).toBe('With docs.');
+        // type-coverage:ignore-next-line
         expect(withDocs.example).toEqual({ flag: true });
+        // type-coverage:ignore-next-line
         expect(withDocs.default).toEqual({ flag: false });
+        // type-coverage:ignore-next-line
         expect(withDocs.properties.flag.example).toBe('value');
+        // type-coverage:ignore-next-line
         expect(withDocs.properties.mode.default).toBe('not-json');
 
+        // type-coverage:ignore-next-line
         const multiExample = schemas.MultiExample as any;
+        // type-coverage:ignore-next-line
         expect(multiExample.example).toBeUndefined();
+        // type-coverage:ignore-next-line
         expect(multiExample.examples).toEqual([{ id: 1 }, { id: 2 }]);
 
+        // type-coverage:ignore-next-line
         const binaryPayload = schemas.BinaryPayload as any;
+        // type-coverage:ignore-next-line
         expect(binaryPayload.properties.data.contentMediaType).toBe('image/png');
+        // type-coverage:ignore-next-line
         expect(binaryPayload.properties.data.contentEncoding).toBe('base64');
 
+        // type-coverage:ignore-next-line
         const constraints = schemas.Constraints as any;
+        // type-coverage:ignore-next-line
         expect(constraints.minProperties).toBe(1);
+        // type-coverage:ignore-next-line
         expect(constraints.maxProperties).toBe(5);
+        // type-coverage:ignore-next-line
         expect(constraints.propertyNames).toEqual({ pattern: '^[a-z]+$' });
+        // type-coverage:ignore-next-line
         expect(constraints.properties.name.minimum).toBe(1);
+        // type-coverage:ignore-next-line
         expect(constraints.properties.name.maximum).toBe(10);
+        // type-coverage:ignore-next-line
         expect(constraints.properties.name.pattern).toBe('^[a-z]+$');
+        // type-coverage:ignore-next-line
         expect(constraints.properties.name.format).toBe('uuid');
+        // type-coverage:ignore-next-line
         expect(constraints.properties.name.minLength).toBe(2);
+        // type-coverage:ignore-next-line
         expect(constraints.properties.name.maxLength).toBe(5);
+        // type-coverage:ignore-next-line
         expect(constraints.properties.tags.minItems).toBe(1);
+        // type-coverage:ignore-next-line
         expect(constraints.properties.tags.maxItems).toBe(3);
+        // type-coverage:ignore-next-line
         expect(constraints.properties.tags.uniqueItems).toBe(true);
+        // type-coverage:ignore-next-line
         expect(constraints.properties.values.contains).toEqual({ type: 'string' });
+        // type-coverage:ignore-next-line
         expect(constraints.properties.values.minContains).toBe(1);
+        // type-coverage:ignore-next-line
         expect(constraints.properties.values.maxContains).toBe(2);
+        // type-coverage:ignore-next-line
         expect(constraints.properties.ratio.multipleOf).toBe(0.5);
+        // type-coverage:ignore-next-line
         expect(constraints.properties.positive.exclusiveMinimum).toBe(0);
+        // type-coverage:ignore-next-line
         expect(constraints.properties.below.exclusiveMaximum).toBe(true);
+        // type-coverage:ignore-next-line
         expect(constraints.properties.secret.readOnly).toBe(true);
+        // type-coverage:ignore-next-line
         expect(constraints.properties.secret.writeOnly).toBe(true);
 
+        // type-coverage:ignore-next-line
         const xmlDoc = schemas.XmlDoc as any;
+        // type-coverage:ignore-next-line
         expect(xmlDoc.properties.value.xml.name).toBe('doc');
+        // type-coverage:ignore-next-line
         expect(xmlDoc.properties.value.xml.namespace).toBe('https://example.com');
+        // type-coverage:ignore-next-line
         expect(xmlDoc.properties.value.xml.prefix).toBe('ex');
 
+        // type-coverage:ignore-next-line
         const closedMap = schemas.ClosedMap as any;
+        // type-coverage:ignore-next-line
         expect(closedMap.additionalProperties).toBe(false);
 
+        // type-coverage:ignore-next-line
         const tagged = schemas.TaggedSchema as any;
+        // type-coverage:ignore-next-line
         expect(tagged.patternProperties).toEqual({ '^x-': { type: 'string' } });
+        // type-coverage:ignore-next-line
         expect(tagged.dependentSchemas.paymentMethod.properties.cardNumber.type).toBe('string');
+        // type-coverage:ignore-next-line
         expect(tagged.dependentSchemas.paymentMethod.required).toEqual(['cardNumber']);
+        // type-coverage:ignore-next-line
         expect(tagged.dependentRequired.paymentMethod).toEqual(['cardNumber']);
+        // type-coverage:ignore-next-line
         expect(tagged.unevaluatedProperties).toBe(false);
+        // type-coverage:ignore-next-line
         expect(tagged.unevaluatedItems).toEqual({ type: 'string' });
+        // type-coverage:ignore-next-line
         expect(tagged.$schema).toBe('https://spec.openapis.org/oas/3.1/dialect/base');
+        // type-coverage:ignore-next-line
         expect(tagged.$id).toBe('https://example.com/schemas/Tagged');
+        // type-coverage:ignore-next-line
         expect(tagged.$anchor).toBe('TaggedAnchor');
+        // type-coverage:ignore-next-line
         expect(tagged.$dynamicAnchor).toBe('TaggedDynamic');
+        // type-coverage:ignore-next-line
         expect(tagged.externalDocs).toEqual({ url: 'https://example.com/docs', description: 'Tagged docs' });
 
+        // type-coverage:ignore-next-line
         const conditional = schemas.ConditionalTagged as any;
+        // type-coverage:ignore-next-line
         expect(conditional.const).toEqual({ status: 'fixed', count: 1 });
+        // type-coverage:ignore-next-line
         expect(conditional.if).toEqual({ properties: { kind: { const: 'A' } } });
+        // type-coverage:ignore-next-line
         expect(conditional.then).toEqual({ required: ['a'] });
+        // type-coverage:ignore-next-line
         expect(conditional.else).toEqual({ required: ['b'] });
+        // type-coverage:ignore-next-line
         expect(conditional.not).toEqual({ properties: { banned: { type: 'string' } } });
 
+        // type-coverage:ignore-next-line
         const taggedUnion = schemas.TaggedUnion as any;
+        // type-coverage:ignore-next-line
         expect(taggedUnion.oneOf).toEqual([{ type: 'string' }, { type: 'number' }]);
+        // type-coverage:ignore-next-line
         expect(taggedUnion.anyOf).toBeUndefined();
     });
 

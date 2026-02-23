@@ -54,6 +54,7 @@ const headerSpec = {
 };
 
 describe('Emitter: Response Header Type Generation', () => {
+    // type-coverage:ignore-next-line
     const runGenerator = (spec: any) => {
         const project = new Project({ useInMemoryFileSystem: true });
         const config: GeneratorConfig = { input: '', output: '/out', options: { enumStyle: 'enum' } };

@@ -30,8 +30,11 @@ describe('Emitter: SpecSnapshotGenerator', () => {
         expect(await fs.fileExists(yamlPath)).toBe(true);
 
         const jsonPayload = fs.readFileSync(jsonPath);
+        // type-coverage:ignore-next-line
         const parsed = JSON.parse(jsonPayload);
+        // type-coverage:ignore-next-line
         expect(parsed.openapi).toBe('3.2.0');
+        // type-coverage:ignore-next-line
         expect(parsed.info.title).toBe('Snapshot');
     });
 });

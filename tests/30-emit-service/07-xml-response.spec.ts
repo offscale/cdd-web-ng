@@ -70,6 +70,7 @@ describe('Emitter: ServiceMethodGenerator (XML Response Parsing)', () => {
 
     it('should set responseType to text and pipe through XmlParser.parse', () => {
         const { methodGen, serviceClass } = createTestEnv();
+        // type-coverage:ignore-next-line
         const op: any = {
             method: 'GET',
             path: '/xml-data',

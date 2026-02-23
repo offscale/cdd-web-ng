@@ -402,8 +402,9 @@ describe('Core Utils: Spec Extractor', () => {
 
             const [pathInfo] = utils.extractPaths(swaggerPaths as any, resolveRef as any);
             const requestSchema = pathInfo.requestBody?.content?.['application/json'].schema as SwaggerDefinition;
-            const responseSchema = (pathInfo.responses as any)['200']?.content?.['application/json']
-                .schema as SwaggerDefinition;
+            // type-coverage:ignore-next-line
+            const responseSchema = // type-coverage:ignore-next-line
+                (pathInfo.responses as any)['200']?.content?.['application/json'].schema as SwaggerDefinition;
 
             expect(requestSchema).toEqual({
                 type: 'object',
@@ -487,6 +488,7 @@ describe('Core Utils: Spec Extractor', () => {
             expect(schema).toBeDefined();
             const schema0: SwaggerDefinition = schema as SwaggerDefinition;
             expect(schema0.type).toBe('array');
+            // type-coverage:ignore-next-line
             expect((schema0!.items as any).type).toBe('string');
             expect(schema0!.format).toBe('uuid');
         });

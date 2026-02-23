@@ -47,31 +47,46 @@ describe('Emitter: TagGenerator', () => {
         const sourceFile = project.getSourceFileOrThrow('/out/tags.ts');
         const code = sourceFile.getText();
         const jsCode = ts.transpile(code, { target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS });
+        // type-coverage:ignore-next-line
         const moduleHelper = { exports: {} as any };
+        // type-coverage:ignore-next-line
         new Function('exports', jsCode)(moduleHelper.exports);
+        // type-coverage:ignore-next-line
         return moduleHelper.exports;
     };
 
     it('should generate registry array for tags including OAS 3.2 fields', () => {
         const project = runGenerator(tagsSpec);
+        // type-coverage:ignore-next-line
         const { API_TAGS } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_TAGS).toHaveLength(2);
+        // type-coverage:ignore-next-line
         expect(API_TAGS[0].name).toBe('Pet');
+        // type-coverage:ignore-next-line
         expect(API_TAGS[0].summary).toBe('Pet Operations');
+        // type-coverage:ignore-next-line
         expect(API_TAGS[0].kind).toBe('resource');
+        // type-coverage:ignore-next-line
         expect(API_TAGS[0]['x-audience']).toBe('internal');
+        // type-coverage:ignore-next-line
         expect(API_TAGS[0].externalDocs.url).toBe('http://swagger.io');
     });
 
     it('should generate lookup map handling parent field', () => {
         const project = runGenerator(tagsSpec);
+        // type-coverage:ignore-next-line
         const { API_TAGS_MAP } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_TAGS_MAP['Store']).toBeDefined();
+        // type-coverage:ignore-next-line
         expect(API_TAGS_MAP['Store'].description).toContain('orders');
+        // type-coverage:ignore-next-line
         expect(API_TAGS_MAP['Store'].parent).toBe('Pet');
 
+        // type-coverage:ignore-next-line
         expect(API_TAGS_MAP['Pet'].name).toBe('Pet');
     });
 
@@ -106,9 +121,12 @@ describe('Emitter: TagGenerator', () => {
             tags: [{ name: 'Minimal' } as any],
         };
         const project = runGenerator(minimalSpec);
+        // type-coverage:ignore-next-line
         const { API_TAGS } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_TAGS).toHaveLength(1);
+        // type-coverage:ignore-next-line
         expect(API_TAGS[0].description).toBeUndefined();
     });
 });

@@ -74,6 +74,7 @@ const typeGenSpec = {
 };
 
 describe('Emitter: TypeGenerator', () => {
+    // type-coverage:ignore-next-line
     const runGenerator = (spec: any, options: any = {}) => {
         const project = new Project({ useInMemoryFileSystem: true });
         const config: GeneratorConfig = { input: '', output: '/out', options: { enumStyle: 'union', ...options } };

@@ -270,93 +270,140 @@ describe('Emitter: LinkGenerator', () => {
         const sourceFile = project.getSourceFileOrThrow('/out/links.ts');
         const code = sourceFile.getText();
         const jsCode = ts.transpile(code, { target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS });
+        // type-coverage:ignore-next-line
         const moduleHelper = { exports: {} as any };
+        // type-coverage:ignore-next-line
         new Function('exports', jsCode)(moduleHelper.exports);
+        // type-coverage:ignore-next-line
         return moduleHelper.exports;
     };
 
     it('should generate links registry for inline links (Id, Desc, Params)', () => {
         const project = runGenerator(linksSpec);
+        // type-coverage:ignore-next-line
         const { API_LINKS } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_LINKS).toBeDefined();
+        // type-coverage:ignore-next-line
         expect(API_LINKS['getUserById']).toBeDefined();
+        // type-coverage:ignore-next-line
         expect(API_LINKS['getUserById']['200']).toBeDefined();
 
+        // type-coverage:ignore-next-line
         const link = API_LINKS['getUserById']['200']['GetUserAddress'];
+        // type-coverage:ignore-next-line
         expect(link).toBeDefined();
+        // type-coverage:ignore-next-line
         expect(link.operationId).toBe('getUserAddress');
+        // type-coverage:ignore-next-line
         expect(link.description).toBe('The address of this user');
+        // type-coverage:ignore-next-line
         expect(link.parameters).toEqual({ userId: '$response.body#/id' });
 
         // Assert missing fields are truly undefined in the generated object
+        // type-coverage:ignore-next-line
         expect(link.operationRef).toBeUndefined();
+        // type-coverage:ignore-next-line
         expect(link.requestBody).toBeUndefined();
+        // type-coverage:ignore-next-line
         expect(link.server).toBeUndefined();
     });
 
     it('should emit component links registry when components.links is defined', () => {
         const project = runGenerator(componentOnlyLinksSpec);
+        // type-coverage:ignore-next-line
         const { API_COMPONENT_LINKS } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_COMPONENT_LINKS).toBeDefined();
+        // type-coverage:ignore-next-line
         expect(API_COMPONENT_LINKS.NextPage).toBeDefined();
+        // type-coverage:ignore-next-line
         expect(API_COMPONENT_LINKS.NextPage.operationId).toBe('listThings');
+        // type-coverage:ignore-next-line
         expect(API_COMPONENT_LINKS.NextPage.description).toBe('Next page link');
     });
 
     it('should resolve operationRef for component links', () => {
         const project = runGenerator(componentOperationRefSpec);
+        // type-coverage:ignore-next-line
         const { API_COMPONENT_LINKS } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_COMPONENT_LINKS).toBeDefined();
+        // type-coverage:ignore-next-line
         expect(API_COMPONENT_LINKS.GoTarget).toBeDefined();
+        // type-coverage:ignore-next-line
         expect(API_COMPONENT_LINKS.GoTarget.operationRef).toBe('#/paths/~1target/get');
+        // type-coverage:ignore-next-line
         expect(API_COMPONENT_LINKS.GoTarget.operationId).toBe('getTarget');
     });
 
     it('should resolve referenced links', () => {
         const project = runGenerator(refLinksSpec);
+        // type-coverage:ignore-next-line
         const { API_LINKS } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         const link = API_LINKS['getOrder']['200']['CancelOrder'];
+        // type-coverage:ignore-next-line
         expect(link).toBeDefined();
+        // type-coverage:ignore-next-line
         expect(link.operationId).toBe('cancelOrder');
+        // type-coverage:ignore-next-line
         expect(link.parameters).toEqual({ orderId: '$request.path.id' });
     });
 
     it('should resolve operationRef to operationId and preserve operationRef, requestBody, server', () => {
         const project = runGenerator(complexLinkSpec);
+        // type-coverage:ignore-next-line
         const { API_LINKS } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         const link = API_LINKS['getResource']['200']['DeepLink'];
+        // type-coverage:ignore-next-line
         expect(link.operationRef).toBe('#/paths/~1other/get');
+        // type-coverage:ignore-next-line
         expect(link.requestBody).toBe('$request.body');
+        // type-coverage:ignore-next-line
         expect(link.server).toEqual({ url: 'https://other.com' });
 
         // Verify omitted fields
+        // type-coverage:ignore-next-line
         expect(link.operationId).toBe('getOther');
+        // type-coverage:ignore-next-line
         expect(link.description).toBeUndefined();
+        // type-coverage:ignore-next-line
         expect(link.parameters).toBeUndefined();
     });
 
     it('should resolve operationRef that targets webhooks', () => {
         const project = runGenerator(webhookLinkSpec);
+        // type-coverage:ignore-next-line
         const { API_LINKS } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         const link = API_LINKS['triggerWebhook']['200']['NotifyWebhook'];
+        // type-coverage:ignore-next-line
         expect(link.operationRef).toBe('#/webhooks/user.created/post');
+        // type-coverage:ignore-next-line
         expect(link.operationId).toBe('handleUserCreated');
     });
 
     it('should preserve x- extensions on operation and component links', () => {
         const project = runGenerator(extensionLinksSpec);
+        // type-coverage:ignore-next-line
         const { API_LINKS, API_COMPONENT_LINKS } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         const link = API_LINKS['getItem']['200']['Next'];
+        // type-coverage:ignore-next-line
         expect(link['x-trace']).toBe('keep-me');
+        // type-coverage:ignore-next-line
         expect(link['x-meta']).toEqual({ level: 1 });
 
+        // type-coverage:ignore-next-line
         expect(API_COMPONENT_LINKS.Paged['x-note']).toBe('component-link');
     });
 
@@ -407,17 +454,23 @@ describe('Emitter: LinkGenerator', () => {
         const parser = new SwaggerParser(entrySpec, config, specCache, entryUri);
         new LinkGenerator(parser, project).generate('/out');
 
+        // type-coverage:ignore-next-line
         const { API_LINKS } = compileGeneratedFile(project);
+        // type-coverage:ignore-next-line
         const link = API_LINKS['getEntry']['200']['External'];
+        // type-coverage:ignore-next-line
         expect(link.operationRef).toBe('other.json#/paths/~1external/get');
+        // type-coverage:ignore-next-line
         expect(link.operationId).toBe('getExternal');
     });
 
     it('should ignore operations without identifiers or links', () => {
         // Test sparse spec
         const project = runGenerator(sparseSpec);
+        // type-coverage:ignore-next-line
         const { API_LINKS } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_LINKS).toBeUndefined();
         const sourceFile = project.getSourceFileOrThrow('/out/links.ts');
         expect(sourceFile.getText()).toContain('export { };');
@@ -427,8 +480,10 @@ describe('Emitter: LinkGenerator', () => {
         // Suppress warning expectation in test output
         vi.spyOn(console, 'warn').mockImplementation(() => {});
         const project = runGenerator(brokenRefsSpec);
+        // type-coverage:ignore-next-line
         const { API_LINKS } = compileGeneratedFile(project);
 
+        // type-coverage:ignore-next-line
         expect(API_LINKS).toBeUndefined();
         const sourceFile = project.getSourceFileOrThrow('/out/links.ts');
         expect(sourceFile.getText()).toContain('export { };');

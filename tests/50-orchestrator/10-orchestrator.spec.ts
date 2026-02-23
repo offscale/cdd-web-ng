@@ -14,6 +14,7 @@ import { AuthInterceptorGenerator } from '@src/generators/angular/utils/auth-int
 vi.mock('@src/service/emit/type/type.generator.js', () => {
     return {
         TypeGenerator: class {
+            // type-coverage:ignore-next-line
             constructor(_p: any, _prj: any, _c: any) {}
 
             generate(_out: string) {
@@ -26,9 +27,11 @@ vi.mock('@src/service/emit/type/type.generator.js', () => {
 vi.mock('@src/generators/angular/service/service.generator.js', () => {
     return {
         ServiceGenerator: class {
+            // type-coverage:ignore-next-line
             constructor(_p: any, _prj: any, _c: any) {}
 
             // UPDATED MOCK: The contract is now generate(outputDir, group)
+            // type-coverage:ignore-next-line
             generate(_out: string, _groups: any) {
                 // Simulate file creation that usually happens inside generate
                 // so that assertions later on filesystem checks pass

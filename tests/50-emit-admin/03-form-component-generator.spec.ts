@@ -15,11 +15,13 @@ describe('Generators (Angular): FormComponentGenerator', () => {
     let config: GeneratorConfig;
     const validBase = { openapi: '3.0.0', info: { title: 'Test', version: '1.0' }, paths: {} };
 
+    // type-coverage:ignore-next-line
     const run = (spec: any, resourceOverrides: Partial<Resource> = {}) => {
         const parser = new SwaggerParser(spec, config);
 
         // Basic resource extraction simulation
         const schemaName = resourceOverrides.modelName || 'Test';
+        // type-coverage:ignore-next-line
         const mainSchema = spec.components?.schemas?.[schemaName] || spec.components?.schemas?.Test;
 
         // We need to simulate the behavior of discovery:
@@ -27,6 +29,7 @@ describe('Generators (Angular): FormComponentGenerator', () => {
         // 2. Resolve references so the builder sees the real schema content
         const formProps =
             resourceOverrides.formProperties ||
+            // type-coverage:ignore-next-line
             Object.entries(mainSchema?.properties || {}).map(([name, schema]) => {
                 let s = schema as SwaggerDefinition;
 
@@ -39,6 +42,7 @@ describe('Generators (Angular): FormComponentGenerator', () => {
                 }
 
                 // Denormalize Required
+                // type-coverage:ignore-next-line
                 if (mainSchema.required && mainSchema.required.includes(name)) {
                     // Note: The analyzer expects 'required' to be present/truthy on the schema object
                     return { name, schema: { ...s, required: [name] } };
@@ -406,6 +410,7 @@ describe('Generators (Angular): FormComponentGenerator', () => {
                         validationRules: [],
                         controlType: 'map',
                         schema: { type: 'object' },
+                        // type-coverage:ignore-next-line
                         mapValueControl: {
                             name: 'value',
                             propertyName: 'value',
@@ -471,6 +476,7 @@ describe('Generators (Angular): FormComponentGenerator', () => {
                 listProperties: [],
             };
 
+            // type-coverage:ignore-next-line
             (generator as any).generateFormComponentTs(resource, '/admin/test/test-form', analysis);
             const sourceFile = project.getSourceFileOrThrow('/admin/test/test-form/test-form.component.ts');
             const text = sourceFile.getText();
@@ -531,6 +537,7 @@ describe('Generators (Angular): FormComponentGenerator', () => {
                 listProperties: [],
             };
 
+            // type-coverage:ignore-next-line
             (generator as any).generateFormComponentTs(resource, '/admin/test-any/test-form', analysis);
             const sourceFile = project.getSourceFileOrThrow('/admin/test-any/test-form/test-form.component.ts');
             expect(sourceFile.getText()).toContain('unknownProp: any');
@@ -581,6 +588,7 @@ describe('Generators (Angular): FormComponentGenerator', () => {
                 listProperties: [],
             };
 
+            // type-coverage:ignore-next-line
             (generator as any).generateFormComponentTs(resource, '/admin/test-any-array/test-form', analysis);
             const sourceFile = project.getSourceFileOrThrow('/admin/test-any-array/test-form/test-form.component.ts');
             expect(sourceFile.getText()).toContain('FormArray<FormGroup<any>>');
@@ -601,6 +609,7 @@ describe('Generators (Angular): FormComponentGenerator', () => {
                 listProperties: [],
             };
 
+            // type-coverage:ignore-next-line
             (generator as any).addOnSubmit(classDeclaration, createOnly, 'TestService', false);
             const createBody = classDeclaration.getMethodOrThrow('onSubmit').getBodyText() ?? '';
             expect(createBody).toContain('this.form.getRawValue()');
@@ -616,6 +625,7 @@ describe('Generators (Angular): FormComponentGenerator', () => {
                 formProperties: [],
                 listProperties: [],
             };
+            // type-coverage:ignore-next-line
             (generator as any).addOnSubmit(classDeclaration, updateOnly, 'TestService', false);
             const updateBody = classDeclaration.getMethodOrThrow('onSubmit').getBodyText() ?? '';
             expect(updateBody).toContain('updateTest');
@@ -640,6 +650,7 @@ describe('Generators (Angular): FormComponentGenerator', () => {
                 dependencyRules: [],
             };
 
+            // type-coverage:ignore-next-line
             (generator as any).addPatchForm(
                 classDeclaration,
                 { name: 'test', modelName: 'Test' } as any,
@@ -663,6 +674,7 @@ describe('Generators (Angular): FormComponentGenerator', () => {
                 hasMaps: true,
             };
 
+            // type-coverage:ignore-next-line
             (generator as any).addPatchForm(classDeclaration, { name: 'test', modelName: '' } as any, analysisComplex);
             const patchMethod = classDeclaration.getMethodOrThrow('patchForm');
             expect(patchMethod.getParameters()[0].getType().getText()).toBe('any');

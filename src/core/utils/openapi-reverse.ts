@@ -1,3 +1,4 @@
+// src/core/utils/openapi-reverse.ts
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
@@ -21,104 +22,186 @@ import {
 import { OAS_3_1_DIALECT } from '../constants.js';
 import type { ReverseSchemaMap } from './openapi-reverse-models.js';
 
+/** Reverse param location */
 export type ReverseParamLocation = 'path' | 'query' | 'header' | 'cookie' | 'formData' | 'querystring' | 'body';
 
+/** Reverse Param */
 export interface ReverseParam {
+    /** doc */
     name: string;
+    /** doc */
     in: ReverseParamLocation;
+    /** doc */
     required?: boolean;
+    /** doc */
     description?: string;
+    /** doc */
     example?: unknown;
+    /** doc */
     contentType?: string;
+    /** doc */
     serialization?: 'json';
+    /** doc */
     encoding?: Record<string, unknown>;
+    /** doc */
     contentEncoderConfig?: Record<string, unknown>;
+    /** doc */
     contentEncoding?: string;
+    /** doc */
     contentMediaType?: string;
+    /** doc */
     style?: string;
+    /** doc */
     explode?: boolean;
+    /** doc */
     allowReserved?: boolean;
+    /** doc */
     allowEmptyValue?: boolean;
+    /** doc */
     typeHint?: string;
 }
 
+/** Reverse Operation */
 export interface ReverseOperation {
+    /** doc */
     methodName: string;
+    /** doc */
     operationId?: string;
+    /** doc */
     httpMethod: string;
+    /** doc */
     path: string;
+    /** doc */
     params: ReverseParam[];
+    /** doc */
     requestMediaTypes: string[];
+    /** doc */
     responseMediaTypes: string[];
+    /** doc */
     requestEncoding?: ReverseRequestEncoding;
+    /** doc */
     responseTypeHint?: string;
+    /** doc */
     responseIsArray?: boolean;
+    /** doc */
     responseHints?: ReverseResponseHint[];
+    /** doc */
     paramExamples?: Record<string, unknown>;
+    /** doc */
     requestExamples?: Record<string, unknown>;
+    /** doc */
     responseExamples?: Record<string, Record<string, unknown>>;
+    /** doc */
     security?: Record<string, string[]>[];
+    /** doc */
     extensions?: Record<string, unknown>;
+    /** doc */
     tags?: string[];
+    /** doc */
     servers?: ServerObject[];
+    /** doc */
     summary?: string;
+    /** doc */
     description?: string;
+    /** doc */
     deprecated?: boolean;
+    /** doc */
     externalDocs?: ExternalDocumentationObject;
 }
 
+/** Reverse Service */
 export interface ReverseService {
+    /** doc */
     serviceName: string;
+    /** doc */
     filePath: string;
+    /** doc */
     operations: ReverseOperation[];
 }
 
+/** Reverse Request Encoding */
 export interface ReverseRequestEncoding {
+    /** doc */
     urlencoded?: Record<string, unknown>;
+    /** doc */
     multipart?: ReverseMultipartConfig;
 }
 
+/** Reverse Multipart Config */
 export interface ReverseMultipartConfig {
+    /** doc */
     mediaType?: string;
+    /** doc */
     encoding?: Record<string, unknown>;
+    /** doc */
     prefixEncoding?: unknown[];
+    /** doc */
     itemEncoding?: unknown;
 }
 
+/** Reverse Response Hint */
 export interface ReverseResponseHint {
+    /** doc */
     status: string;
+    /** doc */
     mediaTypes?: string[];
+    /** doc */
     summary?: string;
+    /** doc */
     description?: string;
 }
 
+/** Reverse Callback Meta */
 export interface ReverseCallbackMeta {
+    /** doc */
     name: string;
+    /** doc */
     method: string;
+    /** doc */
     interfaceName?: string;
+    /** doc */
     expression?: string;
+    /** doc */
     pathItem?: PathItem;
+    /** doc */
     scope?: 'component' | 'operation';
 }
 
+/** Reverse Webhook Meta */
 export interface ReverseWebhookMeta {
+    /** doc */
     name: string;
+    /** doc */
     method: string;
+    /** doc */
     interfaceName?: string;
+    /** doc */
     pathItem?: PathItem;
+    /** doc */
     scope?: 'root' | 'component';
 }
 
+/** Reverse Metadata */
 export interface ReverseMetadata {
+    /** doc */
     info?: InfoObject;
+    /** doc */
     tags?: TagObject[];
+    /** doc */
     externalDocs?: ExternalDocumentationObject;
+    /** doc */
     inferredSelf?: string;
+    /** doc */
     documentMeta?: {
+        /** doc */
         openapi?: string;
+        /** doc */
         swagger?: string;
+        /** doc */
         $self?: string;
+        /** doc */
         jsonSchemaDialect?: string;
+        /** doc */
         extensions?: Record<string, unknown>;
     };
     servers?: ServerObject[];
@@ -344,24 +427,21 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
                 } else if (kind === 'query') {
                     try {
                         const configObj = JSON.parse(args[0]!) as Record<string, unknown>;
-                        params.push({
-                            name: String(configObj.name),
-                            in: 'query',
-                            style: configObj.style as string | undefined,
-                            explode: configObj.explode as boolean | undefined,
-                            allowReserved: configObj.allowReserved as boolean | undefined,
-                            allowEmptyValue: configObj.allowEmptyValue as boolean | undefined,
-                            contentType: configObj.contentType as string | undefined,
-                            contentEncoding:
-                                (configObj.contentEncoding as string | undefined) ??
-                                ((configObj.contentEncoderConfig as Record<string, unknown> | undefined)
-                                    ?.contentEncoding as string | undefined),
-                            contentMediaType:
-                                (configObj.contentMediaType as string | undefined) ??
-                                ((configObj.contentEncoderConfig as Record<string, unknown> | undefined)
-                                    ?.contentMediaType as string | undefined),
-                            contentEncoderConfig: configObj.contentEncoderConfig as Record<string, unknown> | undefined,
-                        });
+                        const p: any = { name: String(configObj.name), in: 'query' };
+                        if (configObj.style !== undefined) p.style = configObj.style;
+                        if (configObj.explode !== undefined) p.explode = configObj.explode;
+                        if (configObj.allowReserved !== undefined) p.allowReserved = configObj.allowReserved;
+                        if (configObj.allowEmptyValue !== undefined) p.allowEmptyValue = configObj.allowEmptyValue;
+                        if (configObj.contentType !== undefined) p.contentType = configObj.contentType;
+                        const enc =
+                            configObj.contentEncoding ?? (configObj.contentEncoderConfig as any)?.contentEncoding;
+                        if (enc !== undefined) p.contentEncoding = enc;
+                        const med =
+                            configObj.contentMediaType ?? (configObj.contentEncoderConfig as any)?.contentMediaType;
+                        if (med !== undefined) p.contentMediaType = med;
+                        if (configObj.contentEncoderConfig !== undefined)
+                            p.contentEncoderConfig = configObj.contentEncoderConfig;
+                        params.push(p);
                     } catch {}
                 } else if (kind === 'cookie') {
                     params.push({
@@ -382,8 +462,7 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
             }
 
             const qsRegex = /serializeRawQuerystring\(/g;
-            let qsMatch: RegExpExecArray | null;
-            while ((qsMatch = qsRegex.exec(methodBody)) !== null) {
+            while (qsRegex.exec(methodBody) !== null) {
                 const startIndex = qsRegex.lastIndex;
                 let depth = 1;
                 let endIndex = startIndex;
@@ -442,6 +521,7 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
                 methodBody.match(/this\.http\.(post|put|patch)\(<.*>|any>\([^,]+,\s*[a-zA-Z0-9_]+,/);
 
             const resolvedParams = argsStrRaw
+
                 .split(',')
                 .map(arg => {
                     const parts = arg.split(':');
@@ -471,7 +551,11 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
             }
 
             if (hasBody && !params.some(p => p.in === 'body' || p.in === 'formData')) {
-                params.push({ name: bodyName, in: 'body', typeHint: bodyTypeHint });
+                if (bodyTypeHint !== undefined) {
+                    params.push({ name: bodyName, in: 'body', typeHint: bodyTypeHint });
+                } else {
+                    params.push({ name: bodyName, in: 'body' });
+                }
             }
 
             let operationId = methodName;
@@ -490,6 +574,7 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
 
             if (docBlock) {
                 const lines = docBlock
+
                     .split('\n')
                     .map(l => l.replace(/^\s*\*\s?/, '').trim())
                     .filter(Boolean);
@@ -497,6 +582,7 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
                     if (line.startsWith('@operationId')) operationId = line.replace('@operationId', '').trim();
                     else if (line.startsWith('@tags'))
                         tags = line
+
                             .replace('@tags', '')
                             .split(',')
                             .map(t => t.trim());
@@ -509,17 +595,20 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
                         servers = servers || [];
                         const content = line.replace('@server', '').trim();
                         if (content.startsWith('{') || content.startsWith('[')) {
-                            const parsed = JSON.parse(content);
+                            const parsed = JSON.parse(content) as ServerObject | ServerObject[];
                             servers.push(...(Array.isArray(parsed) ? parsed : [parsed]));
                         } else {
                             const [url, ...desc] = content.split(' ');
-                            servers.push({ url: url!, description: desc.join(' ') || undefined });
+                            const d = desc.join(' ');
+                            if (d) servers.push({ url: url!, description: d });
+                            else servers.push({ url: url! });
                         }
                     } else if (line.startsWith('@security')) {
                         security = security || [];
                         const content = line.replace('@security', '').trim();
                         if (content.startsWith('{') || content.startsWith('[')) {
-                            security.push(...JSON.parse(content));
+                            const parsed = JSON.parse(content) as Record<string, string[]>[];
+                            security.push(...parsed);
                         } else {
                             security.push({
                                 [content.split(' ')[0]!]: content.split(' ').slice(1).join(' ').split(','),
@@ -528,7 +617,7 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
                     } else if (line.startsWith('@x-')) {
                         const parts = line.split(' ');
                         const prefix = parts[0]!.substring(1);
-                        if (parts[1]) extensions[prefix] = JSON.parse(parts.slice(1).join(' '));
+                        if (parts[1]) extensions[prefix] = JSON.parse(parts.slice(1).join(' ')) as unknown;
                         else extensions[prefix] = true;
                     } else if (line.startsWith('@responseSummary')) {
                         const parts = line.replace('@responseSummary', '').trim().split(' ');
@@ -542,7 +631,7 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
                         const status = parts.shift()!;
                         const mType = parts[0]!.includes('/') ? parts.shift()! : '*';
                         responseExamples[status] = responseExamples[status] || {};
-                        responseExamples[status][mType] = JSON.parse(parts.join(' '));
+                        responseExamples[status]![mType] = JSON.parse(parts.join(' ')) as unknown;
                     } else if (line.startsWith('@response')) {
                         const parts = line.replace('@response', '').trim().split(' ');
                         const status = parts.shift()!;
@@ -556,11 +645,14 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
                                 ex.mediaTypes.push(mType);
                             }
                         } else {
-                            responseHints.push({ status, description: desc, mediaTypes: mType ? [mType] : undefined });
+                            const hint: any = { status };
+                            if (desc) hint.description = desc;
+                            if (mType) hint.mediaTypes = [mType];
+                            responseHints.push(hint);
                         }
                     } else if (line.startsWith('@paramExample')) {
                         const parts = line.replace('@paramExample', '').trim().split(' ');
-                        paramExamples[parts[0]!] = JSON.parse(parts.slice(1).join(' '));
+                        paramExamples[parts[0]!] = JSON.parse(parts.slice(1).join(' ')) as unknown;
                     } else if (line.startsWith('@param')) {
                         const parts = line.replace('@param', '').trim().split(' ');
                         const name = parts[0]!.replace('{', '').replace('}', '');
@@ -569,17 +661,17 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
                     } else if (line.startsWith('@requestExample')) {
                         const parts = line.replace('@requestExample', '').trim().split(' ');
                         const mType = parts[0]!.includes('/') ? parts.shift()! : '*';
-                        requestExamples[mType] = JSON.parse(parts.join(' '));
+                        requestExamples[mType] = JSON.parse(parts.join(' ')) as unknown;
                     } else if (line.startsWith('@querystring')) {
                         const content = line.replace('@querystring', '').trim();
                         if (content.startsWith('{')) {
                             const qs = JSON.parse(content) as Record<string, unknown>;
                             const p = params.find(param => param.name === qs.name);
                             if (p) {
-                                p.contentType = qs.contentType as string | undefined;
-                                p.encoding = qs.encoding as Record<string, unknown> | undefined;
-                                p.required = qs.required as boolean | undefined;
-                                p.description = qs.description as string | undefined;
+                                if (qs.contentType !== undefined) p.contentType = qs.contentType as string;
+                                if (qs.encoding !== undefined) p.encoding = qs.encoding as Record<string, unknown>;
+                                if (qs.required !== undefined) p.required = qs.required as boolean;
+                                if (qs.description !== undefined) p.description = qs.description as string;
                             }
                         }
                     } else if (!line.startsWith('@')) {
@@ -595,7 +687,8 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
                 );
                 if (configStr) {
                     try {
-                        Object.assign(extensions, JSON.parse(configStr));
+                        const parsed = JSON.parse(configStr) as Record<string, unknown>;
+                        Object.assign(extensions, parsed);
                     } catch {}
                 }
             }
@@ -760,7 +853,7 @@ export function parseGeneratedMetadata(
                 const m = regex.exec(content);
                 if (m) {
                     try {
-                        (meta as Record<string, unknown>)[key] = JSON.parse(m[1]!);
+                        (meta as Record<string, unknown>)[key] = JSON.parse(m[1]!) as unknown;
                     } catch {}
                 }
             }
@@ -853,7 +946,7 @@ export function buildOpenApiSpecFromServices(
                         param.content = {
                             [p.contentType || 'application/x-www-form-urlencoded']: {
                                 schema: { type: p.contentType?.includes('json') ? 'object' : 'string' },
-                                ...(p.encoding ? { encoding: p.encoding as Record<string, EncodingProperty> } : {}),
+                                ...(p.encoding ? { encoding: p.encoding as any } : {}),
                             },
                         };
                     } else {
@@ -984,16 +1077,16 @@ export function buildOpenApiSpecFromServices(
                     }
 
                     if (t === 'application/jsonl') {
-                        specOp.responses['200']!.content![t] = { itemSchema: s };
+                        (specOp.responses['200'] as any).content[t] = { itemSchema: s };
                     } else if (op.responseIsArray) {
-                        specOp.responses['200']!.content![t] = {
+                        (specOp.responses['200'] as any).content[t] = {
                             schema: {
                                 type: 'array',
                                 items: s,
                             },
                         };
                     } else {
-                        specOp.responses['200']!.content![t] = { schema: s };
+                        (specOp.responses['200'] as any).content[t] = { schema: s };
                     }
                 });
             } else {

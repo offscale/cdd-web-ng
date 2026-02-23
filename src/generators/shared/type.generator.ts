@@ -1,3 +1,4 @@
+// src/generators/shared/type.generator.ts
 import * as path from 'node:path';
 import {
     InterfaceDeclaration,
@@ -49,7 +50,7 @@ export class TypeGenerator {
             Object.entries(spec.webhooks).forEach(([name, pathItem]) => {
                 const postOp = (pathItem as PathItem).post;
                 if (postOp && postOp.requestBody) {
-                    const content = postOp.requestBody.content || {};
+                    const content = (postOp.requestBody as any).content || {};
                     const jsonContent = content['application/json'] || content['*/*'];
                     if (jsonContent && jsonContent.schema) {
                         const modelName = pascalCase(name) + 'Webhook';
@@ -72,7 +73,7 @@ export class TypeGenerator {
                         (['post', 'put', 'patch'] as const).forEach(method => {
                             const operation = pathItem[method];
                             if (operation && operation.requestBody) {
-                                const content = operation.requestBody.content || {};
+                                const content = (operation.requestBody as any).content || {};
                                 const jsonContent = content['application/json'] || content['*/*'];
                                 if (jsonContent && jsonContent.schema) {
                                     const opIdBase = op.operationId

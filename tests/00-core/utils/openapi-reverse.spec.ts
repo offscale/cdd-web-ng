@@ -1,3 +1,4 @@
+// tests/00-core/utils/openapi-reverse.spec.ts
 import { afterEach, describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -302,12 +303,12 @@ describe('Core Utils: OpenAPI Reverse', () => {
             { status: '404', description: 'Not found' },
         ]);
 
-        const specOp = spec.paths['/users/{id}'].post;
+        const specOp = spec.paths!['/users/{id}'].post!;
         expect(specOp.operationId).toBe('getUserById');
         expect(Object.keys(specOp.responses || {})).toEqual(expect.arrayContaining(['200', '404']));
-        expect(specOp.responses['200'].content?.['application/json']).toBeDefined();
-        expect(specOp.responses['200'].summary).toBe('User response');
-        expect(specOp.responses['404'].description).toBe('Not found');
+        expect((specOp.responses['200'] as any).content?.['application/json']).toBeDefined();
+        expect((specOp.responses['200'] as any).summary).toBe('User response');
+        expect((specOp.responses['404'] as any).description).toBe('Not found');
 
         const paramKeys = getUser.params.map(p => `${p.in}:${p.name}`);
         expect(paramKeys).toEqual(
@@ -368,12 +369,12 @@ describe('Core Utils: OpenAPI Reverse', () => {
         expect(verboseParam?.description).toBe('Include extra details.');
         expect(bodyParam?.description).toBe('Updated payload.');
 
-        const specParams = spec.paths['/users/{userId}'].put.parameters;
+        const specParams = spec.paths!['/users/{userId}'].put!.parameters!;
         const specId = specParams.find((p: any) => p.name === 'userId');
         const specVerbose = specParams.find((p: any) => p.name === 'verbose');
-        const specBody = spec.paths['/users/{userId}'].put.requestBody;
-        expect(specId.description).toBe('The user id.');
-        expect(specVerbose.description).toBe('Include extra details.');
+        const specBody = spec.paths!['/users/{userId}'].put!.requestBody as any;
+        expect((specId as any).description).toBe('The user id.');
+        expect((specVerbose as any).description).toBe('Include extra details.');
         expect(specBody.description).toBe('Updated payload.');
     });
 
@@ -455,7 +456,7 @@ describe('Core Utils: OpenAPI Reverse', () => {
             `export const API_DOCUMENT_META = ${JSON.stringify(documentMeta, null, 2)};`,
         );
 
-        const metadata = parseGeneratedMetadata(dir, fs);
+        const metadata = parseGeneratedMetadata(dir, fs as any);
         expect(metadata.documentMeta?.extensions).toEqual(documentMeta.extensions);
 
         const baseSpec: any = { openapi: '3.2.0', info: { title: 'T', version: '1' }, paths: {} };
@@ -466,7 +467,7 @@ describe('Core Utils: OpenAPI Reverse', () => {
 
     it('should infer $self for snapshotless reverse generation', () => {
         const dir = makeTempDir();
-        const metadata = parseGeneratedMetadata(dir, fs);
+        const metadata = parseGeneratedMetadata(dir, fs as any);
         const expectedSelf = pathToFileURL(path.resolve(dir, 'openapi.yaml')).href;
         expect(metadata.inferredSelf).toBe(expectedSelf);
 
@@ -557,25 +558,25 @@ describe('Core Utils: OpenAPI Reverse', () => {
         `;
         fs.writeFileSync(path.join(nestedDir, 'nested.service.ts'), nestedSource);
 
-        const services = parseGeneratedServices(dir, fs);
+        const services = parseGeneratedServices(dir, fs as any);
         expect(services.some(s => s.serviceName === 'NestedService')).toBe(true);
 
-        const fileServices = parseGeneratedServices(path.join(dir, 'users.service.ts'), fs);
+        const fileServices = parseGeneratedServices(path.join(dir, 'users.service.ts'), fs as any);
         expect(fileServices.length).toBeGreaterThan(0);
 
         const emptyDir = makeTempDir();
-        expect(() => parseGeneratedServices(emptyDir, fs)).toThrow(/No generated service files/);
+        expect(() => parseGeneratedServices(emptyDir, fs as any)).toThrow(/No generated service files/);
 
         const badFile = path.join(dir, 'not-service.ts');
         fs.writeFileSync(badFile, 'export const x = 1;');
-        expect(() => parseGeneratedServices(badFile, fs)).toThrow(/Expected a generated service file/);
+        expect(() => parseGeneratedServices(badFile, fs as any)).toThrow(/Expected a generated service file/);
 
         const noOpDir = makeTempDir();
         fs.writeFileSync(
             path.join(noOpDir, 'empty.service.ts'),
             `export class EmptyService { private helper() { return null; } }`,
         );
-        expect(() => parseGeneratedServices(noOpDir, fs)).toThrow(/No operations could be reconstructed/);
+        expect(() => parseGeneratedServices(noOpDir, fs as any)).toThrow(/No operations could be reconstructed/);
     });
 
     it('should build a minimal OpenAPI spec from services', () => {
@@ -674,7 +675,7 @@ describe('Core Utils: OpenAPI Reverse', () => {
             User: { type: 'object' },
             CreateUserRequest: { type: 'object' },
         };
-        const spec = buildOpenApiSpecFromServices(services, {}, schemas);
+        const spec = buildOpenApiSpecFromServices(services, {}, schemas as any);
 
         const createUser = (spec.paths as any)['/users'].post;
         expect(createUser.requestBody.content['application/json'].schema).toEqual({
@@ -855,7 +856,7 @@ describe('Core Utils: OpenAPI Reverse', () => {
             'export class DummyService { public ping() { const url = `\\${basePath}/ping`; return this.http.get<any>(url, requestOptions as any); } }',
         );
 
-        const metadata = parseGeneratedMetadata(dir, fs);
+        const metadata = parseGeneratedMetadata(dir, fs as any);
         expect(metadata.info?.title).toBe('Meta API');
         expect(metadata.tags?.[0].name).toBe('meta');
         expect(metadata.externalDocs?.url).toBe('https://example.com/docs');
@@ -921,10 +922,10 @@ describe('Core Utils: OpenAPI Reverse', () => {
         expect(componentXmlHeader?.content?.['application/xml']?.schema?.xml?.name).toBe('Root');
         expect(merged.components?.links?.NextPage?.operationId).toBe('listThings');
         expect(merged.components?.examples?.ExampleOne?.summary).toBe('Example');
-        expect(merged.components?.mediaTypes?.EventStream?.schema?.type).toBe('string');
+        expect((merged.components?.mediaTypes as any)?.EventStream?.schema?.type).toBe('string');
         expect(merged.components?.pathItems?.PingItem?.get?.responses?.['200']).toBeDefined();
         expect(merged.components?.parameters?.LimitParam?.name).toBe('limit');
-        expect(merged.components?.requestBodies?.CreateUser?.content?.['application/json']).toBeDefined();
+        expect((merged.components as any)?.requestBodies?.CreateUser?.content?.['application/json']).toBeDefined();
         expect(merged.components?.responses?.NotFound?.description).toBe('Not found');
         expect((merged.paths as any)['/meta']?.summary).toBe('Meta path');
         expect((merged.paths as any)['/meta']?.parameters?.[0]?.name).toBe('trace');
@@ -938,7 +939,7 @@ describe('Core Utils: OpenAPI Reverse', () => {
         const webhooks = merged.components?.webhooks as any;
         expect(webhooks?.pinged?.post?.requestBody?.content?.['application/json']).toBeDefined();
         expect(webhooks?.pinged?.post?.responses?.['201']).toBeDefined();
-        expect(merged.webhooks?.pinged?.post?.requestBody?.content?.['application/json']).toBeDefined();
+        expect((merged as any).webhooks?.pinged?.post?.requestBody?.content?.['application/json']).toBeDefined();
     });
 
     it('should place non-standard HTTP methods in additionalOperations', () => {
@@ -951,7 +952,7 @@ describe('Core Utils: OpenAPI Reverse', () => {
                         methodName: 'copyThing',
                         httpMethod: 'COPY',
                         path: '/things/{id}',
-                        params: [{ name: 'id', in: 'path', required: true }],
+                        params: [{ name: 'id', in: 'path', required: true } as any],
                         requestMediaTypes: [],
                         responseMediaTypes: ['application/json'],
                     },

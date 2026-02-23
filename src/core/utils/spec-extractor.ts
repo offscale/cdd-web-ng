@@ -1,5 +1,7 @@
+// src/core/utils/spec-extractor.ts
 import { BodyParameter, Parameter as SwaggerOfficialParameter, Response } from 'swagger-schema-official';
 import {
+    ExampleObject,
     HeaderObject,
     MediaTypeObject,
     Parameter,
@@ -312,7 +314,7 @@ export function extractPaths(
 
                 const content: Record<string, MediaTypeObject> = {};
                 consumes.forEach(mediaType => {
-                    content[mediaType] = { schema: bodyParam.schema as SwaggerDefinition };
+                    content[mediaType] = { schema: bodyParam.schema as unknown as SwaggerDefinition };
                 });
 
                 requestBody = { content };
@@ -347,7 +349,7 @@ export function extractPaths(
                         const content: Record<string, MediaTypeObject> = {};
                         produces.forEach(mediaType => {
                             content[mediaType] = {
-                                schema: swagger2Response.schema as SwaggerDefinition,
+                                schema: swagger2Response.schema as unknown as SwaggerDefinition,
                             };
                         });
 

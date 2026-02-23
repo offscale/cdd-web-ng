@@ -1,3 +1,4 @@
+// src/generators/shared/discriminator.generator.ts
 import * as path from 'node:path';
 
 import { Project, VariableDeclarationKind } from 'ts-morph';
@@ -6,6 +7,7 @@ import { pascalCase } from '@src/core/utils/index.js';
 
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../core/constants.js';
 import { SwaggerParser } from '@src/core/parser.js';
+import { SwaggerDefinition } from '@src/core/types/openapi.js';
 
 /**
  * Generates the `discriminators.ts` file.
@@ -34,7 +36,8 @@ export class DiscriminatorGenerator {
         this.parser.schemas.forEach(entry => {
             const schema = entry.definition;
             const modelName = entry.name;
-            const rawDiscriminator = (schema as any).discriminator;
+            if (typeof schema === 'boolean') return;
+            const rawDiscriminator = (schema as SwaggerDefinition).discriminator;
 
             if (!rawDiscriminator) {
                 return;
@@ -107,7 +110,8 @@ export class DiscriminatorGenerator {
         }
         const parts = ref.split('/');
         let candidate = parts[parts.length - 1];
-        candidate = candidate.split('?')[0].split('#')[0];
+        if (!candidate) return '';
+        candidate = candidate.split('?')[0]?.split('#')[0] || candidate;
         candidate = candidate.replace(/\.[^/.]+$/, '');
         return pascalCase(candidate);
     }

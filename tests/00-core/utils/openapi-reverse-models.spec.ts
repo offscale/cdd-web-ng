@@ -1,3 +1,4 @@
+// tests/00-core/utils/openapi-reverse-models.spec.ts
 import { afterEach, describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -23,197 +24,197 @@ afterEach(() => {
 });
 
 const modelSource = `
-/** Base model */
-export interface Base {
-  /** Identifier */
-  id: string;
-  /** @deprecated */
-  readonly createdAt?: Date;
-}
+/** Base model */ 
+export interface Base { 
+  /** Identifier */ 
+  id: string; 
+  /** @deprecated */ 
+  readonly createdAt?: Date; 
+} 
 
-export interface Extra {
-  value?: number;
-}
+export interface Extra { 
+  value?: number; 
+} 
 
-/** @deprecated */
-export enum Status {
-  Active = 'active',
-  Inactive = 'inactive',
-}
+/** @deprecated */ 
+export enum Status { 
+  Active = 'active', 
+  Inactive = 'inactive', 
+} 
 
-export enum Level {
-  Low = 1,
-  High = 2,
-}
+export enum Level { 
+  Low = 1, 
+  High = 2, 
+} 
 
-export enum Mixed {
-  On = 'on',
-  Off = 0,
-}
+export enum Mixed { 
+  On = 'on', 
+  Off = 0, 
+} 
 
-export type Mode = 'auto' | 'manual';
-export type AnyAlias = any;
-export type UnknownAlias = unknown;
-export type ObjAlias = object;
-export type LiteralNum = 42;
-export type LiteralTrue = true;
-export type LiteralFalse = false;
-export type LiteralNull = null;
-export type ParenAlias = (string);
-export type NullableName = string | null;
-export type OptionalName = string | undefined;
-export type UnionAnyOf = string | number;
-export type ArrayAlias = string[];
-export type TupleAlias = [string, number];
-export type OptionalTuple = [string, number?];
-export type RestTuple = [string, ...number[]];
-export type NamedTuple = [start: string, end?: number];
-export type ReadonlyAlias = readonly string[];
-export type ArrayRef = Array<number>;
-export type SetAlias = Set<boolean>;
-export type RecordAlias = Record<string, number>;
-export type MapAlias = Map<string, string>;
-export type DateAlias = Date;
-export type BlobAlias = Blob;
-export type FileAlias = File;
-export type RefAlias = Base;
-export type IntersectionAlias = Base & Extra;
-export type TypeLiteralAlias = { foo: string; 'bar-baz'?: number; readonly ro: boolean; [key: string]: string };
+export type Mode = 'auto' | 'manual'; 
+export type AnyAlias = any; 
+export type UnknownAlias = unknown; 
+export type ObjAlias = object; 
+export type LiteralNum = 42; 
+export type LiteralTrue = true; 
+export type LiteralFalse = false; 
+export type LiteralNull = null; 
+export type ParenAlias = (string); 
+export type NullableName = string | null; 
+export type OptionalName = string | undefined; 
+export type UnionAnyOf = string | number; 
+export type ArrayAlias = string[]; 
+export type TupleAlias = [string, number]; 
+export type OptionalTuple = [string, number?]; 
+export type RestTuple = [string, ...number[]]; 
+export type NamedTuple = [start: string, end?: number]; 
+export type ReadonlyAlias = readonly string[]; 
+export type ArrayRef = Array<number>; 
+export type SetAlias = Set<boolean>; 
+export type RecordAlias = Record<string, number>; 
+export type MapAlias = Map<string, string>; 
+export type DateAlias = Date; 
+export type BlobAlias = Blob; 
+export type FileAlias = File; 
+export type RefAlias = Base; 
+export type IntersectionAlias = Base & Extra; 
+export type TypeLiteralAlias = { foo: string; 'bar-baz'?: number; readonly ro: boolean; [key: string]: string }; 
 
-export interface Derived extends Base {
-  name: string;
-  meta?: RecordAlias;
-}
+export interface Derived extends Base { 
+  name: string; 
+  meta?: RecordAlias; 
+} 
 
-export interface DerivedNoProps extends Base {}
+export interface DerivedNoProps extends Base {} 
 
-export interface DerivedIndexOnly extends Base {
-  [key: string]: string;
-}
+export interface DerivedIndexOnly extends Base { 
+  [key: string]: string; 
+} 
 
-/**
- * With docs.
- * @example {"flag":true}
- * @default {"flag":false}
- */
-export interface WithDocs {
-  /** @example "value" */
-  flag?: string;
-  /** @default not-json */
-  mode?: Mode;
-}
+/** 
+ * With docs. 
+ * @example {"flag":true} 
+ * @default {"flag":false} 
+ */ 
+export interface WithDocs { 
+  /** @example "value" */ 
+  flag?: string; 
+  /** @default not-json */ 
+  mode?: Mode; 
+} 
 
-/**
- * @example {"id":1}
- * @example {"id":2}
- */
-export interface MultiExample {
-  id: number;
-}
+/** 
+ * @example {"id":1} 
+ * @example {"id":2} 
+ */ 
+export interface MultiExample { 
+  id: number; 
+} 
 
-/**
- * @x-entity "internal"
- * @x-meta {"tier":1}
- */
-export interface ExtensionModel {
-  /** @x-prop true */
-  value?: string;
-}
+/** 
+ * @x-entity "internal" 
+ * @x-meta {"tier":1} 
+ */ 
+export interface ExtensionModel { 
+  /** @x-prop true */ 
+  value?: string; 
+} 
 
-export interface BinaryPayload {
-  /** @contentMediaType image/png @contentEncoding base64 */
-  data: string;
-}
+export interface BinaryPayload { 
+  /** @contentMediaType image/png @contentEncoding base64 */ 
+  data: string; 
+} 
 
-export interface EventPayload {
-  /** @contentMediaType application/json @contentSchema {"type":"object","properties":{"id":{"type":"string"}}} */
-  data: string;
-}
+export interface EventPayload { 
+  /** @contentMediaType application/json @contentSchema {"type":"object","properties":{"id":{"type":"string"}}} */ 
+  data: string; 
+} 
 
-/**
+/** 
  * @minProperties 1
  * @maxProperties 5
- * @propertyNames {"pattern":"^[a-z]+$"}
- */
-export interface Constraints {
-  /** @minimum 1 @maximum 10 @pattern ^[a-z]+$ @format uuid @minLength 2 @maxLength 5 */
-  name: string;
-  /** @minItems 1 @maxItems 3 @uniqueItems true */
-  tags: string[];
-  /** @contains {"type":"string"} @minContains 1 @maxContains 2 */
-  values: string[];
-  /** @multipleOf 0.5 */
-  ratio?: number;
-  /** @exclusiveMinimum 0 */
-  positive: number;
-  /** @exclusiveMaximum true */
-  below?: number;
-  /** @readOnly @writeOnly */
-  secret?: string;
-}
+ * @propertyNames {"pattern":"^[a-z]+$"} 
+ */ 
+export interface Constraints { 
+  /** @minimum 1 @maximum 10 @pattern ^[a-z]+$ @format uuid @minLength 2 @maxLength 5 */ 
+  name: string; 
+  /** @minItems 1 @maxItems 3 @uniqueItems true */ 
+  tags: string[]; 
+  /** @contains {"type":"string"} @minContains 1 @maxContains 2 */ 
+  values: string[]; 
+  /** @multipleOf 0.5 */ 
+  ratio?: number; 
+  /** @exclusiveMinimum 0 */ 
+  positive: number; 
+  /** @exclusiveMaximum true */ 
+  below?: number; 
+  /** @readOnly @writeOnly */ 
+  secret?: string; 
+} 
 
-export interface XmlDoc {
-  /** @xml {"name":"doc","namespace":"https://example.com","prefix":"ex"} */
-  value: string;
-}
+export interface XmlDoc { 
+  /** @xml {"name":"doc","namespace":"https://example.com","prefix":"ex"} */ 
+  value: string; 
+} 
 
-/** @additionalProperties false */
-export interface ClosedMap {
-  id: string;
-}
+/** @additionalProperties false */ 
+export interface ClosedMap { 
+  id: string; 
+} 
 
-/**
- * @patternProperties {"^x-":{"type":"string"}}
- * @dependentSchemas {"paymentMethod":{"properties":{"cardNumber":{"type":"string"}},"required":["cardNumber"]}}
- * @dependentRequired {"paymentMethod":["cardNumber"]}
+/** 
+ * @patternProperties {"^x-":{"type":"string"}} 
+ * @dependentSchemas {"paymentMethod":{"properties":{"cardNumber":{"type":"string"}},"required":["cardNumber"]}} 
+ * @dependentRequired {"paymentMethod":["cardNumber"]} 
  * @unevaluatedProperties false
- * @unevaluatedItems {"type":"string"}
+ * @unevaluatedItems {"type":"string"} 
  * @schemaDialect https://spec.openapis.org/oas/3.1/dialect/base
  * @schemaId https://example.com/schemas/Tagged
  * @schemaAnchor TaggedAnchor
  * @schemaDynamicAnchor TaggedDynamic
  * @see https://example.com/docs - Tagged docs
- */
-export interface TaggedSchema {
-  paymentMethod?: string;
-}
+ */ 
+export interface TaggedSchema { 
+  paymentMethod?: string; 
+} 
 
-/**
- * @const {"status":"fixed","count":1}
- * @if {"properties":{"kind":{"const":"A"}}}
- * @then {"required":["a"]}
- * @else {"required":["b"]}
- * @not {"properties":{"banned":{"type":"string"}}}
- */
-export interface ConditionalTagged {
-  kind?: string;
-  a?: string;
-  b?: string;
-}
+/** 
+ * @const {"status":"fixed","count":1} 
+ * @if {"properties":{"kind":{"const":"A"}}} 
+ * @then {"required":["a"]} 
+ * @else {"required":["b"]} 
+ * @not {"properties":{"banned":{"type":"string"}}} 
+ */ 
+export interface ConditionalTagged { 
+  kind?: string; 
+  a?: string; 
+  b?: string; 
+} 
 
-/** @oneOf [{"type":"string"},{"type":"number"}] */
-export type TaggedUnion = string | number;
+/** @oneOf [{"type":"string"},{"type":"number"}] */ 
+export type TaggedUnion = string | number; 
 
-/**
- * @discriminator {"propertyName":"kind","mapping":{"cat":"Cat","dog":"Dog"}}
- */
-export interface Discriminated {
-  kind: string;
-}
+/** 
+ * @discriminator {"propertyName":"kind","mapping":{"cat":"Cat","dog":"Dog"}} 
+ */ 
+export interface Discriminated { 
+  kind: string; 
+} 
 
-export interface Cat {
-  kind: 'cat';
-  name: string;
-}
+export interface Cat { 
+  kind: 'cat'; 
+  name: string; 
+} 
 
-export interface Dog {
-  kind: 'dog';
-  bark: boolean;
-}
+export interface Dog { 
+  kind: 'dog'; 
+  bark: boolean; 
+} 
 
-export type Pet = Cat | Dog;
+export type Pet = Cat | Dog; 
 
-export type InlinePet = { kind: 'cat'; name: string } | { kind: 'dog'; bark: boolean };
+export type InlinePet = { kind: 'cat'; name: string } | { kind: 'dog'; bark: boolean }; 
 `;
 
 describe('Core Utils: OpenAPI Reverse Models', () => {
@@ -398,33 +399,33 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         fs.writeFileSync(path.join(modelsDir, 'index.d.ts'), 'ignored');
 
         const extraSource = `
-        export interface ExtraModel { value: number; }
+        export interface ExtraModel { value: number; } 
         `;
         fs.writeFileSync(path.join(modelsDir, 'extra.ts'), extraSource);
 
-        const schemas = parseGeneratedModels(dir, fs);
+        const schemas = parseGeneratedModels(dir, fs as any);
         expect(schemas.ExtraModel).toBeDefined();
 
         const nestedDir = path.join(modelsDir, 'nested');
         fs.mkdirSync(nestedDir, { recursive: true });
         fs.writeFileSync(path.join(nestedDir, 'nested.ts'), 'export interface Nested { id: string; }');
-        const nestedSchemas = parseGeneratedModels(modelsDir, fs);
+        const nestedSchemas = parseGeneratedModels(modelsDir, fs as any);
         expect(nestedSchemas.Nested).toBeDefined();
 
-        const fileSchemas = parseGeneratedModels(path.join(modelsDir, 'index.ts'), fs);
+        const fileSchemas = parseGeneratedModels(path.join(modelsDir, 'index.ts'), fs as any);
         expect(fileSchemas.Base).toBeDefined();
 
         const emptyDir = makeTempDir();
-        expect(() => parseGeneratedModels(emptyDir, fs)).toThrow(/No generated model files/);
+        expect(() => parseGeneratedModels(emptyDir, fs as any)).toThrow(/No generated model files/);
 
         const badFile = path.join(dir, 'not-model.txt');
         fs.writeFileSync(badFile, 'data');
-        expect(() => parseGeneratedModels(badFile, fs)).toThrow(/Expected a generated model file/);
+        expect(() => parseGeneratedModels(badFile, fs as any)).toThrow(/Expected a generated model file/);
 
         const noExportDir = makeTempDir();
         const noExportModelsDir = path.join(noExportDir, 'models');
         fs.mkdirSync(noExportModelsDir, { recursive: true });
         fs.writeFileSync(path.join(noExportModelsDir, 'index.ts'), 'const value = 1;');
-        expect(() => parseGeneratedModels(noExportDir, fs)).toThrow(/No exported models could be reconstructed/);
+        expect(() => parseGeneratedModels(noExportDir, fs as any)).toThrow(/No exported models could be reconstructed/);
     });
 });

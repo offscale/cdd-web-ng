@@ -43,45 +43,35 @@ export class OAuthHelperGenerator {
             if (scheme.type === 'openIdConnect') {
                 config.hasAuthorizationCode = true;
             } else if (scheme.flows) {
-                if (scheme.flows.implicit) {
+                const implicitFlow = scheme.flows.implicit as any;
+                if (implicitFlow) {
                     config.hasImplicit = true;
-                    if (!config.authorizationUrl)
-                        config.authorizationUrl = (scheme.flows.implicit as Record<string, unknown>)
-                            .authorizationUrl as string | undefined;
+                    if (!config.authorizationUrl && implicitFlow.authorizationUrl)
+                        config.authorizationUrl = implicitFlow.authorizationUrl;
                 }
-                if (scheme.flows.password) {
+                const passwordFlow = scheme.flows.password as any;
+                if (passwordFlow) {
                     config.hasPassword = true;
-                    if (!config.tokenUrl)
-                        config.tokenUrl = (scheme.flows.password as Record<string, unknown>).tokenUrl as
-                            | string
-                            | undefined;
+                    if (!config.tokenUrl && passwordFlow.tokenUrl) config.tokenUrl = passwordFlow.tokenUrl;
                 }
-                if (scheme.flows.clientCredentials) {
+                const ccFlow = scheme.flows.clientCredentials as any;
+                if (ccFlow) {
                     config.hasClientCredentials = true;
-                    if (!config.tokenUrl)
-                        config.tokenUrl = (scheme.flows.clientCredentials as Record<string, unknown>).tokenUrl as
-                            | string
-                            | undefined;
+                    if (!config.tokenUrl && ccFlow.tokenUrl) config.tokenUrl = ccFlow.tokenUrl;
                 }
-                if (scheme.flows.authorizationCode) {
+                const acFlow = scheme.flows.authorizationCode as any;
+                if (acFlow) {
                     config.hasAuthorizationCode = true;
-                    if (!config.authorizationUrl)
-                        config.authorizationUrl = (scheme.flows.authorizationCode as Record<string, unknown>)
-                            .authorizationUrl as string | undefined;
-                    if (!config.tokenUrl)
-                        config.tokenUrl = (scheme.flows.authorizationCode as Record<string, unknown>).tokenUrl as
-                            | string
-                            | undefined;
+                    if (!config.authorizationUrl && acFlow.authorizationUrl)
+                        config.authorizationUrl = acFlow.authorizationUrl;
+                    if (!config.tokenUrl && acFlow.tokenUrl) config.tokenUrl = acFlow.tokenUrl;
                 }
-                if (scheme.flows.deviceAuthorization) {
+                const devFlow = scheme.flows.deviceAuthorization as any;
+                if (devFlow) {
                     config.hasDeviceAuthorization = true;
-                    if (!config.deviceAuthorizationUrl)
-                        config.deviceAuthorizationUrl = (scheme.flows.deviceAuthorization as Record<string, unknown>)
-                            .deviceAuthorizationUrl as string | undefined;
-                    if (!config.tokenUrl)
-                        config.tokenUrl = (scheme.flows.deviceAuthorization as Record<string, unknown>).tokenUrl as
-                            | string
-                            | undefined;
+                    if (!config.deviceAuthorizationUrl && devFlow.deviceAuthorizationUrl)
+                        config.deviceAuthorizationUrl = devFlow.deviceAuthorizationUrl;
+                    if (!config.tokenUrl && devFlow.tokenUrl) config.tokenUrl = devFlow.tokenUrl;
                 }
             }
         }

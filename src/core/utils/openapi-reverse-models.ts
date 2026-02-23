@@ -1,3 +1,4 @@
+// src/core/utils/openapi-reverse-models.ts
 import path from 'node:path';
 import {
     EnumDeclaration,
@@ -519,12 +520,18 @@ function schemaFromTupleType(tupleNode: import('ts-morph').TupleTypeNode): Swagg
     const schema: SwaggerDefinition = { type: 'array', prefixItems };
 
     if (restSchema) {
-        if (typeof restSchema === 'object' && restSchema !== null && restSchema.type === 'array') {
-            restSchema = (restSchema as SwaggerDefinition).items ?? {};
+        if (typeof restSchema === 'object' && restSchema !== null && !Array.isArray(restSchema)) {
+            if ((restSchema as SwaggerDefinition).type === 'array') {
+                let restItems = (restSchema as SwaggerDefinition).items;
+                if (Array.isArray(restItems)) restItems = restItems[0] || {};
+                restSchema = restItems ?? {};
+            }
         }
 
         if (minItems > 0) schema.minItems = minItems;
-        schema.items = restSchema;
+        if (restSchema !== undefined) {
+            schema.items = restSchema;
+        }
         return schema;
     }
 

@@ -1,3 +1,4 @@
+// src/generators/angular/admin/resource-discovery.ts
 import { SwaggerParser } from '@src/core/parser.js';
 import {
     DiscriminatorObject,
@@ -95,12 +96,12 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
     const formDataProperties: Record<string, SwaggerDefinition> = {};
 
     operations.forEach(op => {
-        const reqSchema = findSchema(op.requestBody?.content?.['application/json']?.schema, parser);
+        const reqSchema = findSchema(op.requestBody?.content?.['application/json']?.schema as any, parser);
         if (reqSchema) allSchemas.push(reqSchema);
 
         const formSchemas = [
-            findSchema(op.requestBody?.content?.['multipart/form-data']?.schema, parser),
-            findSchema(op.requestBody?.content?.['application/x-www-form-urlencoded']?.schema, parser),
+            findSchema(op.requestBody?.content?.['multipart/form-data']?.schema as any, parser),
+            findSchema(op.requestBody?.content?.['application/x-www-form-urlencoded']?.schema as any, parser),
         ].filter(Boolean) as SwaggerDefinition[];
 
         formSchemas.forEach(formSchema => {
@@ -118,8 +119,8 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
         });
 
         const resSchema =
-            findSchema(op.responses?.['200']?.content?.['application/json']?.schema, parser) ??
-            findSchema(op.responses?.['201']?.content?.['application/json']?.schema, parser);
+            findSchema(op.responses?.['200']?.content?.['application/json']?.schema as any, parser) ??
+            findSchema(op.responses?.['201']?.content?.['application/json']?.schema as any, parser);
         if (resSchema) allSchemas.push(resSchema);
 
         op.parameters?.forEach(param => {
@@ -160,7 +161,7 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
 
         if (schema.allOf) {
             schema.allOf.forEach(sub => {
-                const resolvedSub = findSchema(sub, parser);
+                const resolvedSub = findSchema(sub as any, parser);
                 if (resolvedSub) {
                     assignPropertiesRecursive(resolvedSub);
                 }
@@ -182,7 +183,7 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
     };
 
     const properties: FormProperty[] = Object.entries(finalSchema.properties!).map(([name, propSchema]) => {
-        const resolvedSchema = findSchema(propSchema, parser);
+        const resolvedSchema = findSchema(propSchema as any, parser);
         const finalPropSchema =
             resolvedSchema && typeof propSchema === 'object'
                 ? { ...(propSchema as SwaggerDefinition), ...resolvedSchema }
@@ -190,9 +191,9 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
         if (
             typeof finalPropSchema === 'object' &&
             finalSchema.required?.includes(name) &&
-            !finalPropSchema.required?.includes(name)
+            !(finalPropSchema as any).required?.includes(name)
         ) {
-            (finalPropSchema.required ||= []).push(name);
+            ((finalPropSchema as any).required ||= []).push(name);
         }
         return { name, schema: finalPropSchema };
     });
@@ -226,7 +227,7 @@ export function getModelName(resourceName: string, operations: PathInfo[]): stri
         operations.find(o => o.method === 'POST') ??
         operations.find(o => o.method === 'GET') ??
         operations.find(o => o.method === 'QUERY');
-    const schema =
+    const schema: any =
         op?.requestBody?.content?.['application/json']?.schema ??
         op?.responses?.['200']?.content?.['application/json']?.schema;
     if (schema && typeof schema === 'object') {

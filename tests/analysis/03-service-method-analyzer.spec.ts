@@ -196,8 +196,8 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
             // Ref should default to 'none'
             expect(config.nodeType).toBe('none');
             // Should exist for a few levels deep
-            expect(config.properties.child).toBeDefined();
-            expect(config.properties.child.properties.child).toBeDefined();
+            expect((config as any).properties.child).toBeDefined();
+            expect((config as any).properties.child.properties.child).toBeDefined();
         }
     });
 
@@ -246,8 +246,8 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
 
         const model = analyzer.analyze(operation);
         expect(model?.responseXmlConfig?.prefixItems).toBeDefined();
-        expect(model?.responseXmlConfig?.prefixItems?.[0]?.name).toBe('One');
-        expect(model?.responseXmlConfig?.prefixItems?.[1]?.name).toBe('Two');
+        expect((model?.responseXmlConfig?.prefixItems as any)?.[0]?.name).toBe('One');
+        expect((model?.responseXmlConfig?.prefixItems as any)?.[1]?.name).toBe('Two');
     });
 
     it('should handle various JSON content types detection', () => {
@@ -365,10 +365,10 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
         if (model?.body?.type === 'xml') {
             const config = model.body.config;
             // Should include properties from Base (via allOf)
-            expect(config.properties.id).toBeDefined();
-            expect(config.properties.id.attribute).toBe(true);
+            expect((config as any).properties.id).toBeDefined();
+            expect((config as any).properties.id.attribute).toBe(true);
             // Should include local properties
-            expect(config.properties.name).toBeDefined();
+            expect((config as any).properties.name).toBeDefined();
         }
     });
 
@@ -1043,7 +1043,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
         };
         const { analyzer } = setupAnalyzer(spec);
         const config = (analyzer as any).getDecodingConfig(spec.components.schemas.Encoded, 5);
-        expect(config.properties.payload).toBeDefined();
+        expect((config as any).properties.payload).toBeDefined();
     });
 
     it('should merge encoding config from allOf', () => {
@@ -1071,7 +1071,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
         };
         const { analyzer } = setupAnalyzer(spec);
         const config = (analyzer as any).getEncodingConfig(spec.components.schemas.Encoded, 5);
-        expect(config.properties.payload).toBeDefined();
+        expect((config as any).properties.payload).toBeDefined();
     });
 
     it('should mark json serialization when contentMediaType is resolved via ref', () => {

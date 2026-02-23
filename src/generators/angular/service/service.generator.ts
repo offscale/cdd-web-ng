@@ -116,7 +116,9 @@ export class ServiceGenerator extends AbstractServiceGenerator {
             if (!schema || typeof schema !== 'object' || depth <= 0) return false;
             if ('contentEncoding' in schema || 'contentSchema' in schema) return true;
             if (Array.isArray(schema)) {
-                return schema.some(item => schemaHasDecodingHints(item as SwaggerDefinition | boolean, depth - 1));
+                return schema.some((item: unknown) =>
+                    schemaHasDecodingHints(item as SwaggerDefinition | boolean, depth - 1),
+                );
             }
             return Object.values(schema).some(value =>
                 schemaHasDecodingHints(value as SwaggerDefinition | boolean, depth - 1),

@@ -6,6 +6,7 @@ import {
     Parameter,
     PathInfo,
     SwaggerDefinition,
+    SwaggerResponse,
 } from '@src/core/types/index.js';
 import { camelCase, getTypeScriptType, isDataTypeInterface, sanitizeComment } from '@src/core/utils/index.js';
 import { SwaggerParser } from '@src/core/parser.js';
@@ -1029,7 +1030,10 @@ export class ServiceMethodAnalyzer {
 
     private needsRequestType(definition: SwaggerDefinition): boolean {
         if (!definition.properties) return false;
-        return Object.values(definition.properties).some((p: Record<string, unknown>) => p.readOnly || p.writeOnly);
+        const properties = Object.values(definition.properties).filter(
+            p => p !== null && typeof p === 'object',
+        ) as SwaggerDefinition[];
+        return properties.some(p => p.readOnly || p.writeOnly);
     }
 
     private getXmlConfig(schema: SwaggerDefinition | boolean | undefined, depth: number): Record<string, unknown> {

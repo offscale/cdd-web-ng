@@ -402,7 +402,8 @@ describe('Core Utils: Spec Extractor', () => {
 
             const [pathInfo] = utils.extractPaths(swaggerPaths as any, resolveRef as any);
             const requestSchema = pathInfo.requestBody?.content?.['application/json'].schema as SwaggerDefinition;
-            const responseSchema = pathInfo.responses['200']?.content?.['application/json'].schema as SwaggerDefinition;
+            const responseSchema = (pathInfo.responses as any)['200']?.content?.['application/json']
+                .schema as SwaggerDefinition;
 
             expect(requestSchema).toEqual({
                 type: 'object',

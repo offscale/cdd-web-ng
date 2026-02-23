@@ -77,7 +77,7 @@ describe('Emitter: ServerUrlGenerator', () => {
 
         const { API_SERVERS } = compileHelper(project);
         expect(API_SERVERS[0]['x-server']).toBe('alpha');
-        expect(API_SERVERS[0].variables?.env['x-var']).toBe('meta');
+        expect((API_SERVERS[0] as any).variables?.env['x-var']).toBe('meta');
 
         const sourceFile = project.getSourceFileOrThrow('/out/utils/server-url.ts');
         expect(sourceFile.getInterfaceOrThrow('ServerConfiguration').getIndexSignatures().length).toBe(1);

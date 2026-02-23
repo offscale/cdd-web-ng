@@ -121,7 +121,7 @@ describe('Admin: discoverAdminResources', () => {
                     '200': {
                         description: 'ok',
                         content: {
-                            'application/json': { schema: schemaWithInline.properties!.inline },
+                            'application/json': { schema: (schemaWithInline as any).properties!.inline },
                         },
                     },
                 },

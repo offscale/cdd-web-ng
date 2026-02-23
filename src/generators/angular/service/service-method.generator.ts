@@ -18,7 +18,7 @@ import {
 } from '@src/core/types/index.js';
 import { SwaggerParser } from '@src/core/parser.js';
 import { ServiceMethodAnalyzer } from '@src/analysis/service-method-analyzer.js';
-import { ResponseVariant, ServiceMethodModel } from '@src/analysis/service-method-types.js';
+import { ResponseVariant, ServiceMethodModel, ParamSerialization } from '@src/analysis/service-method-types.js';
 import { camelCase, pascalCase, sanitizeComment } from '@src/core/utils/index.js';
 
 export class ServiceMethodGenerator {
@@ -378,6 +378,7 @@ export class ServiceMethodGenerator {
 
         if (operation.tags && operation.tags.length > 0) {
             const joined = operation.tags
+
                 .map(t => String(t).trim())
                 .filter(Boolean)
                 .join(', ');
@@ -529,6 +530,7 @@ export class ServiceMethodGenerator {
         });
 
         return entries
+
             .filter(candidate => {
                 if (candidate.specificity === 2) return true;
                 return !entries.some(
@@ -570,6 +572,7 @@ export class ServiceMethodGenerator {
 
         const xmlParams =
             rawOp.parameters
+
                 ?.map(p => {
                     const entry = this.getXmlParameterEntry(p);
                     if (!entry) return undefined;
@@ -666,7 +669,7 @@ export class ServiceMethodGenerator {
                     explode: p.explode,
                     allowReserved: p.allowReserved,
                     serialization: p.serializationLink,
-                    allowEmptyValue: (p as Record<string, unknown>).allowEmptyValue,
+                    allowEmptyValue: (p as unknown as Record<string, unknown>).allowEmptyValue,
                     ...(p.contentType ? { contentType: p.contentType } : {}),
                     ...(p.encoding ? { encoding: p.encoding } : {}),
                     ...(p.contentEncoderConfig ? { contentEncoderConfig: p.contentEncoderConfig } : {}),
@@ -778,6 +781,7 @@ export class ServiceMethodGenerator {
         }
 
         let optionProperties = `
+
   observe: options?.observe, 
   reportProgress: options?.reportProgress, 
   responseType: ${responseTypeVal}, 
@@ -949,6 +953,7 @@ export class ServiceMethodGenerator {
                     } 
                     return raw; 
                 })(); 
+
                 
 
                 const fetchOptions: RequestInit = { method: '${model.httpMethod}', headers: fetchHeaders as any }; 

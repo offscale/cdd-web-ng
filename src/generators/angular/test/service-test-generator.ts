@@ -129,7 +129,7 @@ export class ServiceTestGenerator {
                 return lines;
             };
 
-            const url = op.path.replace(/{(\w+)}/g, (_, paramName) => `\${${camelCase(paramName)}}`);
+            const url = op.path.replace(/{(\w+)}/g, (_, paramName: string) => `\${${camelCase(paramName)}}`);
             tests.push(`\n  describe('${op.methodName}()', () => {`);
 
             tests.push(`    it('should return ${responseType} on success', () => {`);
@@ -222,7 +222,7 @@ export class ServiceTestGenerator {
                     typeof firstExample === 'object' &&
                     Object.prototype.hasOwnProperty.call(firstExample, '$ref')
                 ) {
-                    const resolved = this.parser.resolveReference<ExampleObject>((firstExample as ReferenceLike).$ref);
+                    const resolved = this.parser.resolveReference<ExampleObject>((firstExample as any).$ref);
                     const resolvedValue = pickExampleValue(resolved);
                     if (resolvedValue.found) potentialValue = resolvedValue.value;
                 } else if (firstExample === null || typeof firstExample !== 'object') {

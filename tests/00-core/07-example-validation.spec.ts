@@ -1,3 +1,4 @@
+// tests/00-core/07-example-validation.spec.ts
 import { describe, expect, it } from 'vitest';
 
 import { validateSpec } from '@src/core/validator.js';
@@ -54,18 +55,18 @@ describe('Core: Example Object validation (OAS 3.2)', () => {
                     },
                 },
             },
-        ];
+        ] as any;
         expect(() => validateSpec(spec)).toThrow(/value.*dataValue/);
     });
 
     it('should reject Example Object with both serializedValue and externalValue', () => {
         const spec = cloneSpec();
-        spec.paths!['/pets'].get!.responses!['200']!.content!['application/json']!.examples = {
+        (spec.paths as any)['/pets'].get.responses['200'].content['application/json'].examples = {
             bad: {
                 serializedValue: '{"a":1}',
                 externalValue: 'http://example.com/example.json',
             },
-        } as any;
+        };
         expect(() => validateSpec(spec)).toThrow(/serializedValue.*externalValue/);
     });
 

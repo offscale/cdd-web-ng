@@ -1,3 +1,4 @@
+// src/generators/shared/response-header-registry.generator.ts
 import * as path from 'node:path';
 import { Project, VariableDeclarationKind } from 'ts-morph';
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '../../core/constants.js';
@@ -130,7 +131,7 @@ export class ResponseHeaderRegistryGenerator {
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
     }
 
-    private getHeaderTypeInfo(header: HeaderObject): { typeHint: string; xmlConfig?: any } {
+    private getHeaderTypeInfo(header: HeaderObject): { typeHint: string; xmlConfig?: Record<string, unknown> } {
         if (header.content) {
             const contentType = Object.keys(header.content)[0];
             const normalizedContentType = contentType?.split(';')[0].trim().toLowerCase();
@@ -175,12 +176,12 @@ export class ResponseHeaderRegistryGenerator {
         return { typeHint: 'string' };
     }
 
-    private getXmlConfig(schema: SwaggerDefinition | undefined, depth: number): any {
+    private getXmlConfig(schema: SwaggerDefinition | undefined, depth: number): Record<string, unknown> {
         if (!schema || depth <= 0) return {};
         const resolved = this.parser.resolve(schema);
         if (!resolved) return {};
 
-        const config: any = {};
+        const config: Record<string, unknown> = {};
         if (resolved.xml?.name) config.name = resolved.xml.name;
         if (resolved.xml?.attribute) config.attribute = true;
         if (resolved.xml?.wrapped) config.wrapped = true;
@@ -192,7 +193,7 @@ export class ResponseHeaderRegistryGenerator {
             config.items = this.getXmlConfig(resolved.items as SwaggerDefinition, depth - 1);
         }
         if (Array.isArray(resolved.prefixItems)) {
-            config.prefixItems = resolved.prefixItems.map(item =>
+            config.prefixItems = resolved.prefixItems.map((item: unknown) =>
                 this.getXmlConfig(item as SwaggerDefinition, depth - 1),
             );
         }
@@ -202,7 +203,7 @@ export class ResponseHeaderRegistryGenerator {
             Object.entries(resolved.properties).forEach(([propName, propSchema]) => {
                 const propConfig = this.getXmlConfig(propSchema as SwaggerDefinition, depth - 1);
                 if (Object.keys(propConfig).length > 0) {
-                    config.properties[propName] = propConfig;
+                    (config.properties as Record<string, unknown>)[propName] = propConfig;
                 }
             });
         }

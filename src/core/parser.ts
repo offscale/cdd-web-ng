@@ -1,3 +1,4 @@
+// src/core/parser.ts
 /**
  * @fileoverview
  * This file contains the SwaggerParser class, the central component responsible for loading,
@@ -393,7 +394,7 @@ export class SwaggerParser {
         const links: Record<string, LinkObject> = {};
         for (const [key, val] of Object.entries(this.spec.components.links)) {
             if ('$ref' in val) {
-                const resolved = this.resolveReference<LinkObject>(val.$ref);
+                const resolved = this.resolveReference<LinkObject>((val as any).$ref);
                 if (resolved) links[key] = resolved;
             } else {
                 links[key] = val as LinkObject;

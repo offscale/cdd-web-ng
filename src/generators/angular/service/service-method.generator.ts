@@ -73,8 +73,8 @@ export class ServiceMethodGenerator {
             negotiationVariants,
         );
 
-        let returnType = `Observable<${model.responseType}>`;
-        if (hasContentNegotiation || hasMultipleSuccessTypes) {
+        let returnType = overloads.length > 0 ? 'Observable<any>' : `Observable<${model.responseType}>`;
+        if ((hasContentNegotiation || hasMultipleSuccessTypes) && overloads.length === 0) {
             const unionType = distinctTypes.join(' | ');
             returnType = `Observable<${unionType}>`;
         }

@@ -35,7 +35,15 @@ export class ServiceGenerator extends AbstractServiceGenerator {
             namedImports: ['Injectable', 'inject'],
         });
 
-        const httpImports = ['HttpClient', 'HttpRequest', 'HttpResponse', 'HttpHeaders', 'HttpEvent', 'HttpParams'];
+        const httpImports = [
+            'HttpClient',
+            'HttpRequest',
+            'HttpResponse',
+            'HttpHeaders',
+            'HttpEvent',
+            'HttpParams',
+            'HttpContext',
+        ];
         sourceFile.addImportDeclaration({
             moduleSpecifier: '@angular/common/http',
             namedImports: httpImports,

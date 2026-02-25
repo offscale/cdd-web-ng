@@ -114,16 +114,16 @@ export class ServiceTestGenerator {
                         `      const ${bodyParam.name}: ${bodyParam.model} = ${this.mockDataGenerator.generate(bodyParam.model)};`,
                     );
                 } else if (bodyParam?.isPrimitive) {
-                    lines.push(`      const ${bodyParam.name} = 'test-body';`);
+                    lines.push(`      const ${bodyParam.name}: any = 'test-body';`);
                 } else if (bodyParam) {
-                    lines.push(`      const ${bodyParam.name} = { data: 'test-body' };`);
+                    lines.push(`      const ${bodyParam.name}: any = { data: 'test-body' };`);
                 }
 
                 params.forEach(p => {
                     if (p.modelName) {
                         lines.push(`      const ${p.name}: ${p.type} = ${p.value};`);
                     } else {
-                        lines.push(`      const ${p.name} = ${p.value};`);
+                        lines.push(`      const ${p.name}: any = ${p.value};`);
                     }
                 });
                 return lines;
@@ -154,7 +154,7 @@ export class ServiceTestGenerator {
 
             tests.push(`      service.${op.methodName}(${allArgs.join(', ')}).subscribe({`);
             tests.push(`        next: response => expect(response).toEqual(mockResponse),`);
-            tests.push(`        error: err => fail(err)`);
+            tests.push(`        error: err => { throw err; }`);
             tests.push(`      });`);
 
             tests.push(`      const req = httpMock.expectOne(\`/api/v1${url}\`);`);
@@ -170,7 +170,7 @@ export class ServiceTestGenerator {
             tests.push(`    it('should handle a 404 error', () => {`);
             tests.push(...declareParams());
             tests.push(`      service.${op.methodName}(${allArgs.join(', ')}).subscribe({`);
-            tests.push(`        next: () => fail('should have failed with a 404 error'),`);
+            tests.push(`        next: () => { throw new Error('should have failed with a 404 error'); },`);
             tests.push(`        error: error => expect(error.status).toBe(404),`);
             tests.push(`      });`);
             tests.push(`      const req = httpMock.expectOne(\`/api/v1${url}\`);`);

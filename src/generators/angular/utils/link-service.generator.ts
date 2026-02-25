@@ -180,7 +180,7 @@ export class LinkServiceGenerator {
         const result: Record<string, string> = {}; 
         if (!headers) return result; 
         const keys = typeof headers.keys === 'function' ? headers.keys() : Object.keys(headers); 
-        keys.forEach((key: string) => { 
+        Array.from(keys).forEach((key: string) => { 
             const val = typeof headers.get === 'function' ? headers.get(key) : headers[key]; 
             if (val !== null && val !== undefined) result[key.toLowerCase()] = String(val); 
         }); 
@@ -195,7 +195,7 @@ export class LinkServiceGenerator {
         const result: Record<string, string> = {}; 
         if (!params) return result; 
         const keys = typeof params.keys === 'function' ? params.keys() : Object.keys(params); 
-        keys.forEach((key: string) => { 
+        Array.from(keys).forEach((key: string) => { 
             const val = typeof params.get === 'function' ? params.get(key) : params[key]; 
             if (val !== null && val !== undefined) result[key] = String(val); 
         }); 

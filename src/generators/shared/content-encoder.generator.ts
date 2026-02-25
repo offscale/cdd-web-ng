@@ -53,8 +53,8 @@ export class ContentEncoderGenerator {
         if (typeof TextEncoder !== 'undefined') {
             return new TextEncoder().encode(input);
         }
-        if (typeof Buffer !== 'undefined') {
-            return Uint8Array.from(Buffer.from(input, 'utf-8'));
+        if (typeof (globalThis as any).Buffer !== 'undefined') {
+            return Uint8Array.from((globalThis as any).Buffer.from(input, 'utf-8'));
         }
         const out = new Uint8Array(input.length);
         for (let i = 0; i < input.length; i++) {
@@ -70,8 +70,8 @@ export class ContentEncoderGenerator {
             parameters: [{ name: 'bytes', type: 'Uint8Array' }],
             returnType: 'string',
             statements: `
-        if (typeof Buffer !== 'undefined') {
-            return Buffer.from(bytes).toString('base64');
+        if (typeof (globalThis as any).Buffer !== 'undefined') {
+            return (globalThis as any).Buffer.from(bytes).toString('base64');
         }
         let binary = '';
         for (let i = 0; i < bytes.length; i++) {

@@ -92,7 +92,7 @@ export class ServiceTestGenerator {
                 if (modelName) {
                     value = this.mockDataGenerator.generate(modelName);
                 } else {
-                    value = this.getParameterExampleValue(p) ?? this.generateDefaultPrimitiveValue(p.schema);
+                    value = this.getParameterExampleValue(p) ?? this.generateDefaultPrimitiveValue(p.schema, type);
                 }
                 return { name, value, type, modelName };
             });
@@ -182,7 +182,12 @@ export class ServiceTestGenerator {
         return tests;
     }
 
-    private generateDefaultPrimitiveValue(schema: SwaggerDefinition | { $ref: string } | boolean | undefined): string {
+    private generateDefaultPrimitiveValue(
+        schema: SwaggerDefinition | { $ref: string } | boolean | undefined,
+        tsType?: string,
+    ): string {
+        if (tsType === 'File') return `new File([""], "test.txt")`;
+        if (tsType === 'Blob') return `new Blob([""])`;
         const resolvedSchema = this.parser.resolve<SwaggerDefinition>(schema as ReferenceLike);
         if (resolvedSchema && (resolvedSchema.type === 'number' || resolvedSchema.type === 'integer')) {
             return '123';
@@ -269,7 +274,7 @@ export class ServiceTestGenerator {
 
     private addImports(sourceFile: SourceFile, serviceName: string, modelImports: string[]): void {
         sourceFile.addImportDeclarations([
-            { moduleSpecifier: '@angular/core/testing', namedImports: ['TestBed', 'fail'] },
+            { moduleSpecifier: '@angular/core/testing', namedImports: ['TestBed'] },
             {
                 moduleSpecifier: '@angular/common/http/testing',
                 namedImports: ['HttpClientTestingModule', 'HttpTestingController'],

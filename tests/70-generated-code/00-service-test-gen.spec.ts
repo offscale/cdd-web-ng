@@ -75,7 +75,7 @@ describe('Generated Code: Service Test Generators', () => {
             testGen.generateServiceTestFile('users', userOps as any, '/');
             const sourceFile = project.getSourceFileOrThrow('/users.service.spec.ts');
             const classText = sourceFile.getFullText();
-            expect(classText).toContain('import { TestBed, fail } from "@angular/core/testing";');
+            expect(classText).toContain('import { TestBed } from "@angular/core/testing";');
             expect(classText).toContain("describe('UsersService'");
             expect(classText).toContain("it('should be created'");
             expect(classText).toContain('service.getUsers(');

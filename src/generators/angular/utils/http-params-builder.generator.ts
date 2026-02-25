@@ -174,7 +174,7 @@ export class HttpParamsBuilderGenerator {
 
         if (normalizedContentType === 'application/x-www-form-urlencoded') {
             const encodedValue = typeof value === 'object'
-                ? this.serializeUrlEncodedBody(value, config.encoding || {}).map(p => \`\${p.key}=\${p.value}\`).join('&')
+                ? this.serializeUrlEncodedBodyInternal(value, config.encoding || {}).map(p => \`\${p.key}=\${p.value}\`).join('&')
                 : String(value);
             return params.append(encode(name), encodeURIComponent(encodedValue));
         }
@@ -250,7 +250,7 @@ export class HttpParamsBuilderGenerator {
         });
 
         classDeclaration.addMethod({
-            name: 'serializeUrlEncodedBody',
+            name: 'serializeUrlEncodedBodyInternal',
             isStatic: true,
             scope: Scope.Private,
             parameters: [

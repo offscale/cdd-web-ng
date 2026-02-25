@@ -72,8 +72,8 @@ export class ContentDecoderGenerator {
             else if (pad === 3) normalized += '=';
         }
 
-        if (typeof Buffer !== 'undefined') {
-            return Uint8Array.from(Buffer.from(normalized, 'base64'));
+        if (typeof (globalThis as any).Buffer !== 'undefined') {
+            return Uint8Array.from((globalThis as any).Buffer.from(normalized, 'base64'));
         }
         const binary = atob(normalized);
         const bytes = new Uint8Array(binary.length);
@@ -93,8 +93,8 @@ export class ContentDecoderGenerator {
         if (typeof TextDecoder !== 'undefined') {
             return new TextDecoder().decode(bytes);
         }
-        if (typeof Buffer !== 'undefined') {
-            return Buffer.from(bytes).toString('utf-8');
+        if (typeof (globalThis as any).Buffer !== 'undefined') {
+            return (globalThis as any).Buffer.from(bytes).toString('utf-8');
         }
         let result = '';
         for (let i = 0; i < bytes.length; i++) {

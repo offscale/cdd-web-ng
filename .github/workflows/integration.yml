@@ -1,60 +1,60 @@
 name: Angular Integration
 
 on:
-  push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
+    push:
+        branches: ['master']
+    pull_request:
+        branches: ['master']
 
 jobs:
-  angular-integration:
-    runs-on: ubuntu-latest
-    services:
-      petstore_server:
-        image: swaggerapi/petstore
-        ports:
-          - "8080:8080"
-        env:
-          SWAGGER_HOST: "http://localhost:8080"
-          SWAGGER_BASE_PATH: "/v2"
+    angular-integration:
+        runs-on: ubuntu-latest
+        services:
+            petstore_server:
+                image: swaggerapi/petstore
+                ports:
+                    - '8080:8080'
+                env:
+                    SWAGGER_HOST: 'http://localhost:8080'
+                    SWAGGER_BASE_PATH: '/v2'
 
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v6
+        steps:
+            - name: Checkout repo
+              uses: actions/checkout@v6
 
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: 'lts/*'
-          cache: 'npm'
+            - name: Setup Node
+              uses: actions/setup-node@v6
+              with:
+                  node-version: 'lts/*'
+                  cache: 'npm'
 
-      - name: Install dependencies and build cdd-web-ng
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm i
-          fi
-          npm run build
+            - name: Install dependencies and build cdd-web-ng
+              run: |
+                  if [ -f package-lock.json ]; then
+                    npm ci
+                  else
+                    npm i
+                  fi
+                  npm run build
 
-      - name: Create Angular client
-        run: |
-          npx -p @angular/cli ng new angular-client --defaults --skip-git
-          cd angular-client
-          npx ng add @angular/material --skip-confirmation
+            - name: Create Angular client
+              run: |
+                  npx -p @angular/cli ng new angular-client --defaults --skip-git
+                  cd angular-client
+                  npx ng add @angular/material --skip-confirmation
 
-      - name: Fetch Petstore JSON
-        run: curl -s https://petstore.swagger.io/v2/swagger.json > petstore.json
+            - name: Fetch Petstore JSON
+              run: curl -s https://petstore.swagger.io/v2/swagger.json > petstore.json
 
-      - name: Run Generator
-        run: node dist/cli.js from_openapi -i petstore.json --output angular-client/src/app/api
+            - name: Run Generator
+              run: node dist/cli.js from_openapi -i petstore.json --output angular-client/src/app/api
 
-      - name: Run tests for Angular client
-        working-directory: angular-client
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm i
-          fi
-          npm run test -- --watch=false
+            - name: Run tests for Angular client
+              working-directory: angular-client
+              run: |
+                  if [ -f package-lock.json ]; then
+                    npm ci
+                  else
+                    npm i
+                  fi
+                  npm run test -- --watch=false

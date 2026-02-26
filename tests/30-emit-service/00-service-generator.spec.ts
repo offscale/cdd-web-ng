@@ -221,7 +221,7 @@ describe('Generators (Angular): ServiceGenerator', () => {
         const serviceFile = project.getSourceFileOrThrow('/out/services/stringArray.service.ts');
         const importDecl = serviceFile.getImportDeclaration(d => d.getModuleSpecifierValue() === '../models');
         const namedImports = importDecl!.getNamedImports().map(ni => ni.getName());
-        expect(namedImports).toEqual(['RequestOptions']);
+        expect(namedImports).toEqual([]);
     });
 
     it('should not add primitive parameter types to model imports', () => {
@@ -360,7 +360,7 @@ describe('Generators (Angular): ServiceGenerator', () => {
         const project = createTestEnvironment(spec);
         const serviceFile = project.getSourceFileOrThrow('/out/services/mixed.service.ts');
 
-        expect(serviceFile.getImportDeclaration('../utils/xml.builder')).toBeDefined();
+        expect(serviceFile.getImportDeclaration('../utils/xml-builder')).toBeDefined();
         expect(serviceFile.getImportDeclaration('../utils/xml-parser')).toBeDefined();
         expect(serviceFile.getImportDeclaration('../utils/content-decoder')).toBeDefined();
         expect(serviceFile.getImportDeclaration('../utils/content-encoder')).toBeDefined();

@@ -18,10 +18,12 @@ import { ServiceTestGenerator } from './test/service-test-generator.js';
 
 // Angular Utilities
 import { TokenGenerator } from './utils/token.generator.js';
+import { RequestContextGenerator } from './utils/request-context.generator.js';
 // NOTE: HttpParamsBuilderGenerator is replaced/gutted, ensuring only Codec generation if present,
 // but typically for full abstraction we assume logic moved to shared.
 // We keep it if it generates the ApiParameterCodec only.
 import { HttpParamsBuilderGenerator } from './utils/http-params-builder.generator.js';
+
 import { FileDownloadGenerator } from './utils/file-download.generator.js';
 import { DateTransformerGenerator } from './utils/date-transformer.generator.js';
 import { AuthTokensGenerator } from './utils/auth-tokens.generator.js';
@@ -134,7 +136,9 @@ export class AngularClientGenerator extends AbstractClientGenerator {
 
             // Generate Utilities (tokens, helpers, etc)
             new TokenGenerator(project, config.clientName).generate(outputRoot);
+            new RequestContextGenerator(project).generate(outputRoot);
             new ExtensionTokensGenerator(project).generate(outputRoot);
+
             // Note: This now likely only generates the ApiParameterCodec
             new HttpParamsBuilderGenerator(project).generate(outputRoot);
 

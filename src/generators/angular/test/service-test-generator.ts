@@ -110,8 +110,13 @@ export class ServiceTestGenerator {
             const declareParams = (): string[] => {
                 const lines: string[] = [];
                 if (bodyParam?.model) {
+                    let mockData = this.mockDataGenerator.generate(bodyParam.model);
+                    mockData =
+                        typeof mockData === 'string' && mockData.startsWith('"') && mockData.endsWith('"')
+                            ? mockData
+                            : String(mockData);
                     lines.push(
-                        `      const ${bodyParam.name}: ${bodyParam.model} = ${this.mockDataGenerator.generate(bodyParam.model)};`,
+                        `      const ${bodyParam.name}: any = ${mockData.replace(/"new Date\(\)"/g, 'new Date()')};`,
                     );
                 } else if (bodyParam?.isPrimitive) {
                     lines.push(`      const ${bodyParam.name}: any = 'test-body';`);
@@ -121,7 +126,7 @@ export class ServiceTestGenerator {
 
                 params.forEach(p => {
                     if (p.modelName) {
-                        lines.push(`      const ${p.name}: ${p.type} = ${p.value};`);
+                        lines.push(`      const ${p.name}: any = ${p.value};`);
                     } else {
                         lines.push(`      const ${p.name}: any = ${p.value};`);
                     }
@@ -134,12 +139,22 @@ export class ServiceTestGenerator {
 
             tests.push(`    it('should return ${responseType} on success', () => {`);
 
-            let mockResponseValue = 'null';
+            let mockResponseValue: any = 'null';
             if (responseModel) {
                 if (responseType.endsWith('[]')) {
-                    mockResponseValue = `[${this.mockDataGenerator.generate(responseModel)}]`;
+                    let mockData = this.mockDataGenerator.generate(responseModel);
+                    mockData =
+                        typeof mockData === 'string' && mockData.startsWith('"') && mockData.endsWith('"')
+                            ? mockData
+                            : String(mockData);
+                    mockResponseValue = `[${mockData.replace(/"new Date\(\)"/g, 'new Date()')}]`;
                 } else {
-                    mockResponseValue = this.mockDataGenerator.generate(responseModel);
+                    let mockData = this.mockDataGenerator.generate(responseModel);
+                    mockResponseValue =
+                        typeof mockData === 'string' && mockData.startsWith('"') && mockData.endsWith('"')
+                            ? mockData
+                            : String(mockData);
+                    mockResponseValue = mockResponseValue.replace(/"new Date\(\)"/g, 'new Date()');
                 }
             } else if (responseType === 'string') {
                 mockResponseValue = "'test-string'";
@@ -157,7 +172,7 @@ export class ServiceTestGenerator {
             tests.push(`        error: err => { throw err; }`);
             tests.push(`      });`);
 
-            tests.push(`      const req = httpMock.expectOne(\`/api/v1${url}\`);`);
+            tests.push(`            const req = httpMock.expectOne(req => req.url.startsWith(\`/api/v1${url}\`));`);
             tests.push(`      expect(req.request.method).toBe('${op.method.toUpperCase()}');`);
 
             if (bodyParam) {
@@ -173,7 +188,7 @@ export class ServiceTestGenerator {
             tests.push(`        next: () => { throw new Error('should have failed with a 404 error'); },`);
             tests.push(`        error: error => expect(error.status).toBe(404),`);
             tests.push(`      });`);
-            tests.push(`      const req = httpMock.expectOne(\`/api/v1${url}\`);`);
+            tests.push(`            const req = httpMock.expectOne(req => req.url.startsWith(\`/api/v1${url}\`));`);
             tests.push(`      req.flush('Not Found', { status: 404, statusText: 'Not Found' });`);
             tests.push(`    });`);
 

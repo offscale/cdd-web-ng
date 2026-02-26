@@ -43,6 +43,7 @@ export class ServiceGenerator extends AbstractServiceGenerator {
             'HttpEvent',
             'HttpParams',
             'HttpContext',
+            'HttpContextToken',
         ];
         sourceFile.addImportDeclaration({
             moduleSpecifier: '@angular/common/http',
@@ -62,6 +63,11 @@ export class ServiceGenerator extends AbstractServiceGenerator {
         sourceFile.addImportDeclaration({
             moduleSpecifier: '../utils/request-context',
             namedImports: ['createRequestOption', 'RequestOptions', 'HttpRequestOptions'],
+        });
+
+        sourceFile.addImportDeclaration({
+            moduleSpecifier: '../tokens',
+            namedImports: ['CLIENT_CONTEXT_TOKEN_DEFAULT'],
         });
 
         sourceFile.addImportDeclaration({
@@ -85,7 +91,7 @@ export class ServiceGenerator extends AbstractServiceGenerator {
             )
         ) {
             sourceFile.addImportDeclaration({
-                moduleSpecifier: '../utils/multipart.builder',
+                moduleSpecifier: '../utils/multipart-builder',
                 namedImports: ['MultipartBuilder'],
             });
         }
@@ -98,7 +104,7 @@ export class ServiceGenerator extends AbstractServiceGenerator {
             )
         ) {
             sourceFile.addImportDeclaration({
-                moduleSpecifier: '../utils/xml.builder',
+                moduleSpecifier: '../utils/xml-builder',
                 namedImports: ['XmlBuilder'],
             });
         }
@@ -200,7 +206,7 @@ export class ServiceGenerator extends AbstractServiceGenerator {
         }
 
         const knownTypes = this.parser.schemas.map(s => s.name);
-        const modelImports = new Set<string>(['RequestOptions']);
+        const modelImports = new Set<string>();
 
         for (const op of operations) {
             for (const resp of Object.values(op.responses!)) {

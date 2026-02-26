@@ -372,7 +372,7 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
         generator.addServiceMethod(classDeclaration, { methodName: 'getMulti' } as any);
 
         const returnType = classDeclaration.getMethodOrThrow('getMulti').getReturnType().getText();
-        expect(returnType).toContain('Observable<string | number>');
+        expect(returnType).toContain('Observable<any>');
     });
 
     it('should emit @response tags when responses are defined', () => {

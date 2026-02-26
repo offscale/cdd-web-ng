@@ -71,7 +71,7 @@ export class MultipartBuilderGenerator {
                 {
                     name: 'configInput',
                     type: 'MultipartConfig | Record<string, EncodingConfig>',
-                    hasQuestionToken: true,
+                    hasQuestionToken: false,
                     initializer: '{}',
                 },
             ],
@@ -179,7 +179,7 @@ export class MultipartBuilderGenerator {
             returnType: 'MultipartResult',
             statements: `
         const boundary = this.generateBoundary();
-        const parts: (string | Blob)[] = [];
+        const parts: any[] = [];
         const crlf = '\\r\\n';
         
         const encodings = config.encoding || {};
@@ -278,7 +278,7 @@ export class MultipartBuilderGenerator {
             returnType: 'MultipartResult',
             statements: `
         const boundary = this.generateBoundary();
-        const parts: (string | Blob)[] = [];
+        const parts: any[] = [];
         const crlf = '\\r\\n';
 
         body.forEach((item, index) => {
@@ -358,7 +358,7 @@ export class MultipartBuilderGenerator {
         }
 
         // 3. Value Serialization & Nested Multipart
-        let payload: string | Blob = value;
+        let payload: string | Blob | FormData = value;
 
         if (partContentType && partContentType.includes('multipart')) {
             // Recurse!
@@ -371,7 +371,7 @@ export class MultipartBuilderGenerator {
                 ? this.serializeArrayManual(value, config as any) 
                 : this.serializeObjectManual(value, config.encoding ? { encoding: config.encoding } : {});
                 
-            payload = nestedResult.content;
+            payload = nestedResult.content as any;
             
             // Extract boundary from nested result to set content type correctly
             if (nestedResult.headers && nestedResult.headers['Content-Type']) {
@@ -396,7 +396,7 @@ export class MultipartBuilderGenerator {
         }
 
         parts.push('--' + boundary + crlf + headersStr + crlf);
-        parts.push(payload);
+        parts.push(payload as any);
         parts.push(crlf);
             `,
         });

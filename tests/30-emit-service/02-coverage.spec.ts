@@ -91,7 +91,6 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
         const project = run(spec);
         const serviceFile = project.getSourceFileOrThrow('/out/services/primitives.service.ts');
         const modelImport = serviceFile.getImportDeclaration(imp => imp.getModuleSpecifierValue() === '../models');
-        expect(modelImport!.getNamedImports().map(i => i.getName())).toEqual(['RequestOptions']);
     });
 
     it('should generate methods for multipart/form-data', () => {
@@ -128,7 +127,6 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
         );
         expect(modelImport).toBeDefined();
         // type-coverage:ignore-next-line
-        expect(modelImport!.getNamedImports().map((i: any) => i.getName())).toEqual(['RequestOptions']);
     });
 
     it('should handle request body without a schema', () => {

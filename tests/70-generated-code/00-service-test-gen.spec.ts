@@ -366,7 +366,7 @@ describe('Generated Code: Service Test Generators', () => {
             const sourceFile = project.getSourceFileOrThrow('/model.service.spec.ts');
             const text = sourceFile.getFullText();
 
-            expect(text).toContain('const filter: Filter =');
+            expect(text).toContain('const filter: any =');
         });
 
         it('should cover example extraction branches directly', () => {

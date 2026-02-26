@@ -228,7 +228,7 @@ export class MockDataGenerator {
         switch (schema.format) {
             case 'date-time':
             case 'date':
-                return new Date().toISOString();
+                return 'new Date()';
             case 'email':
                 return 'test@example.com';
             case 'uuid':

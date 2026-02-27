@@ -1,4 +1,4 @@
-import { Project, SourceFile } from 'ts-morph';
+import { Project } from 'ts-morph';
 import { posix as path } from 'node:path';
 import { GeneratorConfig } from '@src/core/types/index.js';
 import { SwaggerParser } from '@src/openapi/parse.js';

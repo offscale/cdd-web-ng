@@ -31,7 +31,8 @@ import { SpecSnapshotGenerator } from '@src/openapi/emit_snapshot.js';
 import { DocumentMetaGenerator } from '@src/openapi/emit_document_meta.js';
 import { NodeServiceIndexGenerator, NodeMainIndexGenerator } from './utils/index.generator.js';
 
-function getControllerCanonicalName(op: any): string {
+import { PathInfo } from '@src/core/types/analysis.js';
+function getControllerCanonicalName(op: PathInfo): string {
     if (Array.isArray(op.tags) && op.tags[0]) {
         return pascalCase(op.tags[0].toString());
     }
@@ -39,8 +40,8 @@ function getControllerCanonicalName(op: any): string {
     return firstSegment ? pascalCase(firstSegment) : 'Default';
 }
 
-function groupPathsByCanonicalController(parser: SwaggerParser): Record<string, any[]> {
-    const groups: Record<string, any[]> = {};
+function groupPathsByCanonicalController(parser: SwaggerParser): Record<string, PathInfo[]> {
+    const groups: Record<string, PathInfo[]> = {};
     for (const op of parser.operations) {
         const group = getControllerCanonicalName(op);
         if (!groups[group]) groups[group] = [];

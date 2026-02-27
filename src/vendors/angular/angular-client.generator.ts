@@ -67,7 +67,8 @@ import { SpecSnapshotGenerator } from '@src/openapi/emit_snapshot.js';
 import { DocumentMetaGenerator } from '@src/openapi/emit_document_meta.js';
 
 // type-coverage:ignore-next-line
-function getControllerCanonicalName(op: any): string {
+import { PathInfo } from '@src/core/types/analysis.js';
+function getControllerCanonicalName(op: PathInfo): string {
     // type-coverage:ignore-next-line
     if (Array.isArray(op.tags) && op.tags[0]) {
         // type-coverage:ignore-next-line
@@ -79,8 +80,8 @@ function getControllerCanonicalName(op: any): string {
     return firstSegment ? pascalCase(firstSegment) : 'Default';
 }
 
-function groupPathsByCanonicalController(parser: SwaggerParser): Record<string, any[]> {
-    const groups: Record<string, any[]> = {};
+function groupPathsByCanonicalController(parser: SwaggerParser): Record<string, PathInfo[]> {
+    const groups: Record<string, PathInfo[]> = {};
     for (const op of parser.operations) {
         const group = getControllerCanonicalName(op);
         if (!groups[group]) groups[group] = [];

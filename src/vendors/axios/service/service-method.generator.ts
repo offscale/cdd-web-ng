@@ -1,9 +1,9 @@
-import { ClassDeclaration, OptionalKind, ParameterDeclarationStructure } from 'ts-morph';
+import { ClassDeclaration } from 'ts-morph';
 import { GeneratorConfig, PathInfo } from '@src/core/types/index.js';
 import { SwaggerParser } from '@src/openapi/parse.js';
 import { ServiceMethodAnalyzer } from '@src/functions/parse_analyzer.js';
 import { ParamSerialization, ServiceMethodModel } from '@src/functions/types.js';
-import { camelCase, pascalCase } from '@src/functions/utils.js';
+import { pascalCase } from '@src/functions/utils.js';
 
 /**
  * Responsible for generating the specific content of individual operations inside an AxiosService.
@@ -18,7 +18,7 @@ export class AxiosServiceMethodGenerator {
      * @param parser A reference to the active OpenAPI parser.
      */
     constructor(
-        private readonly config: GeneratorConfig,
+        config: GeneratorConfig,
         readonly parser: SwaggerParser,
     ) {
         this.analyzer = new ServiceMethodAnalyzer(config, parser);
@@ -33,7 +33,6 @@ export class AxiosServiceMethodGenerator {
         const model = this.analyzer.analyze(operation);
         if (!model) return;
 
-        let errorTypeAlias: string | undefined;
         if (model.errorResponses && model.errorResponses.length > 0) {
             const typeName = `${pascalCase(model.methodName)}Error`;
             const union = [...new Set(model.errorResponses.map(e => e.type))].join(' | ');
@@ -42,7 +41,6 @@ export class AxiosServiceMethodGenerator {
                 isExported: true,
                 type: union,
             });
-            errorTypeAlias = typeName;
         }
 
         const distinctTypes = [...new Set(model.responseVariants.map(v => v.type))];

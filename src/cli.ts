@@ -5,6 +5,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import yaml from 'js-yaml';
 import { generateFromConfig } from './index.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
+import { generateDocsJson } from '@src/functions/docs_generator.js';
 import { GeneratorConfig, GeneratorConfigOptions } from '@src/core/types/index.js';
 import {
     applyReverseMetadata,
@@ -269,6 +271,46 @@ program
         } catch (error) {
             console.error(
                 '❌ to_openapi failed:',
+                error instanceof Error ? error.message : `Unknown error: ${String(error)}`,
+            );
+            process.exit(1);
+        }
+    });
+
+interface DocsJsonOptions {
+    input: string;
+    imports: boolean;
+    wrapping: boolean;
+}
+
+program
+    .command('to_docs_json')
+    .description('Generate JSON containing how to call operations in the target language')
+    .requiredOption('-i, --input <path>', 'Path or URL to the OpenAPI spec')
+    .option('--no-imports', 'Do not include import statements in the generated code')
+    .option('--no-wrapping', 'Do not wrap the generated code in a function or block')
+    .action(async (options: DocsJsonOptions) => {
+        try {
+            const config = {
+                input: options.input,
+                output: './generated',
+                options: {
+                    framework: 'angular',
+                    dateType: 'Date',
+                    enumStyle: 'enum',
+                },
+                compilerOptions: {},
+            } as GeneratorConfig;
+            const parser = await SwaggerParser.create(options.input, config);
+            const docsOptions = {
+                imports: options.imports !== false,
+                wrapping: options.wrapping !== false,
+            };
+            const docs = generateDocsJson(parser, config, docsOptions);
+            process.stdout.write(JSON.stringify(docs, null, 2) + '\n');
+        } catch (error) {
+            console.error(
+                '❌ to_docs_json failed:',
                 error instanceof Error ? error.message : `Unknown error: ${String(error)}`,
             );
             process.exit(1);

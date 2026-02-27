@@ -29,6 +29,7 @@ interface CliOptions {
     output?: string;
     clientName?: string;
     framework?: 'angular' | 'react' | 'vue';
+    implementation?: 'angular' | 'fetch' | 'axios' | 'node';
     dateType?: 'string' | 'Date';
     enumStyle?: 'enum' | 'union';
     admin?: boolean;
@@ -83,6 +84,7 @@ async function runGeneration(options: CliOptions) {
 
         const cliOptions: Partial<GeneratorConfigOptions> = {};
         if (options.framework) cliOptions.framework = options.framework;
+        if (options.implementation) cliOptions.implementation = options.implementation;
         if (options.dateType) cliOptions.dateType = options.dateType;
         if (options.enumStyle) cliOptions.enumStyle = options.enumStyle;
         if (options.generateServices !== undefined) cliOptions.generateServices = options.generateServices;
@@ -173,6 +175,11 @@ program
     .addOption(
         new Option('--framework <framework>', 'Target framework')
             .choices(['angular', 'react', 'vue'])
+            .default('angular'),
+    )
+    .addOption(
+        new Option('--implementation <implementation>', 'HTTP implementation')
+            .choices(['angular', 'fetch', 'axios', 'node'])
             .default('angular'),
     )
     .addOption(new Option('--dateType <type>', 'Date type to use').choices(['string', 'Date']))

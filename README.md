@@ -9,19 +9,21 @@
 
 <!-- BADGES_END -->
 
-OpenAPI ↔ TypeScript (Angular). Welcome to **cdd-web-ng**, a code-generation and compilation tool bridging the gap between OpenAPI specifications and native `TypeScript (Angular)` source code.
+OpenAPI ↔ TypeScript. Welcome to **cdd-web-ng**, a code-generation and compilation tool bridging the gap between OpenAPI specifications and native TypeScript source code.
 
-This toolset allows you to fluidly convert between your language's native constructs (like classes, interfaces, client services, and admin UI components) and OpenAPI specifications, ensuring a single source of truth without sacrificing developer ergonomics.
+This toolset allows you to fluidly generate your language's native constructs (like classes, interfaces, client services, and optionally Angular admin UI components) from OpenAPI specifications, ensuring a single source of truth without sacrificing developer ergonomics.
 
 ## 🚀 Capabilities
 
 The `cdd-web-ng` compiler leverages a unified architecture to support various facets of API and code lifecycle management.
 
-- **Compilation**:
-    - **OpenAPI → `TypeScript (Angular)`**: Generate idiomatic native models, client SDKs, administrative UI components, and boilerplate directly from OpenAPI (`.json` / `.yaml`) specifications.
-    - **`TypeScript (Angular)` → OpenAPI**: Statically parse existing `TypeScript (Angular)` source code and emit compliant OpenAPI specifications.
-- **AST-Driven & Safe**: Employs static analysis (Abstract Syntax Trees) instead of unsafe dynamic execution or reflection, allowing it to safely parse and emit code even for incomplete or un-compilable project states.
-- **Seamless Sync**: Keep your docs, tests, and clients in perfect harmony. Update your code, and generate the docs; or update the docs, and generate the code.
+- **Multi-Transport Compilation**:
+    - **OpenAPI → `Angular`**: Generate idiomatic Angular `HttpClient` services, interceptors, models, and an optional Auto-Admin UI module.
+    - **OpenAPI → `Fetch`**: Generate dependency-free, browser-native `fetch` API clients.
+    - **OpenAPI → `Axios`**: Generate Axios-based clients wrapped in Promises.
+    - **OpenAPI → `Node.js`**: Generate dependency-free, backend-native `http`/`https` clients for pure Node.js environments.
+- **AST-Driven & Safe**: Employs static analysis (Abstract Syntax Trees using `ts-morph`) instead of unsafe string concatenation, allowing it to emit strongly-typed, safely formatted, and fully compiled code.
+- **Seamless Sync**: Keep your docs, tests, and clients in perfect harmony. Generate the code natively into your project and let TS handle the rest.
 
 ## 📦 Installation
 
@@ -39,18 +41,26 @@ npx cdd-web-ng --help
 
 ## 🛠 Usage
 
+For a deep dive into configuration options and workflows, see the [USAGE.md](USAGE.md) guide.
+
 ### Command Line Interface
 
-Generate Angular client services, models, and an optional admin UI from an OpenAPI spec:
+Generate a standard Fetch API client:
 
 ```bash
-npx cdd-web-ng from_openapi --input openapi.yaml --output ./src/app/core/api --clientName MyApi --admin
+npx cdd-web-ng from_openapi --input openapi.yaml --output ./src/api --implementation fetch
 ```
 
-Generate an OpenAPI specification back from the generated TypeScript code:
+Generate an Angular client SDK with an Auto-Admin UI:
 
 ```bash
-npx cdd-web-ng to_openapi --file ./src/app/core/api --format yaml > openapi.yaml
+npx cdd-web-ng from_openapi --input openapi.yaml --output ./src/app/core/api --implementation angular --admin
+```
+
+Generate a pure Node.js server-to-server client:
+
+```bash
+npx cdd-web-ng from_openapi --input openapi.yaml --output ./src/external-api --implementation node
 ```
 
 ### Programmatic SDK / Library
@@ -63,11 +73,10 @@ import { generateFromConfig } from 'cdd-web-ng';
 async function buildApi() {
     await generateFromConfig({
         input: 'path/to/openapi.yaml',
-        output: './src/app/api',
+        output: './src/api',
         clientName: 'DemoApi',
         options: {
-            framework: 'angular',
-            admin: true,
+            implementation: 'axios', // 'angular' | 'fetch' | 'axios' | 'node'
             generateServices: true,
         },
     });
@@ -76,21 +85,15 @@ async function buildApi() {
 buildApi().catch(console.error);
 ```
 
-## 🏗 Supported Conversions for TypeScript (Angular)
+## 📚 Documentation
 
-_(The boxes below reflect the features supported by this specific `cdd-web-ng` implementation)_
+For more detailed information, please explore the following documentation files:
 
-| Concept                                          | Parse (From) | Emit (To) |
-| ------------------------------------------------ | ------------ | --------- |
-| OpenAPI (JSON/YAML)                              | ✅           | ✅        |
-| `TypeScript (Angular)` Models / Structs / Types  | ✅           | ✅        |
-| `TypeScript (Angular)` Server Routes / Endpoints | [ ]          | [ ]       |
-| `TypeScript (Angular)` API Clients / SDKs        | ✅           | ✅        |
-| `TypeScript (Angular)` ORM / DB Schemas          | [ ]          | [ ]       |
-| `TypeScript (Angular)` CLI Argument Parsers      | [ ]          | [ ]       |
-| `TypeScript (Angular)` Docstrings / Comments     | ✅           | ✅        |
-
----
+- **[USAGE.md](USAGE.md)**: Comprehensive guide on using the CLI and programmatic SDK, including all available options and transport variations.
+- **[ARCHITECTURE.md](ARCHITECTURE.md)**: Deep dive into the internal design of the compiler, AST orchestration, and the vendor plugin system.
+- **[DEVELOPING.md](DEVELOPING.md)**: Instructions for contributing to the repository, running tests, and managing code standards.
+- **[COMPLIANCE.md](COMPLIANCE.md)**: Details regarding our OpenAPI specification compliance, supported versions, and extended features.
+- **[PUBLISH.md](PUBLISH.md)** & **[PUBLISH_OUTPUT.md](PUBLISH_OUTPUT.md)**: Guides on publishing the generator and automating updates to generated SDKs.
 
 ## License
 

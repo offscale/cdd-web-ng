@@ -11,6 +11,15 @@ export interface GeneratorConfigOptions {
      * @default 'angular'
      */
     framework?: 'angular' | 'react' | 'vue';
+    /**
+     * The underlying HTTP implementation to use.
+     * - 'angular': Generates Angular HttpClient based services.
+     * - 'fetch': Generates native fetch API based services.
+     * - 'axios': Generates axios based services.
+     * - 'node': Generates Node.js builtin http/https based services.
+     * @default 'angular'
+     */
+    implementation?: 'angular' | 'fetch' | 'axios' | 'node';
     /** The TypeScript type to use for properties with `format: "date"` or `"date-time"`. */
     dateType?: 'string' | 'Date';
     /**

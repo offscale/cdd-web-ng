@@ -11,7 +11,7 @@
 
 The **cdd-web-ng** tool acts as a dedicated compiler and transpiler. Its fundamental architecture follows standard compiler design principles, divided into three distinct phases: **Frontend (Parsing)**, **Intermediate Representation (IR)**, and **Backend (Emitting)**.
 
-This decoupled design ensures that any format capable of being parsed into the IR can subsequently be emitted into any supported output format, whether that is a client-side SDK, an administrative UI component, or an OpenAPI specification.
+This decoupled design ensures that any format capable of being parsed into the IR can subsequently be emitted into any supported output transport mechanism, whether that is a browser-native SDK, an administrative UI component, or an OpenAPI specification.
 
 ## 🏗 High-Level Overview
 
@@ -36,7 +36,7 @@ graph TD
     subgraph Backend [Emitters]
         E1(OpenAPI Emitter):::backend --> X[OpenAPI .yaml/.json]:::endpoint
         E2(TypeScript Emitter):::backend --> Y[TypeScript Models / Interfaces]:::endpoint
-        E4(Client Emitter):::backend --> W[Angular Services / API Calls]:::endpoint
+        E4(Client Emitter):::backend --> W[Angular / Fetch / Axios / Node SDKs]:::endpoint
         E5(Admin UI Emitter):::backend --> V[Angular Admin UI Components]:::endpoint
     end
 
@@ -56,35 +56,38 @@ graph TD
 
 The Frontend's responsibility is to read an input source and translate it into the universal CDD Intermediate Representation (IR).
 
-- **Static Analysis (AST-Driven)**: For `TypeScript (Angular)` source code, the tool **does not** use dynamic reflection or execute the code. Instead, it reads the source files, generates an Abstract Syntax Tree (AST) utilizing `ts-morph`, and navigates the tree to extract classes, interfaces, client methods, type signatures, and docstrings.
-- **OpenAPI Parsing**: For OpenAPI and JSON Schema inputs, the parser normalizes the structure, resolving internal `$ref`s and extracting properties, endpoints (from a client perspective), and metadata into the IR.
+- **Static Analysis (AST-Driven)**: For TypeScript source code, the tool **does not** use dynamic reflection or execute the code. Instead, it reads the source files, generates an Abstract Syntax Tree (AST) utilizing `ts-morph`, and navigates the tree to extract classes, interfaces, client methods, type signatures, and docstrings.
+- **OpenAPI Parsing**: For OpenAPI and JSON Schema inputs, `SwaggerParser` normalizes the structure, resolving internal `$ref`s and extracting properties, endpoints, and metadata into the IR.
 
 ### 2. Intermediate Representation (IR)
 
-The Intermediate Representation is the crucial "glue" of the architecture. It is a normalized, language-agnostic data structure that represents concepts like:
+The Intermediate Representation is the crucial "glue" of the architecture. It is a normalized, language-agnostic data structure managed primarily by `ServiceMethodAnalyzer`. It translates raw OpenAPI into:
 
 - **Models**: Entities containing typed properties, required fields, defaults, and descriptions.
-- **Endpoints / Operations**: HTTP verbs, paths, path/query/body parameters, and responses. In the IR, an operation is an abstract concept that can represent an API Client dispatching a request or an Admin UI component interacting with a resource.
+- **Endpoints / Operations (`ServiceMethodModel`)**: HTTP verbs, paths, path/query/body parameters, serialization strategies, and response variants.
 - **Metadata**: Tooling hints, docstrings, and validations.
 
-By standardizing on a single IR (heavily inspired by OpenAPI / JSON Schema primitives), the system guarantees that parsing logic and emitting logic remain completely decoupled.
+By standardizing on a single IR, the system guarantees that parsing logic and emitting logic remain completely decoupled.
 
 ### 3. The Backend (Emitters)
 
-The Backend's responsibility is to take the universal IR and generate valid target output. `cdd-web-ng` focuses specifically on front-end code generation targeting the Angular framework (with extendable structure for others like React and Vue).
+The Backend's responsibility is to take the universal IR and generate valid target output. `cdd-web-ng` focuses specifically on front-end and backend Node.js code generation targeting multiple transports via a Plugin Architecture.
 
-- **Code Generation**: Emitters iterate over the IR and generate idiomatic `TypeScript (Angular)` source code.
-    - A **Client Emitter** creates Angular API service wrappers, fetch functions using `HttpClient`, and response-parsing logic.
-    - An **Admin UI Emitter** translates the IR into robust Angular components (forms, lists) for resource management.
-    - A **Model Emitter** creates TypeScript interfaces or classes matching the schema definitions.
-- **Specification Generation**: Emitters translating back to OpenAPI serialize the IR into standard OpenAPI 3.x JSON or YAML, rigorously formatting descriptions, type constraints, and endpoint schemas based on what was parsed from the source code.
+- **`AbstractClientGenerator`**: The base orchestrator that defines the pipeline (generate models -> generate utilities -> generate services).
+- **Vendor Plugins**:
+    - **`AngularClientGenerator`**: Emits RxJS-based `HttpClient` code and `NgModule`s.
+    - **`FetchClientGenerator`**: Emits Promise-based native browser `fetch` code.
+    - **`AxiosClientGenerator`**: Emits Promise-based `axios` configurations and requests.
+    - **`NodeClientGenerator`**: Emits Promise-based `node:http/https` chunks and streams.
+- **Admin UI Emitter**: An optional plugin (currently Angular-only) that translates the IR into robust components (forms, lists) for resource management.
 
 ## 🔄 Extensibility
 
-Because of the IR-centric design, adding support for a new output format requires minimal effort:
+Because of the IR-centric design, adding support for a new output format (e.g. `React`, `Vue`) requires minimal effort:
 
-1. **To support parsing a new source**: Write a parser that converts the target AST/DSL into the CDD IR. Once written, the source can automatically be exported to OpenAPI, Client SDKs, or Admin UIs.
-2. **To support emitting a new framework**: Write an emitter that converts the CDD IR into the framework's DSL/AST. Once written, the framework can automatically be generated from OpenAPI.
+1. Create a class extending `AbstractClientGenerator`.
+2. Implement an `AbstractServiceGenerator` to manage the output files.
+3. Use the `ServiceMethodAnalyzer` to iterate over endpoints, mapping the IR properties (like `urlTemplate`, `queryParams`, `body`) to your target framework's specific AST nodes using `ts-morph`.
 
 ## 🛡 Design Principles
 

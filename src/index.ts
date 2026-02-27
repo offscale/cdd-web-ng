@@ -8,6 +8,9 @@ import { isUrl } from '@src/functions/utils.js';
 
 import { SwaggerParser } from './openapi/parse.js';
 import { AngularClientGenerator } from './vendors/angular/angular-client.generator.js';
+import { FetchClientGenerator } from './vendors/fetch/fetch-client.generator.js';
+import { AxiosClientGenerator } from './vendors/axios/axios-client.generator.js';
+import { NodeClientGenerator } from './vendors/node/node-client.generator.js';
 import { IClientGenerator } from './core/generator.js';
 
 /**
@@ -18,7 +21,16 @@ export type TestGeneratorConfig = {
     spec: object;
 };
 
-function getGeneratorFactory(framework: string): IClientGenerator {
+function getGeneratorFactory(framework: string, implementation?: string): IClientGenerator {
+    if (implementation === 'fetch') {
+        return new FetchClientGenerator();
+    }
+    if (implementation === 'axios') {
+        return new AxiosClientGenerator();
+    }
+    if (implementation === 'node') {
+        return new NodeClientGenerator();
+    }
     switch (framework) {
         case 'angular':
             return new AngularClientGenerator();
@@ -69,6 +81,18 @@ export async function generateFromConfig(
     }
 
     try {
+        const framework = config.options.framework || 'angular';
+        const implementation = config.options.implementation;
+
+        if (
+            config.options.admin &&
+            (implementation === 'fetch' || implementation === 'axios' || implementation === 'node')
+        ) {
+            throw new Error(
+                `Not implemented: Admin UI is not supported when the implementation/transport is ${implementation}.`,
+            );
+        }
+
         let swaggerParser: SwaggerParser;
         if (isTestEnv) {
             const docUri = 'file://in-memory-spec.json';
@@ -79,8 +103,7 @@ export async function generateFromConfig(
             swaggerParser = await SwaggerParser.create(config.input, config);
         }
 
-        const framework = config.options.framework || 'angular';
-        const generator = getGeneratorFactory(framework);
+        const generator = getGeneratorFactory(framework, implementation);
 
         await generator.generate(activeProject, swaggerParser, config, config.output);
 

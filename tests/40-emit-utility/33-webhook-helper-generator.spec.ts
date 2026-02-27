@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { WebhookHelperGenerator } from '@src/generators/angular/utils/webhook-helper.generator.js';
-import { WebhookGenerator } from '@src/generators/shared/webhook.generator.js';
+import { WebhookHelperGenerator } from '@src/vendors/angular/utils/webhook-helper.generator.js';
+import { WebhookGenerator } from '@src/functions/emit_webhook.js';
 import { createTestProject } from '../shared/helpers.js';
-import { SwaggerParser } from '@src/core/parser.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
 import ts from 'typescript';
 
 describe('Emitter: WebhookHelperGenerator', () => {

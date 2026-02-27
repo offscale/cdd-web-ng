@@ -1,9 +1,9 @@
 // tests/00-core/07-extensions.spec.ts
 import { describe, expect, it } from 'vitest';
 
-import { SwaggerParser } from '@src/core/parser.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
 import { GeneratorConfig, InfoObject, ServerObject, TagObject } from '@src/core/types/index.js';
-import { extractPaths } from '@src/core/utils/index.js';
+import { extractPaths } from '@src/functions/utils.js';
 
 /**
  * Tests for the Specification Extensions (`x-*`) feature support.

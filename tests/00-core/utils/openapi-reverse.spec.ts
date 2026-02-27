@@ -11,9 +11,9 @@ import {
     parseGeneratedMetadata,
     parseGeneratedServiceSource,
     parseGeneratedServices,
-} from '@src/core/utils/openapi-reverse.js';
+} from '@src/openapi/emit.js';
 import { OAS_3_1_DIALECT } from '@src/core/constants.js';
-import type { ReverseMetadata } from '@src/core/utils/openapi-reverse.js';
+import type { ReverseMetadata } from '@src/openapi/emit.js';
 
 const tempDirs: string[] = [];
 

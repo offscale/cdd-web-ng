@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { SwaggerParser } from '@src/core/parser.js';
-import { SpecSnapshotGenerator } from '@src/generators/shared/spec-snapshot.generator.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
+import { SpecSnapshotGenerator } from '@src/openapi/emit_snapshot.js';
 import { createTestProject } from '../shared/helpers.js';
 import { GeneratorConfig, SwaggerSpec } from '@src/core/types/index.js';
 

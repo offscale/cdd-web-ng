@@ -4,10 +4,10 @@ import * as fs from 'node:fs';
 import { ModuleKind, Project, ScriptTarget } from 'ts-morph';
 
 import { GeneratorConfig, SwaggerSpec } from '@src/core/types/index.js';
-import { isUrl } from '@src/core/utils/index.js';
+import { isUrl } from '@src/functions/utils.js';
 
-import { SwaggerParser } from './core/parser.js';
-import { AngularClientGenerator } from './generators/angular/angular-client.generator.js';
+import { SwaggerParser } from './openapi/parse.js';
+import { AngularClientGenerator } from './vendors/angular/angular-client.generator.js';
 import { IClientGenerator } from './core/generator.js';
 
 /**
@@ -111,4 +111,4 @@ export {
     type CodeScanParamLocation,
     type CodeScanRequestBody,
     type CodeScanResponse,
-} from './core/utils/openapi-ast-scanner.js';
+} from './functions/parse.js';

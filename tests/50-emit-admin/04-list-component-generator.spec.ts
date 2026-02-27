@@ -2,13 +2,13 @@ import { beforeAll, describe, expect, it } from 'vitest';
 
 import { Project } from 'ts-morph';
 
-import { ListComponentGenerator } from '@src/generators/angular/admin/list-component.generator.js';
-import { discoverAdminResources } from '@src/generators/angular/admin/resource-discovery.js';
-import { SwaggerParser } from '@src/core/parser.js';
+import { ListComponentGenerator } from '@src/vendors/angular/admin/list-component.generator.js';
+import { discoverAdminResources } from '@src/vendors/angular/admin/resource-discovery.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
 
 import { createTestProject } from '../shared/helpers.js';
 import { branchCoverageSpec, coverageSpec, listComponentSpec } from '../shared/specs.js';
-import { ListActionKind } from '@src/analysis/list-types.js';
+import { ListActionKind } from '@src/vendors/angular/admin/analysis/list-types.js';
 import { Resource } from '@src/core/types/index.js';
 
 describe('Generators (Angular): ListComponentGenerator', () => {

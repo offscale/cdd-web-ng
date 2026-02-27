@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { groupPathsByController } from '@src/core/utils/index.js';
-import { SwaggerParser } from '@src/core/parser.js';
+import { groupPathsByController } from '@src/functions/utils.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
 
 describe('Service Parser: groupPathsByController', () => {
     const createParser = (spec: object) => new SwaggerParser(spec as any, { options: {} } as any);

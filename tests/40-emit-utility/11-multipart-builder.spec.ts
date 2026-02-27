@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MultipartBuilderGenerator } from '@src/generators/shared/multipart-builder.generator.js';
+import { MultipartBuilderGenerator } from '@src/functions/emit_multipart.js';
 import { createTestProject } from '../shared/helpers.js';
 import ts from 'typescript';
 

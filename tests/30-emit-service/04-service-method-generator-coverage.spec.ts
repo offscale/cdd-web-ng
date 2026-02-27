@@ -2,10 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { Project } from 'ts-morph';
 
-import { ServiceMethodGenerator } from '@src/generators/angular/service/service-method.generator.js';
-import { SwaggerParser } from '@src/core/parser.js';
+import { ServiceMethodGenerator } from '@src/vendors/angular/service/service-method.generator.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
 import { GeneratorConfig } from '@src/core/types/index.js';
-import { ServiceMethodModel } from '@src/analysis/service-method-types.js';
+import { ServiceMethodModel } from '@src/functions/types.js';
 
 describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
     const config: GeneratorConfig = {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { HttpParamsBuilderGenerator } from '@src/generators/angular/utils/http-params-builder.generator.js';
-import { ContentEncoderGenerator } from '@src/generators/shared/content-encoder.generator.js';
+import { HttpParamsBuilderGenerator } from '@src/vendors/angular/utils/http-params-builder.generator.js';
+import { ContentEncoderGenerator } from '@src/openapi/emit_content_encoder.js';
 import { createTestProject } from '../shared/helpers.js';
 import ts from 'typescript';
 

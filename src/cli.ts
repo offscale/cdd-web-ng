@@ -16,7 +16,7 @@ import {
     parseGeneratedServices,
     readOpenApiSnapshot,
     scanTypeScriptProject,
-} from '@src/core/utils/index.js';
+} from '@src/functions/utils.js';
 
 const packageJsonPath = new URL('../package.json', import.meta.url);
 // type-coverage:ignore-next-line

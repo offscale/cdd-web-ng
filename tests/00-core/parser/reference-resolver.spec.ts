@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ReferenceResolver } from '@src/core/parser/reference-resolver.js';
+import { ReferenceResolver } from '@src/openapi/parse_reference_resolver.js';
 import { SwaggerSpec } from '@src/core/types/index.js';
 
 describe('Core: ReferenceResolver', () => {

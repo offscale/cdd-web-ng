@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Project } from 'ts-morph';
-import { SwaggerParser } from '@src/core/parser.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
 import { GeneratorConfig } from '@src/core/types/index.js';
-import { ServiceMethodAnalyzer } from '@src/analysis/service-method-analyzer.js';
+import { ServiceMethodAnalyzer } from '@src/functions/parse_analyzer.js';
 import { branchCoverageSpec, coverageSpec, finalCoveragePushSpec } from '../fixtures/coverage.fixture.js';
-import { ServiceTestGenerator } from '@src/generators/angular/test/service-test-generator.js';
-import { camelCase } from '@src/core/utils/index.js';
+import { ServiceTestGenerator } from '@src/vendors/angular/test/service-test-generator.js';
+import { camelCase } from '@src/functions/utils.js';
 
 /**
  * Propagates op.operationId to op.methodName if missing

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import * as utils from '@src/core/utils/type-converter.js';
+import * as utils from '@src/classes/parse_type_converter.js';
 import { GeneratorConfig, SwaggerDefinition } from '@src/core/types/index.js';
 
 describe('Core Utils: Type Converter', () => {

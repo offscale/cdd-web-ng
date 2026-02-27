@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { MockDataGenerator } from '@src/generators/angular/test/mock-data.generator.js';
-import { SwaggerParser } from '@src/core/parser.js';
+import { MockDataGenerator } from '@src/vendors/angular/test/mock-data.generator.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
 import { GeneratorConfig } from '@src/core/types/index.js';
 
 // Minimal mock config required by SwaggerParser

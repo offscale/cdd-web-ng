@@ -2,9 +2,9 @@ import { beforeAll, describe, expect, it } from 'vitest';
 
 import { Project } from 'ts-morph';
 
-import { RoutingGenerator } from '@src/generators/angular/admin/routing.generator.js'; // Corrected Path
-import { discoverAdminResources } from '@src/generators/angular/admin/resource-discovery.js'; // Corrected Path
-import { SwaggerParser } from '@src/core/parser.js';
+import { RoutingGenerator } from '@src/vendors/angular/admin/routing.generator.js'; // Corrected Path
+import { discoverAdminResources } from '@src/vendors/angular/admin/resource-discovery.js'; // Corrected Path
+import { SwaggerParser } from '@src/openapi/parse.js';
 
 import { createTestProject } from '../shared/helpers.js';
 import { coverageSpec } from '../shared/specs.js';

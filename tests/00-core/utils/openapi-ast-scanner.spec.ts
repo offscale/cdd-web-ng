@@ -3,11 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import {
-    buildOpenApiSpecFromScan,
-    scanTypeScriptProject,
-    scanTypeScriptSource,
-} from '@src/core/utils/openapi-ast-scanner.js';
+import { buildOpenApiSpecFromScan, scanTypeScriptProject, scanTypeScriptSource } from '@src/functions/parse.js';
 import { OAS_3_1_DIALECT } from '@src/core/constants.js';
 
 const tempDirs: string[] = [];

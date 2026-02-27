@@ -2,10 +2,10 @@
 
 import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
-import { SwaggerParser } from '@src/core/parser.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
 import { GeneratorConfig, PathInfo } from '@src/core/types/index.js';
-import { TypeGenerator } from '@src/generators/shared/type.generator.js';
-import { ServiceMethodGenerator } from '@src/generators/angular/service/service-method.generator.js';
+import { TypeGenerator } from '@src/classes/emit.js';
+import { ServiceMethodGenerator } from '@src/vendors/angular/service/service-method.generator.js';
 
 describe('Emitter: ServiceMethodGenerator (Response Precedence)', () => {
     const createTestEnv = () => {

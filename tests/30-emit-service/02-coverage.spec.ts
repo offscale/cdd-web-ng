@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { ImportDeclaration, Project } from 'ts-morph';
-import { ServiceGenerator } from '@src/generators/angular/service/service.generator.js';
-import { SwaggerParser } from '@src/core/parser.js';
+import { ServiceGenerator } from '@src/vendors/angular/service/service.generator.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
 import { GeneratorConfig } from '@src/core/types/index.js';
 import { branchCoverageSpec, coverageSpecPart2 } from '../shared/specs.js';
-import { groupPathsByController } from '@src/core/utils/index.js';
+import { groupPathsByController } from '@src/functions/utils.js';
 import { createTestProject } from '../shared/helpers.js';
 
 describe('Generators (Angular): Service Generators (Coverage)', () => {

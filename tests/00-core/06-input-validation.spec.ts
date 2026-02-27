@@ -2,8 +2,8 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { SpecValidationError, validateSpec } from '@src/core/validator.js';
-import { SwaggerParser } from '@src/core/parser.js';
+import { SpecValidationError, validateSpec } from '@src/openapi/parse_validator.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
 import { GeneratorConfig } from '@src/core/types/index.js';
 
 describe('Core: Input Spec Validation', () => {
@@ -3612,7 +3612,7 @@ describe('Core: Input Spec Validation', () => {
 });
 import { describe, expect, it } from 'vitest';
 
-import { validateSpec } from '@src/core/validator.js';
+import { validateSpec } from '@src/openapi/parse_validator.js';
 
 describe('Core: Server Object Validation (Additional)', () => {
     const validInfo = { title: 'Valid API', version: '1.0.0' };
@@ -3724,7 +3724,7 @@ describe('Core: Server Object Validation (Additional)', () => {
 });
 import { describe, expect, it } from 'vitest';
 
-import { validateSpec } from '@src/core/validator.js';
+import { validateSpec } from '@src/openapi/parse_validator.js';
 import { info } from '../fixtures/common.js';
 
 describe('Core: Security Scheme Validation', () => {
@@ -3972,7 +3972,7 @@ describe('Core: Security Scheme Validation', () => {
 // tests/00-core/07-example-validation.spec.ts
 import { describe, expect, it } from 'vitest';
 
-import { validateSpec } from '@src/core/validator.js';
+import { validateSpec } from '@src/openapi/parse_validator.js';
 import { SwaggerSpec } from '@src/core/types/index.js';
 
 const baseSpec: SwaggerSpec = {

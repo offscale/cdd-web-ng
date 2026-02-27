@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { generateFromConfig } from '@src/index.js';
-import { SwaggerParser } from '@src/core/parser.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
 import { GeneratorConfig } from '@src/core/types/index.js';
 import { coverageSpec, emptySpec } from '../shared/specs.js';
 import { createTestProject, runGeneratorWithConfig } from '../shared/helpers.js';

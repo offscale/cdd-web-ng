@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { validateSpec } from '@src/core/validator.js';
+import { validateSpec } from '@src/openapi/parse_validator.js';
 
 describe('Input Validation: additionalOperations', () => {
     it('should reject additionalOperations that reuse fixed HTTP methods', () => {

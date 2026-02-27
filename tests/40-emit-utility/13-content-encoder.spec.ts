@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ContentEncoderGenerator } from '@src/generators/shared/content-encoder.generator.js';
+import { ContentEncoderGenerator } from '@src/openapi/emit_content_encoder.js';
 import { createTestProject } from '../shared/helpers.js';
 import ts from 'typescript';
 

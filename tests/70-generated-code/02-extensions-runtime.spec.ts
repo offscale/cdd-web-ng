@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
-import { SwaggerParser } from '@src/core/parser.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
 import { GeneratorConfig } from '@src/core/types/index.js';
-import { ServiceMethodGenerator } from '@src/generators/angular/service/service-method.generator.js';
-import { ExtensionTokensGenerator } from '@src/generators/angular/utils/extension-tokens.generator.js';
+import { ServiceMethodGenerator } from '@src/vendors/angular/service/service-method.generator.js';
+import { ExtensionTokensGenerator } from '@src/vendors/angular/utils/extension-tokens.generator.js';
 
 const extensionsSpec = {
     openapi: '3.0.0',

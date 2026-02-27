@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import { Project } from 'ts-morph';
 
-import { SwaggerParser } from '@src/core/parser.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
 import { GeneratorConfig } from '@src/core/types/index.js';
-import { AbstractServiceGenerator } from '@src/generators/base/service.base.js';
+import { AbstractServiceGenerator } from '@src/functions/emit_service.js';
 
 class TestServiceGenerator extends AbstractServiceGenerator {
     protected getFileName(controllerName: string): string {

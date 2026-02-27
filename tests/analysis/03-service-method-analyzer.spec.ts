@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ServiceMethodAnalyzer } from '@src/analysis/service-method-analyzer.js';
-import { SwaggerParser } from '@src/core/parser.js';
+import { ServiceMethodAnalyzer } from '@src/functions/parse_analyzer.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
 import { GeneratorConfig, PathInfo } from '@src/core/types/index.js';
 
 describe('Analysis: ServiceMethodAnalyzer', () => {

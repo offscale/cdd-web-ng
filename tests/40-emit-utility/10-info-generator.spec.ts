@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
-import { SwaggerParser } from '@src/core/parser.js';
-import { InfoGenerator } from '@src/generators/shared/info.generator.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
+import { InfoGenerator } from '@src/openapi/emit_info.js';
 import { createTestProject } from '../shared/helpers.js';
 import { emptySpec } from '../shared/specs.js';
 import ts from 'typescript';

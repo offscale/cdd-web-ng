@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createTestProject } from '../shared/helpers.js';
 import ts from 'typescript';
-import { XmlParserGenerator } from '@src/generators/shared/xml-parser.generator.js';
+import { XmlParserGenerator } from '@src/openapi/emit_xml_parser.js';
 
 /**
  * Helper to compile and return the XmlParser class from the generated code.

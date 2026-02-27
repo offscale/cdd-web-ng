@@ -2,15 +2,15 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { Project, Scope } from 'ts-morph';
 
-import { ServiceGenerator } from '@src/generators/angular/service/service.generator.js';
-import { SwaggerParser } from '@src/core/parser.js';
+import { ServiceGenerator } from '@src/vendors/angular/service/service.generator.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
 import { GeneratorConfig } from '@src/core/types/index.js';
-import { groupPathsByController } from '@src/core/utils/index.js';
-import { TypeGenerator } from '@src/generators/shared/type.generator.js';
-import { TokenGenerator } from '@src/generators/angular/utils/token.generator.js';
+import { groupPathsByController } from '@src/functions/utils.js';
+import { TypeGenerator } from '@src/classes/emit.js';
+import { TokenGenerator } from '@src/vendors/angular/utils/token.generator.js';
 // Using ParameterSerializerGenerator instead of HttpParamsBuilderGenerator
-import { ParameterSerializerGenerator } from '@src/generators/shared/parameter-serializer.generator.js';
-import { AuthTokensGenerator } from '@src/generators/angular/utils/auth-tokens.generator.js';
+import { ParameterSerializerGenerator } from '@src/functions/emit_parameter_serializer.js';
+import { AuthTokensGenerator } from '@src/vendors/angular/utils/auth-tokens.generator.js';
 
 import { branchCoverageSpec, coverageSpec, fullCRUD_Users } from '../shared/specs.js';
 

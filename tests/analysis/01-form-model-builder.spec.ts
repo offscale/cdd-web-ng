@@ -1,8 +1,8 @@
 // tests/analysis/01-form-model-builder.spec.ts
 
 import { describe, expect, it, vi } from 'vitest';
-import { FormModelBuilder } from '@src/analysis/form-model.builder.js';
-import { SwaggerParser } from '@src/core/parser.js';
+import { FormModelBuilder } from '@src/vendors/angular/admin/analysis/form-model.builder.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
 import { GeneratorConfig, Resource } from '@src/core/types/index.js';
 
 describe('Analysis: FormModelBuilder', () => {

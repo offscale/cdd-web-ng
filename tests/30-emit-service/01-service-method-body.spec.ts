@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import { Project, Scope } from 'ts-morph';
 
-import { SwaggerParser } from '@src/core/parser.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
 import { GeneratorConfig, PathInfo } from '@src/core/types/index.js';
-import { TypeGenerator } from '@src/generators/shared/type.generator.js';
-import { ServiceMethodGenerator } from '@src/generators/angular/service/service-method.generator.js';
-import { ParameterSerializerGenerator } from '@src/generators/shared/parameter-serializer.generator.js';
-import { XmlBuilderGenerator } from '@src/generators/shared/xml-builder.generator.js';
+import { TypeGenerator } from '@src/classes/emit.js';
+import { ServiceMethodGenerator } from '@src/vendors/angular/service/service-method.generator.js';
+import { ParameterSerializerGenerator } from '@src/functions/emit_parameter_serializer.js';
+import { XmlBuilderGenerator } from '@src/openapi/emit_xml_builder.js';
 
 import { finalCoveragePushSpec, finalCoverageSpec } from '../fixtures/coverage.fixture.js';
 

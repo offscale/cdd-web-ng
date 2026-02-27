@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ListModelBuilder } from '@src/analysis/list-model.builder.js';
+import { ListModelBuilder } from '@src/vendors/angular/admin/analysis/list-model.builder.js';
 import { Resource, SwaggerDefinition } from '@src/core/types/index.js';
 
 describe('Analysis: ListModelBuilder', () => {

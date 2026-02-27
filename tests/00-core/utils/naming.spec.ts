@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { MethodDeclaration } from 'ts-morph';
 
-import * as naming from '@src/core/utils/naming.js';
+import * as naming from '@src/functions/utils_naming.js';
 
 describe('Core Utils: Naming', () => {
     describe('Token Name Generation', () => {

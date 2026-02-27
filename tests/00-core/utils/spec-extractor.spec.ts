@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import * as utils from '@src/core/utils/spec-extractor.js';
+import * as utils from '@src/openapi/parse_spec_extractor.js';
 import { SwaggerDefinition } from '@src/core/types/index.js';
-import { ReferenceResolver } from '@src/core/parser/reference-resolver.js';
+import { ReferenceResolver } from '@src/openapi/parse_reference_resolver.js';
 
 describe('Core Utils: Spec Extractor', () => {
     describe('extractPaths', () => {

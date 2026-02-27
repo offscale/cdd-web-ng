@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
 
-import { SwaggerParser } from '@src/core/parser.js';
-import { ReferenceResolver } from '@src/core/parser/reference-resolver.js';
-import { TypeGenerator } from '@src/generators/shared/type.generator.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
+import { ReferenceResolver } from '@src/openapi/parse_reference_resolver.js';
+import { TypeGenerator } from '@src/classes/emit.js';
 import { GeneratorConfig, SwaggerSpec } from '@src/core/types/index.js';
 import { info } from '../fixtures/common.js';
 

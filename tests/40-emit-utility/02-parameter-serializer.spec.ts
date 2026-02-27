@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import ts from 'typescript';
 
-import { ParameterSerializerGenerator } from '@src/generators/shared/parameter-serializer.generator.js';
-import { ContentEncoderGenerator } from '@src/generators/shared/content-encoder.generator.js';
+import { ParameterSerializerGenerator } from '@src/functions/emit_parameter_serializer.js';
+import { ContentEncoderGenerator } from '@src/openapi/emit_content_encoder.js';
 import { createTestProject } from '../shared/helpers.js';
 
 function getSerializerContext() {

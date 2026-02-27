@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { buildErrorMessages } from '@src/generators/angular/admin/html/form-controls-html.builder.js';
-import { FormControlModel } from '@src/analysis/form-types.js';
-import { ValidationRule } from '@src/analysis/validation-types.js';
+import { buildErrorMessages } from '@src/vendors/angular/admin/html/form-controls-html.builder.js';
+import { FormControlModel } from '@src/vendors/angular/admin/analysis/form-types.js';
+import { ValidationRule } from '@src/vendors/angular/admin/analysis/validation-types.js';
 
 describe('Admin: buildErrorMessages (from IR)', () => {
     const run = (rules: ValidationRule[]) => {

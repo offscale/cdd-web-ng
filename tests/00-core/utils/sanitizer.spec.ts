@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { sanitizeComment } from '@src/core/utils/sanitizer.js';
+import { sanitizeComment } from '@src/functions/utils_sanitizer.js';
 
 describe('Core Utils: Sanitizer', () => {
     it('should return empty string for undefined input', () => {

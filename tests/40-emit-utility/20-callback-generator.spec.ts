@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
-import { SwaggerParser } from '@src/core/parser.js';
-import { CallbackGenerator } from '@src/generators/shared/callback.generator.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
+import { CallbackGenerator } from '@src/functions/emit_callback.js';
 import { createTestProject } from '../shared/helpers.js';
 import { GeneratorConfig, SwaggerDefinition, SwaggerSpec } from '@src/core/types/index.js';
 import ts from 'typescript';

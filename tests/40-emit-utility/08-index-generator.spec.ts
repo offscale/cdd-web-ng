@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
-import { SwaggerParser } from '@src/core/parser.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
 import { GeneratorConfig } from '@src/core/types/index.js';
-import { MainIndexGenerator, ServiceIndexGenerator } from '@src/generators/angular/utils/index.generator.js';
+import { MainIndexGenerator, ServiceIndexGenerator } from '@src/vendors/angular/utils/index.generator.js';
 import { emptySpec, securitySpec } from '../shared/specs.js';
 import { createTestProject } from '../shared/helpers.js';
 import path from 'node:path';

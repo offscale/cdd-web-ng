@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import * as utils from '@src/core/utils/string.js';
+import * as utils from '@src/functions/utils_string.js';
 
 describe('Core Utils: String', () => {
     describe('Case Conversion', () => {

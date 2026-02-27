@@ -5,11 +5,11 @@ import * as path from 'node:path';
 
 import * as yaml from 'js-yaml';
 
-import { SwaggerParser } from '@src/core/parser.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
 import { GeneratorConfig, SwaggerDefinition, SwaggerSpec } from '@src/core/types/index.js';
 import { JSON_SCHEMA_2020_12_DIALECT, OAS_3_1_DIALECT } from '@src/core/constants.js';
-import * as validator from '@src/core/validator.js';
-import { ReferenceResolver } from '@src/core/parser/reference-resolver.js';
+import * as validator from '@src/openapi/parse_validator.js';
+import { ReferenceResolver } from '@src/openapi/parse_reference_resolver.js';
 
 import { parserCoverageSpec } from '../shared/specs.js';
 
@@ -18,7 +18,7 @@ vi.mock('fs', async importOriginal => {
     return { ...actual, existsSync: vi.fn(), readFileSync: vi.fn() };
 });
 vi.mock('js-yaml');
-vi.mock('@src/core/validator.js');
+vi.mock('@src/openapi/parse_validator.js');
 
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
@@ -36,7 +36,7 @@ describe('Core: SwaggerParser', () => {
     let realValidateSpec: any;
 
     beforeAll(async () => {
-        const actual = await vi.importActual<typeof validator>('@src/core/validator.js');
+        const actual = await vi.importActual<typeof validator>('@src/openapi/parse_validator.js');
         // type-coverage:ignore-next-line
         realValidateSpec = actual.validateSpec;
     });

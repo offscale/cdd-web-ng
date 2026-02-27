@@ -2,9 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { SwaggerParser } from '@src/core/parser.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
 import { GeneratorConfig } from '@src/core/types/index.js';
-import { MockDataGenerator } from '@src/generators/angular/test/mock-data.generator.js';
+import { MockDataGenerator } from '@src/vendors/angular/test/mock-data.generator.js';
 
 vi.mock('node:fs');
 

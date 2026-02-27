@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { AdminGenerator } from '@src/generators/angular/admin/admin.generator.js';
-import * as resourceDiscovery from '@src/generators/angular/admin/resource-discovery.js';
+import { AdminGenerator } from '@src/vendors/angular/admin/admin.generator.js';
+import * as resourceDiscovery from '@src/vendors/angular/admin/resource-discovery.js';
 import { createTestProject } from '../shared/helpers.js';
 import { adminFormSpec, coverageSpec } from '../shared/specs.js';
-import { SwaggerParser } from '@src/core/parser.js';
-import { CustomValidatorsGenerator } from '@src/generators/angular/admin/custom-validators.generator.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
+import { CustomValidatorsGenerator } from '@src/vendors/angular/admin/custom-validators.generator.js';
 
 describe('Admin: AdminGenerator (Orchestrator)', () => {
     it('should call specialist generators for each suitable resource', async () => {

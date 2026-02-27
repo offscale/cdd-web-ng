@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { parseGeneratedModelSource, parseGeneratedModels } from '@src/core/utils/openapi-reverse-models.js';
+import { parseGeneratedModelSource, parseGeneratedModels } from '@src/classes/parse.js';
 
 import { EnumMember } from 'ts-morph';
 

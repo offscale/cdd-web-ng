@@ -3,8 +3,8 @@ import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { Project } from 'ts-morph';
 
-import { SwaggerParser } from '@src/core/parser.js';
-import { HeadersGenerator } from '@src/generators/shared/headers.generator.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
+import { HeadersGenerator } from '@src/openapi/emit_headers.js';
 import { GeneratorConfig, SwaggerSpec } from '@src/core/types/index.js';
 
 import { createTestProject } from '../shared/helpers.js';

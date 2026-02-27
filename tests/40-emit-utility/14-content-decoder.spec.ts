@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import ts from 'typescript';
-import { ContentDecoderGenerator } from '@src/generators/shared/content-decoder.generator.js';
+import { ContentDecoderGenerator } from '@src/openapi/emit_content_decoder.js';
 import { createTestProject } from '../shared/helpers.js';
 
 function getContentDecoder() {

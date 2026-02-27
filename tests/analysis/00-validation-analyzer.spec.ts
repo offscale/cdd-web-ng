@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeValidationRules } from '@src/analysis/validation.analyzer.js';
+import { analyzeValidationRules } from '@src/vendors/angular/admin/analysis/validation.analyzer.js';
 import { SwaggerDefinition } from '@src/core/types/index.js';
 
 describe('Analysis: validation.analyzer', () => {

@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 
-import { readOpenApiSnapshot, writeOpenApiSnapshot, SNAPSHOT_FILENAMES } from '@src/core/utils/openapi-snapshot.js';
+import { readOpenApiSnapshot, writeOpenApiSnapshot, SNAPSHOT_FILENAMES } from '@src/openapi/parse_snapshot.js';
 import { SwaggerSpec } from '@src/core/types/index.js';
 
 const tempDirs: string[] = [];

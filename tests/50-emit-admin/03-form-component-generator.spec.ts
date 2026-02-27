@@ -2,11 +2,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { Project } from 'ts-morph';
 
-import { SwaggerParser } from '@src/core/parser.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
 import { GeneratorConfig, Resource, SwaggerDefinition } from '@src/core/types/index.js';
-import { FormAnalysisResult, FormControlModel } from '@src/analysis/form-types.js';
-import { FormModelBuilder } from '@src/analysis/form-model.builder.js';
-import { FormComponentGenerator } from '@src/generators/angular/admin/form-component.generator.js';
+import { FormAnalysisResult, FormControlModel } from '@src/vendors/angular/admin/analysis/form-types.js';
+import { FormModelBuilder } from '@src/vendors/angular/admin/analysis/form-model.builder.js';
+import { FormComponentGenerator } from '@src/vendors/angular/admin/form-component.generator.js';
 
 import { branchCoverageSpec } from '../fixtures/coverage.fixture.js';
 
@@ -343,7 +343,7 @@ describe('Generators (Angular): FormComponentGenerator', () => {
 
         const importDecls = sourceFile.getImportDeclarations().map(d => d.getModuleSpecifierValue());
         // With current relative path structure, this should point to shared folder
-        expect(importDecls).toContain('../../shared/custom-validators');
+        expect(importDecls).toContain('../../shared/custom-validators.js');
     });
 
     describe('Coverage: internal helpers', () => {

@@ -5,10 +5,10 @@ import { Project } from 'ts-morph';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { AngularClientGenerator } from '@src/generators/angular/angular-client.generator.js';
+import { AngularClientGenerator } from '@src/vendors/angular/angular-client.generator.js';
 import { GeneratorConfig, SwaggerSpec } from '@src/core/types/index.js';
-import { SwaggerParser } from '@src/core/parser.js';
-import { AuthInterceptorGenerator } from '@src/generators/angular/utils/auth-interceptor.generator.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
+import { AuthInterceptorGenerator } from '@src/vendors/angular/utils/auth-interceptor.generator.js';
 
 // Mock the sub-generators to focus on orchestration wiring
 vi.mock('@src/service/emit/type/type.generator.js', () => {
@@ -24,7 +24,7 @@ vi.mock('@src/service/emit/type/type.generator.js', () => {
     };
 });
 
-vi.mock('@src/generators/angular/service/service.generator.js', () => {
+vi.mock('@src/vendors/angular/service/service.generator.js', () => {
     return {
         ServiceGenerator: class {
             // type-coverage:ignore-next-line

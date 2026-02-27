@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ResponseHeaderRegistryGenerator } from '@src/generators/shared/response-header-registry.generator.js';
-import { ResponseHeaderParserGenerator } from '@src/generators/angular/utils/response-header-parser.generator.js';
+import { ResponseHeaderRegistryGenerator } from '@src/openapi/emit_response_header_registry.js';
+import { ResponseHeaderParserGenerator } from '@src/vendors/angular/utils/response-header-parser.generator.js';
 import { createTestProject } from '../shared/helpers.js';
-import { SwaggerParser } from '@src/core/parser.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
 import ts from 'typescript';
 
 describe('Emitter: Response Header Utilities', () => {

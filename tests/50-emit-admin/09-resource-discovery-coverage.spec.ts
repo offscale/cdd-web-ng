@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { discoverAdminResources } from '@src/generators/angular/admin/resource-discovery.js';
-import { SwaggerParser } from '@src/core/parser.js';
+import { discoverAdminResources } from '@src/vendors/angular/admin/resource-discovery.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
 import {
     FormProperty,
     GeneratorConfig,

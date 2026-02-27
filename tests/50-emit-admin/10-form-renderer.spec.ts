@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { FormInitializerRenderer, ValidationRenderer } from '@src/generators/angular/admin/form.renderer.js';
-import { ValidationRule } from '@src/analysis/validation-types.js';
-import { FormControlModel } from '@src/analysis/form-types.js';
+import { FormInitializerRenderer, ValidationRenderer } from '@src/vendors/angular/admin/form.renderer.js';
+import { ValidationRule } from '@src/vendors/angular/admin/analysis/validation-types.js';
+import { FormControlModel } from '@src/vendors/angular/admin/analysis/form-types.js';
 
 describe('Admin: FormRenderer', () => {
     describe('ValidationRenderer', () => {

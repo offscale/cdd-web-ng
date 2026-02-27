@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vite
 
 import * as fs from 'node:fs';
 
-import { SpecLoader } from '@src/core/parser/spec-loader.js';
-import { ReferenceResolver } from '@src/core/parser/reference-resolver.js';
-import { validateSpec } from '@src/core/validator.js';
+import { SpecLoader } from '@src/openapi/parse_spec_loader.js';
+import { ReferenceResolver } from '@src/openapi/parse_reference_resolver.js';
+import { validateSpec } from '@src/openapi/parse_validator.js';
 
-vi.mock('@src/core/validator.js');
+vi.mock('@src/openapi/parse_validator.js');
 vi.mock('node:fs');
 
 describe('Core Utils: SpecLoader', () => {

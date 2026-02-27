@@ -4,8 +4,8 @@ import { describe, expect, it } from 'vitest';
 
 import { Project } from 'ts-morph';
 
-import { SwaggerParser } from '@src/core/parser.js';
-import { ExamplesGenerator } from '@src/generators/shared/examples.generator.js';
+import { SwaggerParser } from '@src/openapi/parse.js';
+import { ExamplesGenerator } from '@src/mocks/emit.js';
 import { GeneratorConfig, SwaggerSpec } from '@src/core/types/index.js';
 
 import { createTestProject } from '../shared/helpers.js';

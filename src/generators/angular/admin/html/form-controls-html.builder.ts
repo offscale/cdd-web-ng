@@ -152,11 +152,12 @@ export function buildFormControl(control: FormControlModel): HtmlElementBuilder 
                 return createSlider(control, labelText, control.schema.minimum, control.schema.maximum);
             }
             return createInput(control, labelText, 'number');
-        case 'array':
+        case 'array': {
             const items = control.schema.items as SwaggerDefinition;
             if (items?.enum) return createSelect(control, labelText, `${camelCase(control.name)}Options`, true);
             else if (items?.properties || items?.type === 'object') return createFormArray(control, labelText);
             return createChips(control, labelText);
+        }
         case 'object':
             if (control.controlType === 'map') return createMapEditor(control, labelText);
             return control.nestedControls ? createFormGroup(control) : null;

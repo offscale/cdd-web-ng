@@ -499,4 +499,49 @@ describe('Emitter: LinkGenerator', () => {
         const sourceFile = project.getSourceFileOrThrow('/out/links.ts');
         expect(sourceFile.getText()).toContain('export { };');
     });
+
+    it('should handle malformed operationRef in decodePointerToken', () => {
+        const spec: SwaggerSpec = {
+            openapi: '3.0.0',
+            info: { title: 'Malformed', version: '1' },
+            paths: {
+                '/test': {
+                    get: {
+                        operationId: 'getTest',
+                        responses: {
+                            '200': {
+                                description: 'ok',
+                                links: {
+                                    MalformedLink: {
+                                        // A token with an invalid URI component
+                                        operationRef: '#/paths/~1test%ZZ/get',
+                                    },
+                                    NoFragment: {
+                                        operationRef: 'no-fragment-here',
+                                    },
+                                    ShortFragment: {
+                                        operationRef: '#/paths',
+                                    },
+                                    UnknownRoot: {
+                                        operationRef: '#/components/schemas/Test',
+                                    },
+                                    UnknownPathMethod: {
+                                        operationRef: '#/paths/~1unknown/get',
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        };
+        const project = runGenerator(spec);
+        const { API_LINKS } = compileGeneratedFile(project);
+        const linkBlock = API_LINKS['getTest']['200'];
+        expect(linkBlock['MalformedLink'].operationId).toBeUndefined();
+        expect(linkBlock['NoFragment'].operationId).toBeUndefined();
+        expect(linkBlock['ShortFragment'].operationId).toBeUndefined();
+        expect(linkBlock['UnknownRoot'].operationId).toBeUndefined();
+        expect(linkBlock['UnknownPathMethod'].operationId).toBeUndefined();
+    });
 });

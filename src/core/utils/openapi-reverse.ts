@@ -455,7 +455,9 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
                             // type-coverage:ignore-next-line
                             p.contentEncoderConfig = configObj.contentEncoderConfig;
                         params.push(p);
-                    } catch {}
+                    } catch {
+                        /* ignore */
+                    }
                 } else if (kind === 'cookie') {
                     params.push({
                         name: args[0]!.replace(/^'|'$/g, ''),
@@ -510,12 +512,16 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
                 if (args[3] && args[3] !== 'undefined') {
                     try {
                         param.encoding = JSON.parse(args[3]) as Record<string, unknown>;
-                    } catch {}
+                    } catch {
+                        /* ignore */
+                    }
                 }
                 if (args[4] && args[4] !== 'undefined') {
                     try {
                         param.contentEncoderConfig = JSON.parse(args[4]) as Record<string, unknown>;
-                    } catch {}
+                    } catch {
+                        /* ignore */
+                    }
                 }
                 params.push(param);
             }
@@ -705,7 +711,9 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
                     try {
                         const parsed = JSON.parse(configStr) as Record<string, unknown>;
                         Object.assign(extensions, parsed);
-                    } catch {}
+                    } catch {
+                        /* ignore */
+                    }
                 }
             }
 
@@ -716,7 +724,9 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
                 if (configStr) {
                     try {
                         security = JSON.parse(configStr) as Record<string, string[]>[];
-                    } catch {}
+                    } catch {
+                        /* ignore */
+                    }
                 }
             }
 
@@ -727,7 +737,9 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
                 if (configStr) {
                     try {
                         servers = JSON.parse(configStr) as ServerObject[];
-                    } catch {}
+                    } catch {
+                        /* ignore */
+                    }
                 }
             }
 
@@ -870,10 +882,14 @@ export function parseGeneratedMetadata(
                 if (m) {
                     try {
                         (meta as Record<string, unknown>)[key] = JSON.parse(m[1]!) as unknown;
-                    } catch {}
+                    } catch {
+                        /* ignore */
+                    }
                 }
             }
-        } catch {}
+        } catch {
+            /* ignore */
+        }
     };
 
     tryParse('info.ts', 'info', 'API_INFO');

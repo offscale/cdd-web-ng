@@ -12,6 +12,62 @@ describe('Core Utils: Type Converter', () => {
     const configWithDate: GeneratorConfig = { ...config, options: { ...config.options, dateType: 'Date' } };
 
     describe('getTypeScriptType', () => {
+        describe('dependentSchemas and dependentRequired', () => {
+            it('should handle basic dependentSchemas', () => {
+                const schema = {
+                    type: 'object',
+                    properties: { foo: { type: 'string' } },
+                    dependentSchemas: {
+                        foo: { properties: { bar: { type: 'number' } }, required: ['bar'] },
+                        'invalid-key': { type: 'object' },
+                    },
+                };
+                const result = utils.getTypeScriptType(schema as any, config, []);
+                expect(result).toContain('{ foo?: string }');
+                expect(result).toContain('({ foo: any }');
+                expect(result).toContain('bar: number');
+                expect(result).toContain("'invalid-key'");
+            });
+
+            it('should handle basic dependentRequired', () => {
+                const schema = {
+                    type: 'object',
+                    properties: { foo: { type: 'string' } },
+                    dependentRequired: {
+                        foo: ['bar', 'baz'],
+                        'invalid-key': ['q-u-x'],
+                        empty: [],
+                    },
+                };
+                const result = utils.getTypeScriptType(schema as any, config, []);
+                expect(result).toContain('{ foo?: string }');
+                expect(result).toContain('({ foo: unknown } & { bar: unknown; baz: unknown })');
+                expect(result).toContain("({ 'invalid-key': unknown } & { 'q-u-x': unknown })");
+            });
+
+            it('should skip dependentRequired if no valid required fields exist', () => {
+                const schema = {
+                    type: 'object',
+                    properties: { foo: { type: 'string' } },
+                    dependentRequired: {
+                        foo: [123] as any,
+                    },
+                };
+                const result = utils.getTypeScriptType(schema as any, config, []);
+                expect(result).not.toContain('&'); // No dependencies added
+            });
+
+            it('should just return baseType if dependentSchemas/Required evaluate to nothing', () => {
+                const schema = {
+                    type: 'object',
+                    dependentSchemas: {},
+                    dependentRequired: {},
+                };
+                const result = utils.getTypeScriptType(schema as any, config, []);
+                expect(result).toBe('{ [key: string]: any }');
+            });
+        });
+
         it('should treat boolean schema "true" as any', () => {
             expect(utils.getTypeScriptType(true, config, [])).toBe('any');
         });
@@ -106,8 +162,13 @@ describe('Core Utils: Type Converter', () => {
         it('should honor nullable flag for OAS 3.0 schemas', () => {
             const schema: SwaggerDefinition = { type: 'string', nullable: true };
             expect(utils.getTypeScriptType(schema, config)).toBe('string | null');
-        });
 
+            const schemaNull: SwaggerDefinition = { type: 'null', nullable: true };
+            expect(utils.getTypeScriptType(schemaNull, config)).toBe('null'); // Hits baseType null check
+
+            const schemaAny: SwaggerDefinition = { nullable: true }; // undefined type hits any fallback
+            expect(utils.getTypeScriptType(schemaAny, config)).toBe('any');
+        });
         it('should handle oneOf compositions', () => {
             const schema: SwaggerDefinition = { oneOf: [{ type: 'string' }, { type: 'number' }] };
             expect(utils.getTypeScriptType(schema, config, [])).toBe('string | number');
@@ -200,6 +261,11 @@ describe('Core Utils: Type Converter', () => {
             expect(utils.getTypeScriptType(schema, config, [])).toBe('Blob');
         });
 
+        it('should fall through to default string if contentMediaType is string but not textual or binary', () => {
+            const schema: SwaggerDefinition = { type: 'string', contentMediaType: 'application/something-weird' };
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('string');
+        });
+
         it('should default to string if contentMediaType is json but no contentSchema is present', () => {
             const schema: SwaggerDefinition = { type: 'string', contentMediaType: 'application/json' };
             expect(utils.getTypeScriptType(schema, config, [])).toBe('string');
@@ -270,8 +336,19 @@ describe('Core Utils: Type Converter', () => {
                 unevaluatedItems: { type: 'boolean' },
             };
             expect(utils.getTypeScriptType(schema, config, [])).toBe('[string, number, ...boolean[]]');
-        });
 
+            const schemaTrue: SwaggerDefinition = {
+                prefixItems: [{ type: 'string' }],
+                unevaluatedItems: true,
+            };
+            expect(utils.getTypeScriptType(schemaTrue, config, [])).toBe('[string, ...any[]]');
+
+            const schemaFalse: SwaggerDefinition = {
+                prefixItems: [{ type: 'string' }],
+                unevaluatedItems: false,
+            };
+            expect(utils.getTypeScriptType(schemaFalse, config, [])).toBe('[string]');
+        });
         it('should use unevaluatedItems when items are absent', () => {
             const schema: SwaggerDefinition = {
                 type: 'array',
@@ -484,6 +561,39 @@ describe('Core Utils: Type Converter', () => {
             expect(utils.getRequestBodyType(rb as any, config, [])).toBe('number');
         });
 
+        it('should handle sorting by index as a final tie-breaker', () => {
+            const rb = {
+                content: {
+                    'image/png': { schema: { type: 'string' } },
+                    'image/jpeg': { schema: { type: 'number' } },
+                },
+            };
+            // image/png is first, so it wins
+            expect(utils.getRequestBodyType(rb as any, config, [])).toBe('string');
+        });
+
+        it('should match regex media subtypes (OAS range tests)', () => {
+            const rb = {
+                content: {
+                    'application/vnd.*+json': { schema: { type: 'string' } },
+                    'application/vnd.acme+json': { schema: { type: 'number' } }, // More specific
+                },
+            };
+            // Wait, this is used in matching ranges against candidates. Let's just create
+            // a custom function to test `matchesMediaType` if possible, or trigger it via the existing code.
+            // It's used in filterMediaTypeEntries.
+            expect(utils.getRequestBodyType(rb as any, config, [])).toBe('number');
+        });
+
+        it('should hit Priority 6 fallback in getMediaTypePriority', () => {
+            const rb = {
+                content: {
+                    'audio/mpeg': { schema: { type: 'string' } },
+                },
+            };
+            expect(utils.getRequestBodyType(rb as any, config, [])).toBe('string');
+        });
+
         it('should prefer structured JSON media types over text', () => {
             const rb = {
                 content: {
@@ -512,6 +622,17 @@ describe('Core Utils: Type Converter', () => {
                 },
             };
             expect(utils.getRequestBodyType(rb as any, config, [])).toBe('any');
+        });
+
+        it('should return array type based on itemSchema for sequential payloads', () => {
+            const rb = {
+                content: {
+                    'application/json-seq': {
+                        itemSchema: { type: 'boolean' },
+                    },
+                },
+            };
+            expect(utils.getRequestBodyType(rb as any, config, [])).toBe('(boolean)[]');
         });
     });
 
@@ -544,6 +665,17 @@ describe('Core Utils: Type Converter', () => {
                 },
             };
             expect(utils.getResponseType(resp as any, config, [])).toBe('boolean');
+        });
+
+        it('should return array type based on itemSchema for sequential responses', () => {
+            const resp = {
+                content: {
+                    'application/jsonl': {
+                        itemSchema: { type: 'string' },
+                    },
+                },
+            };
+            expect(utils.getResponseType(resp as any, config, [])).toBe('(string)[]');
         });
 
         it('should return "void" if no keys exist in content', () => {

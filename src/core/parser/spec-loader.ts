@@ -77,7 +77,7 @@ export class SpecLoader {
             try {
                 const nextUri = new URL(filePath, baseUri).href;
                 await this.loadAndCacheSpecRecursive(nextUri, cache, visited);
-            } catch (e) {
+            } catch (_e) {
                 console.warn(`[SpecLoader] Failed to resolve referenced URI: ${filePath}. Skipping.`);
             }
         }
@@ -130,7 +130,7 @@ export class SpecLoader {
             } else {
                 try {
                     return JSON.parse(content);
-                } catch (jsonError) {
+                } catch (_jsonError) {
                     return yaml.load(content) as SwaggerSpec;
                 }
             }

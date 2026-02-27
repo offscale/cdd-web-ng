@@ -161,7 +161,6 @@ export class FormComponentGenerator {
                     arguments: [
                         `{
                     selector: 'app-${resource.name}-form',
-                    standalone: true,
                     imports: [
                         ReactiveFormsModule,
                         RouterModule,

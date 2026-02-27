@@ -1166,7 +1166,7 @@ function normalizeRoutePath(value: string): string {
     if (!normalized.startsWith('/')) {
         normalized = `/${normalized}`;
     }
-    normalized = normalized.replace(/(^|\/)\:([A-Za-z0-9_]+)/g, '$1{$2}');
+    normalized = normalized.replace(/(^|\/):([A-Za-z0-9_]+)/g, '$1{$2}');
     return normalized || '/';
 }
 
@@ -1649,7 +1649,6 @@ function stripInternalDocMeta<
     | 'responseExamples'
     | 'operationId'
 > {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const {
         querystring: _ignored,
         responses: _responses,

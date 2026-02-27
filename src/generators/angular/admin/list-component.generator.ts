@@ -109,7 +109,6 @@ export class ListComponentGenerator {
                     arguments: [
                         `{
                     selector: 'app-${model.resourceName}-list',
-                    standalone: true,
                     imports: [ ${commonStandaloneImports.map(a => a[0]).join(',\n')} ],
                     templateUrl: './${model.resourceName}-list.component.html',
                     styleUrl: './${model.resourceName}-list.component.scss',

@@ -119,21 +119,29 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject invalid contact url and email', () => {
-            // type-coverage:ignore-next-line
-            const spec: any = {
+            const specUrl: any = {
                 openapi: '3.2.0',
                 info: {
                     ...validInfo,
                     contact: {
                         url: 'ht!tp://bad',
+                    },
+                },
+                paths: {},
+            };
+            expect(() => validateSpec(specUrl)).toThrow(/contact.url must be a valid URI/i);
+
+            const specEmail: any = {
+                openapi: '3.2.0',
+                info: {
+                    ...validInfo,
+                    contact: {
                         email: 'not-an-email',
                     },
                 },
                 paths: {},
             };
-            expect(() => validateSpec(spec)).toThrow(
-                /contact.url must be a valid URI|contact.email must be a valid email/i,
-            );
+            expect(() => validateSpec(specEmail)).toThrow(/contact.email must be a valid email/i);
         });
 
         it('should accept valid contact url and email', () => {
@@ -210,67 +218,63 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject invalid schema $id and $schema URIs', () => {
-            // type-coverage:ignore-next-line
-            const spec: any = {
-                openapi: '3.2.0',
-                info: validInfo,
-                paths: {},
-                components: {
-                    schemas: {
-                        BadId: {
-                            type: 'object',
-                            $id: 'not a uri',
-                        },
-                        BadSchema: {
-                            type: 'object',
-                            $schema: 'also not a uri',
-                        },
-                    },
-                },
-            };
-            expect(() => validateSpec(spec)).toThrow(/Schema Object.*\$id|\$schema/);
+            expect(() =>
+                validateSpec({
+                    openapi: '3.2.0',
+                    info: validInfo,
+                    paths: {},
+                    components: { schemas: { BadId: { type: 'object', $id: 'not a uri' } } },
+                } as any),
+            ).toThrow(/Schema Object.*\$id/);
+
+            expect(() =>
+                validateSpec({
+                    openapi: '3.2.0',
+                    info: validInfo,
+                    paths: {},
+                    components: { schemas: { BadSchema: { type: 'object', $schema: 'also not a uri' } } },
+                } as any),
+            ).toThrow(/Schema Object.*\$schema/);
         });
 
         it('should reject invalid schema $ref and $dynamicRef URIs', () => {
-            // type-coverage:ignore-next-line
-            const spec: any = {
-                openapi: '3.2.0',
-                info: validInfo,
-                paths: {},
-                components: {
-                    schemas: {
-                        BadRef: {
-                            $ref: 'not a uri',
-                        },
-                        BadDynamic: {
-                            $dynamicRef: 'not a uri',
-                        },
-                    },
-                },
-            };
-            expect(() => validateSpec(spec)).toThrow(/Schema Object.*\$(ref|dynamicRef)/);
+            expect(() =>
+                validateSpec({
+                    openapi: '3.2.0',
+                    info: validInfo,
+                    paths: {},
+                    components: { schemas: { BadRef: { $ref: 'not a uri' } } },
+                } as any),
+            ).toThrow(/Schema Object.*\$ref/);
+
+            expect(() =>
+                validateSpec({
+                    openapi: '3.2.0',
+                    info: validInfo,
+                    paths: {},
+                    components: { schemas: { BadDynamic: { $dynamicRef: 'not a uri' } } },
+                } as any),
+            ).toThrow(/Schema Object.*\$dynamicRef/);
         });
 
         it('should reject invalid schema anchors', () => {
-            // type-coverage:ignore-next-line
-            const spec: any = {
-                openapi: '3.2.0',
-                info: validInfo,
-                paths: {},
-                components: {
-                    schemas: {
-                        BadAnchor: {
-                            type: 'object',
-                            $anchor: '',
-                        },
-                        BadDynamicAnchor: {
-                            type: 'object',
-                            $dynamicAnchor: 123,
-                        },
-                    },
-                },
-            };
-            expect(() => validateSpec(spec)).toThrow(/Schema Object.*\$(anchor|dynamicAnchor)/);
+            expect(() =>
+                validateSpec({
+                    openapi: '3.2.0',
+                    info: validInfo,
+                    paths: {},
+                    components: { schemas: { BadAnchor: { type: 'object', $anchor: '' } } },
+                } as any),
+            ).toThrow(/invalid '\$anchor'/);
+
+            expect(() =>
+                validateSpec({
+                    openapi: '3.2.0',
+                    info: validInfo,
+                    paths: {},
+                    components: { schemas: { BadDynamicAnchor: { type: 'object', $dynamicAnchor: 123 } } },
+                } as any),
+            ).toThrow(/invalid '\$dynamicAnchor'/);
         });
 
         it('should ignore reserved header parameters (Accept/Content-Type/Authorization)', () => {
@@ -955,6 +959,26 @@ describe('Core: Input Spec Validation', () => {
             expect(() => validateSpec(spec)).toThrow(/opening.*matching/i);
         });
 
+        it('should reject server URLs with unmatched closing braces', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                servers: [{ url: 'https://region}.example.com' }],
+                paths: {},
+            };
+            expect(() => validateSpec(spec)).toThrow(/contains a closing "}" without a matching/i);
+        });
+
+        it('should reject server URLs with nested braces', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                servers: [{ url: 'https://{{region}}.example.com' }],
+                paths: {},
+            };
+            expect(() => validateSpec(spec)).toThrow(/contains nested "{" characters/i);
+        });
+
         it('should reject server URLs with empty template expressions', () => {
             // type-coverage:ignore-next-line
             const spec: any = {
@@ -1034,6 +1058,66 @@ describe('Core: Input Spec Validation', () => {
                 paths: {},
             };
             expect(() => validateSpec(spec)).toThrow(/appears more than once/);
+        });
+
+        it('should reject server URLs defining template variables but missing variables object entirely', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                servers: [{ url: 'https://{region}.example.com' }],
+                paths: {},
+            };
+            expect(() => validateSpec(spec)).toThrow(/defines template variables but 'variables' is missing/);
+        });
+
+        it('should reject empty or non-string server url', () => {
+            const spec1: any = { openapi: '3.2.0', info: validInfo, servers: [{ url: '' }], paths: {} };
+            const spec2: any = { openapi: '3.2.0', info: validInfo, servers: [{ url: 123 }], paths: {} };
+            expect(() => validateSpec(spec1)).toThrow(/must be a non-empty string/);
+            expect(() => validateSpec(spec2)).toThrow(/must be a non-empty string/);
+        });
+
+        it('should reject duplicate server names', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                servers: [
+                    { url: 'https://api.example.com', name: 'prod' },
+                    { url: 'https://staging.example.com', name: 'prod' },
+                ],
+                paths: {},
+            };
+            expect(() => validateSpec(spec)).toThrow(/Server name "prod" must be unique/);
+        });
+
+        it('should reject server URLs with undefined template variables', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                servers: [
+                    {
+                        url: 'https://{region}.example.com',
+                        variables: { env: { default: 'prod' } },
+                    },
+                ],
+                paths: {},
+            };
+            expect(() => validateSpec(spec)).toThrow(/not defined in variables/);
+        });
+
+        it('should reject server variables missing required default', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                servers: [
+                    {
+                        url: 'https://{env}.example.com',
+                        variables: { env: {} },
+                    },
+                ],
+                paths: {},
+            };
+            expect(() => validateSpec(spec)).toThrow(/must define a string default/);
         });
     });
 
@@ -1496,24 +1580,33 @@ describe('Core: Input Spec Validation', () => {
 
         it('should throw if deepObject style is used on a non-object schema', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const createSpec = (schema: any): any => ({
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
                     '/test': {
                         get: {
-                            parameters: [{ name: 'q', in: 'query', style: 'deepObject', schema: { type: 'string' } }],
+                            parameters: [{ name: 'q', in: 'query', style: 'deepObject', schema }],
                             responses: { '200': { description: 'ok' } },
                         },
                     },
                 },
-            };
-            expect(() => validateSpec(spec)).toThrow(/deepObject.*schema is not an object/);
+            });
+            expect(() => validateSpec(createSpec({ type: 'string' }))).toThrow(/deepObject.*schema is not an object/);
+
+            // Should also reject array types (OAS 3.1)
+            expect(() => validateSpec(createSpec({ type: ['string', 'null'] }))).toThrow(
+                /deepObject.*schema is not an object/,
+            );
+
+            // Should accept 'unknown' types that might resolve to object later or are free-form
+            expect(() => validateSpec(createSpec({ type: 'not-a-type' }))).not.toThrow();
+            expect(() => validateSpec(createSpec({ type: ['string', 'number'] }))).not.toThrow();
         });
 
         it('should throw if spaceDelimited style uses explode=true', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const createSpec = (style: any, schema: any, explode?: boolean): any => ({
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -1523,17 +1616,30 @@ describe('Core: Input Spec Validation', () => {
                                 {
                                     name: 'q',
                                     in: 'query',
-                                    style: 'spaceDelimited',
-                                    explode: true,
-                                    schema: { type: 'array', items: { type: 'string' } },
+                                    style,
+                                    explode,
+                                    schema,
                                 },
                             ],
                             responses: { '200': { description: 'ok' } },
                         },
                     },
                 },
-            };
-            expect(() => validateSpec(spec)).toThrow(/spaceDelimited.*explode=true/);
+            });
+            expect(() =>
+                validateSpec(createSpec('spaceDelimited', { type: 'array', items: { type: 'string' } }, true)),
+            ).toThrow(/spaceDelimited.*explode=true/);
+
+            // Should throw if style is not a string
+            expect(() => validateSpec(createSpec(123, { type: 'array' }))).toThrow(/has non-string 'style'/);
+
+            // Should throw if spaceDelimited/pipeDelimited used on primitive schema
+            expect(() => validateSpec(createSpec('spaceDelimited', { type: 'string' }))).toThrow(
+                /style but schema is not an array or object/,
+            );
+            expect(() => validateSpec(createSpec('pipeDelimited', { type: 'integer' }))).toThrow(
+                /style but schema is not an array or object/,
+            );
         });
 
         it('should throw if pipeDelimited style uses explode=true', () => {
@@ -2565,6 +2671,145 @@ describe('Core: Input Spec Validation', () => {
             expect(() => validateSpec(spec)).toThrow(/Encoding Object.*invalid 'style'/);
         });
 
+        it('should validate Encoding Object properties', () => {
+            const createSpec = (encodingObj: any): any => ({
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/test': {
+                        post: {
+                            requestBody: {
+                                content: {
+                                    'multipart/form-data': {
+                                        schema: { type: 'object', properties: { f: { type: 'string' } } },
+                                        encoding: { f: encodingObj },
+                                    },
+                                },
+                            },
+                            responses: { '200': { description: 'ok' } },
+                        },
+                    },
+                },
+            });
+
+            expect(() => validateSpec(createSpec([]))).toThrow(/must be an object/);
+            expect(() => validateSpec(createSpec({ contentType: 123 }))).toThrow(/non-string 'contentType'/);
+            expect(() => validateSpec(createSpec({ style: 123 }))).toThrow(/non-string 'style'/);
+            expect(() => validateSpec(createSpec({ explode: 'yes' }))).toThrow(/non-boolean 'explode'/);
+            expect(() => validateSpec(createSpec({ allowReserved: 'yes' }))).toThrow(/non-boolean 'allowReserved'/);
+            expect(() => validateSpec(createSpec({ headers: [] }))).toThrow(/invalid 'headers' map/);
+            expect(() => validateSpec(createSpec({ headers: { 'Content-Type': {} } }))).toThrow(
+                /MUST NOT define 'Content-Type' in headers/,
+            ); // line 1029
+            expect(() =>
+                validateSpec(createSpec({ headers: { 'X-Rate-Limit': { schema: { type: 'integer' } } } })),
+            ).not.toThrow();
+
+            // Nested encoding checks
+            expect(() => validateSpec(createSpec({ encoding: [] }))).toThrow(/invalid nested 'encoding' map/);
+            expect(() => validateSpec(createSpec({ prefixEncoding: {} }))).toThrow(/prefixEncoding.*must be an array/);
+            expect(() => validateSpec(createSpec({ itemEncoding: [] }))).toThrow(/Encoding Object.*must be an object/);
+
+            // Exclusivity checks
+            expect(() => validateSpec(createSpec({ encoding: {}, prefixEncoding: [] }))).toThrow(/mutually exclusive/);
+            expect(() => validateSpec(createSpec({ encoding: {}, itemEncoding: {} }))).toThrow(/mutually exclusive/);
+
+            // Valid nested paths should trace through recursively
+            expect(() => validateSpec(createSpec({ encoding: { inner: { style: 123 } } }))).toThrow(
+                /non-string 'style'/,
+            );
+            expect(() => validateSpec(createSpec({ prefixEncoding: [{ style: 123 }] }))).toThrow(/non-string 'style'/);
+            expect(() => validateSpec(createSpec({ itemEncoding: { style: 123 } }))).toThrow(/non-string 'style'/);
+        });
+
+        it('should validate MediaType Object encoding on unsupported media types', () => {
+            const createSpec = (mediaType: string, encodingConfig: any): any => ({
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {
+                    '/test': {
+                        post: {
+                            requestBody: {
+                                content: {
+                                    [mediaType]: {
+                                        schema: { type: 'object', properties: { f: { type: 'string' } } },
+                                        ...encodingConfig,
+                                    },
+                                },
+                            },
+                            responses: { '200': { description: 'ok' } },
+                        },
+                    },
+                },
+            });
+
+            expect(() => validateSpec(createSpec('application/json', { encoding: {} }))).toThrow(/does not support it/); // 1115
+            expect(() => validateSpec(createSpec('application/json', { prefixEncoding: [] }))).toThrow(
+                /is not multipart/,
+            ); // 1129
+            expect(() => validateSpec(createSpec('multipart/form-data', { encoding: [] }))).toThrow(
+                /invalid 'encoding' map/,
+            ); // 1139? Actually, 1129 is inside validateMediaTypeObject line 1129. Let's trace it.
+
+            // This tests validateMediaTypeObject line 1139 where prefixEncoding is not an array:
+            expect(() => validateSpec(createSpec('multipart/form-data', { prefixEncoding: {} }))).toThrow(
+                /invalid 'prefixEncoding'. It must be an array/,
+            );
+        });
+
+        it('should reject Header Object examples when schema and content are missing', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                components: {
+                    headers: {
+                        BadHeader: {
+                            examples: { ex: { value: 'test' } },
+                            // Missing schema/content hits 1225/1226
+                        },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).toThrow(/must define either 'schema' or 'content'/);
+        });
+
+        it('should reject Link Object invalid operationRef', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                components: {
+                    links: {
+                        BadLink: {
+                            operationRef: 'not a uri ', // hits 1306
+                        },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).toThrow(/must be a valid URI reference/);
+        });
+
+        it('should validate RequestBody and Response objects thoroughly', () => {
+            // RequestBody content validation (1349)
+            expect(() =>
+                validateSpec({
+                    openapi: '3.2.0',
+                    info: validInfo,
+                    paths: {},
+                    components: { requestBodies: { Bad: { description: 'bad', content: [] } } },
+                } as any),
+            ).toThrow(/invalid 'content'. It must be an object/);
+
+            // Response description non-string (1377)
+            expect(() =>
+                validateSpec({
+                    openapi: '3.2.0',
+                    info: validInfo,
+                    paths: {},
+                    components: { responses: { Bad: { description: 123 } } },
+                } as any),
+            ).toThrow(/non-string 'description'/);
+        });
+
         it('should reject requestBody objects without content', () => {
             // type-coverage:ignore-next-line
             const spec: any = {
@@ -2649,6 +2894,23 @@ describe('Core: Input Spec Validation', () => {
                 },
             };
             expect(() => validateSpec(spec)).toThrow(/operationRef.*URI reference/);
+        });
+
+        it('should reject link objects with invalid parameters', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {},
+                components: {
+                    links: {
+                        BadParamLink: {
+                            operationRef: '#/op',
+                            parameters: [],
+                        },
+                    },
+                },
+            };
+            expect(() => validateSpec(spec)).toThrow(/invalid 'parameters'/);
         });
 
         it('should reject link objects that define neither operationId nor operationRef', () => {
@@ -2936,21 +3198,56 @@ describe('Core: Input Spec Validation', () => {
     });
 
     describe('OAS 3.2 Discriminator Validation', () => {
+        const createSpec = (schema: any): any => ({
+            openapi: '3.2.0',
+            info: validInfo,
+            components: { schemas: { Test: schema } },
+        });
+
+        it('should reject string discriminators outside of Swagger 2.0 definitions', () => {
+            expect(() => validateSpec(createSpec({ discriminator: 'foo' }))).toThrow(/must be an object/);
+        });
+
+        it('should reject non-object discriminators', () => {
+            expect(() => validateSpec(createSpec({ discriminator: [] }))).toThrow(/must be an object/);
+        });
+
         it('should require oneOf/anyOf/allOf when discriminator is present', () => {
-            // type-coverage:ignore-next-line
-            const spec: any = {
-                openapi: '3.2.0',
-                info: validInfo,
-                components: {
-                    schemas: {
-                        Pet: {
-                            type: 'object',
-                            discriminator: { propertyName: 'petType' },
-                        },
-                    },
-                },
+            expect(() =>
+                validateSpec(createSpec({ type: 'object', discriminator: { propertyName: 'petType' } })),
+            ).toThrow(/only valid alongside oneOf\/anyOf\/allOf/);
+        });
+
+        it('should reject invalid discriminator mappings', () => {
+            const schema1 = { oneOf: [{}], discriminator: { propertyName: 'p', mapping: [] } };
+            expect(() => validateSpec(createSpec(schema1))).toThrow(/mapping.*must be an object/);
+
+            const schema2 = { oneOf: [{}], discriminator: { propertyName: 'p', mapping: { a: 123 } } };
+            expect(() => validateSpec(createSpec(schema2))).toThrow(/mapping value.*must be a string/);
+        });
+
+        it('should deeply check if property is required in allOf, ignoring refs and primitives', () => {
+            const schema = {
+                allOf: [null, { $ref: '#/components/schemas/Other' }, { required: ['p'] }],
+                oneOf: [{}],
+                discriminator: { propertyName: 'p' },
             };
-            expect(() => validateSpec(spec)).toThrow(/only valid alongside oneOf\/anyOf\/allOf/);
+            expect(() => validateSpec(createSpec(schema))).not.toThrow();
+        });
+
+        it('should reject discriminator with missing or empty propertyName', () => {
+            expect(() => validateSpec(createSpec({ oneOf: [{}], discriminator: {} }))).toThrow(
+                /must define a non-empty string 'propertyName'/,
+            );
+            expect(() => validateSpec(createSpec({ oneOf: [{}], discriminator: { propertyName: ' ' } }))).toThrow(
+                /must define a non-empty string 'propertyName'/,
+            );
+        });
+
+        it('should reject discriminator with non-string defaultMapping', () => {
+            expect(() =>
+                validateSpec(createSpec({ oneOf: [{}], discriminator: { propertyName: 'p', defaultMapping: 123 } })),
+            ).toThrow(/defaultMapping.*must be a string/);
         });
 
         it('should require defaultMapping when discriminator property is optional', () => {
@@ -3035,20 +3332,30 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject xml.namespace that is not an absolute IRI', () => {
-            // type-coverage:ignore-next-line
             const spec: any = {
                 openapi: '3.2.0',
                 info: validInfo,
-                components: {
-                    schemas: {
-                        BadNamespace: {
-                            type: 'string',
-                            xml: { namespace: './relative' },
-                        },
-                    },
-                },
+                components: { schemas: { BadNamespace: { type: 'string', xml: { namespace: './relative' } } } },
             };
             expect(() => validateSpec(spec)).toThrow(/non-relative IRI/);
+        });
+
+        it('should reject non-object xml properties', () => {
+            const createSpec = (xml: any): any => ({
+                openapi: '3.2.0',
+                info: validInfo,
+                components: { schemas: { BadXml: { type: 'string', xml } } },
+            });
+
+            expect(() => validateSpec(createSpec([]))).toThrow(/must be an object/);
+            expect(() => validateSpec(createSpec({ nodeType: 123 }))).toThrow(/invalid 'nodeType'/);
+            expect(() => validateSpec(createSpec({ nodeType: 'element', wrapped: true }))).toThrow(
+                /MUST NOT define 'wrapped'/,
+            );
+            expect(() => validateSpec(createSpec({ name: 123 }))).toThrow(/non-string 'name'/);
+            expect(() => validateSpec(createSpec({ prefix: 123 }))).toThrow(/non-string 'prefix'/);
+            expect(() => validateSpec(createSpec({ attribute: 'true' }))).toThrow(/non-boolean 'attribute'/);
+            expect(() => validateSpec(createSpec({ wrapped: 'true' }))).toThrow(/non-boolean 'wrapped'/);
         });
     });
 
@@ -3132,5 +3439,623 @@ describe('Core: Input Spec Validation', () => {
             };
             expect(() => validateSpec(spec)).not.toThrow();
         });
+
+        it('should reject reference objects that define both $ref and $dynamicRef', () => {
+            const spec: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {},
+                components: { responses: { Ok: { $ref: '#/a', $dynamicRef: '#/b' } } },
+            };
+            expect(() => validateSpec(spec)).toThrow(/must not define both '\$ref' and '\$dynamicRef'/);
+        });
+
+        it('should reject reference objects with invalid $ref or $dynamicRef', () => {
+            const spec1: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {},
+                components: { responses: { Ok: { $ref: 'not a ref ' } } },
+            };
+            expect(() => validateSpec(spec1)).toThrow(/invalid '\$ref' URI/);
+
+            const spec2: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {},
+                components: { responses: { Ok: { $dynamicRef: 'not a ref ' } } },
+            };
+            expect(() => validateSpec(spec2)).toThrow(/invalid '\$dynamicRef' URI/);
+        });
+
+        it('should reject reference objects with non-string summary or description', () => {
+            const spec1: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {},
+                components: { responses: { Ok: { $ref: '#/a', summary: 123 } } },
+            };
+            expect(() => validateSpec(spec1)).toThrow(/non-string 'summary'/);
+
+            const spec2: any = {
+                openapi: '3.2.0',
+                info: validInfo,
+                paths: {},
+                components: { responses: { Ok: { $ref: '#/a', description: 123 } } },
+            };
+            expect(() => validateSpec(spec2)).toThrow(/non-string 'description'/);
+        });
+    });
+
+    describe('Runtime Expressions / Callbacks', () => {
+        const createSpec = (expression: string): any => ({
+            openapi: '3.1.0',
+            info: validInfo,
+            components: {
+                callbacks: {
+                    MyCallback: {
+                        [expression]: {
+                            post: {
+                                responses: { '200': { description: 'ok' } },
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        it('should reject empty string expressions', () => {
+            expect(() => validateSpec(createSpec(''))).toThrow(/must be a non-empty string/);
+        });
+
+        it('should reject unmatched braces in template', () => {
+            expect(() => validateSpec(createSpec('{$request.body'))).toThrow(/contains unmatched braces/);
+            expect(() => validateSpec(createSpec('{$request.body}{'))).toThrow(/contains unmatched braces/);
+        });
+
+        it('should reject nested braces or invalid runtime expression inside braces', () => {
+            expect(() => validateSpec(createSpec('{$request.unknown}'))).toThrow(/invalid runtime expression/);
+        });
+
+        it('should reject runtime expressions outside braces if required (e.g. starting with $)', () => {
+            expect(() => validateSpec(createSpec('$request.unknown'))).toThrow(/must be a valid runtime expression/);
+        });
+
+        it('should accept valid json pointer in body', () => {
+            expect(() => validateSpec(createSpec('{$request.body#/foo/bar}'))).not.toThrow();
+        });
+
+        it('should reject invalid header tokens', () => {
+            expect(() => validateSpec(createSpec('{$request.header.invalid@token}'))).toThrow(
+                /invalid runtime expression/,
+            );
+        });
+
+        it('should accept valid query and path runtime expressions', () => {
+            expect(() => validateSpec(createSpec('{$request.query.somevar}'))).not.toThrow();
+            expect(() => validateSpec(createSpec('{$request.path.somevar}'))).not.toThrow();
+        });
+
+        it('should reject query and path expressions missing a name', () => {
+            expect(() => validateSpec(createSpec('{$request.query.}'))).toThrow(/invalid runtime expression/);
+            expect(() => validateSpec(createSpec('{$request.path.}'))).toThrow(/invalid runtime expression/);
+        });
+        it('should recursively validate schema properties (items, allOf, anyOf, oneOf, not, if, then, else, etc.)', () => {
+            const createDeepSpec = (schema: any): any => ({
+                openapi: '3.2.0',
+                info: validInfo,
+                components: { schemas: { Deep: schema } },
+            });
+
+            const badDocs = { externalDocs: 'not-an-object' };
+
+            // Trigger line 246:
+            expect(() => validateSpec(createDeepSpec(badDocs))).toThrow(/must be an object/);
+
+            // Test recursive visits to cover lines 337-380
+            expect(() => validateSpec(createDeepSpec({ allOf: [badDocs] }))).toThrow(/allOf\[0\].externalDocs/);
+            expect(() => validateSpec(createDeepSpec({ anyOf: [badDocs] }))).toThrow(/anyOf\[0\].externalDocs/);
+            expect(() => validateSpec(createDeepSpec({ oneOf: [badDocs] }))).toThrow(/oneOf\[0\].externalDocs/);
+            expect(() => validateSpec(createDeepSpec({ not: badDocs }))).toThrow(/not.externalDocs/);
+            expect(() => validateSpec(createDeepSpec({ if: badDocs }))).toThrow(/if.externalDocs/);
+            expect(() => validateSpec(createDeepSpec({ then: badDocs }))).toThrow(/then.externalDocs/);
+            expect(() => validateSpec(createDeepSpec({ else: badDocs }))).toThrow(/else.externalDocs/);
+
+            // items (object) vs items (array)
+            expect(() => validateSpec(createDeepSpec({ items: badDocs }))).toThrow(/items.externalDocs/);
+            expect(() => validateSpec(createDeepSpec({ items: [badDocs] }))).toThrow(/items\[0\].externalDocs/);
+
+            expect(() => validateSpec(createDeepSpec({ prefixItems: [badDocs] }))).toThrow(
+                /prefixItems\[0\].externalDocs/,
+            );
+
+            expect(() => validateSpec(createDeepSpec({ properties: { p: badDocs } }))).toThrow(
+                /properties.p.externalDocs/,
+            );
+            expect(() => validateSpec(createDeepSpec({ patternProperties: { '^p': badDocs } }))).toThrow(
+                /patternProperties.\^p.externalDocs/,
+            );
+            expect(() => validateSpec(createDeepSpec({ additionalProperties: badDocs }))).toThrow(
+                /additionalProperties.externalDocs/,
+            );
+            expect(() => validateSpec(createDeepSpec({ dependentSchemas: { p: badDocs } }))).toThrow(
+                /dependentSchemas.p.externalDocs/,
+            );
+            expect(() => validateSpec(createDeepSpec({ contentSchema: badDocs }))).toThrow(
+                /contentSchema.externalDocs/,
+            );
+        });
+    });
+});
+import { describe, expect, it } from 'vitest';
+
+import { validateSpec } from '@src/core/validator.js';
+
+describe('Core: Server Object Validation (Additional)', () => {
+    const validInfo = { title: 'Valid API', version: '1.0.0' };
+
+    it('should reject server URLs with undefined template variables', () => {
+        // type-coverage:ignore-next-line
+        const spec: any = {
+            openapi: '3.2.0',
+            info: validInfo,
+            servers: [
+                {
+                    url: 'https://{region}.example.com',
+                    variables: { env: { default: 'prod' } },
+                },
+            ],
+            paths: {},
+        };
+        expect(() => validateSpec(spec)).toThrow(/not defined in variables/);
+    });
+
+    it('should reject server URLs defining template variables but missing variables object entirely', () => {
+        const spec: any = {
+            openapi: '3.2.0',
+            info: validInfo,
+            servers: [
+                {
+                    url: 'https://{region}.example.com',
+                },
+            ],
+            paths: {},
+        };
+        expect(() => validateSpec(spec)).toThrow(/defines template variables but 'variables' is missing/);
+    });
+
+    it('should reject server variables missing required default', () => {
+        // type-coverage:ignore-next-line
+        const spec: any = {
+            openapi: '3.2.0',
+            info: validInfo,
+            servers: [
+                {
+                    url: 'https://{env}.example.com',
+                    variables: { env: {} },
+                },
+            ],
+            paths: {},
+        };
+        expect(() => validateSpec(spec)).toThrow(/must define a string default/);
+    });
+
+    it('should reject server variables with non-string default', () => {
+        // type-coverage:ignore-next-line
+        const spec: any = {
+            openapi: '3.2.0',
+            info: validInfo,
+            servers: [
+                {
+                    url: 'https://{env}.example.com',
+                    variables: { env: { default: 123 } },
+                },
+            ],
+            paths: {},
+        };
+        expect(() => validateSpec(spec)).toThrow(/must define a string default/);
+    });
+
+    it('should reject empty or non-string server url', () => {
+        const spec1: any = { openapi: '3.2.0', info: validInfo, servers: [{ url: '' }], paths: {} };
+        const spec2: any = { openapi: '3.2.0', info: validInfo, servers: [{ url: 123 }], paths: {} };
+        expect(() => validateSpec(spec1)).toThrow(/must be a non-empty string/);
+        expect(() => validateSpec(spec2)).toThrow(/must be a non-empty string/);
+    });
+
+    it('should reject duplicate server names', () => {
+        // type-coverage:ignore-next-line
+        const spec: any = {
+            openapi: '3.2.0',
+            info: validInfo,
+            servers: [
+                { url: 'https://api.example.com', name: 'prod' },
+                { url: 'https://staging.example.com', name: 'prod' },
+            ],
+            paths: {},
+        };
+        expect(() => validateSpec(spec)).toThrow(/Server name "prod" must be unique/);
+    });
+
+    it('should reject nested braces in server URL templates', () => {
+        // type-coverage:ignore-next-line
+        const spec: any = {
+            openapi: '3.2.0',
+            info: validInfo,
+            servers: [{ url: 'https://{{nested}}.example.com' }],
+            paths: {},
+        };
+        expect(() => validateSpec(spec)).toThrow(/contains nested "{" characters/);
+    });
+
+    it('should reject unmatched closing braces in server URL templates', () => {
+        // type-coverage:ignore-next-line
+        const spec: any = {
+            openapi: '3.2.0',
+            info: validInfo,
+            servers: [{ url: 'https://unmatched}.example.com' }],
+            paths: {},
+        };
+        expect(() => validateSpec(spec)).toThrow(/contains a closing "}" without a matching "\{"/);
+    });
+});
+import { describe, expect, it } from 'vitest';
+
+import { validateSpec } from '@src/core/validator.js';
+import { info } from '../fixtures/common.js';
+
+describe('Core: Security Scheme Validation', () => {
+    it('should require name and in for apiKey schemes', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info,
+            paths: {},
+            components: {
+                securitySchemes: {
+                    BadApiKey: { type: 'apiKey', in: 'header' },
+                },
+            },
+        };
+
+        expect(() => validateSpec(spec as any)).toThrow(
+            /apiKey security scheme "BadApiKey" must define non-empty 'name'/,
+        );
+
+        const spec2 = {
+            openapi: '3.0.0',
+            info,
+            paths: {},
+            components: {
+                securitySchemes: {
+                    BadApiKey2: { type: 'apiKey', name: 'key' },
+                },
+            },
+        };
+
+        expect(() => validateSpec(spec2 as any)).toThrow(
+            /apiKey security scheme "BadApiKey2" must define 'in' as 'query', 'header', or 'cookie'/,
+        );
+    });
+
+    it('should require scheme for http schemes', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info,
+            paths: {},
+            components: {
+                securitySchemes: {
+                    BadHttp: { type: 'http' },
+                },
+            },
+        };
+
+        expect(() => validateSpec(spec as any)).toThrow(
+            /http security scheme "BadHttp" must define non-empty 'scheme'/,
+        );
+    });
+
+    it('should require valid oauth2 flows with URLs and scopes', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info,
+            paths: {},
+            components: {
+                securitySchemes: {
+                    OAuthMissingFlows: { type: 'oauth2' },
+                },
+            },
+        };
+
+        expect(() => validateSpec(spec as any)).toThrow(/must define 'flows'/);
+    });
+
+    it('should throw on invalid validateHttpsUrl cases', () => {
+        const createSpec = (flows: any, extraSchemeOverrides: any = {}): any => ({
+            openapi: '3.1.0',
+            info,
+            paths: {},
+            components: {
+                securitySchemes: {
+                    OAuth: {
+                        type: 'oauth2',
+                        flows,
+                        ...extraSchemeOverrides,
+                    },
+                },
+            },
+        });
+
+        // Not an object
+        expect(() => validateSpec(createSpec({ implicit: 'not-an-object' }))).toThrow(/must be an object/);
+
+        // Missing/empty/non-string URL
+        expect(() => validateSpec(createSpec({ implicit: { authorizationUrl: '', scopes: {} } }))).toThrow(
+            /must be a non-empty string/,
+        );
+        expect(() => validateSpec(createSpec({ implicit: { authorizationUrl: 123, scopes: {} } }))).toThrow(
+            /must be a non-empty string/,
+        );
+
+        // Not a URL
+        expect(() => validateSpec(createSpec({ implicit: { authorizationUrl: 'not-a-url', scopes: {} } }))).toThrow(
+            /must be a valid URL/,
+        );
+
+        // Not HTTPS
+        expect(() =>
+            validateSpec(createSpec({ implicit: { authorizationUrl: 'http://auth.example.com', scopes: {} } })),
+        ).toThrow(/must use https/);
+
+        // Check required URLs per flow
+        expect(() => validateSpec(createSpec({ password: { tokenUrl: '', scopes: {} } }))).toThrow(
+            /must be a non-empty string/,
+        );
+        expect(() => validateSpec(createSpec({ clientCredentials: { tokenUrl: '', scopes: {} } }))).toThrow(
+            /must be a non-empty string/,
+        );
+        expect(() =>
+            validateSpec(
+                createSpec({
+                    deviceAuthorization: {
+                        authorizationUrl: 'https://auth.example.com',
+                        tokenUrl: 'https://auth.example.com',
+                        deviceAuthorizationUrl: '',
+                        scopes: {},
+                    },
+                }),
+            ),
+        ).toThrow(/must be a non-empty string/);
+
+        // Optional refreshUrl
+        expect(() =>
+            validateSpec(
+                createSpec({
+                    implicit: { authorizationUrl: 'https://auth.example.com', refreshUrl: 'not-a-url', scopes: {} },
+                }),
+            ),
+        ).toThrow(/must be a valid URL/);
+
+        // Missing scopes
+        expect(() => validateSpec(createSpec({ implicit: { authorizationUrl: 'https://auth.example.com' } }))).toThrow(
+            /must define 'scopes' as an object/,
+        );
+
+        // Test oauth2MetadataUrl using the extra overrides
+        expect(() =>
+            validateSpec(
+                createSpec(
+                    { implicit: { authorizationUrl: 'https://auth.example.com', scopes: {} } },
+                    { oauth2MetadataUrl: 'http://auth.example.com' },
+                ),
+            ),
+        ).toThrow(/must use https/);
+
+        // Test empty flows object
+        expect(() => validateSpec(createSpec({}))).toThrow(/must define at least one flow/);
+    });
+
+    it('should require valid base fields for security schemes', () => {
+        expect(() =>
+            validateSpec({
+                openapi: '3.1.0',
+                info,
+                paths: {},
+                components: { securitySchemes: { Bad: { type: 123 } } },
+            } as any),
+        ).toThrow(/must define a string 'type'/);
+        expect(() =>
+            validateSpec({
+                openapi: '3.1.0',
+                info,
+                paths: {},
+                components: { securitySchemes: { Bad: { type: 'unknown' } } },
+            } as any),
+        ).toThrow(/unsupported type/);
+    });
+
+    it('should ignore non-object or Ref security schemes', () => {
+        // Ref-like should just bypass type validation logic
+        expect(() =>
+            validateSpec({
+                openapi: '3.1.0',
+                info,
+                paths: {},
+                components: { securitySchemes: { Ref: { $ref: '#/components/securitySchemes/Other' } } },
+            } as any),
+        ).not.toThrow();
+        expect(() =>
+            validateSpec({
+                openapi: '3.1.0',
+                info,
+                paths: {},
+                components: { securitySchemes: { NotObj: 'foo' } },
+            } as any),
+        ).not.toThrow();
+    });
+
+    it('should require valid mutualTLS properties', () => {
+        expect(() =>
+            validateSpec({
+                openapi: '3.1.0',
+                info,
+                paths: {},
+                components: { securitySchemes: { Bad: { type: 'mutualTLS' } } },
+            } as any),
+        ).not.toThrow();
+    });
+
+    it('should enforce https URLs for openIdConnect', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info,
+            paths: {},
+            components: {
+                securitySchemes: {
+                    OIDC: {
+                        type: 'openIdConnect',
+                        openIdConnectUrl: 'http://example.com/.well-known/openid-configuration',
+                    },
+                },
+            },
+        };
+
+        expect(() => validateSpec(spec as any)).toThrow(/openIdConnectUrl must use https/);
+    });
+
+    it('should accept valid oauth2 flows', () => {
+        const spec = {
+            openapi: '3.0.0',
+            info,
+            paths: {},
+            components: {
+                securitySchemes: {
+                    OAuth: {
+                        type: 'oauth2',
+                        flows: {
+                            authorizationCode: {
+                                authorizationUrl: 'https://auth.example.com/authorize',
+                                tokenUrl: 'https://auth.example.com/token',
+                                scopes: {},
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        expect(() => validateSpec(spec as any)).not.toThrow();
+    });
+});
+// tests/00-core/07-example-validation.spec.ts
+import { describe, expect, it } from 'vitest';
+
+import { validateSpec } from '@src/core/validator.js';
+import { SwaggerSpec } from '@src/core/types/index.js';
+
+const baseSpec: SwaggerSpec = {
+    openapi: '3.2.0',
+    info: { title: 'Example API', version: '1.0.0' },
+    paths: {
+        '/pets': {
+            get: {
+                responses: {
+                    '200': {
+                        description: 'ok',
+                        content: {
+                            'application/json': {
+                                schema: { type: 'string' },
+                                examples: {
+                                    ok: {
+                                        dataValue: 'hello',
+                                        serializedValue: '"hello"',
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    },
+};
+
+function cloneSpec(): SwaggerSpec {
+    return JSON.parse(JSON.stringify(baseSpec)) as SwaggerSpec;
+}
+
+describe('Core: Example Object validation (OAS 3.2)', () => {
+    it('should accept dataValue alongside serializedValue', () => {
+        const spec = cloneSpec();
+        expect(() => validateSpec(spec)).not.toThrow();
+    });
+
+    it('should reject Example Object with both value and dataValue', () => {
+        const spec = cloneSpec();
+        spec.paths!['/pets'].get!.parameters = [
+            {
+                name: 'q',
+                in: 'query',
+                schema: { type: 'string' },
+                examples: {
+                    bad: {
+                        value: 'x',
+                        dataValue: 'y',
+                    },
+                },
+            },
+        ] as any;
+        expect(() => validateSpec(spec)).toThrow(/value.*dataValue/);
+    });
+
+    it('should reject Example Object with both serializedValue and externalValue', () => {
+        const spec = cloneSpec();
+        // type-coverage:ignore-next-line
+        (spec.paths as any)['/pets'].get.responses['200'].content['application/json'].examples = {
+            bad: {
+                serializedValue: '{"a":1}',
+                externalValue: 'http://example.com/example.json',
+            },
+        };
+        expect(() => validateSpec(spec)).toThrow(/serializedValue.*externalValue/);
+    });
+
+    it('should reject component examples with both value and serializedValue', () => {
+        const spec = cloneSpec();
+        spec.components = {
+            examples: {
+                BadExample: {
+                    value: 'foo',
+                    serializedValue: 'foo',
+                },
+            },
+        };
+        expect(() => validateSpec(spec)).toThrow(/value.*serializedValue/);
+    });
+
+    it('should ignore non-object examples or refs', () => {
+        const spec = cloneSpec();
+        spec.components = {
+            examples: {
+                IgnoredStr: 'foo' as any,
+                RefExample: { $ref: '#/components/examples/Other' },
+            },
+        };
+        expect(() => validateSpec(spec)).not.toThrow();
+    });
+
+    it('should reject Example Object with both value and externalValue', () => {
+        const spec = cloneSpec();
+        spec.components = { examples: { Bad: { value: 'foo', externalValue: 'foo' } } };
+        expect(() => validateSpec(spec)).toThrow(/value.*externalValue/);
+    });
+
+    it('should reject non-string serializedValue and externalValue', () => {
+        const spec1 = cloneSpec();
+        spec1.components = { examples: { Bad: { serializedValue: 123 as any } } };
+        expect(() => validateSpec(spec1)).toThrow(/non-string 'serializedValue'/);
+
+        const spec2 = cloneSpec();
+        spec2.components = { examples: { Bad: { externalValue: 123 as any } } };
+        expect(() => validateSpec(spec2)).toThrow(/non-string 'externalValue'/);
     });
 });

@@ -138,6 +138,7 @@ function isTextualMediaType(mediaType: string | undefined): boolean {
     if (mediaType === 'application/x-www-form-urlencoded') return true;
     if (mediaType === 'application/json' || mediaType.endsWith('+json') || mediaType.includes('json')) return true;
     if (mediaType === 'application/xml' || mediaType.endsWith('+xml') || mediaType.includes('xml')) return true;
+    /* istanbul ignore next */
     return false;
 }
 

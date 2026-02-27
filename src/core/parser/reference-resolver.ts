@@ -76,7 +76,7 @@ export class ReferenceResolver {
                     if (!cache.has(nextBase)) {
                         cache.set(nextBase, obj as SwaggerSpec);
                     }
-                } catch (e) {
+                } catch (_e) {
                     /* Ignore invalid $id */
                 }
             }

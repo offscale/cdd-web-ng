@@ -123,12 +123,13 @@ export class MockDataGenerator {
                     return this.generateNumberValue(schema);
                 case 'null':
                     return null;
-                default:
+                default: {
                     const subSchema = schema.oneOf?.[0] || schema.anyOf?.[0];
                     if (subSchema) {
                         return this.generateValue(subSchema as SwaggerDefinition, visited, maxDepth - 1);
                     }
                     return undefined;
+                }
             }
         } finally {
             visited.delete(schema);

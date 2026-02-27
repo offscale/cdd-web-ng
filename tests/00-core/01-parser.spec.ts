@@ -1005,5 +1005,95 @@ describe('Core: SwaggerParser', () => {
             );
             expect(p.servers).toEqual([{ url: 'https://swagger.example.com/api' }]);
         });
+
+        it('should use explicit servers for Swagger 2.0 if provided', () => {
+            const spec = {
+                swagger: '2.0',
+                info: validInfo,
+                paths: {},
+                servers: [{ url: 'http://custom.com/api' }],
+            };
+            const p = new SwaggerParser(spec as any, config);
+            expect(p.servers).toEqual([{ url: 'http://custom.com/api' }]);
+        });
+
+        it('should use basePath for Swagger 2.0 if no host/url provided', () => {
+            const spec = {
+                swagger: '2.0',
+                info: validInfo,
+                paths: {},
+                basePath: '/just-base',
+            };
+            const p = new SwaggerParser(spec as any, config, undefined, 'file://local');
+            expect(p.servers).toEqual([{ url: '/just-base' }]);
+        });
+
+        it('should warn on duplicate schemas and standalone schemas', () => {
+            const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            const spec = {
+                openapi: '3.0.0',
+                info: validInfo,
+                paths: {},
+                components: {
+                    schemas: {
+                        user_model: { type: 'object' },
+                        UserModel: { type: 'string' },
+                    },
+                },
+            };
+            const cache = new Map<string, any>([
+                ['file://entry-spec.json', spec],
+                ['file://other-spec.json', { type: 'number', $id: 'UserModel' }],
+            ]);
+            new SwaggerParser(spec as any, config, cache, 'file://entry-spec.json');
+            expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Duplicate schema name "UserModel"'));
+            consoleSpy.mockRestore();
+        });
+
+        it('should throw SpecValidationError when duplicate operationIds exist', () => {
+            const spec = {
+                openapi: '3.0.0',
+                info: validInfo,
+                paths: {
+                    '/test1': { get: { operationId: 'dupOp', responses: { '200': { description: 'ok' } } } },
+                    '/test2': { post: { operationId: 'dupOp', responses: { '200': { description: 'ok' } } } },
+                },
+            };
+            expect(() => {
+                new SwaggerParser(spec as any, config);
+            }).toThrowError(/Duplicate operationId "dupOp"/);
+        });
+
+        it('should cover unreachable branches in assertUniqueResolvedOperationIds by stubbing resolvedPaths', () => {
+            const spec = {
+                openapi: '3.0.0',
+                info: validInfo,
+                paths: {
+                    '/test1': { $ref: '#/components/pathItems/Test' },
+                },
+                webhooks: {
+                    hook1: { $ref: '#/components/pathItems/Hook' },
+                },
+                components: {
+                    pathItems: {
+                        Test: {
+                            additionalOperations: {
+                                COPY: { operationId: 'dupOp', responses: { '200': { description: 'ok' } } },
+                            },
+                            get: { operationId: 'dupOp2', responses: { '200': { description: 'ok' } } },
+                        },
+                        Hook: {
+                            additionalOperations: {
+                                COPY: { operationId: 'dupOp', responses: { '200': { description: 'ok' } } },
+                            },
+                            get: { operationId: 'dupOp2', responses: { '200': { description: 'ok' } } },
+                        },
+                    },
+                },
+            };
+            expect(() => {
+                new SwaggerParser(spec as any, config);
+            }).toThrowError(/Duplicate operationId/);
+        });
     });
 });

@@ -84,8 +84,17 @@ function isUriReference(value: string): boolean {
     if (!value || typeof value !== 'string') return false;
     if (/\s/.test(value)) return false;
     if (isUrl(value)) return true;
+
+    // If it has a scheme-like prefix before any path characters, validate the scheme
+    const schemeMatch = value.match(/^([^:/?#]+):/);
+    if (schemeMatch) {
+        if (!/^[a-zA-Z][a-zA-Z0-9+.-]*$/.test(schemeMatch[1])) {
+            return false;
+        }
+    }
+
     // RFC3986 unreserved + reserved + percent encoding
-    return /^[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]+$/.test(value);
+    return /^[A-Za-z0-9\-._~:/?#[\]@!$&'()*+,;=%]+$/.test(value);
 }
 
 function isEmailAddress(value: string): boolean {
@@ -108,7 +117,7 @@ const HTTP_METHOD_TOKEN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
 function isValidJsonPointer(pointer: string): boolean {
     if (pointer === '') return true;
     if (!pointer.startsWith('/')) return false;
-    return /^\/([^~\/]|~[01])*(\/([^~\/]|~[01])*)*$/.test(pointer);
+    return new RegExp('^/([^~/]|~[01])*(/([^~/]|~[01])*)*$').test(pointer);
 }
 
 /**
@@ -2331,7 +2340,7 @@ export function validateSpec(spec: SwaggerSpec): void {
                 'mediaTypes',
                 'webhooks',
             ];
-            const validKeyRegex = /^[a-zA-Z0-9\.\-_]+$/;
+            const validKeyRegex = /^[a-zA-Z0-9.\-_]+$/;
 
             for (const type of componentTypes) {
                 const componentGroup = (spec.components as any)[type] as Record<string, unknown> | undefined;

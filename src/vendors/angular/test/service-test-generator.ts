@@ -81,21 +81,23 @@ export class ServiceTestGenerator {
             if (!op.methodName) continue;
             const { responseModel, responseType, bodyModel, isPrimitiveBody } = this.getMethodTypes(op);
 
-            const params = (op.parameters ?? []).map((p: Parameter) => {
-                const name = camelCase(p.name);
-                const type = getTypeScriptType(p.schema as SwaggerDefinition, this.config, knownTypes);
-                const modelName = isDataTypeInterface(type.replace(/\[\]| \| null/g, ''))
-                    ? type.replace(/\[\]| \| null/g, '')
-                    : undefined;
-                let value: string;
+            const params = (op.parameters ?? [])
+                .map((p: Parameter) => {
+                    const name = camelCase(p.name);
+                    const type = getTypeScriptType(p.schema as SwaggerDefinition, this.config, knownTypes);
+                    const modelName = isDataTypeInterface(type.replace(/\[\]| \| null/g, ''))
+                        ? type.replace(/\[\]| \| null/g, '')
+                        : undefined;
+                    let value: string;
 
-                if (modelName) {
-                    value = this.mockDataGenerator.generate(modelName);
-                } else {
-                    value = this.getParameterExampleValue(p) ?? this.generateDefaultPrimitiveValue(p.schema, type);
-                }
-                return { name, value, type, modelName };
-            });
+                    if (modelName) {
+                        value = this.mockDataGenerator.generate(modelName);
+                    } else {
+                        value = this.getParameterExampleValue(p) ?? this.generateDefaultPrimitiveValue(p.schema, type);
+                    }
+                    return { name, value, type, modelName, required: p.required };
+                })
+                .sort((a, b) => (a.required ? 0 : 1) - (b.required ? 0 : 1));
 
             const bodyParam = op.requestBody?.content?.['application/json']
                 ? {

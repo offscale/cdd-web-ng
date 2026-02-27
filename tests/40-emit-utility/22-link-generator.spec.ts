@@ -536,7 +536,9 @@ describe('Emitter: LinkGenerator', () => {
             },
         };
         const project = runGenerator(spec);
-        const { API_LINKS } = compileGeneratedFile(project);
+        const { API_LINKS } = compileGeneratedFile(project) as {
+            API_LINKS: Record<string, Record<string, Record<string, { operationId?: string }>>>;
+        };
         const linkBlock = API_LINKS['getTest']['200'];
         expect(linkBlock['MalformedLink'].operationId).toBeUndefined();
         expect(linkBlock['NoFragment'].operationId).toBeUndefined();

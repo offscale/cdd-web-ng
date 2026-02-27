@@ -139,7 +139,7 @@ export class ServiceTestGenerator {
 
             tests.push(`    it('should return ${responseType} on success', () => {`);
 
-            let mockResponseValue: any = 'null';
+            let mockResponseValue: string = 'null';
             if (responseModel) {
                 if (responseType.endsWith('[]')) {
                     let mockData = this.mockDataGenerator.generate(responseModel);

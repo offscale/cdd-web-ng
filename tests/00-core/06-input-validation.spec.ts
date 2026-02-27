@@ -13,64 +13,64 @@ describe('Core: Input Spec Validation', () => {
     describe('Structural Validation', () => {
         it('should accept a valid Swagger 2.0 spec with paths', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 swagger: '2.0',
                 info: validInfo,
                 paths: {},
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should accept a valid OpenAPI 3.x spec with paths', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.0.1',
                 info: validInfo,
                 paths: {},
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should accept a valid OpenAPI 3.x spec with components only (no paths)', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.1.0',
                 info: validInfo,
                 components: { schemas: {} },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should accept a valid OpenAPI 3.x spec with webhooks only (no paths)', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.1.0',
                 info: validInfo,
                 webhooks: {},
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should accept a valid $self URI reference', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 $self: '/api/openapi',
                 paths: {},
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should reject an invalid $self URI reference', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 $self: 'not a uri',
                 paths: {},
             };
-            expect(() => validateSpec(spec)).toThrow(/\$self.*URI reference/);
+            expect(() => validateSpec(spec as never)).toThrow(/\$self.*URI reference/);
         });
 
         it('should throw if spec object is null/undefined', () => {
@@ -80,46 +80,46 @@ describe('Core: Input Spec Validation', () => {
 
         it('should throw on missing version header', () => {
             // type-coverage:ignore-next-line
-            const spec: any = { info: validInfo, paths: {} };
-            expect(() => validateSpec(spec)).toThrow(/Unsupported or missing OpenAPI\/Swagger version/);
+            const spec = { info: validInfo, paths: {} };
+            expect(() => validateSpec(spec as never)).toThrow(/Unsupported or missing OpenAPI\/Swagger version/);
         });
 
         it('should throw on invalid version (e.g. 1.2)', () => {
             // type-coverage:ignore-next-line
-            const spec: any = { swagger: '1.2', info: validInfo, paths: {} };
-            expect(() => validateSpec(spec)).toThrow(/Unsupported or missing OpenAPI\/Swagger version/);
+            const spec = { swagger: '1.2', info: validInfo, paths: {} };
+            expect(() => validateSpec(spec as never)).toThrow(/Unsupported or missing OpenAPI\/Swagger version/);
         });
 
         it('should throw on missing info object', () => {
             // type-coverage:ignore-next-line
-            const spec: any = { openapi: '3.0.0', paths: {} };
-            expect(() => validateSpec(spec)).toThrow(/must contain an 'info' object/);
+            const spec = { openapi: '3.0.0', paths: {} };
+            expect(() => validateSpec(spec as never)).toThrow(/must contain an 'info' object/);
         });
 
         it('should throw on missing info title', () => {
             // type-coverage:ignore-next-line
-            const spec: any = { openapi: '3.0.0', info: { version: '1.0' }, paths: {} };
-            expect(() => validateSpec(spec)).toThrow(/must contain a required string field: 'title'/);
+            const spec = { openapi: '3.0.0', info: { version: '1.0' }, paths: {} };
+            expect(() => validateSpec(spec as never)).toThrow(/must contain a required string field: 'title'/);
         });
 
         it('should throw on missing info version', () => {
             // type-coverage:ignore-next-line
-            const spec: any = { openapi: '3.0.0', info: { title: 'API' }, paths: {} };
-            expect(() => validateSpec(spec)).toThrow(/must contain a required string field: 'version'/);
+            const spec = { openapi: '3.0.0', info: { title: 'API' }, paths: {} };
+            expect(() => validateSpec(spec as never)).toThrow(/must contain a required string field: 'version'/);
         });
 
         it('should reject invalid termsOfService URI', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: { ...validInfo, termsOfService: 'not a uri' },
                 paths: {},
             };
-            expect(() => validateSpec(spec)).toThrow(/termsOfService must be a valid URI/i);
+            expect(() => validateSpec(spec as never)).toThrow(/termsOfService must be a valid URI/i);
         });
 
         it('should reject invalid contact url and email', () => {
-            const specUrl: any = {
+            const specUrl = {
                 openapi: '3.2.0',
                 info: {
                     ...validInfo,
@@ -129,9 +129,9 @@ describe('Core: Input Spec Validation', () => {
                 },
                 paths: {},
             };
-            expect(() => validateSpec(specUrl)).toThrow(/contact.url must be a valid URI/i);
+            expect(() => validateSpec(specUrl as never)).toThrow(/contact.url must be a valid URI/i);
 
-            const specEmail: any = {
+            const specEmail = {
                 openapi: '3.2.0',
                 info: {
                     ...validInfo,
@@ -141,12 +141,12 @@ describe('Core: Input Spec Validation', () => {
                 },
                 paths: {},
             };
-            expect(() => validateSpec(specEmail)).toThrow(/contact.email must be a valid email/i);
+            expect(() => validateSpec(specEmail as never)).toThrow(/contact.email must be a valid email/i);
         });
 
         it('should accept valid contact url and email', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: {
                     ...validInfo,
@@ -157,34 +157,34 @@ describe('Core: Input Spec Validation', () => {
                 },
                 paths: {},
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should reject invalid externalDocs at root', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
                 externalDocs: { url: 'not a uri' },
             };
-            expect(() => validateSpec(spec)).toThrow(/ExternalDocs\.url must be a valid URI/i);
+            expect(() => validateSpec(spec as never)).toThrow(/ExternalDocs\.url must be a valid URI/i);
         });
 
         it('should reject invalid externalDocs on tag', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
                 tags: [{ name: 'bad', externalDocs: { url: 'bad uri' } }],
             };
-            expect(() => validateSpec(spec)).toThrow(/tags\.bad\.externalDocs/i);
+            expect(() => validateSpec(spec as never)).toThrow(/tags\.bad\.externalDocs/i);
         });
 
         it('should reject invalid externalDocs on operation', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -196,12 +196,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/externalDocs/i);
+            expect(() => validateSpec(spec as never)).toThrow(/externalDocs/i);
         });
 
         it('should reject invalid externalDocs on schema', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
@@ -214,7 +214,7 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/components\.schemas\.BadSchema\.externalDocs/i);
+            expect(() => validateSpec(spec as never)).toThrow(/components\.schemas\.BadSchema\.externalDocs/i);
         });
 
         it('should reject invalid schema $id and $schema URIs', () => {
@@ -279,7 +279,7 @@ describe('Core: Input Spec Validation', () => {
 
         it('should ignore reserved header parameters (Accept/Content-Type/Authorization)', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -295,12 +295,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should reject paths keys that do not start with "/"', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -313,12 +313,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/Path key "users" must start with \"\/\"/);
+            expect(() => validateSpec(spec as never)).toThrow(/Path key "users" must start with \"\/\"/);
         });
 
         it('should reject invalid response status code keys', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -331,12 +331,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/invalid status code '600'/i);
+            expect(() => validateSpec(spec as never)).toThrow(/invalid status code '600'/i);
         });
 
         it('should accept response code ranges and default', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -355,19 +355,21 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should throw if Swagger 2.0 has no paths', () => {
             // type-coverage:ignore-next-line
-            const spec: any = { swagger: '2.0', info: validInfo }; // Missing paths
-            expect(() => validateSpec(spec)).toThrow(/Swagger 2.0 specification must contain a 'paths' object/);
+            const spec = { swagger: '2.0', info: validInfo }; // Missing paths
+            expect(() => validateSpec(spec as never)).toThrow(
+                /Swagger 2.0 specification must contain a 'paths' object/,
+            );
         });
 
         it('should throw if OpenAPI 3.x has no paths, components, or webhooks', () => {
             // type-coverage:ignore-next-line
-            const spec: any = { openapi: '3.0.0', info: validInfo }; // Completely empty structure
-            expect(() => validateSpec(spec)).toThrow(
+            const spec = { openapi: '3.0.0', info: validInfo }; // Completely empty structure
+            expect(() => validateSpec(spec as never)).toThrow(
                 /must contain at least one of: 'paths', 'components', or 'webhooks'/,
             );
         });
@@ -376,7 +378,7 @@ describe('Core: Input Spec Validation', () => {
     describe('License Object Validation', () => {
         it('should throw if License is missing required name', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: {
                     ...validInfo,
@@ -386,12 +388,14 @@ describe('Core: Input Spec Validation', () => {
                 },
                 paths: {},
             };
-            expect(() => validateSpec(spec)).toThrow(/License object must contain a required string field: 'name'/);
+            expect(() => validateSpec(spec as never)).toThrow(
+                /License object must contain a required string field: 'name'/,
+            );
         });
 
         it('should throw if License contains both url and identifier (Mutually Exclusive)', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.1.0',
                 info: {
                     ...validInfo,
@@ -403,12 +407,12 @@ describe('Core: Input Spec Validation', () => {
                 },
                 paths: {},
             };
-            expect(() => validateSpec(spec)).toThrow(/mutually exclusive/);
+            expect(() => validateSpec(spec as never)).toThrow(/mutually exclusive/);
         });
 
         it('should accept License with only url', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.0.0',
                 info: {
                     ...validInfo,
@@ -419,12 +423,12 @@ describe('Core: Input Spec Validation', () => {
                 },
                 paths: {},
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should accept License with only identifier (OAS 3.1+)', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.1.0',
                 info: {
                     ...validInfo,
@@ -435,12 +439,12 @@ describe('Core: Input Spec Validation', () => {
                 },
                 paths: {},
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should accept License with neither url nor identifier (just name)', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.0.0',
                 info: {
                     ...validInfo,
@@ -450,14 +454,14 @@ describe('Core: Input Spec Validation', () => {
                 },
                 paths: {},
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
     });
 
     describe('Path Parameter Validation', () => {
         it('should reject when a templated path is missing a path parameter definition', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -466,12 +470,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/missing a corresponding 'in: path'/i);
+            expect(() => validateSpec(spec as never)).toThrow(/missing a corresponding 'in: path'/i);
         });
 
         it('should allow templated paths to omit path params when the path item is empty (ACL exception)', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -480,12 +484,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should reject when a path parameter is not required', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -497,12 +501,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/must be marked as required/i);
+            expect(() => validateSpec(spec as never)).toThrow(/must be marked as required/i);
         });
 
         it('should reject when a path parameter does not match the template', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -514,12 +518,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/does not match any template variable/i);
+            expect(() => validateSpec(spec as never)).toThrow(/does not match any template variable/i);
         });
 
         it('should accept when path parameters are defined at the path level', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -529,14 +533,14 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
     });
 
     describe('Components Key Validation', () => {
         it('should accept mediaTypes and webhooks component keys that match the regex', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 components: {
@@ -544,38 +548,38 @@ describe('Core: Input Spec Validation', () => {
                     webhooks: { ValidWebhook: { post: { responses: { '200': { description: 'ok' } } } } },
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should reject invalid mediaTypes component keys', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 components: {
                     mediaTypes: { 'Bad Key!': { schema: { type: 'string' } } },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/Invalid component key/);
+            expect(() => validateSpec(spec as never)).toThrow(/Invalid component key/);
         });
 
         it('should reject invalid webhooks component keys', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 components: {
                     webhooks: { 'Bad/Key': { post: { responses: { '200': { description: 'ok' } } } } },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/Invalid component key/);
+            expect(() => validateSpec(spec as never)).toThrow(/Invalid component key/);
         });
     });
 
     describe('Responses Validation', () => {
         it('should reject operations missing responses', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -584,12 +588,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/must define 'responses'/i);
+            expect(() => validateSpec(spec as never)).toThrow(/must define 'responses'/i);
         });
 
         it('should reject response objects without description', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -598,12 +602,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/Response Object.*description/i);
+            expect(() => validateSpec(spec as never)).toThrow(/Response Object.*description/i);
         });
 
         it('should reject responses objects with no entries', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -612,12 +616,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/Responses Object.*at least one response code/i);
+            expect(() => validateSpec(spec as never)).toThrow(/Responses Object.*at least one response code/i);
         });
 
         it('should accept response objects with descriptions', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -626,14 +630,14 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
     });
 
     describe('Component Path Item Validation', () => {
         it('should validate component pathItems operations', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
@@ -645,12 +649,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/Response Object.*description/i);
+            expect(() => validateSpec(spec as never)).toThrow(/Response Object.*description/i);
         });
 
         it('should validate component webhooks operations', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
@@ -662,14 +666,14 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/Responses Object.*at least one response code/i);
+            expect(() => validateSpec(spec as never)).toThrow(/Responses Object.*at least one response code/i);
         });
     });
 
     describe('OperationId Uniqueness', () => {
         it('should throw when operationIds are duplicated across paths', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -682,12 +686,12 @@ describe('Core: Input Spec Validation', () => {
                 },
             };
 
-            expect(() => validateSpec(spec)).toThrow(/Duplicate operationId "dup"/);
+            expect(() => validateSpec(spec as never)).toThrow(/Duplicate operationId "dup"/);
         });
 
         it('should throw when operationIds are duplicated across webhooks', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
@@ -697,12 +701,12 @@ describe('Core: Input Spec Validation', () => {
                 },
             };
 
-            expect(() => validateSpec(spec)).toThrow(/Duplicate operationId "whDup"/);
+            expect(() => validateSpec(spec as never)).toThrow(/Duplicate operationId "whDup"/);
         });
 
         it('should allow unique operationIds across paths and webhooks', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -715,12 +719,12 @@ describe('Core: Input Spec Validation', () => {
                 },
             };
 
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should throw when operationIds are duplicated across callbacks', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -743,12 +747,12 @@ describe('Core: Input Spec Validation', () => {
                 },
             };
 
-            expect(() => validateSpec(spec)).toThrow(/Duplicate operationId "dupCallback"/);
+            expect(() => validateSpec(spec as never)).toThrow(/Duplicate operationId "dupCallback"/);
         });
 
         it('should throw when operationIds are duplicated across paths and components.pathItems', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -765,12 +769,12 @@ describe('Core: Input Spec Validation', () => {
                 },
             };
 
-            expect(() => validateSpec(spec)).toThrow(/Duplicate operationId "dupComponent"/);
+            expect(() => validateSpec(spec as never)).toThrow(/Duplicate operationId "dupComponent"/);
         });
 
         it('should throw when operationIds are duplicated inside components.pathItems', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
@@ -786,20 +790,20 @@ describe('Core: Input Spec Validation', () => {
                 },
             };
 
-            expect(() => validateSpec(spec)).toThrow(/Duplicate operationId "dupPathItem"/);
+            expect(() => validateSpec(spec as never)).toThrow(/Duplicate operationId "dupPathItem"/);
         });
     });
 
     describe('Integration with SwaggerParser', () => {
         it('should validate spec upon construction', () => {
             // type-coverage:ignore-next-line
-            const invalidSpec: any = { openapi: '3.0.0' }; // No info
+            const invalidSpec = { openapi: '3.0.0' }; // No info
             expect(() => new SwaggerParser(invalidSpec, validConfig)).toThrow(SpecValidationError);
         });
 
         it('should support custom validation callback from config', () => {
             // type-coverage:ignore-next-line
-            const spec: any = { openapi: '3.0.0', info: validInfo, paths: {} };
+            const spec = { openapi: '3.0.0', info: validInfo, paths: {} };
             const config: GeneratorConfig = {
                 ...validConfig,
                 validateInput: s => s.info.title !== 'Forbidden Title',
@@ -818,7 +822,7 @@ describe('Core: Input Spec Validation', () => {
     describe('Component Key Validation (OAS 3.x)', () => {
         it('should accept valid component keys', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.0.0',
                 info: validInfo,
                 paths: {},
@@ -834,12 +838,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should throw on invalid characters (space) in component keys', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.0.0',
                 info: validInfo,
                 paths: {},
@@ -849,12 +853,14 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/Invalid component key "User Name" in "components.schemas"/);
+            expect(() => validateSpec(spec as never)).toThrow(
+                /Invalid component key "User Name" in "components.schemas"/,
+            );
         });
 
         it('should throw on invalid symbols ($) in component keys', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.0.0',
                 info: validInfo,
                 paths: {},
@@ -864,12 +870,14 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/Invalid component key "\$limit" in "components.parameters"/);
+            expect(() => validateSpec(spec as never)).toThrow(
+                /Invalid component key "\$limit" in "components.parameters"/,
+            );
         });
 
         it('should throw on invalid symbols (@) in securitySchemes keys', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.0.0',
                 info: validInfo,
                 paths: {},
@@ -879,14 +887,16 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/Invalid component key "@auth" in "components.securitySchemes"/);
+            expect(() => validateSpec(spec as never)).toThrow(
+                /Invalid component key "@auth" in "components.securitySchemes"/,
+            );
         });
     });
 
     describe('Component Parameter Validation (OAS 3.2)', () => {
         it('should throw if a component parameter is not an object or reference', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
@@ -896,14 +906,14 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(
+            expect(() => validateSpec(spec as never)).toThrow(
                 /Component parameter 'BadParam' must be an object or Reference Object/,
             );
         });
 
         it('should throw if a component parameter is missing name', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
@@ -913,14 +923,14 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(
+            expect(() => validateSpec(spec as never)).toThrow(
                 /Component parameter 'MissingName' must define a non-empty string 'name'/,
             );
         });
 
         it('should throw if a component parameter is missing in', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
@@ -930,7 +940,7 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(
+            expect(() => validateSpec(spec as never)).toThrow(
                 /Component parameter 'MissingIn' must define a non-empty string 'in'/,
             );
         });
@@ -939,60 +949,60 @@ describe('Core: Input Spec Validation', () => {
     describe('Server Object Validation (OAS 3.x)', () => {
         it('should reject server URLs containing query or fragment', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 servers: [{ url: 'https://example.com/api?x=1' }],
                 paths: {},
             };
-            expect(() => validateSpec(spec)).toThrow(/MUST NOT include query or fragment/);
+            expect(() => validateSpec(spec as never)).toThrow(/MUST NOT include query or fragment/);
         });
 
         it('should reject server URLs with unmatched braces', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 servers: [{ url: 'https://{region.example.com' }],
                 paths: {},
             };
-            expect(() => validateSpec(spec)).toThrow(/opening.*matching/i);
+            expect(() => validateSpec(spec as never)).toThrow(/opening.*matching/i);
         });
 
         it('should reject server URLs with unmatched closing braces', () => {
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 servers: [{ url: 'https://region}.example.com' }],
                 paths: {},
             };
-            expect(() => validateSpec(spec)).toThrow(/contains a closing "}" without a matching/i);
+            expect(() => validateSpec(spec as never)).toThrow(/contains a closing "}" without a matching/i);
         });
 
         it('should reject server URLs with nested braces', () => {
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 servers: [{ url: 'https://{{region}}.example.com' }],
                 paths: {},
             };
-            expect(() => validateSpec(spec)).toThrow(/contains nested "{" characters/i);
+            expect(() => validateSpec(spec as never)).toThrow(/contains nested "{" characters/i);
         });
 
         it('should reject server URLs with empty template expressions', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 servers: [{ url: 'https://example.com/{}' }],
                 paths: {},
             };
-            expect(() => validateSpec(spec)).toThrow(/empty template expression/);
+            expect(() => validateSpec(spec as never)).toThrow(/empty template expression/);
         });
 
         it('should reject server variables with empty enum', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 servers: [
@@ -1005,12 +1015,12 @@ describe('Core: Input Spec Validation', () => {
                 ],
                 paths: {},
             };
-            expect(() => validateSpec(spec)).toThrow(/enum MUST NOT be empty/);
+            expect(() => validateSpec(spec as never)).toThrow(/enum MUST NOT be empty/);
         });
 
         it('should reject server variables with non-string enum values', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 servers: [
@@ -1023,12 +1033,12 @@ describe('Core: Input Spec Validation', () => {
                 ],
                 paths: {},
             };
-            expect(() => validateSpec(spec)).toThrow(/enum MUST contain only strings/);
+            expect(() => validateSpec(spec as never)).toThrow(/enum MUST contain only strings/);
         });
 
         it('should reject server variables whose default is not in enum', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 servers: [
@@ -1041,12 +1051,12 @@ describe('Core: Input Spec Validation', () => {
                 ],
                 paths: {},
             };
-            expect(() => validateSpec(spec)).toThrow(/default MUST be present in enum/);
+            expect(() => validateSpec(spec as never)).toThrow(/default MUST be present in enum/);
         });
 
         it('should reject server variables that appear more than once', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 servers: [
@@ -1057,28 +1067,28 @@ describe('Core: Input Spec Validation', () => {
                 ],
                 paths: {},
             };
-            expect(() => validateSpec(spec)).toThrow(/appears more than once/);
+            expect(() => validateSpec(spec as never)).toThrow(/appears more than once/);
         });
 
         it('should reject server URLs defining template variables but missing variables object entirely', () => {
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 servers: [{ url: 'https://{region}.example.com' }],
                 paths: {},
             };
-            expect(() => validateSpec(spec)).toThrow(/defines template variables but 'variables' is missing/);
+            expect(() => validateSpec(spec as never)).toThrow(/defines template variables but 'variables' is missing/);
         });
 
         it('should reject empty or non-string server url', () => {
-            const spec1: any = { openapi: '3.2.0', info: validInfo, servers: [{ url: '' }], paths: {} };
-            const spec2: any = { openapi: '3.2.0', info: validInfo, servers: [{ url: 123 }], paths: {} };
+            const spec1 = { openapi: '3.2.0', info: validInfo, servers: [{ url: '' }], paths: {} };
+            const spec2 = { openapi: '3.2.0', info: validInfo, servers: [{ url: 123 }], paths: {} };
             expect(() => validateSpec(spec1)).toThrow(/must be a non-empty string/);
             expect(() => validateSpec(spec2)).toThrow(/must be a non-empty string/);
         });
 
         it('should reject duplicate server names', () => {
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 servers: [
@@ -1087,11 +1097,11 @@ describe('Core: Input Spec Validation', () => {
                 ],
                 paths: {},
             };
-            expect(() => validateSpec(spec)).toThrow(/Server name "prod" must be unique/);
+            expect(() => validateSpec(spec as never)).toThrow(/Server name "prod" must be unique/);
         });
 
         it('should reject server URLs with undefined template variables', () => {
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 servers: [
@@ -1102,11 +1112,11 @@ describe('Core: Input Spec Validation', () => {
                 ],
                 paths: {},
             };
-            expect(() => validateSpec(spec)).toThrow(/not defined in variables/);
+            expect(() => validateSpec(spec as never)).toThrow(/not defined in variables/);
         });
 
         it('should reject server variables missing required default', () => {
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 servers: [
@@ -1117,36 +1127,36 @@ describe('Core: Input Spec Validation', () => {
                 ],
                 paths: {},
             };
-            expect(() => validateSpec(spec)).toThrow(/must define a string default/);
+            expect(() => validateSpec(spec as never)).toThrow(/must define a string default/);
         });
     });
 
     describe('Tag Parent Validation (OAS 3.2)', () => {
         it('should reject duplicate tag names', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
                 tags: [{ name: 'dup' }, { name: 'dup' }],
             };
-            expect(() => validateSpec(spec)).toThrow(/Duplicate tag name/);
+            expect(() => validateSpec(spec as never)).toThrow(/Duplicate tag name/);
         });
 
         it('should reject tags whose parent does not exist', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
                 tags: [{ name: 'child', parent: 'missing' }],
             };
-            expect(() => validateSpec(spec)).toThrow(/parent "missing" which does not exist/);
+            expect(() => validateSpec(spec as never)).toThrow(/parent "missing" which does not exist/);
         });
 
         it('should reject circular tag parent references', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
@@ -1155,25 +1165,25 @@ describe('Core: Input Spec Validation', () => {
                     { name: 'b', parent: 'a' },
                 ],
             };
-            expect(() => validateSpec(spec)).toThrow(/Circular tag parent reference/);
+            expect(() => validateSpec(spec as never)).toThrow(/Circular tag parent reference/);
         });
 
         it('should accept valid tag parent references', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
                 tags: [{ name: 'root' }, { name: 'child', parent: 'root' }],
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
     });
 
     describe('Path Template Validation', () => {
         it('should throw error when two paths have identical hierarchy but different param names', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.0.0',
                 info: validInfo,
                 paths: {
@@ -1181,48 +1191,48 @@ describe('Core: Input Spec Validation', () => {
                     '/pets/{name}': {},
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/Ambiguous path definition detected/);
+            expect(() => validateSpec(spec as never)).toThrow(/Ambiguous path definition detected/);
         });
 
         it('should throw when a path template repeats the same variable', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
                     '/pets/{id}/{id}': {},
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/repeats template variable/);
+            expect(() => validateSpec(spec as never)).toThrow(/repeats template variable/);
         });
 
         it('should throw when a path template has unmatched braces', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
                     '/pets/{id': {},
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/opening.*matching/i);
+            expect(() => validateSpec(spec as never)).toThrow(/opening.*matching/i);
         });
 
         it('should throw when a path template has empty expressions', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
                     '/pets/{}': {},
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/empty template expression/);
+            expect(() => validateSpec(spec as never)).toThrow(/empty template expression/);
         });
 
         it('should accept paths with identical hierarchy if they are structurally different', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.0.0',
                 info: validInfo,
                 paths: {
@@ -1230,12 +1240,12 @@ describe('Core: Input Spec Validation', () => {
                     '/pets/{id}/details': {},
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should accept paths that differ only by fixed segments vs variables', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.0.0',
                 info: validInfo,
                 paths: {
@@ -1243,12 +1253,12 @@ describe('Core: Input Spec Validation', () => {
                     '/pets/{id}': {},
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should throw for complex nested collisions', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.0.0',
                 info: validInfo,
                 paths: {
@@ -1256,12 +1266,12 @@ describe('Core: Input Spec Validation', () => {
                     '/api/{v}/upload': {},
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/Ambiguous path definition detected/);
+            expect(() => validateSpec(spec as never)).toThrow(/Ambiguous path definition detected/);
         });
 
         it('should traverse Swagger 2.0 swagger paths successfully', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 swagger: '2.0',
                 info: validInfo,
                 paths: {
@@ -1269,14 +1279,14 @@ describe('Core: Input Spec Validation', () => {
                     '/api/{v}': {},
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/Ambiguous path definition detected/);
+            expect(() => validateSpec(spec as never)).toThrow(/Ambiguous path definition detected/);
         });
     });
 
     describe('Parameter Validation (OAS 3.2 Strictness)', () => {
         it('should throw if a parameter is missing name', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -1288,12 +1298,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/non-empty string 'name'/);
+            expect(() => validateSpec(spec as never)).toThrow(/non-empty string 'name'/);
         });
 
         it('should throw if a parameter is missing in', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -1305,12 +1315,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/non-empty string 'in'/);
+            expect(() => validateSpec(spec as never)).toThrow(/non-empty string 'in'/);
         });
 
         it('should throw if a parameters array contains non-objects', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -1322,12 +1332,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/must be an object or Reference Object/);
+            expect(() => validateSpec(spec as never)).toThrow(/must be an object or Reference Object/);
         });
 
         it('should throw if "query" and "querystring" parameters coexist in same operation', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -1350,12 +1360,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/contains both 'query' and 'querystring' parameters/);
+            expect(() => validateSpec(spec as never)).toThrow(/contains both 'query' and 'querystring' parameters/);
         });
 
         it('should throw if "query" and "querystring" coexist via path-level and operation-level inheritance', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -1378,12 +1388,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/contains both 'query' and 'querystring' parameters/);
+            expect(() => validateSpec(spec as never)).toThrow(/contains both 'query' and 'querystring' parameters/);
         });
 
         it('should throw if path-level parameters contain duplicates', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -1398,12 +1408,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/Duplicate parameter 'dup'/);
+            expect(() => validateSpec(spec as never)).toThrow(/Duplicate parameter 'dup'/);
         });
 
         it('should throw if operation parameters contain duplicates', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -1418,12 +1428,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/Duplicate parameter 'dup'/);
+            expect(() => validateSpec(spec as never)).toThrow(/Duplicate parameter 'dup'/);
         });
 
         it('should treat header parameter names as case-insensitive for duplicates', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -1438,12 +1448,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/Duplicate parameter/);
+            expect(() => validateSpec(spec as never)).toThrow(/Duplicate parameter/);
         });
 
         it('should allow operation parameters to override path-level parameters', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -1456,12 +1466,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should throw if parameter has both "example" and "examples"', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.0.0',
                 info: validInfo,
                 paths: {
@@ -1481,12 +1491,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/contains both 'example' and 'examples'/);
+            expect(() => validateSpec(spec as never)).toThrow(/contains both 'example' and 'examples'/);
         });
 
         it('should throw if a parameter defines neither schema nor content', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -1498,12 +1508,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/must define either 'schema' or 'content'/);
+            expect(() => validateSpec(spec as never)).toThrow(/must define either 'schema' or 'content'/);
         });
 
         it('should throw if component parameter has both "example" and "examples"', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.0.0',
                 info: validInfo,
                 paths: {},
@@ -1519,14 +1529,14 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(
+            expect(() => validateSpec(spec as never)).toThrow(
                 /Component parameter 'MyParam' contains both 'example' and 'examples'/,
             );
         });
 
         it('should throw if component parameter defines neither schema nor content', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
@@ -1539,14 +1549,14 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(
+            expect(() => validateSpec(spec as never)).toThrow(
                 /Component parameter 'MyParam' must define either 'schema' or 'content'/,
             );
         });
 
         it('should throw if parameter uses an invalid location in OpenAPI 3.x', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -1558,12 +1568,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/invalid location 'formData'/);
+            expect(() => validateSpec(spec as never)).toThrow(/invalid location 'formData'/);
         });
 
         it('should throw if parameter uses an invalid style for its location', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -1575,12 +1585,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/invalid style 'matrix' for location 'query'/);
+            expect(() => validateSpec(spec as never)).toThrow(/invalid style 'matrix' for location 'query'/);
         });
 
         it('should throw if deepObject style is used on a non-object schema', () => {
             // type-coverage:ignore-next-line
-            const createSpec = (schema: any): any => ({
+            const createSpec = (schema: import('@src/core/types/openapi.js').SwaggerSpec) => ({
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -1606,7 +1616,11 @@ describe('Core: Input Spec Validation', () => {
 
         it('should throw if spaceDelimited style uses explode=true', () => {
             // type-coverage:ignore-next-line
-            const createSpec = (style: any, schema: any, explode?: boolean): any => ({
+            const createSpec = (
+                style: import('@src/core/types/openapi.js').SwaggerSpec,
+                schema: import('@src/core/types/openapi.js').SwaggerSpec,
+                explode?: boolean,
+            ) => ({
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -1644,7 +1658,7 @@ describe('Core: Input Spec Validation', () => {
 
         it('should throw if pipeDelimited style uses explode=true', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -1664,12 +1678,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/pipeDelimited.*explode=true/);
+            expect(() => validateSpec(spec as never)).toThrow(/pipeDelimited.*explode=true/);
         });
 
         it('should throw if component parameter uses an invalid style', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
@@ -1679,12 +1693,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/invalid style 'form' for location 'header'/);
+            expect(() => validateSpec(spec as never)).toThrow(/invalid style 'form' for location 'header'/);
         });
 
         it('should throw if parameter has both "schema" and "content"', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.0.0',
                 info: validInfo,
                 paths: {
@@ -1703,12 +1717,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/contains both 'schema' and 'content'/);
+            expect(() => validateSpec(spec as never)).toThrow(/contains both 'schema' and 'content'/);
         });
 
         it('should throw if component parameter has both "schema" and "content"', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.0.0',
                 info: validInfo,
                 paths: {},
@@ -1723,14 +1737,14 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(
+            expect(() => validateSpec(spec as never)).toThrow(
                 /Component parameter 'MyParam' contains both 'schema' and 'content'/,
             );
         });
 
         it('should throw if parameter content map has multiple entries (OAS 3.2)', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -1751,12 +1765,14 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/has an invalid 'content' map. It MUST contain exactly one entry/);
+            expect(() => validateSpec(spec as never)).toThrow(
+                /has an invalid 'content' map. It MUST contain exactly one entry/,
+            );
         });
 
         it('should throw if component parameter content map has multiple entries (OAS 3.2)', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
@@ -1770,12 +1786,14 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/has an invalid 'content' map. It MUST contain exactly one entry/);
+            expect(() => validateSpec(spec as never)).toThrow(
+                /has an invalid 'content' map. It MUST contain exactly one entry/,
+            );
         });
 
         it('should accept component parameter content map with a single entry', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
@@ -1789,12 +1807,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should throw if allowEmptyValue used with style (OAS 3.2)', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -1814,12 +1832,14 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/defines 'allowEmptyValue' alongside 'style'. This is forbidden/);
+            expect(() => validateSpec(spec as never)).toThrow(
+                /defines 'allowEmptyValue' alongside 'style'. This is forbidden/,
+            );
         });
 
         it('should accept allowEmptyValue on query parameter when style is absent', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -1838,12 +1858,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should throw if allowEmptyValue used on non-query param (OAS 3.2)', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -1862,12 +1882,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/defines 'allowEmptyValue' but location is not 'query'/);
+            expect(() => validateSpec(spec as never)).toThrow(/defines 'allowEmptyValue' but location is not 'query'/);
         });
 
         it('should throw if querystring parameter defines style/explode/allowReserved', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -1892,14 +1912,14 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(
+            expect(() => validateSpec(spec as never)).toThrow(
                 /location 'querystring' but defines style\/explode\/allowReserved/,
             );
         });
 
         it('should throw if querystring parameter is missing content', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -1911,12 +1931,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/location 'querystring' but defines 'schema'/);
+            expect(() => validateSpec(spec as never)).toThrow(/location 'querystring' but defines 'schema'/);
         });
 
         it('should throw if querystring parameter defines schema', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -1939,12 +1959,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/contains both 'schema' and 'content'/);
+            expect(() => validateSpec(spec as never)).toThrow(/contains both 'schema' and 'content'/);
         });
 
         it('should throw if operation defines more than one querystring parameter', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -1975,12 +1995,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/defines more than one 'querystring' parameter/);
+            expect(() => validateSpec(spec as never)).toThrow(/defines more than one 'querystring' parameter/);
         });
 
         it('should throw if component parameter allowEmptyValue used on non-query', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
@@ -1995,12 +2015,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/defines 'allowEmptyValue' but location is not 'query'/);
+            expect(() => validateSpec(spec as never)).toThrow(/defines 'allowEmptyValue' but location is not 'query'/);
         });
 
         it('should throw if component parameter allowEmptyValue used with style', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
@@ -2016,12 +2036,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/defines 'allowEmptyValue' alongside 'style'/);
+            expect(() => validateSpec(spec as never)).toThrow(/defines 'allowEmptyValue' alongside 'style'/);
         });
 
         it('should accept component parameter allowEmptyValue when style is absent', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
@@ -2036,12 +2056,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should throw if component parameter querystring defines style/explode/allowReserved', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
@@ -2060,14 +2080,14 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(
+            expect(() => validateSpec(spec as never)).toThrow(
                 /location 'querystring' but defines style\/explode\/allowReserved/,
             );
         });
 
         it('should accept component parameter querystring without style/explode/allowReserved', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
@@ -2085,12 +2105,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should throw if component parameter querystring is missing content', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
@@ -2104,12 +2124,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/location 'querystring' but defines 'schema'/);
+            expect(() => validateSpec(spec as never)).toThrow(/location 'querystring' but defines 'schema'/);
         });
 
         it('should accept "example" only', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.0.0',
                 info: validInfo,
                 paths: {
@@ -2121,12 +2141,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should accept "examples" only', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.0.0',
                 info: validInfo,
                 paths: {
@@ -2145,12 +2165,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should accept "schema" only', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.0.0',
                 info: validInfo,
                 paths: {
@@ -2162,12 +2182,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should accept "content" only', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.0.0',
                 info: validInfo,
                 paths: {
@@ -2185,14 +2205,14 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
     });
 
     describe('OAS 3.2 Header, MediaType, and Link Validation', () => {
         it('should reject header objects that define a name', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -2213,12 +2233,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/Header Object.*name/);
+            expect(() => validateSpec(spec as never)).toThrow(/Header Object.*name/);
         });
 
         it('should reject header objects that define an in', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -2239,12 +2259,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/Header Object.*in/);
+            expect(() => validateSpec(spec as never)).toThrow(/Header Object.*in/);
         });
 
         it('should reject header objects that define allowEmptyValue', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -2265,12 +2285,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/allowEmptyValue/);
+            expect(() => validateSpec(spec as never)).toThrow(/allowEmptyValue/);
         });
 
         it('should reject header objects missing schema and content', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -2288,12 +2308,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/must define either 'schema' or 'content'/);
+            expect(() => validateSpec(spec as never)).toThrow(/must define either 'schema' or 'content'/);
         });
 
         it('should reject header objects with a non-simple style', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -2314,12 +2334,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/invalid 'style'/);
+            expect(() => validateSpec(spec as never)).toThrow(/invalid 'style'/);
         });
 
         it('should reject header objects with example and examples', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -2341,12 +2361,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/example.*examples/);
+            expect(() => validateSpec(spec as never)).toThrow(/example.*examples/);
         });
 
         it('should reject header objects with schema and content', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -2369,12 +2389,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/schema.*content/);
+            expect(() => validateSpec(spec as never)).toThrow(/schema.*content/);
         });
 
         it('should reject header content maps with multiple entries', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -2397,12 +2417,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/content.*exactly one entry/);
+            expect(() => validateSpec(spec as never)).toThrow(/content.*exactly one entry/);
         });
 
         it('should accept header content maps with single entry and valid media type', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -2424,12 +2444,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should reject media types that define example and examples', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -2451,12 +2471,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/Media Type Object.*example.*examples/);
+            expect(() => validateSpec(spec as never)).toThrow(/Media Type Object.*example.*examples/);
         });
 
         it('should reject itemSchema on non-sequential media types', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -2476,12 +2496,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/itemSchema.*not sequential/);
+            expect(() => validateSpec(spec as never)).toThrow(/itemSchema.*not sequential/);
         });
 
         it('should allow itemSchema on custom JSON media types', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -2501,12 +2521,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should allow itemSchema on sequential media types', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -2526,12 +2546,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should reject media types that mix encoding with prefixEncoding', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -2553,12 +2573,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/encoding.*prefixEncoding.*mutually exclusive/);
+            expect(() => validateSpec(spec as never)).toThrow(/encoding.*prefixEncoding.*mutually exclusive/);
         });
 
         it('should reject encoding on non-form/non-multipart media types', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -2577,12 +2597,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/media type.*encoding/i);
+            expect(() => validateSpec(spec as never)).toThrow(/media type.*encoding/i);
         });
 
         it('should reject encoding headers that define Content-Type', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -2610,12 +2630,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/Content-Type.*headers/i);
+            expect(() => validateSpec(spec as never)).toThrow(/Content-Type.*headers/i);
         });
 
         it('should reject encoding objects with non-string contentType', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -2639,12 +2659,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/contentType/i);
+            expect(() => validateSpec(spec as never)).toThrow(/contentType/i);
         });
 
         it('should reject encoding objects with invalid style', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -2668,11 +2688,11 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/Encoding Object.*invalid 'style'/);
+            expect(() => validateSpec(spec as never)).toThrow(/Encoding Object.*invalid 'style'/);
         });
 
         it('should validate Encoding Object properties', () => {
-            const createSpec = (encodingObj: any): any => ({
+            const createSpec = (encodingObj: import('@src/core/types/openapi.js').SwaggerSpec) => ({
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -2723,7 +2743,10 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should validate MediaType Object encoding on unsupported media types', () => {
-            const createSpec = (mediaType: string, encodingConfig: any): any => ({
+            const createSpec = (
+                mediaType: string,
+                encodingConfig: import('@src/core/types/openapi.js').SwaggerSpec,
+            ) => ({
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -2758,7 +2781,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject Header Object examples when schema and content are missing', () => {
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 components: {
@@ -2770,11 +2793,11 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/must define either 'schema' or 'content'/);
+            expect(() => validateSpec(spec as never)).toThrow(/must define either 'schema' or 'content'/);
         });
 
         it('should reject Link Object invalid operationRef', () => {
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 components: {
@@ -2785,7 +2808,7 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/must be a valid URI reference/);
+            expect(() => validateSpec(spec as never)).toThrow(/must be a valid URI reference/);
         });
 
         it('should validate RequestBody and Response objects thoroughly', () => {
@@ -2812,7 +2835,7 @@ describe('Core: Input Spec Validation', () => {
 
         it('should reject requestBody objects without content', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -2824,12 +2847,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/RequestBody Object.*content/);
+            expect(() => validateSpec(spec as never)).toThrow(/RequestBody Object.*content/);
         });
 
         it('should allow requestBody objects with empty content maps (implementation-defined)', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -2841,12 +2864,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should accept requestBody objects with at least one content entry', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -2858,12 +2881,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should reject link objects that define both operationId and operationRef', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
@@ -2876,12 +2899,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/both 'operationId' and 'operationRef'/);
+            expect(() => validateSpec(spec as never)).toThrow(/both 'operationId' and 'operationRef'/);
         });
 
         it('should reject link objects with invalid operationRef URIs', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
@@ -2893,11 +2916,11 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/operationRef.*URI reference/);
+            expect(() => validateSpec(spec as never)).toThrow(/operationRef.*URI reference/);
         });
 
         it('should reject link objects with invalid parameters', () => {
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
@@ -2910,12 +2933,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/invalid 'parameters'/);
+            expect(() => validateSpec(spec as never)).toThrow(/invalid 'parameters'/);
         });
 
         it('should reject link objects that define neither operationId nor operationRef', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -2933,12 +2956,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/must define either 'operationId' or 'operationRef'/);
+            expect(() => validateSpec(spec as never)).toThrow(/must define either 'operationId' or 'operationRef'/);
         });
 
         it('should reject link parameters with invalid runtime expressions', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -2961,12 +2984,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/Runtime expression.*valid runtime expression/);
+            expect(() => validateSpec(spec as never)).toThrow(/Runtime expression.*valid runtime expression/);
         });
 
         it('should reject link requestBody templates with invalid runtime expressions', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -2987,12 +3010,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/Runtime expression.*invalid runtime expression/);
+            expect(() => validateSpec(spec as never)).toThrow(/Runtime expression.*invalid runtime expression/);
         });
 
         it('should reject link objects with invalid server urls', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -3013,12 +3036,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/Server url MUST NOT include query or fragment/);
+            expect(() => validateSpec(spec as never)).toThrow(/Server url MUST NOT include query or fragment/);
         });
 
         it('should reject callback expressions with invalid runtime syntax', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -3036,12 +3059,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/Callback expression.*runtime expression/);
+            expect(() => validateSpec(spec as never)).toThrow(/Callback expression.*runtime expression/);
         });
 
         it('should reject component callback expressions with invalid runtime syntax', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
@@ -3055,12 +3078,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/Callback expression.*runtime expression/);
+            expect(() => validateSpec(spec as never)).toThrow(/Callback expression.*runtime expression/);
         });
 
         it('should accept callback expressions with embedded runtime templates', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -3078,12 +3101,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should validate webhooks additionalOperations content and responses', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 webhooks: {
@@ -3112,93 +3135,93 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
     });
 
     describe('OAS 3.1+ jsonSchemaDialect Field', () => {
         it('should accept valid absolute URI', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.1.0',
                 info: validInfo,
                 paths: {},
                 jsonSchemaDialect: 'https://spec.openapis.org/oas/3.1/dialect/base',
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should accept URN URI', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.1.0',
                 info: validInfo,
                 paths: {},
                 jsonSchemaDialect: 'urn:ietf:params:xml:ns:yang:1',
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should throw on non-URI string', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.1.0',
                 info: validInfo,
                 paths: {},
                 jsonSchemaDialect: 'not-a-uri',
             };
-            expect(() => validateSpec(spec)).toThrow(/must be a valid URI/);
+            expect(() => validateSpec(spec as never)).toThrow(/must be a valid URI/);
         });
 
         it('should accept dialect strings that satisfy URI scheme regex when URL parsing fails', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.1.0',
                 info: validInfo,
                 paths: {},
                 jsonSchemaDialect: 'http://',
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should throw on non-string value', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.1.0',
                 info: validInfo,
                 paths: {},
                 jsonSchemaDialect: 123,
             };
-            expect(() => validateSpec(spec)).toThrow(/must be a string/);
+            expect(() => validateSpec(spec as never)).toThrow(/must be a string/);
         });
     });
 
     describe('OAS 3.2 $self Field', () => {
         it('should accept valid URI references', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
                 $self: '/api/openapi',
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should reject invalid URI references', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
                 $self: 'not a uri',
             };
-            expect(() => validateSpec(spec)).toThrow(/\$self.*valid URI reference/i);
+            expect(() => validateSpec(spec as never)).toThrow(/\$self.*valid URI reference/i);
         });
     });
 
     describe('OAS 3.2 Discriminator Validation', () => {
-        const createSpec = (schema: any): any => ({
+        const createSpec = (schema: import('@src/core/types/openapi.js').SwaggerSpec) => ({
             openapi: '3.2.0',
             info: validInfo,
             components: { schemas: { Test: schema } },
@@ -3252,7 +3275,7 @@ describe('Core: Input Spec Validation', () => {
 
         it('should require defaultMapping when discriminator property is optional', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 components: {
@@ -3269,12 +3292,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/defaultMapping.*required/);
+            expect(() => validateSpec(spec as never)).toThrow(/defaultMapping.*required/);
         });
 
         it('should accept discriminator when property is required', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 components: {
@@ -3292,14 +3315,14 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
     });
 
     describe('XML Object Validation (OAS 3.2)', () => {
         it('should reject xml.nodeType combined with deprecated attribute/wrapped fields', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 components: {
@@ -3311,12 +3334,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/MUST NOT define 'attribute' when 'nodeType' is present/);
+            expect(() => validateSpec(spec as never)).toThrow(/MUST NOT define 'attribute' when 'nodeType' is present/);
         });
 
         it('should reject xml.wrapped on non-array schemas', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 components: {
@@ -3328,20 +3351,20 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).toThrow(/defines 'wrapped' but the schema is not an array/);
+            expect(() => validateSpec(spec as never)).toThrow(/defines 'wrapped' but the schema is not an array/);
         });
 
         it('should reject xml.namespace that is not an absolute IRI', () => {
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 components: { schemas: { BadNamespace: { type: 'string', xml: { namespace: './relative' } } } },
             };
-            expect(() => validateSpec(spec)).toThrow(/non-relative IRI/);
+            expect(() => validateSpec(spec as never)).toThrow(/non-relative IRI/);
         });
 
         it('should reject non-object xml properties', () => {
-            const createSpec = (xml: any): any => ({
+            const createSpec = (xml: import('@src/core/types/openapi.js').SwaggerSpec) => ({
                 openapi: '3.2.0',
                 info: validInfo,
                 components: { schemas: { BadXml: { type: 'string', xml } } },
@@ -3362,7 +3385,7 @@ describe('Core: Input Spec Validation', () => {
     describe('Reference Object Strictness', () => {
         it('should allow reference objects with extra fields in responses (ignored by spec)', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -3383,12 +3406,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should allow reference objects with extra fields in parameters (ignored by spec)', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -3410,12 +3433,12 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should allow reference objects with summary/description overrides', () => {
             // type-coverage:ignore-next-line
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {
@@ -3437,21 +3460,21 @@ describe('Core: Input Spec Validation', () => {
                     },
                 },
             };
-            expect(() => validateSpec(spec)).not.toThrow();
+            expect(() => validateSpec(spec as never)).not.toThrow();
         });
 
         it('should reject reference objects that define both $ref and $dynamicRef', () => {
-            const spec: any = {
+            const spec = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
                 components: { responses: { Ok: { $ref: '#/a', $dynamicRef: '#/b' } } },
             };
-            expect(() => validateSpec(spec)).toThrow(/must not define both '\$ref' and '\$dynamicRef'/);
+            expect(() => validateSpec(spec as never)).toThrow(/must not define both '\$ref' and '\$dynamicRef'/);
         });
 
         it('should reject reference objects with invalid $ref or $dynamicRef', () => {
-            const spec1: any = {
+            const spec1 = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
@@ -3459,7 +3482,7 @@ describe('Core: Input Spec Validation', () => {
             };
             expect(() => validateSpec(spec1)).toThrow(/invalid '\$ref' URI/);
 
-            const spec2: any = {
+            const spec2 = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
@@ -3469,7 +3492,7 @@ describe('Core: Input Spec Validation', () => {
         });
 
         it('should reject reference objects with non-string summary or description', () => {
-            const spec1: any = {
+            const spec1 = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
@@ -3477,7 +3500,7 @@ describe('Core: Input Spec Validation', () => {
             };
             expect(() => validateSpec(spec1)).toThrow(/non-string 'summary'/);
 
-            const spec2: any = {
+            const spec2 = {
                 openapi: '3.2.0',
                 info: validInfo,
                 paths: {},
@@ -3488,7 +3511,7 @@ describe('Core: Input Spec Validation', () => {
     });
 
     describe('Runtime Expressions / Callbacks', () => {
-        const createSpec = (expression: string): any => ({
+        const createSpec = (expression: string) => ({
             openapi: '3.1.0',
             info: validInfo,
             components: {
@@ -3541,7 +3564,7 @@ describe('Core: Input Spec Validation', () => {
             expect(() => validateSpec(createSpec('{$request.path.}'))).toThrow(/invalid runtime expression/);
         });
         it('should recursively validate schema properties (items, allOf, anyOf, oneOf, not, if, then, else, etc.)', () => {
-            const createDeepSpec = (schema: any): any => ({
+            const createDeepSpec = (schema: import('@src/core/types/openapi.js').SwaggerSpec) => ({
                 openapi: '3.2.0',
                 info: validInfo,
                 components: { schemas: { Deep: schema } },
@@ -3596,7 +3619,7 @@ describe('Core: Server Object Validation (Additional)', () => {
 
     it('should reject server URLs with undefined template variables', () => {
         // type-coverage:ignore-next-line
-        const spec: any = {
+        const spec = {
             openapi: '3.2.0',
             info: validInfo,
             servers: [
@@ -3607,11 +3630,11 @@ describe('Core: Server Object Validation (Additional)', () => {
             ],
             paths: {},
         };
-        expect(() => validateSpec(spec)).toThrow(/not defined in variables/);
+        expect(() => validateSpec(spec as never)).toThrow(/not defined in variables/);
     });
 
     it('should reject server URLs defining template variables but missing variables object entirely', () => {
-        const spec: any = {
+        const spec = {
             openapi: '3.2.0',
             info: validInfo,
             servers: [
@@ -3621,12 +3644,12 @@ describe('Core: Server Object Validation (Additional)', () => {
             ],
             paths: {},
         };
-        expect(() => validateSpec(spec)).toThrow(/defines template variables but 'variables' is missing/);
+        expect(() => validateSpec(spec as never)).toThrow(/defines template variables but 'variables' is missing/);
     });
 
     it('should reject server variables missing required default', () => {
         // type-coverage:ignore-next-line
-        const spec: any = {
+        const spec = {
             openapi: '3.2.0',
             info: validInfo,
             servers: [
@@ -3637,12 +3660,12 @@ describe('Core: Server Object Validation (Additional)', () => {
             ],
             paths: {},
         };
-        expect(() => validateSpec(spec)).toThrow(/must define a string default/);
+        expect(() => validateSpec(spec as never)).toThrow(/must define a string default/);
     });
 
     it('should reject server variables with non-string default', () => {
         // type-coverage:ignore-next-line
-        const spec: any = {
+        const spec = {
             openapi: '3.2.0',
             info: validInfo,
             servers: [
@@ -3653,19 +3676,19 @@ describe('Core: Server Object Validation (Additional)', () => {
             ],
             paths: {},
         };
-        expect(() => validateSpec(spec)).toThrow(/must define a string default/);
+        expect(() => validateSpec(spec as never)).toThrow(/must define a string default/);
     });
 
     it('should reject empty or non-string server url', () => {
-        const spec1: any = { openapi: '3.2.0', info: validInfo, servers: [{ url: '' }], paths: {} };
-        const spec2: any = { openapi: '3.2.0', info: validInfo, servers: [{ url: 123 }], paths: {} };
+        const spec1 = { openapi: '3.2.0', info: validInfo, servers: [{ url: '' }], paths: {} };
+        const spec2 = { openapi: '3.2.0', info: validInfo, servers: [{ url: 123 }], paths: {} };
         expect(() => validateSpec(spec1)).toThrow(/must be a non-empty string/);
         expect(() => validateSpec(spec2)).toThrow(/must be a non-empty string/);
     });
 
     it('should reject duplicate server names', () => {
         // type-coverage:ignore-next-line
-        const spec: any = {
+        const spec = {
             openapi: '3.2.0',
             info: validInfo,
             servers: [
@@ -3674,29 +3697,29 @@ describe('Core: Server Object Validation (Additional)', () => {
             ],
             paths: {},
         };
-        expect(() => validateSpec(spec)).toThrow(/Server name "prod" must be unique/);
+        expect(() => validateSpec(spec as never)).toThrow(/Server name "prod" must be unique/);
     });
 
     it('should reject nested braces in server URL templates', () => {
         // type-coverage:ignore-next-line
-        const spec: any = {
+        const spec = {
             openapi: '3.2.0',
             info: validInfo,
             servers: [{ url: 'https://{{nested}}.example.com' }],
             paths: {},
         };
-        expect(() => validateSpec(spec)).toThrow(/contains nested "{" characters/);
+        expect(() => validateSpec(spec as never)).toThrow(/contains nested "{" characters/);
     });
 
     it('should reject unmatched closing braces in server URL templates', () => {
         // type-coverage:ignore-next-line
-        const spec: any = {
+        const spec = {
             openapi: '3.2.0',
             info: validInfo,
             servers: [{ url: 'https://unmatched}.example.com' }],
             paths: {},
         };
-        expect(() => validateSpec(spec)).toThrow(/contains a closing "}" without a matching "\{"/);
+        expect(() => validateSpec(spec as never)).toThrow(/contains a closing "}" without a matching "\{"/);
     });
 });
 import { describe, expect, it } from 'vitest';
@@ -3770,7 +3793,7 @@ describe('Core: Security Scheme Validation', () => {
     });
 
     it('should throw on invalid validateHttpsUrl cases', () => {
-        const createSpec = (flows: any, extraSchemeOverrides: any = {}): any => ({
+        const createSpec = (flows: import('@src/core/types/openapi.js').SwaggerSpec, extraSchemeOverrides = {}) => ({
             openapi: '3.1.0',
             info,
             paths: {},
@@ -3986,7 +4009,7 @@ function cloneSpec(): SwaggerSpec {
 describe('Core: Example Object validation (OAS 3.2)', () => {
     it('should accept dataValue alongside serializedValue', () => {
         const spec = cloneSpec();
-        expect(() => validateSpec(spec)).not.toThrow();
+        expect(() => validateSpec(spec as never)).not.toThrow();
     });
 
     it('should reject Example Object with both value and dataValue', () => {
@@ -4004,7 +4027,7 @@ describe('Core: Example Object validation (OAS 3.2)', () => {
                 },
             },
         ] as any;
-        expect(() => validateSpec(spec)).toThrow(/value.*dataValue/);
+        expect(() => validateSpec(spec as never)).toThrow(/value.*dataValue/);
     });
 
     it('should reject Example Object with both serializedValue and externalValue', () => {
@@ -4016,7 +4039,7 @@ describe('Core: Example Object validation (OAS 3.2)', () => {
                 externalValue: 'http://example.com/example.json',
             },
         };
-        expect(() => validateSpec(spec)).toThrow(/serializedValue.*externalValue/);
+        expect(() => validateSpec(spec as never)).toThrow(/serializedValue.*externalValue/);
     });
 
     it('should reject component examples with both value and serializedValue', () => {
@@ -4029,7 +4052,7 @@ describe('Core: Example Object validation (OAS 3.2)', () => {
                 },
             },
         };
-        expect(() => validateSpec(spec)).toThrow(/value.*serializedValue/);
+        expect(() => validateSpec(spec as never)).toThrow(/value.*serializedValue/);
     });
 
     it('should ignore non-object examples or refs', () => {
@@ -4040,13 +4063,13 @@ describe('Core: Example Object validation (OAS 3.2)', () => {
                 RefExample: { $ref: '#/components/examples/Other' },
             },
         };
-        expect(() => validateSpec(spec)).not.toThrow();
+        expect(() => validateSpec(spec as never)).not.toThrow();
     });
 
     it('should reject Example Object with both value and externalValue', () => {
         const spec = cloneSpec();
         spec.components = { examples: { Bad: { value: 'foo', externalValue: 'foo' } } };
-        expect(() => validateSpec(spec)).toThrow(/value.*externalValue/);
+        expect(() => validateSpec(spec as never)).toThrow(/value.*externalValue/);
     });
 
     it('should reject non-string serializedValue and externalValue', () => {

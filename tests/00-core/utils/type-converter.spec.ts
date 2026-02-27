@@ -50,7 +50,7 @@ describe('Core Utils: Type Converter', () => {
                     type: 'object',
                     properties: { foo: { type: 'string' } },
                     dependentRequired: {
-                        foo: [123] as any,
+                        foo: [123] as unknown as string[],
                     },
                 };
                 const result = utils.getTypeScriptType(schema as any, config, []);

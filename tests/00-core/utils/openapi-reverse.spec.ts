@@ -987,27 +987,53 @@ describe('Core Utils: OpenAPI Reverse', () => {
         ).toBeDefined();
         expect(
             // type-coverage:ignore-next-line
-            // type-coverage:ignore-next-line
-            (merged.paths as any)['/ping'].get.responses['200'].headers['X-Xml'].content?.['application/xml']?.schema
-                ?.xml?.name,
+            (
+                (
+                    (
+                        merged.paths!['/ping'].get!.responses[
+                            '200'
+                        ] as import('../../src/core/types/openapi').SwaggerResponse
+                    ).headers!['X-Xml'] as import('../../src/core/types/openapi').HeaderObject
+                ).content?.['application/xml']?.schema as import('../../src/core/types/openapi').SwaggerDefinition
+            )?.xml?.name,
         ).toBe('Root');
         expect(
             // type-coverage:ignore-next-line
-            (merged.paths as any)['/ping'].get.responses['200'].headers['X-Linkset-Json'].content?.[
-                'application/linkset+json'
-            ],
+            (
+                (merged.paths!['/ping'].get!.responses['200'] as import('../../src/core/types/openapi').SwaggerResponse)
+                    .headers!['X-Linkset-Json'] as import('../../src/core/types/openapi').HeaderObject
+            ).content?.['application/linkset+json'],
         ).toBeDefined();
-        // type-coverage:ignore-next-line
-        expect((merged.paths as any)['/ping'].get.responses['200'].links.next.operationId).toBe('listThings');
+        expect(
+            (
+                (merged.paths!['/ping'].get!.responses['200'] as import('../../src/core/types/openapi').SwaggerResponse)
+                    .links!['next'] as import('../../src/core/types/openapi').LinkObject
+            ).operationId,
+        ).toBe('listThings');
         expect(merged.components?.headers?.TraceId?.description).toBe('Trace header');
-        // type-coverage:ignore-next-line
-        const componentXmlHeader = (merged.components?.headers as any)?.['ping_200_X-Xml'];
-        // type-coverage:ignore-next-line
-        expect(componentXmlHeader?.content?.['application/xml']?.schema?.xml?.name).toBe('Root');
+        const componentXmlHeader = merged.components?.headers?.['ping_200_X-Xml'] as
+            | import('../../src/core/types/openapi').HeaderObject
+            | undefined;
+        expect(
+            (
+                (
+                    componentXmlHeader?.content?.[
+                        'application/xml'
+                    ] as import('../../src/core/types/openapi').MediaTypeObject
+                )?.schema as import('../../src/core/types/openapi').SwaggerDefinition
+            )?.xml?.name,
+        ).toBe('Root');
         expect(merged.components?.links?.NextPage?.operationId).toBe('listThings');
         expect(merged.components?.examples?.ExampleOne?.summary).toBe('Example');
-        // type-coverage:ignore-next-line
-        expect((merged.components?.mediaTypes as any)?.EventStream?.schema?.type).toBe('string');
+        expect(
+            (
+                (
+                    merged.components?.mediaTypes?.[
+                        'EventStream'
+                    ] as import('../../src/core/types/openapi').MediaTypeObject
+                )?.schema as import('../../src/core/types/openapi').SwaggerDefinition
+            )?.type,
+        ).toBe('string');
         expect(merged.components?.pathItems?.PingItem?.get?.responses?.['200']).toBeDefined();
         expect(merged.components?.parameters?.LimitParam?.name).toBe('limit');
         // type-coverage:ignore-next-line

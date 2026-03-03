@@ -1,6 +1,6 @@
 # Guide to Extending the Code Generator
 
-This document provides detailed instructions on how to extend the `cdd-web-ng` generator to support new frameworks (
+This document provides detailed instructions on how to extend the `cdd-ts` generator to support new frameworks (
 like [React](https://react.dev) and [Vue](https://vuejs.org)) and integrate different HTTP clients (
 like [Axios](https://axios-http.com) or [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API)).
 

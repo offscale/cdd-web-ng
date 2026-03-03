@@ -53,20 +53,20 @@ goto end
 
 :build_wasm
 echo Building WASM (browser bundle)...
-call npx esbuild dist\index.js --bundle --platform=browser --outfile=wasm\cdd-web-ng.js
+call npx esbuild dist\index.js --bundle --platform=browser --outfile=wasm\cdd-ts.js
 goto end
 
 :build_docker
-docker build -f debian.Dockerfile -t cdd-web-ng:debian .
-docker build -f alpine.Dockerfile -t cdd-web-ng:alpine .
+docker build -f debian.Dockerfile -t cdd-ts:debian .
+docker build -f alpine.Dockerfile -t cdd-ts:alpine .
 goto end
 
 :run_docker
-docker run -d -p 8080:8080 --name cdd-web-ng-test cdd-web-ng:alpine
+docker run -d -p 8080:8080 --name cdd-ts-test cdd-ts:alpine
 timeout /t 2 /nobreak
 curl -X POST -H "Content-Type: application/json" -d "{\"jsonrpc\":\"2.0\",\"method\":\"version\",\"id\":1}" http://localhost:8080
-docker stop cdd-web-ng-test
-docker rm cdd-web-ng-test
+docker stop cdd-ts-test
+docker rm cdd-ts-test
 goto end
 
 :end

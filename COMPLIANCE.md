@@ -1,6 +1,6 @@
 # Compliance
 
-`cdd-web-ng` strives for 100% compliance with the [OpenAPI Specification 3.2.0](https://raw.githubusercontent.com/OAI/OpenAPI-Specification/refs/heads/main/versions/3.2.0.md).
+`cdd-ts` strives for 100% compliance with the [OpenAPI Specification 3.2.0](https://raw.githubusercontent.com/OAI/OpenAPI-Specification/refs/heads/main/versions/3.2.0.md).
 
 ## Current Status
 

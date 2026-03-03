@@ -18,7 +18,7 @@ import type { ReverseMetadata } from '@src/openapi/emit.js';
 const tempDirs: string[] = [];
 
 const makeTempDir = () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cdd-web-ng-reverse-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cdd-ts-reverse-'));
     tempDirs.push(dir);
     return dir;
 };

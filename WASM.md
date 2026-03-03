@@ -1,6 +1,6 @@
 # WASM Support
 
-The `cdd-web-ng` compiler is written in TypeScript and runs on Node.js.
+The `cdd-ts` compiler is written in TypeScript and runs on Node.js.
 
 ## Is Native WASM Support Possible?
 

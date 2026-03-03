@@ -1,6 +1,6 @@
 # Publishing Output (Client SDK / Server)
 
-This document shows how to publish the **output** of the `cdd-web-ng` compiler (the generated client library, models, and server) and how to keep them synchronized with an upstream OpenAPI definition.
+This document shows how to publish the **output** of the `cdd-ts` compiler (the generated client library, models, and server) and how to keep them synchronized with an upstream OpenAPI definition.
 
 ## Synchronizing Output
 
@@ -29,14 +29,14 @@ jobs:
               with:
                   node-version: 18
 
-            - name: Install cdd-web-ng
-              run: npm install -g cdd-web-ng
+            - name: Install cdd-ts
+              run: npm install -g cdd-ts
 
             - name: Download Latest OpenAPI Spec
               run: curl -s https://api.my-backend.com/openapi.yaml -o openapi.yaml
 
             - name: Generate SDK
-              run: cdd-web-ng from_openapi to_sdk -i openapi.yaml -o ./src/api --framework fetch
+              run: cdd-ts from_openapi to_sdk -i openapi.yaml -o ./src/api --framework fetch
 
             - name: Create Pull Request if changes detected
               uses: peter-evans/create-pull-request@v5

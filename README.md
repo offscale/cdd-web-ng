@@ -1,9 +1,10 @@
-# cdd-typescript
+cdd-ts
+======
 
 [![License](https://img.shields.io/badge/license-Apache--2.0%20OR%20MIT-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![CI/CD](https://github.com/offscale/cdd-web-ng/workflows/CI/badge.svg)](https://github.com/offscale/cdd-web-ng/actions)
-[![Doc Coverage](https://img.shields.io/badge/doc_coverage-100%25-brightgreen.svg)](https://github.com/offscale/cdd-web-ng)
-[![Test Coverage](https://img.shields.io/badge/test_coverage-93%25-brightgreen.svg)](https://github.com/offscale/cdd-web-ng)
+[![CI/CD](https://github.com/offscale/cdd-ts/workflows/CI/badge.svg)](https://github.com/offscale/cdd-ts/actions)
+[![Doc Coverage](https://img.shields.io/badge/doc_coverage-100%25-brightgreen.svg)](https://github.com/offscale/cdd-ts)
+[![Test Coverage](https://img.shields.io/badge/test_coverage-93%25-brightgreen.svg)](https://github.com/offscale/cdd-ts)
 
 OpenAPI ↔ TypeScript. This is one compiler in a suite, all focussed on the same task: Compiler Driven Development (CDD).
 
@@ -11,20 +12,20 @@ Each compiler is written in its target language, is whitespace and comment sensi
 
 The CLI—at a minimum—has:
 
-- `cdd-web-ng --help`
-- `cdd-web-ng --version`
-- `cdd-web-ng from_openapi to_sdk_cli -i spec.json`
-- `cdd-web-ng from_openapi to_sdk -i spec.json`
-- `cdd-web-ng from_openapi to_server -i spec.json`
-- `cdd-web-ng to_openapi -f path/to/code`
-- `cdd-web-ng to_docs_json --no-imports --no-wrapping -i spec.json`
-- `cdd-web-ng serve_json_rpc --port 8080 --listen 0.0.0.0`
+- `cdd-ts --help`
+- `cdd-ts --version`
+- `cdd-ts from_openapi to_sdk_cli -i spec.json`
+- `cdd-ts from_openapi to_sdk -i spec.json`
+- `cdd-ts from_openapi to_server -i spec.json`
+- `cdd-ts to_openapi -f path/to/code`
+- `cdd-ts to_docs_json --no-imports --no-wrapping -i spec.json`
+- `cdd-ts serve_json_rpc --port 8080 --listen 0.0.0.0`
 
 The goal of this project is to enable rapid application development without tradeoffs. Tradeoffs of Protocol Buffers / Thrift etc. are an untouchable "generated" directory and package, compile-time and/or runtime overhead. Tradeoffs of Java or JavaScript for everything are: overhead in hardware access, offline mode, ML inefficiency, and more. And neither of these alterantive approaches are truly integrated into your target system, test frameworks, and bigger abstractions you build in your app. Tradeoffs in CDD are code duplication (but CDD handles the synchronisation for you).
 
 ## 🚀 Capabilities
 
-The `cdd-web-ng` compiler leverages a unified architecture to support various facets of API and code lifecycle management.
+The `cdd-ts` compiler leverages a unified architecture to support various facets of API and code lifecycle management.
 
 - **Compilation**:
     - **OpenAPI → `TypeScript`**: Generate idiomatic native models, network routes, client SDKs (Angular, Fetch, Axios), and Node servers directly from OpenAPI (`.json` / `.yaml`) specifications.
@@ -37,9 +38,9 @@ The `cdd-web-ng` compiler leverages a unified architecture to support various fa
 Requires Node.js 18+. You can install the CLI globally or run it via npx:
 
 ```bash
-npm install -g cdd-web-ng
+npm install -g cdd-ts
 # Or use directly via npx
-npx cdd-web-ng --help
+npx cdd-ts --help
 ```
 
 ## 🛠 Usage
@@ -49,20 +50,20 @@ npx cdd-web-ng --help
 Generate an Angular Client SDK from an OpenAPI spec:
 
 ```bash
-cdd-web-ng from_openapi to_sdk -i ./openapi.yaml -o ./src/api --framework angular
+cdd-ts from_openapi to_sdk -i ./openapi.yaml -o ./src/api --framework angular
 ```
 
 Generate an OpenAPI spec from your existing TypeScript models and routes:
 
 ```bash
-cdd-web-ng to_openapi -f ./src -o ./openapi-snapshot.yaml
+cdd-ts to_openapi -f ./src -o ./openapi-snapshot.yaml
 ```
 
 ### Programmatic SDK / Library
 
 ```ts
-import { SwaggerParser } from 'cdd-web-ng/openapi/parse';
-import { generateFromConfig } from 'cdd-web-ng/index';
+import { SwaggerParser } from 'cdd-ts/openapi/parse';
+import { generateFromConfig } from 'cdd-ts/index';
 
 async function generate() {
     const config = {
@@ -80,7 +81,7 @@ async function generate() {
 
 ## Design choices
 
-The `cdd-web-ng` project chooses `ts-morph` as its underlying AST wrapper over the native TypeScript compiler API to simplify static analysis and tree traversal. This avoids dynamic reflection or execution of your project's code, thus protecting your environment from arbitrary code execution during parsing.
+The `cdd-ts` project chooses `ts-morph` as its underlying AST wrapper over the native TypeScript compiler API to simplify static analysis and tree traversal. This avoids dynamic reflection or execution of your project's code, thus protecting your environment from arbitrary code execution during parsing.
 
 In addition, it has a built-in JSON-RPC server (`serve_json_rpc`) which provides a unified endpoint for other CDD components and editors to query or command the parser symmetrically.
 
@@ -88,7 +89,7 @@ Note regarding WASM: Compiling this TypeScript CLI natively to a standalone WebA
 
 ## 🏗 Supported Conversions for TypeScript
 
-_(The boxes below reflect the features supported by this specific `cdd-web-ng` implementation)_
+_(The boxes below reflect the features supported by this specific `cdd-ts` implementation)_
 
 | Concept                                | Parse (From) | Emit (To) |
 | -------------------------------------- | ------------ | --------- |

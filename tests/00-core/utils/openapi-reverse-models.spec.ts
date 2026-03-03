@@ -14,7 +14,7 @@ const tempDirs: string[] = [];
 const originalGetValue = EnumMember.prototype.getValue;
 
 const makeTempDir = () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cdd-web-ng-models-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cdd-ts-models-'));
     tempDirs.push(dir);
     return dir;
 };

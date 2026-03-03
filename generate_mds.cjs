@@ -1,11 +1,11 @@
 const fs = require('fs');
 
-const REPO_NAME = 'cdd-web-ng';
+const REPO_NAME = 'cdd-ts';
 const LANGUAGE = 'Angular';
 const LANGUAGE_EXTENSION = 'ts';
-const CLI_COMMAND = 'cdd-web-ng';
+const CLI_COMMAND = 'cdd-ts';
 const PROJECT_SCOPE = 'Bidirectional';
-const INSTALL_INSTRUCTIONS = 'Requires Node.js 18+. Run `npm install -g cdd-web-ng`';
+const INSTALL_INSTRUCTIONS = 'Requires Node.js 18+. Run `npm install -g cdd-ts`';
 const SUPPORTED_CONVERSIONS = '✅ Parse OpenAPI, Emit Angular services and models';
 
 const readmeTemplate = `cdd-${LANGUAGE.toUpperCase()}
@@ -59,7 +59,7 @@ ${CLI_COMMAND} to_openapi -f ./generated -o openapi.json
 ### Programmatic SDK / Library
 
 \`\`\`${LANGUAGE_EXTENSION}
-import { generateFromConfig } from 'cdd-web-ng';
+import { generateFromConfig } from 'cdd-ts';
 
 await generateFromConfig({
   input: 'swagger.json',

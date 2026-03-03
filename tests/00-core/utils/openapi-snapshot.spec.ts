@@ -9,7 +9,7 @@ import { SwaggerSpec } from '@src/core/types/index.js';
 const tempDirs: string[] = [];
 
 const makeTempDir = () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cdd-web-ng-snap-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cdd-ts-snap-'));
     tempDirs.push(dir);
     return dir;
 };

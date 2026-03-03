@@ -9,7 +9,7 @@ import { OAS_3_1_DIALECT } from '@src/core/constants.js';
 const tempDirs: string[] = [];
 
 const makeTempDir = () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cdd-web-ng-ast-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cdd-ts-ast-'));
     tempDirs.push(dir);
     return dir;
 };

@@ -1,5 +1,5 @@
 {
-    "name": "cdd-web-ng",
+    "name": "cdd-ts",
     "version": "0.0.1",
     "description": "OpenAPI ↔ Angular (TypeScript, HTML)",
     "keywords": [
@@ -11,19 +11,19 @@
         "emitter",
         "compiler"
     ],
-    "homepage": "https://github.com/offscale/cdd-web-ng#readme",
+    "homepage": "https://github.com/offscale/cdd-ts#readme",
     "bugs": {
-        "url": "https://github.com/offscale/cdd-web-ng/issues"
+        "url": "https://github.com/offscale/cdd-ts/issues"
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/offscale/cdd-web-ng.git"
+        "url": "git+https://github.com/offscale/cdd-ts.git"
     },
     "license": "MIT",
     "author": "Samuel Marks <807580+SamuelMarks@users.noreply.github.com>",
     "type": "module",
     "bin": {
-        "cdd-web-ng": "./dist/cli.js"
+        "cdd-ts": "./dist/cli.js"
     },
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",

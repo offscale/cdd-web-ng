@@ -4,7 +4,7 @@
     "out": "docs",
     "tsconfig": "tsconfig.build.json",
     "readme": "README.md",
-    "name": "cdd-web-ng API Documentation",
+    "name": "cdd-ts API Documentation",
     "includeVersion": true,
     "validation": {
         "notExported": false,

@@ -312,7 +312,7 @@ async function runToDocsJson(options: DocsJsonOptions, returnObject = false): Pr
 
 const program = new Command();
 // type-coverage:ignore-next-line
-program.name('cdd-web-ng').description('OpenAPI ↔ Angular').version(packageJson.version);
+program.name('cdd-ts').description('OpenAPI ↔ Angular').version(packageJson.version);
 
 const fromOpenApi = program.command('from_openapi').description('Generate code from OpenAPI');
 

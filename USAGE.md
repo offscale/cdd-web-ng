@@ -5,7 +5,7 @@ Use the CLI or programmatic API.
 ## CLI Options
 
 ```bash
-Usage: cdd-web-ng [options] [command]
+Usage: cdd-ts [options] [command]
 
 OpenAPI ↔ Angular
 
@@ -33,4 +33,4 @@ All parameters map to an environment variable starting with `CDD_`, like `CDD_IN
 
 ## Code Example
 
-See `README.md` for programmatic code snippets using the internal `cdd-web-ng` index file.
+See `README.md` for programmatic code snippets using the internal `cdd-ts` index file.

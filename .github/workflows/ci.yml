@@ -6,7 +6,7 @@ on:
             - master
 
 jobs:
-    tests_and_coverage:
+    ci:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v6

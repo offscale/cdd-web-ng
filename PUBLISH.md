@@ -1,4 +1,4 @@
-# Publishing `cdd-web-ng`
+# Publishing `cdd-ts`
 
 This document outlines how to publish this compiler and its generated documentation.
 

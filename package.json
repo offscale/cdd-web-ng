@@ -46,11 +46,14 @@
         "clean": "rm -rf dist docs coverage .vitest-cache node_modules/.vite",
         "build": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json && chmod +x dist/cli.js",
         "docs": "typedoc",
+        "lint": "eslint 'src/**/*.ts' 'tests/**/*.ts'",
         "prepublishOnly": "npm run build",
         "start": "node dist/cli.js",
         "test": "vitest run --run",
         "test:coverage": "vitest run --run --coverage",
-        "prepare": "husky install"
+        "prepare": "husky install",
+        "format": "eslint --fix 'src/**/*.ts' 'tests/**/*.ts'",
+        "eslint": "eslint 'src/**/*.ts' 'tests/**/*.ts'"
     },
     "dependencies": {
         "commander": "^14",

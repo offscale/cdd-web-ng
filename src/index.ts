@@ -44,6 +44,8 @@ function getGeneratorFactory(framework: string, implementation?: string): IClien
     }
 }
 
+import { CliGenerator } from './vendors/cli/cli.generator.js';
+
 /**
  * Orchestrates the entire code generation process based on a configuration object.
  * @param config The generator configuration object.
@@ -55,6 +57,7 @@ export async function generateFromConfig(
     config: GeneratorConfig,
     project?: Project,
     testConfig?: TestGeneratorConfig,
+    targetScope?: 'to_sdk' | 'to_sdk_cli' | 'to_server',
 ): Promise<void> {
     const isTestEnv = !!testConfig;
 
@@ -84,10 +87,7 @@ export async function generateFromConfig(
         const framework = config.options.framework || 'angular';
         const implementation = config.options.implementation;
 
-        if (
-            config.options.admin &&
-            (implementation === 'fetch' || implementation === 'axios' || implementation === 'node')
-        ) {
+        if (config.options.admin && implementation === 'node') {
             throw new Error(
                 `Not implemented: Admin UI is not supported when the implementation/transport is ${implementation}.`,
             );
@@ -106,6 +106,10 @@ export async function generateFromConfig(
         const generator = getGeneratorFactory(framework, implementation);
 
         await generator.generate(activeProject, swaggerParser, config, config.output);
+
+        if (targetScope === 'to_sdk_cli') {
+            new CliGenerator().generate(activeProject, swaggerParser, config, config.output);
+        }
 
         // This block is now reachable in our test.
         if (!isTestEnv) {

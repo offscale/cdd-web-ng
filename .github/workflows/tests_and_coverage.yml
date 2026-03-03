@@ -9,7 +9,7 @@ jobs:
     tests_and_coverage:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
 
             - uses: actions/setup-node@v6
               with:
@@ -24,8 +24,11 @@ jobs:
             - name: Run tests and collect coverage
               run: npm run-script test:coverage
 
+            - name: Build WASM
+              run: make build_wasm
+
             - name: Upload coverage report artifact
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v6
               with:
                   name: coverage-report
                   path: ./coverage

@@ -31,6 +31,7 @@ import { ResponsesGenerator } from '@src/openapi/emit_responses.js';
 import { SpecSnapshotGenerator } from '@src/openapi/emit_snapshot.js';
 import { DocumentMetaGenerator } from '@src/openapi/emit_document_meta.js';
 import { FetchServiceIndexGenerator, FetchMainIndexGenerator } from './utils/index.generator.js';
+import { VanillaAdminGenerator } from '../vanilla/admin/admin.generator.js';
 
 import { PathInfo } from '@src/core/types/analysis.js';
 function getControllerCanonicalName(op: PathInfo): string {
@@ -108,6 +109,9 @@ export class FetchClientGenerator extends AbstractClientGenerator {
 
             if (config.options.generateServiceTests ?? true) {
                 // To be implemented: Service tests
+            }
+            if (config.options.admin) {
+                await new VanillaAdminGenerator(parser, project).generate(outputRoot);
             }
         }
 

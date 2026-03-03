@@ -1,185 +1,56 @@
-# Publishing Your Generated API Client
+# Publishing Output (Client SDK / Server)
 
-Once `cdd-web-ng` has generated your target API client (Angular, Fetch, Axios, or Node), you will likely want to publish it to a package registry (like npm) so it can be consumed by other projects.
+This document shows how to publish the **output** of the `cdd-web-ng` compiler (the generated client library, models, and server) and how to keep them synchronized with an upstream OpenAPI definition.
 
-This guide details how to publish the generated SDK, host its documentation, and automate updates to keep the client synchronized with your upstream OpenAPI specification.
+## Synchronizing Output
 
-## 1. Packaging and Publishing to npm
+To automatically keep the client library up-to-date with your backend server's OpenAPI spec, you should set up a GitHub Actions cron job.
 
-To publish your generated client, it needs a valid `package.json` and a compilation step to convert the TypeScript into JavaScript/Type Declarations.
+### Example `.github/workflows/sync-sdk.yml`
 
-### Setup
-
-If you generated the code into an empty directory, initialize a new npm package:
-
-```bash
-cd my-api-client
-npm init -y
-npm install typescript @types/node --save-dev
-```
-
-Create a simple `tsconfig.json`:
-
-```json
-{
-    "compilerOptions": {
-        "target": "ES2022",
-        "module": "CommonJS",
-        "declaration": true,
-        "outDir": "./dist",
-        "strict": true,
-        "esModuleInterop": true,
-        "skipLibCheck": true
-    },
-    "include": ["src/**/*"]
-}
-```
-
-### Build and Publish
-
-Update your `package.json` to point to the built files:
-
-```json
-{
-    "main": "dist/index.js",
-    "types": "dist/index.d.ts",
-    "scripts": {
-        "build": "tsc"
-    }
-}
-```
-
-Compile and publish:
-
-```bash
-npm run build
-npm login
-npm publish --access public
-```
-
----
-
-## 2. Generating Client Documentation
-
-Your consumers will need documentation for the SDK. The generated output includes rich JSDoc comments automatically extracted from your OpenAPI spec.
-
-### Build Local Docs
-
-Install TypeDoc in your client repository:
-
-```bash
-npm install typedoc --save-dev
-```
-
-Generate the static HTML site:
-
-```bash
-npx typedoc --entryPointStrategy expand ./src --out ./docs
-```
-
-You can now host the `docs/` folder on any static web server. For GitHub Pages, use the workflow provided in the main `PUBLISH.md`.
-
----
-
-## 3. Automating Updates (CI/CD Cronjob)
-
-The most important aspect of maintaining an API client is keeping it perfectly synced with the backend OpenAPI specification. You can fully automate this using a GitHub Actions cron job.
-
-This workflow will:
-
-1. Run on a schedule (e.g., daily at midnight).
-2. Download the latest OpenAPI spec from your server.
-3. Regenerate the client SDK using `cdd-web-ng`.
-4. Check if any code actually changed.
-5. If changes exist, bump the version, build, publish to npm, and commit the new version back to the repository.
-
-### `.github/workflows/sync-api-client.yml`
-
-Create this file in your client SDK's repository:
+Create a file in your target output repository:
 
 ```yaml
-name: Sync & Publish API Client
+name: Sync SDK
 
 on:
     schedule:
-        # Run daily at midnight UTC
-        - cron: '0 0 * * *'
-    workflow_dispatch: # Allow manual trigger from GitHub UI
-
-permissions:
-    contents: write
-    id-token: write
+        - cron: '0 0 * * *' # Run daily at midnight
+    workflow_dispatch: # Allow manual trigger
 
 jobs:
-    update-client:
+    update-sdk:
         runs-on: ubuntu-latest
         steps:
-            - name: Checkout Repository
-              uses: actions/checkout@v4
-              with:
-                  token: ${{ secrets.GITHUB_TOKEN }}
+            - uses: actions/checkout@v3
 
             - name: Setup Node.js
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@v3
               with:
-                  node-version: '20'
-                  registry-url: 'https://registry.npmjs.org'
+                  node-version: 18
 
-            - name: Install Dependencies
-              run: npm ci
+            - name: Install cdd-web-ng
+              run: npm install -g cdd-web-ng
 
             - name: Download Latest OpenAPI Spec
-              run: |
-                  # Replace with your actual OpenAPI spec URL
-                  curl -sS https://api.yourdomain.com/openapi.json > spec.json
+              run: curl -s https://api.my-backend.com/openapi.yaml -o openapi.yaml
 
-            - name: Generate API Client
-              run: |
-                  npx cdd-web-ng --input spec.json --output ./src --implementation fetch
+            - name: Generate SDK
+              run: cdd-web-ng from_openapi to_sdk -i openapi.yaml -o ./src/api --framework fetch
 
-            - name: Check for Changes
-              id: git-check
-              run: |
-                  git add ./src
-                  # Check if there are staged changes in the generated source folder
-                  if git diff --staged --quiet; then
-                    echo "No changes in OpenAPI spec detected."
-                    echo "changed=false" >> $GITHUB_OUTPUT
-                  else
-                    echo "OpenAPI spec changed. Proceeding with update."
-                    echo "changed=true" >> $GITHUB_OUTPUT
-                  fi
-
-            - name: Bump Version & Build
-              if: steps.git-check.outputs.changed == 'true'
-              run: |
-                  # Automatically bump the patch version
-                  npm version patch --no-git-tag-version
-
-                  # Compile the TypeScript client
-                  npm run build
-
-            - name: Publish to npm
-              if: steps.git-check.outputs.changed == 'true'
-              run: npm publish --access public
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-            - name: Commit and Push Changes
-              if: steps.git-check.outputs.changed == 'true'
-              run: |
-                  git config --global user.name "github-actions[bot]"
-                  git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-                  NEW_VERSION=$(node -p "require('./package.json').version")
-
-                  git commit -am "chore: auto-update API client to spec version (SDK v$NEW_VERSION)"
-                  git tag "v$NEW_VERSION"
-                  git push origin main --tags
+            - name: Create Pull Request if changes detected
+              uses: peter-evans/create-pull-request@v5
+              with:
+                  title: 'chore: update SDK based on latest OpenAPI'
+                  branch: 'update-sdk'
+                  commit-message: 'Update SDK with latest OpenAPI spec'
 ```
 
-### Required Secrets
+## Publishing the Generated Client
 
-For the automation to work, you must add the following secret to your GitHub Repository Settings (**Settings > Secrets and variables > Actions**):
+The output generated by `from_openapi to_sdk` provides a `package.json` scaffolding if `--no-installable-package` is not passed.
 
-- `NPM_TOKEN`: A valid automation token generated from your npmjs.com account.
+1. Change directory to the output.
+2. Ensure versioning matches standard semantic versioning practices.
+3. Transpile if necessary (`npm run build` or `tsc`).
+4. Publish exactly as you publish any other TS package (`npm publish`).

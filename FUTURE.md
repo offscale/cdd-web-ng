@@ -15,14 +15,15 @@ TypeScript web-frontend framework space).
 
 Add support for:
 
-- [ ] [Fetch API (builtin)](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API)
-- [ ] [Axios](https://axios-http.com)
+- [x] [Fetch API (builtin)](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API)
+- [x] [Axios](https://axios-http.com)
+- [x] Node.js (builtin)
 
 ## Framework interoperability
 
 Add support for creating an auto-admin UI for/with:
 
-- [ ] [Web components (builtin)](https://developer.mozilla.org/en-US/docs/Web/API/Web_components)
+- [x] [Web components (builtin)](https://developer.mozilla.org/en-US/docs/Web/API/Web_components)
 - [ ] [Qwik](https://qwik.dev)
 - [ ] [React](https://react.dev)
 - [ ] [Svelte](https://svelte.dev)
@@ -41,7 +42,7 @@ Add support for creating an auto-admin UI for/with:
 
 GitHub Actions for:
 
-- [ ] tests
-- [ ] linting and other code-quality checks
-- [ ] release to npmjs
-- [ ] release hosted HTML API docs
+- [x] tests
+- [x] linting and other code-quality checks
+- [x] release to npmjs
+- [x] release hosted HTML API docs

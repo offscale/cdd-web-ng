@@ -4,6 +4,7 @@ import path from 'node:path';
 
 export default defineConfig({
     test: {
+        watch: false,
         globals: true,
         environment: 'node',
         include: ['tests/**/*.spec.ts'],
@@ -18,7 +19,7 @@ export default defineConfig({
         },
         coverage: {
             provider: 'istanbul',
-            reporter: ['text', 'html', 'lcov'],
+            reporter: ['text', 'html', 'lcov', 'json-summary'],
             reportsDirectory: './coverage',
             include: ['src/**/*.ts'],
             exclude: [

@@ -7,7 +7,7 @@ import { FetchClientGenerator } from '@src/vendors/fetch/fetch-client.generator.
 
 describe('Fetch Implementation', () => {
     describe('Config Validation', () => {
-        it('should throw if admin UI is requested with fetch implementation', async () => {
+        it('should execute fetch client generator and attempt admin UI generation when requested', async () => {
             const config: GeneratorConfig = {
                 input: 'dummy',
                 output: 'dummy',
@@ -17,9 +17,11 @@ describe('Fetch Implementation', () => {
                 },
             };
 
-            await expect(generateFromConfig(config, new Project(), { spec: {} })).rejects.toThrow(
-                'Not implemented: Admin UI is not supported when the implementation/transport is fetch.',
-            );
+            await expect(
+                generateFromConfig(config, new Project(), {
+                    spec: { openapi: '3.0.0', info: { title: 'Test API', version: '1.0' }, paths: {} },
+                }),
+            ).resolves.toBeUndefined();
         });
 
         it('should execute FetchClientGenerator successfully when admin is false', async () => {

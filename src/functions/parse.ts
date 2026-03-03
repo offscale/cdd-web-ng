@@ -39,9 +39,17 @@ const DEFAULT_INFO: InfoObject = { title: 'Recovered OpenAPI', version: '0.0.0' 
 
 /** File system requirements for AST scanning helpers. */
 export type CodeScanFileSystem = {
-    statSync: (filePath: string) => { isFile: () => boolean; isDirectory: () => boolean };
+    /** Returns file status information. */
+    statSync: (filePath: string) => {
+        /** True if the path is a file. */
+        isFile: () => boolean;
+        /** True if the path is a directory. */
+        isDirectory: () => boolean;
+    };
+    /** Reads the content of a file. */
     // type-coverage:ignore-next-line
     readFileSync: ((filePath: string, encoding: string) => string) | ((filePath: string, options: any) => string);
+    /** Reads the directory entries. */
     readdirSync: (dirPath: string) => string[];
 };
 
@@ -50,51 +58,85 @@ export type CodeScanParamLocation = 'path' | 'query' | 'header' | 'cookie' | 'qu
 
 /** Describes a parameter reconstructed from an AST scan. */
 export interface CodeScanParam {
+    /** The name of the parameter. */
     name: string;
+    /** The location of the parameter. */
     in: CodeScanParamLocation;
+    /** Whether the parameter is required. */
     required?: boolean;
+    /** The description of the parameter. */
     description?: string;
+    /** The schema of the parameter. */
     schema?: SwaggerDefinition | boolean;
+    /** The content type of the parameter. */
     contentType?: string;
+    /** The encoding of the parameter. */
     encoding?: Record<string, any>;
+    /** An example value for the parameter. */
     example?: unknown;
 }
 
 /** Describes a reconstructed request body. */
 export interface CodeScanRequestBody {
+    /** Whether the request body is required. */
     required?: boolean;
+    /** The supported content types. */
     contentTypes: string[];
+    /** The schema of the request body. */
     schema?: SwaggerDefinition | boolean;
+    /** Example values for the request body. */
     examples?: Record<string, unknown>;
 }
 
 /** Describes a reconstructed response. */
 export interface CodeScanResponse {
+    /** The HTTP status code of the response. */
     status: string;
+    /** The summary of the response. */
     summary?: string;
+    /** The description of the response. */
     description?: string;
+    /** The supported content types. */
     contentTypes: string[];
+    /** The schema of the response. */
     schema?: SwaggerDefinition | boolean;
+    /** Example values for the response. */
     examples?: Record<string, unknown>;
 }
 
 /** Describes a reconstructed API operation discovered in source code. */
 export interface CodeScanOperation {
+    /** The operation ID. */
     operationId: string;
+    /** The HTTP method. */
     method: string;
+    /** The API path. */
     path: string;
+    /** The file path where the operation was found. */
     filePath: string;
+    /** The parameters of the operation. */
     params: CodeScanParam[];
+    /** The request body of the operation. */
     requestBody?: CodeScanRequestBody;
+    /** The responses of the operation. */
     responses: CodeScanResponse[];
+    /** The summary of the operation. */
     summary?: string;
+    /** The description of the operation. */
     description?: string;
+    /** Whether the operation is deprecated. */
     deprecated?: boolean;
+    /** The tags of the operation. */
     tags?: string[];
+    /** The tag objects of the operation. */
     tagObjects?: TagObject[];
+    /** External documentation for the operation. */
     externalDocs?: ExternalDocumentationObject;
+    /** Servers specific to the operation. */
     servers?: ServerObject[];
+    /** Security requirements for the operation. */
     security?: Record<string, string[]>[];
+    /** Extension properties. */
     extensions?: Record<string, any>;
 }
 
@@ -115,8 +157,11 @@ type ResponseDocMeta = {
 
 /** Intermediate representation produced by the AST scanner. */
 export interface CodeScanIr {
+    /** The discovered API operations. */
     operations: CodeScanOperation[];
+    /** The discovered OpenAPI schemas. */
     schemas: Record<string, SwaggerDefinition | boolean>;
+    /** The paths to the scanned source files. */
     sources: string[];
 }
 

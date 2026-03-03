@@ -33,7 +33,7 @@ export class AxiosServiceMethodGenerator {
         const model = this.analyzer.analyze(operation);
         if (!model) return;
 
-        if (model.errorResponses && model.errorResponses.length > 0) {
+        if (model.errorResponses.length > 0) {
             const typeName = `${pascalCase(model.methodName)}Error`;
             const union = [...new Set(model.errorResponses.map(e => e.type))].join(' | ');
             classDeclaration.getSourceFile().addTypeAlias({
@@ -74,11 +74,11 @@ export class AxiosServiceMethodGenerator {
 
         let urlTemplate = model.urlTemplate;
         model.pathParams.forEach((p: ParamSerialization) => {
-            const serializeCall = `ParameterSerializer.serializePathParam('${p.originalName}', ${p.paramName}, '${p.style || 'simple'}', ${p.explode}, ${p.allowReserved})`;
+            const serializeCall = `ParameterSerializer.serializePathParam('${p.originalName}', ${p.paramName}, '${p.style}', ${p.explode}, ${p.allowReserved})`;
             urlTemplate = urlTemplate.replace(`{${p.originalName}}`, `\${${serializeCall}}`);
         });
 
-        if (model.operationServers && model.operationServers.length > 0) {
+        if (model.operationServers?.length) {
             lines.push(`const operationServers = ${JSON.stringify(model.operationServers, null, 2)};`);
             lines.push(
                 `const basePath = resolveServerUrl(operationServers, options?.server ?? 0, options?.serverVariables ?? {});`,
@@ -118,10 +118,7 @@ export class AxiosServiceMethodGenerator {
 
         let dataArgument = 'undefined';
         if (model.body) {
-            if (model.body.type === 'raw' || model.body.type === 'json') {
-                dataArgument = model.body.paramName;
-                lines.push(`if (!headers['Content-Type']) { headers['Content-Type'] = 'application/json'; }`);
-            } else if (model.body.type === 'urlencoded') {
+            if (model.body.type === 'urlencoded') {
                 lines.push(`const formBody = new URLSearchParams();`);
                 lines.push(
                     `const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(${model.body.paramName}, ${JSON.stringify(model.body.config)});`,
@@ -131,6 +128,15 @@ export class AxiosServiceMethodGenerator {
                 lines.push(
                     `if (!headers['Content-Type']) { headers['Content-Type'] = 'application/x-www-form-urlencoded'; }`,
                 );
+            } else {
+                dataArgument = model.body.paramName;
+                if (model.body.type === 'json') {
+                    lines.push(`if (!headers['Content-Type']) { headers['Content-Type'] = 'application/json'; }`);
+                } else if (model.body.type === 'multipart') {
+                    // Axios automatically sets multipart/form-data boundary when data is FormData
+                } else {
+                    lines.push(`if (!headers['Content-Type']) { headers['Content-Type'] = 'application/json'; }`); // Default fallback
+                }
             }
         }
 

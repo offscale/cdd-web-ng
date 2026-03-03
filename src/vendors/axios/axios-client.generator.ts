@@ -30,8 +30,14 @@ import { ResponsesGenerator } from '@src/openapi/emit_responses.js';
 import { SpecSnapshotGenerator } from '@src/openapi/emit_snapshot.js';
 import { DocumentMetaGenerator } from '@src/openapi/emit_document_meta.js';
 import { AxiosServiceIndexGenerator, AxiosMainIndexGenerator } from './utils/index.generator.js';
+import { VanillaAdminGenerator } from '../vanilla/admin/admin.generator.js';
 
 import { PathInfo } from '@src/core/types/analysis.js';
+/**
+ * Determines the canonical controller name for an operation to group it in a service.
+ * @param op The parsed PathInfo operation.
+ * @returns A pascal-cased string representing the service name.
+ */
 function getControllerCanonicalName(op: PathInfo): string {
     if (Array.isArray(op.tags) && op.tags[0]) {
         return pascalCase(op.tags[0].toString());
@@ -40,6 +46,11 @@ function getControllerCanonicalName(op: PathInfo): string {
     return firstSegment ? pascalCase(firstSegment) : 'Default';
 }
 
+/**
+ * Groups a collection of OpenAPI operations by their resolved canonical controller names.
+ * @param parser The active parser instance containing operations.
+ * @returns A map where the keys are controller names and the values are lists of operations.
+ */
 function groupPathsByCanonicalController(parser: SwaggerParser): Record<string, PathInfo[]> {
     const groups: Record<string, PathInfo[]> = {};
     for (const op of parser.operations) {
@@ -107,6 +118,9 @@ export class AxiosClientGenerator extends AbstractClientGenerator {
 
             if (config.options.generateServiceTests ?? true) {
                 // To be implemented: Service tests
+            }
+            if (config.options.admin) {
+                await new VanillaAdminGenerator(parser, project).generate(outputRoot);
             }
         }
 

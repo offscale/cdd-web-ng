@@ -33,7 +33,7 @@ export class NodeServiceMethodGenerator {
         const model = this.analyzer.analyze(operation);
         if (!model) return;
 
-        if (model.errorResponses && model.errorResponses.length > 0) {
+        if (model.errorResponses.length > 0) {
             const typeName = `${pascalCase(model.methodName)}Error`;
             const union = [...new Set(model.errorResponses.map(e => e.type))].join(' | ');
             classDeclaration.getSourceFile().addTypeAlias({
@@ -74,11 +74,11 @@ export class NodeServiceMethodGenerator {
 
         let urlTemplate = model.urlTemplate;
         model.pathParams.forEach((p: ParamSerialization) => {
-            const serializeCall = `ParameterSerializer.serializePathParam('${p.originalName}', ${p.paramName}, '${p.style || 'simple'}', ${p.explode}, ${p.allowReserved})`;
+            const serializeCall = `ParameterSerializer.serializePathParam('${p.originalName}', ${p.paramName}, '${p.style}', ${p.explode}, ${p.allowReserved})`;
             urlTemplate = urlTemplate.replace(`{${p.originalName}}`, `\${${serializeCall}}`);
         });
 
-        if (model.operationServers && model.operationServers.length > 0) {
+        if (model.operationServers?.length) {
             lines.push(`const operationServers = ${JSON.stringify(model.operationServers, null, 2)};`);
             lines.push(
                 `const basePath = resolveServerUrl(operationServers, options?.server ?? 0, options?.serverVariables ?? {});`,
@@ -131,6 +131,8 @@ export class NodeServiceMethodGenerator {
                 lines.push(
                     `if (!headers['Content-Type']) { headers['Content-Type'] = 'application/x-www-form-urlencoded'; }`,
                 );
+            } else {
+                dataArgument = model.body.paramName;
             }
         }
 
@@ -150,7 +152,7 @@ export class NodeServiceMethodGenerator {
             `                return reject(new Error('Request failed: ' + res.statusCode + ' ' + res.statusMessage));`,
         );
         lines.push(`            }`);
-        if (model.responseSerialization === 'blob') {
+        if (model.responseSerialization === 'blob' || model.responseSerialization === 'arraybuffer') {
             lines.push(`            resolve(buffer as any);`);
         } else if (model.responseSerialization === 'text') {
             lines.push(`            resolve(buffer.toString('utf-8') as any);`);

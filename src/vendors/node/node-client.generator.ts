@@ -32,6 +32,11 @@ import { DocumentMetaGenerator } from '@src/openapi/emit_document_meta.js';
 import { NodeServiceIndexGenerator, NodeMainIndexGenerator } from './utils/index.generator.js';
 
 import { PathInfo } from '@src/core/types/analysis.js';
+/**
+ * Determines the canonical controller name for an operation.
+ * @param op The parsed operation.
+ * @returns The controller name.
+ */
 function getControllerCanonicalName(op: PathInfo): string {
     if (Array.isArray(op.tags) && op.tags[0]) {
         return pascalCase(op.tags[0].toString());
@@ -40,6 +45,11 @@ function getControllerCanonicalName(op: PathInfo): string {
     return firstSegment ? pascalCase(firstSegment) : 'Default';
 }
 
+/**
+ * Groups a collection of OpenAPI operations by their resolved canonical controller names.
+ * @param parser The active parser.
+ * @returns A map of operations by controller.
+ */
 function groupPathsByCanonicalController(parser: SwaggerParser): Record<string, PathInfo[]> {
     const groups: Record<string, PathInfo[]> = {};
     for (const op of parser.operations) {

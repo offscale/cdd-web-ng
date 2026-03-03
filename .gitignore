@@ -1,3 +1,7 @@
+dummy/
+output-cli/
+test-vanilla-fetch/
+generated/
 angular-client
 temp*
 tmp*

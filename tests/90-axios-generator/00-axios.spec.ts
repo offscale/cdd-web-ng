@@ -7,7 +7,7 @@ import { AxiosClientGenerator } from '@src/vendors/axios/axios-client.generator.
 
 describe('Axios Implementation', () => {
     describe('Config Validation', () => {
-        it('should throw if admin UI is requested with axios implementation', async () => {
+        it('should execute axios client generator and attempt admin UI generation when requested', async () => {
             const config: GeneratorConfig = {
                 input: 'dummy',
                 output: 'dummy',
@@ -17,9 +17,11 @@ describe('Axios Implementation', () => {
                 },
             };
 
-            await expect(generateFromConfig(config, new Project(), { spec: {} })).rejects.toThrow(
-                'Not implemented: Admin UI is not supported when the implementation/transport is axios.',
-            );
+            await expect(
+                generateFromConfig(config, new Project(), {
+                    spec: { openapi: '3.0.0', info: { title: 'Test API', version: '1.0' }, paths: {} },
+                }),
+            ).resolves.toBeUndefined();
         });
 
         it('should execute AxiosClientGenerator successfully when admin is false', async () => {

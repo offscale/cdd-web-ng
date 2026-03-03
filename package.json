@@ -48,8 +48,8 @@
         "docs": "typedoc",
         "prepublishOnly": "npm run build",
         "start": "node dist/cli.js",
-        "test": "vitest run",
-        "test:coverage": "vitest run --coverage",
+        "test": "vitest run --run",
+        "test:coverage": "vitest run --run --coverage",
         "prepare": "husky install"
     },
     "dependencies": {
@@ -66,6 +66,7 @@
         "@typescript-eslint/eslint-plugin": "^8.48.0",
         "@typescript-eslint/parser": "^8.48.0",
         "@vitest/coverage-istanbul": "^4.0.3",
+        "esbuild": "^0.27.3",
         "eslint": "^9.39.1",
         "eslint-config-prettier": "^10.1.8",
         "eslint-plugin-import": "^2.32.0",

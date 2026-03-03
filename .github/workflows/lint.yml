@@ -1,0 +1,25 @@
+name: Linting and Code Quality
+
+on:
+    push:
+        branches:
+            - master
+
+jobs:
+    lint:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v6
+
+            - uses: actions/setup-node@v6
+              with:
+                  node-version: 'lts/*'
+
+            - name: Install requirements
+              run: npm ci
+
+            - name: Run ESLint
+              run: npm run lint
+
+            - name: Run Prettier check
+              run: npx prettier --check 'src/**/*.ts' 'tests/**/*.ts'

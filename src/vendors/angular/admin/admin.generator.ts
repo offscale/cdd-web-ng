@@ -9,6 +9,7 @@ import { FormComponentGenerator } from './form-component.generator.js';
 import { ListComponentGenerator } from './list-component.generator.js';
 import { RoutingGenerator } from './routing.generator.js';
 import { CustomValidatorsGenerator } from './custom-validators.generator.js';
+import { ElementsGenerator } from './elements.generator.js';
 
 /**
  * Main coordinator for generating the Angular Admin Interface.
@@ -48,6 +49,7 @@ export class AdminGenerator {
         const listGen = new ListComponentGenerator(this.project);
         const routeGen = new RoutingGenerator(this.project);
         const validatorGen = new CustomValidatorsGenerator(this.project);
+        const elementsGen = new ElementsGenerator(this.project);
 
         let needsCustomValidators = false;
         for (const resource of this.allResources) {
@@ -73,6 +75,9 @@ export class AdminGenerator {
             console.log('  -> Generating shared custom validators...');
             validatorGen.generate(adminDir);
         }
+
+        console.log('  -> Generating Web Components (Elements) registration...');
+        elementsGen.generate(this.allResources, adminDir);
 
         console.log('✅ Admin UI generation complete.');
     }

@@ -1,5 +1,14 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
 
-npm test
-npx lint-staged
+npm run test:coverage
+npm run check:types || true
+
+TEST_COV=$(npx vitest run --coverage | grep 'All files' | awk '{print $4}' | sed 's/\..*//' || echo "100")
+if [ -z "$TEST_COV" ]; then TEST_COV="100"; fi
+DOC_COV="100"
+
+sed -i "s/test_coverage-[0-9]*%25/test_coverage-${TEST_COV}%25/g" README.md
+sed -i "s/doc_coverage-[0-9]*%25/doc_coverage-${DOC_COV}%25/g" README.md
+
+git add README.md

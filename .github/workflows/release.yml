@@ -1,0 +1,38 @@
+name: Release
+
+on:
+    push:
+        tags:
+            - 'v*.*.*'
+
+jobs:
+    build_and_release:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v6
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v3
+              with:
+                  node-version: 18
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Build JS
+              run: make build
+
+            - name: Build WASM
+              run: make build_wasm
+              # Since emscripten isn't guaranteed natively, this will just run our placeholder task.
+
+            - name: Archive build
+              run: tar -czvf dist.tar.gz dist/
+
+            - name: Create GitHub Release
+              uses: softprops/action-gh-release@v2
+              with:
+                  files: |
+                      dist.tar.gz
+                      wasm/cdd-web-ng.js
+                  generate_release_notes: true

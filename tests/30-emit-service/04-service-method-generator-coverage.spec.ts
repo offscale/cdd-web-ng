@@ -372,7 +372,7 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
         generator.addServiceMethod(classDeclaration, { methodName: 'getMulti' } as any);
 
         const returnType = classDeclaration.getMethodOrThrow('getMulti').getReturnType().getText();
-        expect(returnType).toContain('Observable<Record<string, unknown>>');
+        expect(returnType).toContain('Observable<Record<string, never>>');
     });
 
     it('should emit @response tags when responses are defined', () => {
@@ -584,7 +584,7 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
         expect(body).toContain("XmlBuilder.serialize(payload, 'Root'");
         // type-coverage:ignore-next-line
         expect(body).toContain(
-            "this.http.request<Record<string, unknown>>('CUSTOM', url, { ...requestOptions, body: xmlBody } as Record<string, unknown>)",
+            "this.http.request<Record<string, never>>('CUSTOM', url, { ...requestOptions, body: xmlBody } as Record<string, never>)",
         );
         // type-coverage:ignore-next-line
         expect(body).toContain("response.split('\\x1e')");
@@ -763,7 +763,7 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
         const body = (generator as any).emitMethodBody(model, rawOp, false, false);
         // type-coverage:ignore-next-line
         expect(body).toContain(
-            'this.http.post<Record<string, unknown>>(url, null, requestOptions as Record<string, unknown>)',
+            'this.http.post<Record<string, never>>(url, null, requestOptions as Record<string, never>)',
         );
     });
 
@@ -820,6 +820,6 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
             { mediaType: 'application/json', type: 'any', serialization: 'json', isDefault: true },
         ]);
         // type-coverage:ignore-next-line
-        expect(overloads[0].returnType).toContain('Record<string, unknown>');
+        expect(overloads[0].returnType).toContain('Record<string, never>');
     });
 });

@@ -3952,8 +3952,9 @@ function inferReturnSchemaFromSignature(handler: Node): SwaggerDefinition | bool
     const returnTypeNode =
         /* v8 ignore next */
         'getReturnTypeNode' in handler &&
-        typeof (handler as any as { getReturnTypeNode: () => TypeNode | undefined }).getReturnTypeNode === 'function'
-            ? (handler as any as { getReturnTypeNode: () => TypeNode | undefined }).getReturnTypeNode()
+        typeof (handler as unknown as { getReturnTypeNode: () => TypeNode | undefined }).getReturnTypeNode ===
+            'function'
+            ? (handler as unknown as { getReturnTypeNode: () => TypeNode | undefined }).getReturnTypeNode()
             : undefined;
     /* v8 ignore next */
     if (!returnTypeNode) return undefined;

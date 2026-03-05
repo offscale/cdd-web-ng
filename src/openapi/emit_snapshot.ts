@@ -15,7 +15,7 @@ export class SpecSnapshotGenerator {
         writeOpenApiSnapshot(
             this.parser.getSpec(),
             outputDir,
-            this.project.getFileSystem() as any as import('@src/openapi/parse_snapshot.js').SnapshotFileSystem,
+            this.project.getFileSystem() as unknown as import('@src/openapi/parse_snapshot.js').SnapshotFileSystem,
         );
     }
 }

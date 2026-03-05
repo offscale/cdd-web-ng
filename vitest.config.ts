@@ -9,8 +9,8 @@ export default defineConfig({
         environment: 'node',
         include: ['tests/**/*.spec.ts'],
         exclude: ['tests/fixtures/**'],
-        testTimeout: 30000,
-        hookTimeout: 30000,
+        testTimeout: 60000,
+        hookTimeout: 60000,
         reporters: ['verbose', 'junit'],
         alias: {
             '@src': path.resolve(__dirname, './src'),

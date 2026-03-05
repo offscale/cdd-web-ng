@@ -677,7 +677,7 @@ describe('Analysis: FormModelBuilder', () => {
         expect(unevaluated?.mapValueControl?.dataType).toContain('number');
     });
 
-    it('should fall back to Record<string, unknown> for invalid map value types', () => {
+    it('should fall back to Record<string, never> for invalid map value types', () => {
         const spec = {
             openapi: '3.0.0',
             info: { title: 'Map', version: '1.0' },
@@ -701,7 +701,7 @@ describe('Analysis: FormModelBuilder', () => {
         const result = builder.build(resource);
         const mapControl = result.topLevelControls.find(c => c.name === 'meta');
 
-        expect(mapControl?.dataType).toBe('Record<string, unknown>');
+        expect(mapControl?.dataType).toBe('Record<string, never>');
     });
 
     it('should handle boolean additionalProperties fallback to empty schema', () => {

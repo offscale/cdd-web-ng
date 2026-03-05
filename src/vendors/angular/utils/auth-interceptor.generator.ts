@@ -151,7 +151,7 @@ export class AuthInterceptorGenerator {
                 name: 'mtlsConfig',
                 isReadonly: true,
                 scope: Scope.Private,
-                type: 'Record<string, unknown>',
+                type: 'Record<string, never>',
                 initializer: `inject(HTTPS_AGENT_CONFIG_TOKEN, { optional: true })`,
             });
         }
@@ -220,7 +220,7 @@ export class AuthInterceptorGenerator {
         /* v8 ignore next */
         const statementsBody = `
         const requirements = req.context.get(SECURITY_CONTEXT_TOKEN);
-        const applicators: Record<string, (r: HttpRequest<Record<string, unknown>>, scopes?: string[]) => HttpRequest<Record<string, unknown>> | null> = {
+        const applicators: Record<string, (r: HttpRequest<Record<string, never>>, scopes?: string[]) => HttpRequest<Record<string, never>> | null> = {
             ${schemeLogicParts.join(',\n            ')}
         };
 
@@ -229,7 +229,7 @@ export class AuthInterceptorGenerator {
         }
 
         for (const requirement of requirements) {
-            let clone: HttpRequest<Record<string, unknown>> | null = req;
+            let clone: HttpRequest<Record<string, never>> | null = req;
             let satisfied = true;
 
             if (Object.keys(requirement).length === 0) {
@@ -261,10 +261,10 @@ export class AuthInterceptorGenerator {
         interceptorClass.addMethod({
             name: 'intercept',
             parameters: [
-                { name: 'req', type: 'HttpRequest<Record<string, unknown>>' },
+                { name: 'req', type: 'HttpRequest<Record<string, never>>' },
                 { name: 'next', type: 'HttpHandler' },
             ],
-            returnType: 'Observable<HttpEvent<Record<string, unknown>>>',
+            returnType: 'Observable<HttpEvent<Record<string, never>>>',
             statements: statementsBody,
         });
 

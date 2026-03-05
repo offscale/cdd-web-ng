@@ -77,7 +77,7 @@ export class WebhookHelperGenerator {
             typeParameters: [{ name: 'T', default: 'unknown' }],
             parameters: [
                 { name: 'eventName', type: 'string' },
-                { name: 'payload', type: 'Record<string, unknown>' },
+                { name: 'payload', type: 'Record<string, never>' },
                 { name: 'method', type: 'string', initializer: "'POST'" },
             ],
             returnType: 'payload is T',

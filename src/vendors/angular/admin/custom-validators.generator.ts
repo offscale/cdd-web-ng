@@ -269,7 +269,7 @@ export class CustomValidatorsGenerator {
                 isStatic: true,
                 scope: Scope.Public,
                 parameters: [
-                    { name: 'schema', type: 'Record<string, unknown>' },
+                    { name: 'schema', type: 'Record<string, never>' },
                     { name: 'min', type: 'number | undefined' },
                     { name: 'max', type: 'number | undefined' },
                 ],
@@ -279,7 +279,7 @@ export class CustomValidatorsGenerator {
                     /* v8 ignore next */
                     writer
                         .writeLine(
-                            'const isRecord = (value: Record<string, unknown> | string | number | boolean | null): value is Record<string, unknown> => {',
+                            'const isRecord = (value: Record<string, never> | string | number | boolean | null): value is Record<string, never> => {',
                         )
                         .indent(() => {
                             /* v8 ignore next */
@@ -289,7 +289,7 @@ export class CustomValidatorsGenerator {
                         })
                         .writeLine('};')
                         .writeLine(
-                            'const isNumber = (value: Record<string, unknown> | string | number | boolean | null): value is number => {',
+                            'const isNumber = (value: Record<string, never> | string | number | boolean | null): value is number => {',
                         )
                         .indent(() => {
                             /* v8 ignore next */
@@ -297,7 +297,7 @@ export class CustomValidatorsGenerator {
                         })
                         .writeLine('};')
                         .writeLine(
-                            "const isString = (value: Record<string, unknown> | string | number | boolean | null): value is string => typeof value === 'string';",
+                            "const isString = (value: Record<string, never> | string | number | boolean | null): value is string => typeof value === 'string';",
                         )
                         .writeLine('const deepEqual = (left: unknown, right: unknown): boolean => {')
                         .indent(() => {
@@ -356,7 +356,7 @@ export class CustomValidatorsGenerator {
                         })
                         .writeLine('};')
                         .writeLine(
-                            'const matchesType = (value: Record<string, unknown> | string | number | boolean | null, type: string): boolean => {',
+                            'const matchesType = (value: Record<string, never> | string | number | boolean | null, type: string): boolean => {',
                         )
                         .indent(() => {
                             /* v8 ignore next */
@@ -404,7 +404,7 @@ export class CustomValidatorsGenerator {
                         })
                         .writeLine('};')
                         .writeLine(
-                            'const matchesSchema = (value: Record<string, unknown> | string | number | boolean | null, schemaValue: unknown): boolean => {',
+                            'const matchesSchema = (value: Record<string, never> | string | number | boolean | null, schemaValue: unknown): boolean => {',
                         )
                         .indent(() => {
                             /* v8 ignore next */
@@ -636,7 +636,7 @@ export class CustomValidatorsGenerator {
                 name: 'constValidator',
                 isStatic: true,
                 scope: Scope.Public,
-                parameters: [{ name: 'constant', type: 'Record<string, unknown>' }],
+                parameters: [{ name: 'constant', type: 'Record<string, never>' }],
                 returnType: 'ValidatorFn',
                 docs: ['Validator ensuring the value matches a constant (OAS 3.1 const keyword).'],
                 statements: writer =>

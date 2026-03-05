@@ -82,10 +82,10 @@ export class BaseInterceptorGenerator {
                 {
                     name: 'intercept',
                     parameters: [
-                        { name: 'req', type: 'HttpRequest<Record<string, unknown>>' },
+                        { name: 'req', type: 'HttpRequest<Record<string, never>>' },
                         { name: 'next', type: 'HttpHandler' },
                     ],
-                    returnType: 'Observable<HttpEvent<Record<string, unknown>>>',
+                    returnType: 'Observable<HttpEvent<Record<string, never>>>',
                     statements: `
     if (!req.context.has(this.clientContextToken)) { 
       return next.handle(req); 
@@ -93,7 +93,7 @@ export class BaseInterceptorGenerator {
 
     const handler: HttpHandler = this.httpInterceptors.reduceRight( 
       (nextHandler, interceptor) => ({ 
-        handle: (request: HttpRequest<Record<string, unknown>>) => interceptor.intercept(request, nextHandler), 
+        handle: (request: HttpRequest<Record<string, never>>) => interceptor.intercept(request, nextHandler), 
       }), 
       next
     ); 

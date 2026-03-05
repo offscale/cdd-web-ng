@@ -81,7 +81,7 @@ export class HttpParamsBuilderGenerator {
             scope: Scope.Public,
             parameters: [
                 { name: 'key', type: 'string' },
-                { name: 'value', type: 'Record<string, unknown>' },
+                { name: 'value', type: 'Record<string, never>' },
                 { name: 'style', type: 'string', initializer: "'simple'" },
                 { name: 'explode', type: 'boolean', initializer: 'false' },
                 { name: 'allowReserved', type: 'boolean', initializer: 'false' },
@@ -152,8 +152,8 @@ export class HttpParamsBuilderGenerator {
             scope: Scope.Public,
             parameters: [
                 { name: 'params', type: 'HttpParams' },
-                { name: 'config', type: 'Record<string, unknown>' },
-                { name: 'value', type: 'Record<string, unknown>' },
+                { name: 'config', type: 'Record<string, never>' },
+                { name: 'value', type: 'Record<string, never>' },
             ],
             returnType: 'HttpParams',
             statements: `
@@ -203,7 +203,7 @@ export class HttpParamsBuilderGenerator {
         const explode = config.explode ?? true;
         
         if (style === 'deepObject' && typeof value === 'object') {
-             const processDeep = (obj: Record<string, unknown>, prefix: string) => {
+             const processDeep = (obj: Record<string, never>, prefix: string) => {
                  Object.keys(obj).forEach(k => {
                      const keyPath = \`\${prefix}[\${k}]\`;
                      const v = obj[k];
@@ -266,8 +266,8 @@ export class HttpParamsBuilderGenerator {
             isStatic: true,
             scope: Scope.Private,
             parameters: [
-                { name: 'body', type: 'Record<string, unknown>' },
-                { name: 'encodings', type: 'Record<string, unknown>', initializer: '{}' },
+                { name: 'body', type: 'Record<string, never>' },
+                { name: 'encodings', type: 'Record<string, never>', initializer: '{}' },
             ],
             returnType: 'Array<{ key: string; value: string }>',
             statements: `
@@ -320,7 +320,7 @@ export class HttpParamsBuilderGenerator {
             scope: Scope.Public,
             parameters: [
                 { name: 'key', type: 'string' },
-                { name: 'value', type: 'Record<string, unknown>' },
+                { name: 'value', type: 'Record<string, never>' },
                 { name: 'explode', type: 'boolean', initializer: 'false' },
                 { name: 'serialization', type: "'json' | undefined", hasQuestionToken: true },
             ],
@@ -348,7 +348,7 @@ export class HttpParamsBuilderGenerator {
             scope: Scope.Public,
             parameters: [
                 { name: 'key', type: 'string' },
-                { name: 'value', type: 'Record<string, unknown>' },
+                { name: 'value', type: 'Record<string, never>' },
                 { name: 'style', type: 'string', initializer: "'form'" },
                 { name: 'explode', type: 'boolean', initializer: 'true' },
                 { name: 'allowReserved', type: 'boolean', initializer: 'false' },
@@ -407,7 +407,7 @@ export class HttpParamsBuilderGenerator {
             isStatic: true,
             scope: Scope.Public,
             parameters: [
-                { name: 'value', type: 'Record<string, unknown>' },
+                { name: 'value', type: 'Record<string, never>' },
                 { name: 'serialization', type: "'json' | undefined", hasQuestionToken: true },
             ],
             returnType: 'string',
@@ -426,8 +426,8 @@ export class HttpParamsBuilderGenerator {
             isStatic: true,
             scope: Scope.Public,
             parameters: [
-                { name: 'body', type: 'Record<string, unknown>' },
-                { name: 'encodings', type: 'Record<string, unknown>', initializer: '{}' },
+                { name: 'body', type: 'Record<string, never>' },
+                { name: 'encodings', type: 'Record<string, never>', initializer: '{}' },
             ],
             returnType: 'HttpParams',
             statements: `

@@ -99,27 +99,27 @@ export class MockDataGenerator {
             }
 
             /* v8 ignore next */
-            if ((schema as Record<string, unknown>).dataValue !== undefined) {
+            if ((schema as Record<string, never>).dataValue !== undefined) {
                 /* v8 ignore next */
-                return (schema as Record<string, unknown>).dataValue;
+                return (schema as Record<string, never>).dataValue;
             }
 
             /* v8 ignore next */
-            if ((schema as Record<string, unknown>).value !== undefined) {
+            if ((schema as Record<string, never>).value !== undefined) {
                 /* v8 ignore next */
-                return (schema as Record<string, unknown>).value;
+                return (schema as Record<string, never>).value;
             }
 
             /* v8 ignore next */
-            if ((schema as Record<string, unknown>).serializedValue !== undefined) {
+            if ((schema as Record<string, never>).serializedValue !== undefined) {
                 /* v8 ignore next */
-                return (schema as Record<string, unknown>).serializedValue;
+                return (schema as Record<string, never>).serializedValue;
             }
 
             /* v8 ignore next */
-            if ((schema as Record<string, unknown>).externalValue) {
+            if ((schema as Record<string, never>).externalValue) {
                 /* v8 ignore next */
-                return this.resolveExternalValue((schema as Record<string, unknown>).externalValue as string);
+                return this.resolveExternalValue((schema as Record<string, never>).externalValue as string);
             }
 
             /* v8 ignore next */
@@ -149,7 +149,7 @@ export class MockDataGenerator {
                     /* v8 ignore next */
                     if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
                         /* v8 ignore next */
-                        return { ...(acc as Record<string, unknown>), ...(val as Record<string, unknown>) };
+                        return { ...(acc as Record<string, never>), ...(val as Record<string, never>) };
                     }
                     /* v8 ignore next */
                     return acc;
@@ -318,7 +318,7 @@ export class MockDataGenerator {
             return [];
         }
         /* v8 ignore next */
-        if ((schema.items as Record<string, unknown>).type === 'function') {
+        if ((schema.items as Record<string, never>).type === 'function') {
             /* v8 ignore next */
             return [];
         }

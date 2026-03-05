@@ -32,7 +32,7 @@ export class ExtensionTokensGenerator {
             declarations: [
                 {
                     name: 'EXTENSIONS_CONTEXT_TOKEN',
-                    initializer: `new HttpContextToken<Record<string, unknown>>(() => ({}))`,
+                    initializer: `new HttpContextToken<Record<string, never>>(() => ({}))`,
                 },
             ],
             docs: [

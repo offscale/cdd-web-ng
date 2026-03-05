@@ -84,7 +84,7 @@ describe('Emitter: ServiceMethodGenerator (XML Response Parsing)', () => {
 
         expect(body).toContain(`responseType: 'text'`);
         expect(body).toContain('.pipe(');
-        expect(body).toContain('map((response: Blob | string | Record<string, unknown>) => {');
+        expect(body).toContain('map((response: Blob | string | Record<string, never>) => {');
 
         expect(body).toContain('return XmlParser.parse(response,');
         expect(body).toContain('"name":"DataRoot"');

@@ -58,7 +58,7 @@ export class LinkServiceGenerator {
             properties: [
                 { name: 'targetOperationId', type: 'string', hasQuestionToken: true },
                 { name: 'operationRef', type: 'string', hasQuestionToken: true },
-                { name: 'parameters', type: 'Record<string, unknown>' },
+                { name: 'parameters', type: 'Record<string, never>' },
                 {
                     name: 'parameterLocations',
                     type: "Record<string, 'path' | 'query' | 'header' | 'cookie'>",
@@ -67,7 +67,7 @@ export class LinkServiceGenerator {
                         'Optional location map for qualified Link parameter keys (e.g. "path.id" -> { id: "path" }).',
                     ],
                 },
-                { name: 'body', type: 'Record<string, unknown>', hasQuestionToken: true },
+                { name: 'body', type: 'Record<string, never>', hasQuestionToken: true },
                 { name: 'targetServer', type: 'string', hasQuestionToken: true },
             ],
         });
@@ -78,9 +78,9 @@ export class LinkServiceGenerator {
             scope: Scope.Public,
             parameters: [
                 { name: 'operationId', type: 'string' },
-                { name: 'response', type: 'HttpResponse<Record<string, unknown>>' },
+                { name: 'response', type: 'HttpResponse<Record<string, never>>' },
                 { name: 'linkName', type: 'string' },
-                { name: 'request', type: 'HttpRequest<Record<string, unknown>>', hasQuestionToken: true },
+                { name: 'request', type: 'HttpRequest<Record<string, never>>', hasQuestionToken: true },
                 { name: 'urlTemplate', type: 'string', hasQuestionToken: true },
             ],
             returnType: 'ResolvedLink | null',
@@ -94,7 +94,7 @@ export class LinkServiceGenerator {
             ],
             statements: `
         const status = response.status.toString(); 
-        const opLinks = (API_LINKS as Record<string, unknown>)[operationId]; 
+        const opLinks = (API_LINKS as Record<string, never>)[operationId]; 
         if (!opLinks) return null; 
 
         const linksForStatus = opLinks[status] || opLinks['default']; 
@@ -103,7 +103,7 @@ export class LinkServiceGenerator {
         const linkDef = linksForStatus[linkName]; 
         if (!linkDef) return null; 
 
-        const context: Record<string, unknown> = { 
+        const context: Record<string, never> = { 
             statusCode: response.status, 
             response: { 
                 headers: this.extractHeaders(response.headers), 
@@ -122,7 +122,7 @@ export class LinkServiceGenerator {
             }; 
         } 
 
-        const parameters: Record<string, unknown> = {}; 
+        const parameters: Record<string, never> = {}; 
         const parameterLocations: Record<string, 'path' | 'query' | 'header' | 'cookie'> = {}; 
         if (linkDef.parameters) { 
             Object.entries(linkDef.parameters).forEach(([key, expr]) => { 
@@ -169,7 +169,7 @@ export class LinkServiceGenerator {
         linkServiceClass.addMethod({
             name: 'resolveServer',
             scope: Scope.Private,
-            parameters: [{ name: 'server', type: 'Record<string, unknown>' }],
+            parameters: [{ name: 'server', type: 'Record<string, never>' }],
             returnType: 'string',
             statements: `
         let url = server.url; 
@@ -192,7 +192,7 @@ export class LinkServiceGenerator {
         linkServiceClass.addMethod({
             name: 'extractHeaders',
             scope: Scope.Private,
-            parameters: [{ name: 'headers', type: 'Record<string, unknown>' }],
+            parameters: [{ name: 'headers', type: 'Record<string, never>' }],
             statements: `
         const result: Record<string, string> = {}; 
         if (!headers) return result; 
@@ -208,7 +208,7 @@ export class LinkServiceGenerator {
         linkServiceClass.addMethod({
             name: 'extractQueryParams',
             scope: Scope.Private,
-            parameters: [{ name: 'params', type: 'Record<string, unknown>' }],
+            parameters: [{ name: 'params', type: 'Record<string, never>' }],
             statements: `
         const result: Record<string, string> = {}; 
         if (!params) return result; 
@@ -268,8 +268,8 @@ export class LinkServiceGenerator {
             name: 'evaluate',
             scope: Scope.Private,
             parameters: [
-                { name: 'expression', type: 'Record<string, unknown>' },
-                { name: 'context', type: 'Record<string, unknown>' },
+                { name: 'expression', type: 'Record<string, never>' },
+                { name: 'context', type: 'Record<string, never>' },
             ],
             statements: `
         if (typeof expression !== 'string') return expression; 
@@ -296,7 +296,7 @@ export class LinkServiceGenerator {
             scope: Scope.Private,
             parameters: [
                 { name: 'expr', type: 'string' },
-                { name: 'context', type: 'Record<string, unknown>' },
+                { name: 'context', type: 'Record<string, never>' },
             ],
             statements: `
         if (expr === '$statusCode') return context.statusCode; 
@@ -342,7 +342,7 @@ export class LinkServiceGenerator {
             name: 'resolvePointer',
             scope: Scope.Private,
             parameters: [
-                { name: 'obj', type: 'Record<string, unknown>' },
+                { name: 'obj', type: 'Record<string, never>' },
                 { name: 'pointer', type: 'string' },
             ],
             statements: `

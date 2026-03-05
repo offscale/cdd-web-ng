@@ -304,7 +304,7 @@ export class FormModelBuilder {
                 controlModel = {
                     name: prop.name,
                     propertyName: prop.name,
-                    dataType: isValidTsType(valueTsType) ? `Record<string, ${valueTsType}>` : `Record<string, unknown>`,
+                    dataType: isValidTsType(valueTsType) ? `Record<string, ${valueTsType}>` : `Record<string, never>`,
                     defaultValue: defaultValue || {},
                     validationRules,
                     controlType: 'map',

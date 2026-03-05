@@ -1712,7 +1712,14 @@ export function buildOpenApiSpecFromServices(
                                 schema: { type: p.contentType?.includes('json') ? 'object' : 'string' },
                                 /* v8 ignore stop */
                                 /* v8 ignore start */
-                                ...(p.encoding ? { encoding: p.encoding as any } : {}),
+                                ...(p.encoding
+                                    ? {
+                                          encoding: p.encoding as Record<
+                                              string,
+                                              import('@src/core/types/index.js').EncodingProperty
+                                          >,
+                                      }
+                                    : {}),
                                 /* v8 ignore stop */
                             },
                         };
@@ -1941,8 +1948,7 @@ export function buildOpenApiSpecFromServices(
                     if (t === 'application/jsonl') {
                         // type-coverage:ignore-next-line
                         /* v8 ignore next */
-                        (specOp.responses['200'] as Record<string, { content?: Record<string, unknown> }>).content![t] =
-                            { itemSchema: s };
+                        (specOp.responses['200'] as SwaggerResponse).content![t] = { itemSchema: s };
                         /* v8 ignore next */
                         /* v8 ignore start */
                     } else if (op.responseIsArray) {
@@ -1953,19 +1959,17 @@ export function buildOpenApiSpecFromServices(
                         /* v8 ignore next */
                         /* v8 ignore next */
                         /* v8 ignore start */
-                        (specOp.responses['200'] as Record<string, { content?: Record<string, unknown> }>).content![t] =
-                            {
-                                /* v8 ignore stop */
-                                schema: {
-                                    type: 'array',
-                                    items: s,
-                                },
-                            };
+                        (specOp.responses['200'] as SwaggerResponse).content![t] = {
+                            /* v8 ignore stop */
+                            schema: {
+                                type: 'array',
+                                items: s,
+                            },
+                        };
                     } else {
                         // type-coverage:ignore-next-line
                         /* v8 ignore next */
-                        (specOp.responses['200'] as Record<string, { content?: Record<string, unknown> }>).content![t] =
-                            { schema: s };
+                        (specOp.responses['200'] as SwaggerResponse).content![t] = { schema: s };
                     }
                 });
             } else {
@@ -2084,7 +2088,7 @@ export function applyReverseMetadata(spec: SwaggerSpec, metadata: ReverseMetadat
                             },
                         },
                     },
-                } as any;
+                } as import('@src/core/types/index.js').HeaderObject;
             });
         }
 

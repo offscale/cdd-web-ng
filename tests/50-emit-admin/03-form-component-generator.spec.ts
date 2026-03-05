@@ -136,7 +136,9 @@ describe('Generators (Angular): FormComponentGenerator', () => {
             // Has Payload logic for Maps
             // FIXED: Now using `payload` variable due to readOnly stripping hygiene
             expect(classText).toContain("if (Array.isArray(payload['settings']))");
-            expect(classText).toContain("payload['settings'].forEach((pair: { key: string, value: unknown })");
+            expect(classText).toContain(
+                "payload['settings'].forEach((pair: { key: string, value: Record<string, never> | string | number | boolean | null })",
+            );
         });
 
         it('should handle properties with defaults', () => {
@@ -540,7 +542,7 @@ describe('Generators (Angular): FormComponentGenerator', () => {
             // type-coverage:ignore-next-line
             (generator as any).generateFormComponentTs(resource, '/admin/test-any/test-form', analysis);
             const sourceFile = project.getSourceFileOrThrow('/admin/test-any/test-form/test-form.component.ts');
-            expect(sourceFile.getText()).toContain('unknownProp: Record<string, unknown>');
+            expect(sourceFile.getText()).toContain('unknownProp: Record<string, never>');
         });
 
         it('should default array item interface to any when nestedFormInterface is missing', () => {

@@ -149,7 +149,7 @@ describe('Emitter: ServiceMethodGenerator (Edge Cases)', () => {
         methodGen.addServiceMethod(serviceClass, op);
         const body = serviceClass.getMethodOrThrow('copyResource').getBodyText()!;
         expect(body).toContain(
-            "return this.http.request<Record<string, unknown>>('COPY', url, requestOptions as Record<string, unknown>);",
+            "return this.http.request<Record<string, never>>('COPY', url, requestOptions as Record<string, never>);",
         );
     });
 
@@ -166,7 +166,7 @@ describe('Emitter: ServiceMethodGenerator (Edge Cases)', () => {
         methodGen.addServiceMethod(serviceClass, op);
         const body = serviceClass.getMethodOrThrow('querySearch').getBodyText()!;
         expect(body).toContain(
-            "return this.http.request('QUERY', url, { ...requestOptions, body: body } as Record<string, unknown>)",
+            "return this.http.request('QUERY', url, { ...requestOptions, body: body } as Record<string, never>)",
         );
     });
 

@@ -252,9 +252,9 @@ describe('Emitter: ServiceMethodGenerator (Parameters)', () => {
         methodGen.addServiceMethod(serviceClass, op);
         const body = serviceClass.getMethodOrThrow('getXmlParams').getBodyText()!;
 
-        expect(body).toContain(`let filterSerialized: Record<string, unknown> = filter;`);
+        expect(body).toContain(`let filterSerialized: Record<string, never> = filter;`);
         expect(body).toContain(`filterSerialized = XmlBuilder.serialize(filter, 'filter',`);
-        expect(body).toContain(`let xmlIdSerialized: Record<string, unknown> = xmlId;`);
+        expect(body).toContain(`let xmlIdSerialized: Record<string, never> = xmlId;`);
         expect(body).toContain(`xmlIdSerialized = XmlBuilder.serialize(xmlId, 'xmlId',`);
     });
 
@@ -271,9 +271,9 @@ describe('Emitter: ServiceMethodGenerator (Parameters)', () => {
         methodGen.addServiceMethod(serviceClass, op);
         const body = serviceClass.getMethodOrThrow('getSoapParams').getBodyText()!;
 
-        expect(body).toContain(`let soapFilterSerialized: Record<string, unknown> = soapFilter;`);
+        expect(body).toContain(`let soapFilterSerialized: Record<string, never> = soapFilter;`);
         expect(body).toContain(`soapFilterSerialized = XmlBuilder.serialize(soapFilter, 'SoapFilter',`);
-        expect(body).toContain(`let soapIdSerialized: Record<string, unknown> = soapId;`);
+        expect(body).toContain(`let soapIdSerialized: Record<string, never> = soapId;`);
         expect(body).toContain(`soapIdSerialized = XmlBuilder.serialize(soapId, 'soapId',`);
     });
 

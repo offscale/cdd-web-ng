@@ -159,16 +159,16 @@ export class ServiceTestGenerator {
                             : String(mockData);
                     /* v8 ignore next */
                     lines.push(
-                        `      const ${bodyParam.name}: Record<string, unknown> = ${mockData.replace(/"new Date\(\)"/g, 'new Date()')};`,
+                        `      const ${bodyParam.name}: Record<string, never> = ${mockData.replace(/"new Date\(\)"/g, 'new Date()')};`,
                     );
                     /* v8 ignore next */
                 } else if (bodyParam?.isPrimitive) {
                     /* v8 ignore next */
-                    lines.push(`      const ${bodyParam.name}: Record<string, unknown> = 'test-body';`);
+                    lines.push(`      const ${bodyParam.name}: Record<string, never> = 'test-body';`);
                     /* v8 ignore next */
                 } else if (bodyParam) {
                     /* v8 ignore next */
-                    lines.push(`      const ${bodyParam.name}: Record<string, unknown> = { data: 'test-body' };`);
+                    lines.push(`      const ${bodyParam.name}: Record<string, never> = { data: 'test-body' };`);
                 }
 
                 /* v8 ignore next */
@@ -176,10 +176,10 @@ export class ServiceTestGenerator {
                     /* v8 ignore next */
                     if (p.modelName) {
                         /* v8 ignore next */
-                        lines.push(`      const ${p.name}: Record<string, unknown> = ${p.value};`);
+                        lines.push(`      const ${p.name}: Record<string, never> = ${p.value};`);
                     } else {
                         /* v8 ignore next */
-                        lines.push(`      const ${p.name}: Record<string, unknown> = ${p.value};`);
+                        lines.push(`      const ${p.name}: Record<string, never> = ${p.value};`);
                     }
                 });
                 /* v8 ignore next */
@@ -328,7 +328,7 @@ export class ServiceTestGenerator {
         /* v8 ignore next */
         const pickExampleValue = (
             example: unknown,
-        ): { found: boolean; value: Record<string, unknown> | string | number | boolean | null } => {
+        ): { found: boolean; value: Record<string, never> | string | number | boolean | null } => {
             /* v8 ignore next */
             if (!example || typeof example !== 'object') return { found: false, value: null };
             /* v8 ignore next */
@@ -336,7 +336,7 @@ export class ServiceTestGenerator {
                 /* v8 ignore next */
                 return {
                     found: true,
-                    value: (example as Record<string, string | number | boolean | Record<string, unknown> | null>)
+                    value: (example as Record<string, string | number | boolean | Record<string, never> | null>)
                         .dataValue,
                 };
             }
@@ -345,8 +345,7 @@ export class ServiceTestGenerator {
                 /* v8 ignore next */
                 return {
                     found: true,
-                    value: (example as Record<string, string | number | boolean | Record<string, unknown> | null>)
-                        .value,
+                    value: (example as Record<string, string | number | boolean | Record<string, never> | null>).value,
                 };
             }
             /* v8 ignore next */
@@ -354,7 +353,7 @@ export class ServiceTestGenerator {
                 /* v8 ignore next */
                 return {
                     found: true,
-                    value: (example as Record<string, string | number | boolean | Record<string, unknown> | null>)
+                    value: (example as Record<string, string | number | boolean | Record<string, never> | null>)
                         .serializedValue,
                 };
             }
@@ -412,9 +411,9 @@ export class ServiceTestGenerator {
                 /* v8 ignore next */
                 potentialValue = schema.example;
                 /* v8 ignore next */
-            } else if (schema.examples && Array.isArray(schema.examples) && schema.examples.length > 0) {
+            } else if (schema.examples && Array.isArray(schema.examples) && (schema.examples as unknown[]).length > 0) {
                 /* v8 ignore next */
-                potentialValue = schema.examples[0];
+                potentialValue = (schema.examples as unknown[])[0];
             }
         }
 
@@ -437,7 +436,7 @@ export class ServiceTestGenerator {
                     /* v8 ignore next */
                     if (keys.length > 0) {
                         /* v8 ignore next */
-                        const ex = (media.examples as Record<string, unknown>)[keys[0]!];
+                        const ex = (media.examples as Record<string, never>)[keys[0]!];
                         /* v8 ignore next */
                         const contentValue = pickExampleValue(ex);
                         /* v8 ignore next */

@@ -36,7 +36,7 @@ const router = {
 type Request<
     Params = Record<string, string | undefined>,
     _ResBody = unknown,
-    ReqBody = Record<string, unknown> | undefined,
+    ReqBody = Record<string, never> | undefined,
     ReqQuery = Record<string, string | undefined>,
 > = {
     params: Params;
@@ -90,7 +90,7 @@ router.route('/projects/:projectId').patch(function updateProject(req: Request<R
     res.type('application/xml').status(200).send('<ok/>');
 });
 
-app.post('/messages', (req: Request<unknown, unknown, Record<string, unknown>>, res: Response) => {
+app.post('/messages', (req: Request<unknown, unknown, Record<string, never>>, res: Response) => {
     const body = req.body;
     const payload = req.body ? req.body['payload'] : undefined;
     if (req.is('application/json')) {
@@ -140,7 +140,7 @@ app.get(
             params,
             query,
             body,
-        }: Request<Record<string, string>, unknown, Record<string, unknown>, Record<string, string>>,
+        }: Request<Record<string, string>, unknown, Record<string, never>, Record<string, string>>,
         res: Response,
     ) => {
         const userId = params.id;

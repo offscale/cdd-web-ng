@@ -69,7 +69,7 @@ describe('Emitter: ServiceMethodGenerator (Multipart Defaults)', () => {
 
         expect(body).toContain('const multipartResult = MultipartBuilder.serialize(body, multipartConfig);');
         expect(body).toContain(
-            'return this.http.post<Record<string, unknown>>(url, multipartResult.content, requestOptions as Record<string, unknown>);',
+            'return this.http.post<Record<string, never>>(url, multipartResult.content, requestOptions as Record<string, never>);',
         );
     });
 

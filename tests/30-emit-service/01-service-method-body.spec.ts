@@ -272,7 +272,7 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
 
         expect(body).toContain(`"id":`);
         expect(body).toContain(`"attribute":true`);
-        expect(body).toContain(`return this.http.post<Record<string, unknown>>(url, xmlBody`);
+        expect(body).toContain(`return this.http.post<Record<string, never>>(url, xmlBody`);
     });
 
     it('should generate blob wrapping for encoded multipart fields using accurate OAS 3.2 default logic', () => {
@@ -318,7 +318,7 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
         );
 
         expect(body).toContain(
-            'return this.http.post<Record<string, unknown>>(url, formBody, requestOptions as Record<string, unknown>);',
+            'return this.http.post<Record<string, never>>(url, formBody, requestOptions as Record<string, never>);',
         );
     });
 
@@ -354,7 +354,7 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
         const body = serviceClass.getMethodOrThrow('postJsonLines').getBodyText()!;
         expect(body).toContain('let jsonLinesBody = readOnlyModel;');
         expect(body).toContain(
-            "jsonLinesBody = jsonLinesBody.map((item: Record<string, unknown>) => JSON.stringify(item)).join('\\n')",
+            "jsonLinesBody = jsonLinesBody.map((item: Record<string, never>) => JSON.stringify(item)).join('\\n')",
         );
         expect(body).toContain("headers = headers.set('Content-Type', 'application/x-ndjson')");
     });
@@ -373,7 +373,7 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
         const body = serviceClass.getMethodOrThrow('postCustomJsonLines').getBodyText()!;
         expect(body).toContain('let jsonLinesBody = readOnlyModel;');
         expect(body).toContain(
-            "jsonLinesBody = jsonLinesBody.map((item: Record<string, unknown>) => JSON.stringify(item)).join('\\n')",
+            "jsonLinesBody = jsonLinesBody.map((item: Record<string, never>) => JSON.stringify(item)).join('\\n')",
         );
         expect(body).toContain("headers = headers.set('Content-Type', 'application/vnd.acme+json')");
     });
@@ -437,7 +437,7 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
         expect(body).toContain('const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(body, {});');
         expect(body).toContain('let formBody = new HttpParams({ encoder: new ApiParameterCodec() });');
         expect(body).toContain(
-            'return this.http.post<Record<string, unknown>>(url, formBody, requestOptions as Record<string, unknown>);',
+            'return this.http.post<Record<string, never>>(url, formBody, requestOptions as Record<string, never>);',
         );
     });
 

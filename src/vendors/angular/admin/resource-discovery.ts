@@ -361,7 +361,7 @@ export function getModelName(resourceName: string, operations: PathInfo[]): stri
     // type-coverage:ignore-next-line
     /* v8 ignore next */
     const schema = (op?.requestBody?.content?.['application/json']?.schema ??
-        op?.responses?.['200']?.content?.['application/json']?.schema) as Record<string, unknown> | undefined;
+        op?.responses?.['200']?.content?.['application/json']?.schema) as Record<string, never> | undefined;
     // type-coverage:ignore-next-line
     /* v8 ignore next */
     if (schema && typeof schema === 'object') {
@@ -379,7 +379,7 @@ export function getModelName(resourceName: string, operations: PathInfo[]): stri
             schema.type === 'array' &&
             schema.items &&
             !Array.isArray(schema.items) &&
-            '$ref' in (schema.items as Record<string, unknown>)
+            '$ref' in (schema.items as Record<string, never>)
         ) {
             // type-coverage:ignore-next-line
             /* v8 ignore next */

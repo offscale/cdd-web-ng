@@ -372,7 +372,7 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
         generator.addServiceMethod(classDeclaration, { methodName: 'getMulti' } as any);
 
         const returnType = classDeclaration.getMethodOrThrow('getMulti').getReturnType().getText();
-        expect(returnType).toContain('Observable<any>');
+        expect(returnType).toContain('Observable<Record<string, unknown>>');
     });
 
     it('should emit @response tags when responses are defined', () => {
@@ -583,7 +583,9 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
         // type-coverage:ignore-next-line
         expect(body).toContain("XmlBuilder.serialize(payload, 'Root'");
         // type-coverage:ignore-next-line
-        expect(body).toContain("this.http.request<any>('CUSTOM', url, { ...requestOptions, body: xmlBody } as any)");
+        expect(body).toContain(
+            "this.http.request<Record<string, unknown>>('CUSTOM', url, { ...requestOptions, body: xmlBody } as Record<string, unknown>)",
+        );
         // type-coverage:ignore-next-line
         expect(body).toContain("response.split('\\x1e')");
         // type-coverage:ignore-next-line
@@ -760,7 +762,9 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
         // type-coverage:ignore-next-line
         const body = (generator as any).emitMethodBody(model, rawOp, false, false);
         // type-coverage:ignore-next-line
-        expect(body).toContain('this.http.post<any>(url, null, requestOptions as any)');
+        expect(body).toContain(
+            'this.http.post<Record<string, unknown>>(url, null, requestOptions as Record<string, unknown>)',
+        );
     });
 
     it('should set Content-Type when requestContentType is provided', () => {
@@ -816,6 +820,6 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
             { mediaType: 'application/json', type: 'any', serialization: 'json', isDefault: true },
         ]);
         // type-coverage:ignore-next-line
-        expect(overloads[0].returnType).toContain('unknown');
+        expect(overloads[0].returnType).toContain('Record<string, unknown>');
     });
 });

@@ -103,7 +103,7 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
         expect(methodBody).toContain('const multipartConfig =');
         expect(methodBody).toContain('MultipartBuilder.serialize(body, multipartConfig);');
         expect(methodBody).toContain(
-            'return this.http.post<any>(url, multipartResult.content, requestOptions as any);',
+            'return this.http.post<Record<string, unknown>>(url, multipartResult.content, requestOptions as Record<string, unknown>);',
         );
     });
 
@@ -116,7 +116,9 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
             .getBodyText()!;
         expect(methodBody).toContain('const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(body,');
         expect(methodBody).toContain('let formBody = new HttpParams({ encoder: new ApiParameterCodec() });');
-        expect(methodBody).toContain('return this.http.post<any>(url, formBody, requestOptions as any);');
+        expect(methodBody).toContain(
+            'return this.http.post<Record<string, unknown>>(url, formBody, requestOptions as Record<string, unknown>);',
+        );
     });
 
     it('should not import models for services that only return primitives', () => {
@@ -154,7 +156,7 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
         const project = run(branchCoverageSpec);
         const serviceFile = project.getSourceFileOrThrow('/out/services/noSuccessResponse.service.ts');
         const method = serviceFile.getClassOrThrow('NoSuccessResponseService').getMethodOrThrow('getNoSuccess');
-        expect(method.getOverloads()[0].getReturnType().getText()).toBe('Observable<any>');
+        expect(method.getOverloads()[0].getReturnType().getText()).toBe('Observable<Record<string, unknown>>');
     });
 
     it('should handle default responses and responses without content', () => {

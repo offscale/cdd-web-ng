@@ -73,7 +73,8 @@ export class ServiceMethodGenerator {
             negotiationVariants,
         );
 
-        let returnType = overloads.length > 0 ? 'Observable<any>' : `Observable<${model.responseType}>`;
+        let returnType =
+            overloads.length > 0 ? 'Observable<Record<string, unknown>>' : `Observable<${model.responseType}>`;
         if ((hasContentNegotiation || hasMultipleSuccessTypes) && overloads.length === 0) {
             const unionType = distinctTypes.join(' | ');
             returnType = `Observable<${unionType}>`;
@@ -182,7 +183,9 @@ export class ServiceMethodGenerator {
             const paramName = camelCase(param.name);
             if (!paramNames.has(paramName)) return;
             const example = this.extractParameterExample(param);
-            const serialized = this.serializeExampleValue(example);
+            const serialized = this.serializeExampleValue(
+                example as Record<string, unknown> | string | number | boolean | null,
+            );
             if (serialized !== undefined) {
                 tags.push(`@paramExample ${paramName} ${serialized}`);
             }
@@ -208,7 +211,9 @@ export class ServiceMethodGenerator {
                 if (!resolved?.content) return;
                 Object.entries(resolved.content).forEach(([mediaType, mediaObj]) => {
                     const example = this.extractMediaTypeExample(mediaObj, mediaType);
-                    const serialized = this.serializeExampleValue(example);
+                    const serialized = this.serializeExampleValue(
+                        example as Record<string, unknown> | string | number | boolean | null,
+                    );
                     if (serialized !== undefined) {
                         tags.push(`@responseExample ${code} ${mediaType} ${serialized}`);
                     }
@@ -219,7 +224,9 @@ export class ServiceMethodGenerator {
         return tags;
     }
 
-    private serializeExampleValue(value: unknown): string | undefined {
+    private serializeExampleValue(
+        value: Record<string, unknown> | string | number | boolean | null,
+    ): string | undefined {
         if (value === undefined) return undefined;
         try {
             return JSON.stringify(value);
@@ -231,34 +238,42 @@ export class ServiceMethodGenerator {
     private extractExampleValue(
         exampleObj: unknown,
         preferSerialized = false,
-    ): { found: boolean; value: unknown; kind?: 'data' | 'value' | 'serialized' | 'external' } {
-        if (!exampleObj || typeof exampleObj !== 'object') return { found: false, value: undefined };
+    ): {
+        found: boolean;
+        value: Record<string, unknown> | string | number | boolean | null;
+        kind?: 'data' | 'value' | 'serialized' | 'external';
+    } {
+        if (!exampleObj || typeof exampleObj !== 'object') return { found: false, value: null };
         if (preferSerialized) {
             if (Object.prototype.hasOwnProperty.call(exampleObj, 'serializedValue')) {
                 return {
                     found: true,
-                    value: (exampleObj as Record<string, unknown>).serializedValue,
+                    value: (exampleObj as Record<string, string | number | boolean | Record<string, unknown> | null>)
+                        .serializedValue,
                     kind: 'serialized',
                 };
             }
             if (Object.prototype.hasOwnProperty.call(exampleObj, 'externalValue')) {
                 return {
                     found: true,
-                    value: (exampleObj as Record<string, unknown>).externalValue,
+                    value: (exampleObj as Record<string, string | number | boolean | Record<string, unknown> | null>)
+                        .externalValue,
                     kind: 'external',
                 };
             }
             if (Object.prototype.hasOwnProperty.call(exampleObj, 'dataValue')) {
                 return {
                     found: true,
-                    value: (exampleObj as Record<string, unknown>).dataValue,
+                    value: (exampleObj as Record<string, string | number | boolean | Record<string, unknown> | null>)
+                        .dataValue,
                     kind: 'data',
                 };
             }
             if (Object.prototype.hasOwnProperty.call(exampleObj, 'value')) {
                 return {
                     found: true,
-                    value: (exampleObj as Record<string, unknown>).value,
+                    value: (exampleObj as Record<string, string | number | boolean | Record<string, unknown> | null>)
+                        .value,
                     kind: 'value',
                 };
             }
@@ -266,36 +281,43 @@ export class ServiceMethodGenerator {
             if (Object.prototype.hasOwnProperty.call(exampleObj, 'dataValue')) {
                 return {
                     found: true,
-                    value: (exampleObj as Record<string, unknown>).dataValue,
+                    value: (exampleObj as Record<string, string | number | boolean | Record<string, unknown> | null>)
+                        .dataValue,
                     kind: 'data',
                 };
             }
             if (Object.prototype.hasOwnProperty.call(exampleObj, 'value')) {
                 return {
                     found: true,
-                    value: (exampleObj as Record<string, unknown>).value,
+                    value: (exampleObj as Record<string, string | number | boolean | Record<string, unknown> | null>)
+                        .value,
                     kind: 'value',
                 };
             }
             if (Object.prototype.hasOwnProperty.call(exampleObj, 'serializedValue')) {
                 return {
                     found: true,
-                    value: (exampleObj as Record<string, unknown>).serializedValue,
+                    value: (exampleObj as Record<string, string | number | boolean | Record<string, unknown> | null>)
+                        .serializedValue,
                     kind: 'serialized',
                 };
             }
             if (Object.prototype.hasOwnProperty.call(exampleObj, 'externalValue')) {
                 return {
                     found: true,
-                    value: (exampleObj as Record<string, unknown>).externalValue,
+                    value: (exampleObj as Record<string, string | number | boolean | Record<string, unknown> | null>)
+                        .externalValue,
                     kind: 'external',
                 };
             }
         }
-        return { found: false, value: undefined };
+        return { found: false, value: null };
     }
 
-    private wrapExampleValue(picked: { value: unknown; kind?: 'data' | 'value' | 'serialized' | 'external' }): unknown {
+    private wrapExampleValue(picked: {
+        value: Record<string, unknown> | string | number | boolean | null;
+        kind?: 'data' | 'value' | 'serialized' | 'external';
+    }): unknown {
         if (picked.kind === 'serialized') {
             return { __oasExample: { serializedValue: picked.value } };
         }
@@ -361,13 +383,18 @@ export class ServiceMethodGenerator {
         return undefined;
     }
 
-    private extractRequestBodyExamples(requestBody: RequestBody): { mediaType: string; value: unknown }[] {
-        const entries: { mediaType: string; value: unknown }[] = [];
+    private extractRequestBodyExamples(
+        requestBody: RequestBody,
+    ): { mediaType: string; value: Record<string, unknown> | string | number | boolean | null }[] {
+        const entries: { mediaType: string; value: Record<string, unknown> | string | number | boolean | null }[] = [];
         const content = requestBody.content ?? {};
         Object.entries(content).forEach(([mediaType, mediaObj]) => {
             const example = this.extractMediaTypeExample(mediaObj, mediaType);
             if (example !== undefined) {
-                entries.push({ mediaType, value: example });
+                entries.push({
+                    mediaType,
+                    value: example as Record<string, unknown> | string | number | boolean | null,
+                });
             }
         });
         return entries;
@@ -588,7 +615,7 @@ export class ServiceMethodGenerator {
             const xmlConfig = (
                 this.analyzer as unknown as { getXmlConfig: (a: unknown, b: number) => unknown }
             ).getXmlConfig(schema, 5);
-            lines.push(`let ${paramName}Serialized: any = ${paramName};`);
+            lines.push(`let ${paramName}Serialized: Record<string, unknown> = ${paramName};`);
             lines.push(`if (${paramName} !== null && ${paramName} !== undefined) {`);
             lines.push(
                 `  ${paramName}Serialized = XmlBuilder.serialize(${paramName}, '${rootName}', ${JSON.stringify(xmlConfig)});`,
@@ -681,7 +708,7 @@ export class ServiceMethodGenerator {
                     `const serialized_${p.paramName} = ParameterSerializer.serializeQueryParam(${configObj}, ${p.paramName});`,
                 );
                 lines.push(
-                    `serialized_${p.paramName}.forEach((entry: any) => params = params.append(entry.key, entry.value));`,
+                    `serialized_${p.paramName}.forEach((entry: { key: string, value: string | Blob }) => params = params.append(entry.key, entry.value));`,
                 );
             });
         }
@@ -843,7 +870,7 @@ export class ServiceMethodGenerator {
                 );
                 lines.push(`let formBody = new HttpParams({ encoder: new ApiParameterCodec() });`);
                 lines.push(
-                    `urlParamEntries.forEach((entry: any) => formBody = formBody.append(entry.key, entry.value));`,
+                    `urlParamEntries.forEach((entry: { key: string, value: string | Blob }) => formBody = formBody.append(entry.key, entry.value));`,
                 );
                 bodyArgument = 'formBody';
             } else if (body.type === 'json-lines' || body.type === 'json-seq') {
@@ -860,14 +887,16 @@ export class ServiceMethodGenerator {
                 if (body.type === 'json-seq') {
                     lines.push(`if (Array.isArray(${bodyVar})) {`);
                     lines.push(
-                        `  ${bodyVar} = ${bodyVar}.map((item: any) => '\\x1e' + JSON.stringify(item)).join('');`,
+                        `  ${bodyVar} = ${bodyVar}.map((item: Record<string, unknown>) => '\\x1e' + JSON.stringify(item)).join('');`,
                     );
                     lines.push(`} else if (${bodyVar} != null && typeof ${bodyVar} !== 'string') {`);
                     lines.push(`  ${bodyVar} = '\\x1e' + JSON.stringify(${bodyVar});`);
                     lines.push(`}`);
                 } else {
                     lines.push(`if (Array.isArray(${bodyVar})) {`);
-                    lines.push(`  ${bodyVar} = ${bodyVar}.map((item: any) => JSON.stringify(item)).join('\\n');`);
+                    lines.push(
+                        `  ${bodyVar} = ${bodyVar}.map((item: Record<string, unknown>) => JSON.stringify(item)).join('\\n');`,
+                    );
                     lines.push(`} else if (${bodyVar} != null && typeof ${bodyVar} !== 'string') {`);
                     lines.push(`  ${bodyVar} = JSON.stringify(${bodyVar});`);
                     lines.push(`}`);
@@ -927,9 +956,9 @@ export class ServiceMethodGenerator {
                                 } 
                             }); 
                         } else if (headers) { 
-                            Object.entries(headers as any).forEach(([key, value]) => { 
+                            Object.entries(headers as Record<string, unknown>).forEach(([key, value]) => { 
                                 if (Array.isArray(value)) { 
-                                    value.forEach((v: any) => h.append(key, String(v))); 
+                                    value.forEach((v: string | number | boolean) => h.append(key, String(v))); 
                                 } else if (value !== undefined && value !== null) { 
                                     h.set(key, String(value)); 
                                 } 
@@ -949,8 +978,8 @@ export class ServiceMethodGenerator {
                             } 
                         }); 
                     } else if (headers) { 
-                        Object.entries(headers as any).forEach(([key, value]) => { 
-                            if (Array.isArray(value)) raw[key] = value.map((v: any) => String(v)).join(', '); 
+                        Object.entries(headers as Record<string, unknown>).forEach(([key, value]) => { 
+                            if (Array.isArray(value)) raw[key] = value.map((v: string | number | boolean) => String(v)).join(', '); 
                             else if (value !== undefined && value !== null) raw[key] = String(value); 
                         }); 
                     } 
@@ -959,12 +988,12 @@ export class ServiceMethodGenerator {
 
                 
 
-                const fetchOptions: RequestInit = { method: '${model.httpMethod}', headers: fetchHeaders as any }; 
+                const fetchOptions: RequestInit = { method: '${model.httpMethod}', headers: fetchHeaders as HeadersInit }; 
                 if (abortController) fetchOptions.signal = abortController.signal; 
 
                 if (options?.withCredentials) fetchOptions.credentials = 'include'; 
 
-                ${bodyArgument !== 'null' ? `fetchOptions.body = ${bodyArgument} as any;` : ''} 
+                ${bodyArgument !== 'null' ? `fetchOptions.body = ${bodyArgument} as Record<string, unknown>;` : ''} 
 
                 fetch(url, fetchOptions).then(response => { 
                     if (!response.ok) { observer.error(response); return; } 
@@ -998,7 +1027,7 @@ export class ServiceMethodGenerator {
                         } 
 
                         const data = dataLines.join('\\n'); 
-                        let payload: any; 
+                        let payload: Record<string, unknown>; 
                         if ('${sseMode}' === 'event') { 
                             payload = { data }; 
                             const resolvedEvent = eventName ?? 'message'; 
@@ -1011,7 +1040,7 @@ export class ServiceMethodGenerator {
                         } 
                         ${hasSseDecoding ? 'payload = ContentDecoder.decode(payload, sseDecodingConfig);' : ''} 
 
-                        observer.next(payload as any); 
+                        observer.next(payload as Record<string, unknown>); 
                         resetEvent(); 
                     }; 
 
@@ -1096,22 +1125,22 @@ export class ServiceMethodGenerator {
         const isStandardBody = ['post', 'put', 'patch', 'query'].includes(httpMethod);
         const isStandardNonBody = ['get', 'delete', 'head', 'options', 'jsonp'].includes(httpMethod);
 
-        const returnGeneric = `any`;
+        const returnGeneric = `Record<string, unknown>`;
 
         let httpCall: string;
 
         if (isStandardBody) {
             if (httpMethod === 'query') {
-                httpCall = `this.http.request('QUERY', url, { ...requestOptions, body: ${bodyArgument} } as any)`;
+                httpCall = `this.http.request('QUERY', url, { ...requestOptions, body: ${bodyArgument} } as Record<string, unknown>)`;
             } else {
-                httpCall = `this.http.${httpMethod}<${returnGeneric}>(url, ${bodyArgument}, requestOptions as any)`;
+                httpCall = `this.http.${httpMethod}<${returnGeneric}>(url, ${bodyArgument}, requestOptions as Record<string, unknown>)`;
             }
         } else if (bodyArgument !== 'null') {
-            httpCall = `this.http.request<${returnGeneric}>('${model.httpMethod}', url, { ...requestOptions, body: ${bodyArgument} } as any)`;
+            httpCall = `this.http.request<${returnGeneric}>('${model.httpMethod}', url, { ...requestOptions, body: ${bodyArgument} } as Record<string, unknown>)`;
         } else if (isStandardNonBody) {
-            httpCall = `this.http.${httpMethod}<${returnGeneric}>(url, requestOptions as any)`;
+            httpCall = `this.http.${httpMethod}<${returnGeneric}>(url, requestOptions as Record<string, unknown>)`;
         } else {
-            httpCall = `this.http.request<${returnGeneric}>('${model.httpMethod}', url, requestOptions as any)`;
+            httpCall = `this.http.request<${returnGeneric}>('${model.httpMethod}', url, requestOptions as Record<string, unknown>)`;
         }
 
         if (hasContentNegotiation) {
@@ -1164,7 +1193,7 @@ export class ServiceMethodGenerator {
             if (isSeq) {
                 const delimiter = model.responseSerialization === 'json-seq' ? '\\x1e' : '\\n';
                 lines.push(`return ${httpCall}.pipe(`);
-                lines.push(`  map((response: any) => {`);
+                lines.push(`  map((response: Blob | string | Record<string, unknown>) => {`);
                 lines.push(`    if (typeof response !== 'string') return response;`);
                 lines.push(
                     `    const items = response.split('${delimiter}').filter((part: string) => part.trim().length > 0);`,
@@ -1174,14 +1203,14 @@ export class ServiceMethodGenerator {
                 lines.push(`);`);
             } else if (isXmlResp) {
                 lines.push(`return ${httpCall}.pipe(`);
-                lines.push(`  map((response: any) => {`);
+                lines.push(`  map((response: Blob | string | Record<string, unknown>) => {`);
                 lines.push(`    if (typeof response !== 'string') return response;`);
                 lines.push(`    return XmlParser.parse(response, ${JSON.stringify(model.responseXmlConfig)});`);
                 lines.push(`  })`);
                 lines.push(`);`);
             } else if (model.responseDecodingConfig) {
                 lines.push(`return ${httpCall}.pipe(`);
-                lines.push(`  map((response: any) => {`);
+                lines.push(`  map((response: Blob | string | Record<string, unknown>) => {`);
                 lines.push(
                     `    return ContentDecoder.decode(response, ${JSON.stringify(model.responseDecodingConfig)});`,
                 );
@@ -1213,7 +1242,11 @@ export class ServiceMethodGenerator {
         const uniqueTypes = [...new Set(variants.map(v => v.type))];
         const unionType = uniqueTypes.join(' | ');
         const defaultResponseType =
-            uniqueTypes.length > 1 ? unionType : responseType === 'any' ? 'any' : responseType || 'unknown';
+            uniqueTypes.length > 1
+                ? unionType
+                : responseType === 'any'
+                  ? 'Record<string, unknown>'
+                  : responseType || 'Record<string, unknown>';
         const deprecationDoc = isDeprecated ? '\n@deprecated' : '';
         const overloads: OptionalKind<MethodDeclarationOverloadStructure>[] = [];
 

@@ -41,8 +41,8 @@ export class ResponseHeaderParserGenerator {
             ],
             returnType: 'T',
             statements: `
-        const result: any = {};
-        const opHeaders = (API_RESPONSE_HEADERS as any)[operationId];
+        const result: Record<string, unknown> = {};
+        const opHeaders = (API_RESPONSE_HEADERS as Record<string, Record<string, Record<string, string>>>)[operationId];
         if (!opHeaders) return result as T;
 
         const status = statusCode.toString();
@@ -64,7 +64,7 @@ export class ResponseHeaderParserGenerator {
                 const val = headers.get(headerName);
                 if (val !== null) {
                     const xmlConfigKey = \`\${operationId}_\${status}_\${headerName}\`;
-                    const xmlConfig = (API_HEADER_XML_CONFIGS as any)[xmlConfigKey];
+                    const xmlConfig = (API_HEADER_XML_CONFIGS as Record<string, unknown>)[xmlConfigKey];
                     result[headerName] = this.coerce(val, typeHint as string, xmlConfig);
                 }
             }
@@ -79,9 +79,9 @@ export class ResponseHeaderParserGenerator {
             parameters: [
                 { name: 'value', type: 'string' },
                 { name: 'type', type: 'string' },
-                { name: 'xmlConfig', type: 'any', hasQuestionToken: true },
+                { name: 'xmlConfig', type: 'Record<string, unknown>', hasQuestionToken: true },
             ],
-            returnType: 'any',
+            returnType: 'Record<string, unknown>',
             statements: `
         switch (type) {
             case 'number': return parseFloat(value);
@@ -109,8 +109,8 @@ export class ResponseHeaderParserGenerator {
             name: 'parseLinkSetBody',
             typeParameters: [{ name: 'T' }],
             scope: Scope.Public,
-            parameters: [{ name: 'body', type: 'any' }],
-            returnType: 'any',
+            parameters: [{ name: 'body', type: 'Record<string, unknown>' }],
+            returnType: 'Record<string, unknown>',
             statements: `
             return LinkSetParser.parseJson(body);`,
         });

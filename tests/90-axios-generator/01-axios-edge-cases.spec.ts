@@ -166,7 +166,10 @@ describe('Axios Implementation Edge Cases', () => {
         };
 
         const originalAnalyze = ServiceMethodAnalyzer.prototype.analyze;
-        vi.spyOn(ServiceMethodAnalyzer.prototype, 'analyze').mockImplementation(function (this: any, op: any) {
+        vi.spyOn(ServiceMethodAnalyzer.prototype, 'analyze').mockImplementation(function (
+            this: ServiceMethodAnalyzer,
+            op: PathInfo,
+        ) {
             const result = originalAnalyze.call(this, op);
             if (result && result.methodName === 'getBuffer') {
                 result.responseSerialization = 'arraybuffer';
@@ -353,7 +356,10 @@ it('should handle operation with invalid analyzer state explicitly mocked (retur
     };
 
     const originalAnalyze = ServiceMethodAnalyzer.prototype.analyze;
-    vi.spyOn(ServiceMethodAnalyzer.prototype, 'analyze').mockImplementation(function (this: any, op: any) {
+    vi.spyOn(ServiceMethodAnalyzer.prototype, 'analyze').mockImplementation(function (
+        this: ServiceMethodAnalyzer,
+        op: PathInfo,
+    ) {
         return null;
     });
 

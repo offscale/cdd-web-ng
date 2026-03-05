@@ -96,12 +96,21 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
     const formDataProperties: Record<string, SwaggerDefinition> = {};
 
     operations.forEach(op => {
-        const reqSchema = findSchema(op.requestBody?.content?.['application/json']?.schema as any, parser);
+        const reqSchema = findSchema(
+            op.requestBody?.content?.['application/json']?.schema as unknown as SwaggerDefinition,
+            parser,
+        );
         if (reqSchema) allSchemas.push(reqSchema);
 
         const formSchemas = [
-            findSchema(op.requestBody?.content?.['multipart/form-data']?.schema as any, parser),
-            findSchema(op.requestBody?.content?.['application/x-www-form-urlencoded']?.schema as any, parser),
+            findSchema(
+                op.requestBody?.content?.['multipart/form-data']?.schema as unknown as SwaggerDefinition,
+                parser,
+            ),
+            findSchema(
+                op.requestBody?.content?.['application/x-www-form-urlencoded']?.schema as unknown as SwaggerDefinition,
+                parser,
+            ),
         ].filter(Boolean) as SwaggerDefinition[];
 
         formSchemas.forEach(formSchema => {
@@ -119,8 +128,14 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
         });
 
         const resSchema =
-            findSchema(op.responses?.['200']?.content?.['application/json']?.schema as any, parser) ??
-            findSchema(op.responses?.['201']?.content?.['application/json']?.schema as any, parser);
+            findSchema(
+                op.responses?.['200']?.content?.['application/json']?.schema as unknown as SwaggerDefinition,
+                parser,
+            ) ??
+            findSchema(
+                op.responses?.['201']?.content?.['application/json']?.schema as unknown as SwaggerDefinition,
+                parser,
+            );
         if (resSchema) allSchemas.push(resSchema);
 
         op.parameters?.forEach(param => {
@@ -161,7 +176,7 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
 
         if (schema.allOf) {
             schema.allOf.forEach(sub => {
-                const resolvedSub = findSchema(sub as any, parser);
+                const resolvedSub = findSchema(sub as unknown as SwaggerDefinition, parser);
                 if (resolvedSub) {
                     assignPropertiesRecursive(resolvedSub);
                 }
@@ -183,7 +198,7 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
     };
 
     const properties: FormProperty[] = Object.entries(finalSchema.properties!).map(([name, propSchema]) => {
-        const resolvedSchema = findSchema(propSchema as any, parser);
+        const resolvedSchema = findSchema(propSchema as unknown as SwaggerDefinition, parser);
         const finalPropSchema =
             resolvedSchema && typeof propSchema === 'object'
                 ? { ...(propSchema as SwaggerDefinition), ...resolvedSchema }
@@ -192,10 +207,10 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
             typeof finalPropSchema === 'object' &&
             finalSchema.required?.includes(name) &&
             // type-coverage:ignore-next-line
-            !(finalPropSchema as any).required?.includes(name)
+            !(finalPropSchema as unknown as { required?: string[] }).required?.includes(name)
         ) {
             // type-coverage:ignore-next-line
-            ((finalPropSchema as any).required ||= []).push(name);
+            ((finalPropSchema as unknown as { required?: string[] }).required ||= []).push(name);
         }
         return { name, schema: finalPropSchema };
     });
@@ -230,9 +245,8 @@ export function getModelName(resourceName: string, operations: PathInfo[]): stri
         operations.find(o => o.method === 'GET') ??
         operations.find(o => o.method === 'QUERY');
     // type-coverage:ignore-next-line
-    const schema: any =
-        op?.requestBody?.content?.['application/json']?.schema ??
-        op?.responses?.['200']?.content?.['application/json']?.schema;
+    const schema = (op?.requestBody?.content?.['application/json']?.schema ??
+        op?.responses?.['200']?.content?.['application/json']?.schema) as Record<string, unknown> | undefined;
     // type-coverage:ignore-next-line
     if (schema && typeof schema === 'object') {
         let ref: string | null | undefined = null;
@@ -241,7 +255,12 @@ export function getModelName(resourceName: string, operations: PathInfo[]): stri
             // type-coverage:ignore-next-line
             ref = schema.$ref as string | undefined;
             // type-coverage:ignore-next-line
-        } else if (schema.type === 'array' && schema.items && !Array.isArray(schema.items) && '$ref' in schema.items) {
+        } else if (
+            schema.type === 'array' &&
+            schema.items &&
+            !Array.isArray(schema.items) &&
+            '$ref' in (schema.items as Record<string, unknown>)
+        ) {
             // type-coverage:ignore-next-line
             ref = (schema.items as { $ref?: string }).$ref;
         }

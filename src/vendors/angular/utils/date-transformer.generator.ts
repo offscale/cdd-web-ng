@@ -43,8 +43,8 @@ export class DateTransformerGenerator {
         sourceFile.addFunction({
             name: 'transformDates',
             isExported: true,
-            parameters: [{ name: 'body', type: 'any' }],
-            returnType: 'any',
+            parameters: [{ name: 'body', type: 'Record<string, unknown>' }],
+            returnType: 'Record<string, unknown>',
             docs: ['Recursively traverses an object or array and converts ISO date strings to Date objects.'],
             statements: `
     if (body === null || body === undefined || typeof body !== 'object') { 
@@ -55,7 +55,7 @@ export class DateTransformerGenerator {
         return body.map(item => transformDates(item)); 
     } 
 
-    const transformedBody: { [key: string]: any } = {}; 
+    const transformedBody: Record<string, unknown> = {};
     for (const key of Object.keys(body)) { 
         const value = body[key]; 
         if (typeof value === 'string' && ISO_DATE_REGEX.test(value)) { 
@@ -79,10 +79,10 @@ export class DateTransformerGenerator {
                 {
                     name: 'intercept',
                     parameters: [
-                        { name: 'req', type: 'HttpRequest<any>' },
+                        { name: 'req', type: 'HttpRequest<Record<string, unknown>>' },
                         { name: 'next', type: 'HttpHandler' },
                     ],
-                    returnType: 'Observable<HttpEvent<any>>',
+                    returnType: 'Observable<HttpEvent<Record<string, unknown>>>',
                     statements: `
     return next.handle(req).pipe( 
         map(event => { 

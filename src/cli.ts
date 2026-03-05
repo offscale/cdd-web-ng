@@ -21,7 +21,7 @@ import * as http from 'node:http';
 
 const packageJsonPath = new URL('../package.json', import.meta.url);
 // type-coverage:ignore-next-line
-const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8')) as { version: string };
 
 /** Defines the shape of the options object from the 'from_openapi' command. */
 interface CliOptions {
@@ -198,12 +198,12 @@ async function runGeneration(options: CliOptions, targetScope?: 'to_sdk' | 'to_s
     }
 }
 
-async function runToOpenApi(options: ToActionOptions, returnObject = false): Promise<any> {
+async function runToOpenApi(options: ToActionOptions, returnObject = false): Promise<void | unknown> {
     // type-coverage:ignore-next-line
-    let spec: any;
+    let spec: unknown;
     try {
         // type-coverage:ignore-next-line
-        ({ spec } = readOpenApiSnapshot(options.file, fs as any));
+        ({ spec } = readOpenApiSnapshot(options.file, fs as unknown as Parameters<typeof readOpenApiSnapshot>[1]));
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         const shouldFallback =
@@ -216,11 +216,17 @@ async function runToOpenApi(options: ToActionOptions, returnObject = false): Pro
         console.warn('ℹ️  Falling back to parsing generated service files.');
 
         try {
-            const services = parseGeneratedServices(options.file, fs as any);
-            let schemas: Record<string, any> | undefined;
+            const services = parseGeneratedServices(
+                options.file,
+                fs as unknown as Parameters<typeof parseGeneratedServices>[1],
+            );
+            let schemas: Record<string, unknown> | undefined;
 
             try {
-                schemas = parseGeneratedModels(options.file, fs as any);
+                schemas = parseGeneratedModels(
+                    options.file,
+                    fs as unknown as Parameters<typeof parseGeneratedModels>[1],
+                );
             } catch (modelError) {
                 const modelMessage = modelError instanceof Error ? modelError.message : String(modelError);
                 console.warn(`⚠️  ${modelMessage}`);
@@ -228,12 +234,19 @@ async function runToOpenApi(options: ToActionOptions, returnObject = false): Pro
             }
 
             // type-coverage:ignore-next-line
-            spec = buildOpenApiSpecFromServices(services, {}, schemas);
+            spec = buildOpenApiSpecFromServices(
+                services,
+                {},
+                schemas as unknown as Parameters<typeof buildOpenApiSpecFromServices>[2],
+            );
 
             try {
-                const metadata = parseGeneratedMetadata(options.file, fs as any);
+                const metadata = parseGeneratedMetadata(
+                    options.file,
+                    fs as unknown as Parameters<typeof parseGeneratedMetadata>[1],
+                );
                 // type-coverage:ignore-next-line
-                spec = applyReverseMetadata(spec, metadata);
+                spec = applyReverseMetadata(spec as unknown as Parameters<typeof applyReverseMetadata>[0], metadata);
             } catch (metaError) {
                 const metaMessage = metaError instanceof Error ? metaError.message : String(metaError);
                 console.warn(`⚠️  ${metaMessage}`);
@@ -243,13 +256,19 @@ async function runToOpenApi(options: ToActionOptions, returnObject = false): Pro
             const serviceMessage = serviceError instanceof Error ? serviceError.message : String(serviceError);
             console.warn(`⚠️  ${serviceMessage}`);
             console.warn('ℹ️  Falling back to AST-based TypeScript scanning.');
-            const scan = scanTypeScriptProject(options.file, fs as any);
+            const scan = scanTypeScriptProject(
+                options.file,
+                fs as unknown as Parameters<typeof scanTypeScriptProject>[1],
+            );
             // type-coverage:ignore-next-line
             spec = buildOpenApiSpecFromScan(scan);
             try {
-                const metadata = parseGeneratedMetadata(options.file, fs as any);
+                const metadata = parseGeneratedMetadata(
+                    options.file,
+                    fs as unknown as Parameters<typeof parseGeneratedMetadata>[1],
+                );
                 // type-coverage:ignore-next-line
-                spec = applyReverseMetadata(spec, metadata);
+                spec = applyReverseMetadata(spec as unknown as Parameters<typeof applyReverseMetadata>[0], metadata);
             } catch (metaError) {
                 const metaMessage = metaError instanceof Error ? metaError.message : String(metaError);
                 console.warn(`⚠️  ${metaMessage}`);
@@ -271,8 +290,8 @@ async function runToOpenApi(options: ToActionOptions, returnObject = false): Pro
     } else {
         process.stdout.write(output.trimEnd() + '\n');
     }
+    return undefined;
 }
-
 interface DocsJsonOptions {
     input: string;
     output?: string;
@@ -280,7 +299,7 @@ interface DocsJsonOptions {
     wrapping: boolean;
 }
 
-async function runToDocsJson(options: DocsJsonOptions, returnObject = false): Promise<any> {
+async function runToDocsJson(options: DocsJsonOptions, returnObject = false): Promise<void | unknown> {
     const config = {
         input: options.input,
         output: './generated',
@@ -308,6 +327,7 @@ async function runToDocsJson(options: DocsJsonOptions, returnObject = false): Pr
     } else {
         process.stdout.write(outputStr);
     }
+    return undefined;
 }
 
 const program = new Command();
@@ -367,7 +387,7 @@ const addFromOpenApiOptions = (cmd: Command) => {
 
 addFromOpenApiOptions(fromOpenApi.command('to_sdk_cli'))
     .description('Generate Client SDK CLI from an OpenAPI specification')
-    .action(async options => {
+    .action(async (options: CliOptions) => {
         try {
             await runGeneration(options, 'to_sdk_cli');
         } catch (err) {
@@ -378,7 +398,7 @@ addFromOpenApiOptions(fromOpenApi.command('to_sdk_cli'))
 
 addFromOpenApiOptions(fromOpenApi.command('to_sdk'))
     .description('Generate Client SDK from an OpenAPI specification')
-    .action(async options => {
+    .action(async (options: CliOptions) => {
         try {
             await runGeneration(options, 'to_sdk');
         } catch (err) {
@@ -389,7 +409,7 @@ addFromOpenApiOptions(fromOpenApi.command('to_sdk'))
 
 addFromOpenApiOptions(fromOpenApi.command('to_server'))
     .description('Generate Server from an OpenAPI specification')
-    .action(async options => {
+    .action(async (options: CliOptions) => {
         try {
             await runGeneration(options, 'to_server');
         } catch (err) {
@@ -455,17 +475,17 @@ program
     .description('Expose CLI interface as JSON-RPC server')
     .addOption(new Option('--port <port>', 'Port to listen on').default('8080').env('CDD_PORT'))
     .addOption(new Option('--listen <address>', 'Address to listen on').default('127.0.0.1').env('CDD_LISTEN'))
-    .action(options => {
+    .action((options: { port: string; listen: string }) => {
         const port = parseInt(options.port, 10);
         const host = options.listen;
         const server = http.createServer(async (req, res) => {
             if (req.method === 'POST') {
                 let body = '';
-                req.on('data', chunk => {
+                req.on('data', (chunk: Buffer) => {
                     body += chunk.toString();
                 });
                 req.on('end', async () => {
-                    let parsed: any;
+                    let parsed: { method?: string; params?: Record<string, unknown>; id?: string | number | null };
                     try {
                         parsed = JSON.parse(body);
                     } catch (err) {
@@ -480,22 +500,22 @@ program
                         return;
                     }
                     try {
-                        let result;
+                        let result: unknown;
                         switch (parsed.method) {
                             case 'from_openapi_to_sdk_cli':
-                                result = await runGeneration(parsed.params || {}, 'to_sdk_cli');
+                                result = await runGeneration(parsed.params as unknown as CliOptions, 'to_sdk_cli');
                                 break;
                             case 'from_openapi_to_sdk':
-                                result = await runGeneration(parsed.params || {}, 'to_sdk');
+                                result = await runGeneration(parsed.params as unknown as CliOptions, 'to_sdk');
                                 break;
                             case 'from_openapi_to_server':
-                                result = await runGeneration(parsed.params || {}, 'to_server');
+                                result = await runGeneration(parsed.params as unknown as CliOptions, 'to_server');
                                 break;
                             case 'to_openapi':
-                                result = await runToOpenApi(parsed.params || {}, true);
+                                result = await runToOpenApi(parsed.params as unknown as ToActionOptions, true);
                                 break;
                             case 'to_docs_json':
-                                result = await runToDocsJson(parsed.params || {}, true);
+                                result = await runToDocsJson(parsed.params as unknown as DocsJsonOptions, true);
                                 break;
                             case 'version':
                                 result = packageJson.version;
@@ -505,12 +525,14 @@ program
                         }
                         res.writeHead(200, { 'Content-Type': 'application/json' });
                         res.end(JSON.stringify({ jsonrpc: '2.0', result, id: parsed.id }));
-                    } catch (err: any) {
+                    } catch (err: unknown) {
                         res.writeHead(400, { 'Content-Type': 'application/json' });
                         res.end(
                             JSON.stringify({
                                 jsonrpc: '2.0',
-                                error: err.code ? err : { code: -32000, message: err.message || String(err) },
+                                error: (err as { code?: number }).code
+                                    ? err
+                                    : { code: -32000, message: (err as { message?: string }).message || String(err) },
                                 id: parsed.id,
                             }),
                         );

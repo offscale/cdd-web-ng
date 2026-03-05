@@ -148,7 +148,9 @@ describe('Emitter: ServiceMethodGenerator (Edge Cases)', () => {
 
         methodGen.addServiceMethod(serviceClass, op);
         const body = serviceClass.getMethodOrThrow('copyResource').getBodyText()!;
-        expect(body).toContain("return this.http.request<any>('COPY', url, requestOptions as any);");
+        expect(body).toContain(
+            "return this.http.request<Record<string, unknown>>('COPY', url, requestOptions as Record<string, unknown>);",
+        );
     });
 
     it('should handle HTTP QUERY method with body (generic request)', () => {
@@ -163,7 +165,9 @@ describe('Emitter: ServiceMethodGenerator (Edge Cases)', () => {
 
         methodGen.addServiceMethod(serviceClass, op);
         const body = serviceClass.getMethodOrThrow('querySearch').getBodyText()!;
-        expect(body).toContain("return this.http.request('QUERY', url, { ...requestOptions, body: body } as any)");
+        expect(body).toContain(
+            "return this.http.request('QUERY', url, { ...requestOptions, body: body } as Record<string, unknown>)",
+        );
     });
 
     it('should NOT emit runtime warning for cookies if platform is node', () => {

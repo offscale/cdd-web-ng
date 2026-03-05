@@ -143,7 +143,7 @@ export class CustomValidatorsGenerator {
                             writer.writeLine('if (Array.isArray(value)) {');
                             writer.indent(() => {
                                 writer.writeLine(
-                                    "count = value.filter((entry: any) => { if (entry && typeof entry === 'object' && 'key' in entry) { return String(entry.key ?? '').length > 0; } return entry !== null && entry !== undefined && entry !== ''; }).length;",
+                                    "count = value.filter((entry: { key: string }) => { if (entry && typeof entry === 'object' && 'key' in entry) { return String(entry.key ?? '').length > 0; } return entry !== null && entry !== undefined && entry !== ''; }).length;",
                                 );
                             });
                             writer.writeLine("} else if (typeof value === 'object') {");
@@ -177,7 +177,7 @@ export class CustomValidatorsGenerator {
                             writer.writeLine('if (Array.isArray(value)) {');
                             writer.indent(() => {
                                 writer.writeLine(
-                                    "count = value.filter((entry: any) => { if (entry && typeof entry === 'object' && 'key' in entry) { return String(entry.key ?? '').length > 0; } return entry !== null && entry !== undefined && entry !== ''; }).length;",
+                                    "count = value.filter((entry: { key: string }) => { if (entry && typeof entry === 'object' && 'key' in entry) { return String(entry.key ?? '').length > 0; } return entry !== null && entry !== undefined && entry !== ''; }).length;",
                                 );
                             });
                             writer.writeLine("} else if (typeof value === 'object') {");
@@ -199,7 +199,7 @@ export class CustomValidatorsGenerator {
                 isStatic: true,
                 scope: Scope.Public,
                 parameters: [
-                    { name: 'schema', type: 'unknown' },
+                    { name: 'schema', type: 'Record<string, unknown>' },
                     { name: 'min', type: 'number | undefined' },
                     { name: 'max', type: 'number | undefined' },
                 ],
@@ -207,19 +207,25 @@ export class CustomValidatorsGenerator {
                 docs: ['Validator ensuring arrays contain items matching a schema (contains/minContains/maxContains).'],
                 statements: writer =>
                     writer
-                        .writeLine('const isRecord = (value: unknown): value is Record<string, unknown> => {')
+                        .writeLine(
+                            'const isRecord = (value: Record<string, unknown> | string | number | boolean | null): value is Record<string, unknown> => {',
+                        )
                         .indent(() => {
                             writer.writeLine(
                                 "return typeof value === 'object' && value !== null && !Array.isArray(value);",
                             );
                         })
                         .writeLine('};')
-                        .writeLine('const isNumber = (value: unknown): value is number => {')
+                        .writeLine(
+                            'const isNumber = (value: Record<string, unknown> | string | number | boolean | null): value is number => {',
+                        )
                         .indent(() => {
                             writer.writeLine("return typeof value === 'number' && Number.isFinite(value);");
                         })
                         .writeLine('};')
-                        .writeLine("const isString = (value: unknown): value is string => typeof value === 'string';")
+                        .writeLine(
+                            "const isString = (value: Record<string, unknown> | string | number | boolean | null): value is string => typeof value === 'string';",
+                        )
                         .writeLine('const deepEqual = (left: unknown, right: unknown): boolean => {')
                         .indent(() => {
                             writer.writeLine('if (Object.is(left, right)) return true;');
@@ -252,7 +258,9 @@ export class CustomValidatorsGenerator {
                             writer.writeLine('return false;');
                         })
                         .writeLine('};')
-                        .writeLine('const matchesType = (value: unknown, type: string): boolean => {')
+                        .writeLine(
+                            'const matchesType = (value: Record<string, unknown> | string | number | boolean | null, type: string): boolean => {',
+                        )
                         .indent(() => {
                             writer.writeLine('switch (type) {');
                             writer.indent(() => {
@@ -278,7 +286,9 @@ export class CustomValidatorsGenerator {
                             writer.writeLine('}');
                         })
                         .writeLine('};')
-                        .writeLine('const matchesSchema = (value: unknown, schemaValue: unknown): boolean => {')
+                        .writeLine(
+                            'const matchesSchema = (value: Record<string, unknown> | string | number | boolean | null, schemaValue: unknown): boolean => {',
+                        )
                         .indent(() => {
                             writer.writeLine('if (schemaValue === true) return true;');
                             writer.writeLine('if (schemaValue === false) return false;');
@@ -423,7 +433,7 @@ export class CustomValidatorsGenerator {
                 name: 'constValidator',
                 isStatic: true,
                 scope: Scope.Public,
-                parameters: [{ name: 'constant', type: 'any' }],
+                parameters: [{ name: 'constant', type: 'Record<string, unknown>' }],
                 returnType: 'ValidatorFn',
                 docs: ['Validator ensuring the value matches a constant (OAS 3.1 const keyword).'],
                 statements: writer =>

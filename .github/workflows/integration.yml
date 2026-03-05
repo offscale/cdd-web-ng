@@ -47,7 +47,7 @@ jobs:
               run: curl -s https://petstore.swagger.io/v2/swagger.json > petstore.json
 
             - name: Run Generator
-              run: node dist/cli.js from_openapi -i petstore.json --output angular-client/src/app/api
+              run: node dist/cli.js from_openapi to_sdk -i petstore.json --output angular-client/src/app/api
 
             - name: Run tests for Angular client
               working-directory: angular-client

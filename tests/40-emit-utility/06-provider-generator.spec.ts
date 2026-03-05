@@ -111,7 +111,7 @@ describe('Emitter: ProviderGenerator', () => {
             components: { securitySchemes: { MTLS: { type: 'mutualTLS' } } },
         };
         const fileContent = runGenerator(mtlsSpec, { clientName: 'Test' });
-        expect(fileContent).toContain('httpsAgentConfig?: any');
+        expect(fileContent).toContain('httpsAgentConfig?: Record<string, unknown>');
         expect(fileContent).toContain('if (config.httpsAgentConfig)');
         expect(fileContent).toContain(
             'providers.push({ provide: HTTPS_AGENT_CONFIG_TOKEN, useValue: config.httpsAgentConfig });',

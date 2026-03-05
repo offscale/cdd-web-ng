@@ -84,7 +84,7 @@ export class LinkSetParserGenerator {
             name: 'parseJson',
             isStatic: true,
             scope: Scope.Public,
-            parameters: [{ name: 'json', type: 'any' }],
+            parameters: [{ name: 'json', type: 'Record<string, unknown>' }],
             returnType: 'LinkSetContext[]',
             docs: ['Parses application/linkset+json content.'],
             statements: `

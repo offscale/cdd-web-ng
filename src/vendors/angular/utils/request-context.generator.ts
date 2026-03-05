@@ -20,7 +20,7 @@ export class RequestContextGenerator {
                 { name: 'headers?', type: 'HttpHeaders | Record<string, string | string[]>' },
                 { name: 'context?', type: 'HttpContext' },
                 { name: 'observe?', type: "'body' | 'events' | 'response'" },
-                { name: 'params?', type: 'any' },
+                { name: 'params?', type: 'Record<string, unknown>' },
                 { name: 'reportProgress?', type: 'boolean' },
                 { name: 'responseType?', type: "'arraybuffer' | 'blob' | 'json' | 'text'" },
                 { name: 'withCredentials?', type: 'boolean' },
@@ -31,7 +31,7 @@ export class RequestContextGenerator {
             name: 'HttpRequestOptions',
             isExported: true,
             extends: ['RequestOptions'],
-            properties: [{ name: 'body?', type: 'any' }],
+            properties: [{ name: 'body?', type: 'Record<string, unknown>' }],
         });
 
         sourceFile.addFunction({

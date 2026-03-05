@@ -162,7 +162,7 @@ describe('Emitter: ServiceMethodGenerator (Auto Decoding & Encoding)', () => {
         const body = serviceClass.getMethodOrThrow('getBlobData').getBodyText()!;
 
         expect(body).toContain('.pipe(');
-        expect(body).toContain('map((response: any) => {');
+        expect(body).toContain('map((response: Blob | string | Record<string, unknown>) => {');
         expect(body).toContain('return ContentDecoder.decode(response,');
         expect(body).toContain('"properties":{"meta":{"decode":true}}');
     });
@@ -183,7 +183,7 @@ describe('Emitter: ServiceMethodGenerator (Auto Decoding & Encoding)', () => {
         const returnType = method.getReturnType().getText();
 
         expect(returnType).toContain('Observable');
-        expect(returnType).toContain('Observable<any>');
+        expect(returnType).toContain('Observable<Record<string, unknown>>');
     });
 
     it('should generate XML decoding config for contentMediaType="application/xml"', () => {

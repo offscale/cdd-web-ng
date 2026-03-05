@@ -288,7 +288,7 @@ export class ListComponentGenerator {
 
             const body = `this.${camelCase(model.serviceName)}.${action.operation.methodName}(${args}).pipe(
     takeUntilDestroyed(this.destroyRef),
-    catchError((err: any) => {
+    catchError((err: unknown) => {
         console.error('Action failed', err);
         this.snackBar.open('Action failed', 'Close', { duration: 5000, panelClass: 'error-snackbar' });
         return of(null);

@@ -133,7 +133,7 @@ export function generateDocsJson(parser: SwaggerParser, config: GeneratorConfig,
                 }
 
                 if (useWrapping) {
-                    codeObject.wrapper_start = `@Component({\n    selector: 'app-example',\n    standalone: true,\n    template: ''\n})\nexport class ExampleComponent {\n    private service = inject(${serviceName});\n\n    async execute() {`;
+                    codeObject.wrapper_start = `@Component({\n    selector: 'app-example',\n    template: ''\n})\nexport class ExampleComponent {\n    private service = inject(${serviceName});\n\n    async execute() {`;
                     innerCode = `const response = await this.service.${methodName}(${args});\nconsole.log(response);`;
                     codeObject.snippet = innerCode
                         .split('\n')

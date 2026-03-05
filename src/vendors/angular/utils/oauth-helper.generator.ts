@@ -44,7 +44,7 @@ export class OAuthHelperGenerator {
                 config.hasAuthorizationCode = true;
             } else if (scheme.flows) {
                 // type-coverage:ignore-next-line
-                const implicitFlow = scheme.flows.implicit as any;
+                const implicitFlow = scheme.flows.implicit as Record<string, string>;
                 // type-coverage:ignore-next-line
                 if (implicitFlow) {
                     config.hasImplicit = true;
@@ -54,7 +54,7 @@ export class OAuthHelperGenerator {
                         config.authorizationUrl = implicitFlow.authorizationUrl;
                 }
                 // type-coverage:ignore-next-line
-                const passwordFlow = scheme.flows.password as any;
+                const passwordFlow = scheme.flows.password as Record<string, string>;
                 // type-coverage:ignore-next-line
                 if (passwordFlow) {
                     config.hasPassword = true;
@@ -62,7 +62,7 @@ export class OAuthHelperGenerator {
                     if (!config.tokenUrl && passwordFlow.tokenUrl) config.tokenUrl = passwordFlow.tokenUrl;
                 }
                 // type-coverage:ignore-next-line
-                const ccFlow = scheme.flows.clientCredentials as any;
+                const ccFlow = scheme.flows.clientCredentials as Record<string, string>;
                 // type-coverage:ignore-next-line
                 if (ccFlow) {
                     config.hasClientCredentials = true;
@@ -70,7 +70,7 @@ export class OAuthHelperGenerator {
                     if (!config.tokenUrl && ccFlow.tokenUrl) config.tokenUrl = ccFlow.tokenUrl;
                 }
                 // type-coverage:ignore-next-line
-                const acFlow = scheme.flows.authorizationCode as any;
+                const acFlow = scheme.flows.authorizationCode as Record<string, string>;
                 // type-coverage:ignore-next-line
                 if (acFlow) {
                     config.hasAuthorizationCode = true;
@@ -82,7 +82,7 @@ export class OAuthHelperGenerator {
                     if (!config.tokenUrl && acFlow.tokenUrl) config.tokenUrl = acFlow.tokenUrl;
                 }
                 // type-coverage:ignore-next-line
-                const devFlow = scheme.flows.deviceAuthorization as any;
+                const devFlow = scheme.flows.deviceAuthorization as Record<string, string>;
                 // type-coverage:ignore-next-line
                 if (devFlow) {
                     config.hasDeviceAuthorization = true;
@@ -244,7 +244,7 @@ export class OAuthHelperGenerator {
                 { name: 'username', type: 'string' },
                 { name: 'password', type: 'string' },
             ],
-            returnType: 'Promise<any>',
+            returnType: 'Promise<Record<string, unknown>>',
             statements: `
         const body = new URLSearchParams(); 
         body.set('grant_type', 'password'); 
@@ -255,7 +255,7 @@ export class OAuthHelperGenerator {
             this.http.post(this.tokenUrl, body.toString(), { 
                 headers: new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' }) 
             }).subscribe({ 
-                next: (res: any) => { 
+                next: (res: { access_token?: string } & Record<string, unknown>) => { 
                     if (res.access_token) this.setToken(res.access_token); 
                     resolve(res); 
                 }, 
@@ -273,7 +273,7 @@ export class OAuthHelperGenerator {
                 { name: 'clientId', type: 'string' },
                 { name: 'clientSecret', type: 'string' },
             ],
-            returnType: 'Promise<any>',
+            returnType: 'Promise<Record<string, unknown>>',
             statements: `
         const body = new URLSearchParams(); 
         body.set('grant_type', 'client_credentials'); 
@@ -284,7 +284,7 @@ export class OAuthHelperGenerator {
             this.http.post(this.tokenUrl, body.toString(), { 
                 headers: new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' }) 
             }).subscribe({ 
-                next: (res: any) => { 
+                next: (res: { access_token?: string } & Record<string, unknown>) => { 
                     if (res.access_token) this.setToken(res.access_token); 
                     resolve(res); 
                 }, 
@@ -306,7 +306,7 @@ export class OAuthHelperGenerator {
                 { name: 'clientId', type: 'string' },
                 { name: 'scope', type: 'string', hasQuestionToken: true },
             ],
-            returnType: 'Promise<any>',
+            returnType: 'Promise<Record<string, unknown>>',
             statements: `
         const body = new URLSearchParams(); 
         body.set('client_id', clientId); 
@@ -316,7 +316,7 @@ export class OAuthHelperGenerator {
             this.http.post(this.deviceAuthorizationUrl, body.toString(), { 
                 headers: new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' }) 
             }).subscribe({ 
-                next: (res: any) => resolve(res), 
+                next: (res: Record<string, unknown>) => resolve(res), 
                 error: reject
             }); 
         });`,
@@ -335,7 +335,7 @@ export class OAuthHelperGenerator {
                 { name: 'clientId', type: 'string' },
                 { name: 'clientSecret', type: 'string', hasQuestionToken: true },
             ],
-            returnType: 'Promise<any>',
+            returnType: 'Promise<Record<string, unknown>>',
             statements: `
         const body = new URLSearchParams(); 
         body.set('grant_type', 'urn:ietf:params:oauth:grant-type:device_code'); 
@@ -347,7 +347,7 @@ export class OAuthHelperGenerator {
             this.http.post(this.tokenUrl, body.toString(), { 
                 headers: new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' }) 
             }).subscribe({ 
-                next: (res: any) => { 
+                next: (res: { access_token?: string } & Record<string, unknown>) => { 
                     if (res.access_token) this.setToken(res.access_token); 
                     resolve(res); 
                 }, 

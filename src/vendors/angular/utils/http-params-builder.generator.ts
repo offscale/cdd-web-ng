@@ -71,7 +71,7 @@ export class HttpParamsBuilderGenerator {
             scope: Scope.Public,
             parameters: [
                 { name: 'key', type: 'string' },
-                { name: 'value', type: 'any' },
+                { name: 'value', type: 'Record<string, unknown>' },
                 { name: 'style', type: 'string', initializer: "'simple'" },
                 { name: 'explode', type: 'boolean', initializer: 'false' },
                 { name: 'allowReserved', type: 'boolean', initializer: 'false' },
@@ -141,8 +141,8 @@ export class HttpParamsBuilderGenerator {
             scope: Scope.Public,
             parameters: [
                 { name: 'params', type: 'HttpParams' },
-                { name: 'config', type: 'any' },
-                { name: 'value', type: 'any' },
+                { name: 'config', type: 'Record<string, unknown>' },
+                { name: 'value', type: 'Record<string, unknown>' },
             ],
             returnType: 'HttpParams',
             statements: `
@@ -192,7 +192,7 @@ export class HttpParamsBuilderGenerator {
         const explode = config.explode ?? true;
         
         if (style === 'deepObject' && typeof value === 'object') {
-             const processDeep = (obj: any, prefix: string) => {
+             const processDeep = (obj: Record<string, unknown>, prefix: string) => {
                  Object.keys(obj).forEach(k => {
                      const keyPath = \`\${prefix}[\${k}]\`;
                      const v = obj[k];
@@ -254,8 +254,8 @@ export class HttpParamsBuilderGenerator {
             isStatic: true,
             scope: Scope.Private,
             parameters: [
-                { name: 'body', type: 'any' },
-                { name: 'encodings', type: 'Record<string, any>', initializer: '{}' },
+                { name: 'body', type: 'Record<string, unknown>' },
+                { name: 'encodings', type: 'Record<string, unknown>', initializer: '{}' },
             ],
             returnType: 'Array<{ key: string; value: string }>',
             statements: `
@@ -307,7 +307,7 @@ export class HttpParamsBuilderGenerator {
             scope: Scope.Public,
             parameters: [
                 { name: 'key', type: 'string' },
-                { name: 'value', type: 'any' },
+                { name: 'value', type: 'Record<string, unknown>' },
                 { name: 'explode', type: 'boolean', initializer: 'false' },
                 { name: 'serialization', type: "'json' | undefined", hasQuestionToken: true },
             ],
@@ -334,7 +334,7 @@ export class HttpParamsBuilderGenerator {
             scope: Scope.Public,
             parameters: [
                 { name: 'key', type: 'string' },
-                { name: 'value', type: 'any' },
+                { name: 'value', type: 'Record<string, unknown>' },
                 { name: 'style', type: 'string', initializer: "'form'" },
                 { name: 'explode', type: 'boolean', initializer: 'true' },
                 { name: 'allowReserved', type: 'boolean', initializer: 'false' },
@@ -349,7 +349,7 @@ export class HttpParamsBuilderGenerator {
         // OAS 3.2 Strict: 'cookie' style does NOT percent-encode. 'form' style DOES percent-encode... 
         // UNLESS allowReserved is true, in which case we use RFC 6570-style reserved expansion
         const isCookieStyle = style === 'cookie'; 
-        const encode = (v: any) => { 
+        const encode = (v: string | number | boolean) => { 
             if (isCookieStyle) return String(v); 
             if (allowReserved) return this.encodeReserved(String(v)); 
             return encodeURIComponent(String(v)); 
@@ -392,7 +392,7 @@ export class HttpParamsBuilderGenerator {
             isStatic: true,
             scope: Scope.Public,
             parameters: [
-                { name: 'value', type: 'any' },
+                { name: 'value', type: 'Record<string, unknown>' },
                 { name: 'serialization', type: "'json' | undefined", hasQuestionToken: true },
             ],
             returnType: 'string',
@@ -410,8 +410,8 @@ export class HttpParamsBuilderGenerator {
             isStatic: true,
             scope: Scope.Public,
             parameters: [
-                { name: 'body', type: 'any' },
-                { name: 'encodings', type: 'Record<string, any>', initializer: '{}' },
+                { name: 'body', type: 'Record<string, unknown>' },
+                { name: 'encodings', type: 'Record<string, unknown>', initializer: '{}' },
             ],
             returnType: 'HttpParams',
             statements: `

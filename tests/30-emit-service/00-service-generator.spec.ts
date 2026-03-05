@@ -113,7 +113,9 @@ describe('Generators (Angular): ServiceGenerator', () => {
             "const url = `${basePath}/users/${ParameterSerializer.serializePathParam('id', id, 'simple', false, false)}`;",
         );
         // Expect generic call now
-        expect(body).toContain('return this.http.put<any>(url, user, requestOptions as any);');
+        expect(body).toContain(
+            'return this.http.put<Record<string, unknown>>(url, user, requestOptions as Record<string, unknown>);',
+        );
         expect(body).not.toContain('finalOptions.body = user;');
     });
 

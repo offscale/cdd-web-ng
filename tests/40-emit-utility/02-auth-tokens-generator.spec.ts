@@ -31,8 +31,8 @@ describe('Emitter: AuthTokensGenerator', () => {
         const fileContent = project.getSourceFileOrThrow('/out/auth/auth.tokens.ts').getText();
 
         expect(fileContent).toContain('export const HTTPS_AGENT_CONFIG_TOKEN');
-        expect(fileContent).toContain("new InjectionToken<any>('HTTPS_AGENT_CONFIG')");
+        expect(fileContent).toContain("new InjectionToken<Record<string, unknown>>('HTTPS_AGENT_CONFIG')");
         expect(fileContent).toContain('export const HTTPS_AGENT_CONTEXT_TOKEN');
-        expect(fileContent).toContain('new HttpContextToken<any>(() => null)');
+        expect(fileContent).toContain('new HttpContextToken<Record<string, unknown> | null>(() => null)');
     });
 });

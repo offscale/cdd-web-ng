@@ -118,19 +118,19 @@ export class ServiceTestGenerator {
                             ? mockData
                             : String(mockData);
                     lines.push(
-                        `      const ${bodyParam.name}: any = ${mockData.replace(/"new Date\(\)"/g, 'new Date()')};`,
+                        `      const ${bodyParam.name}: Record<string, unknown> = ${mockData.replace(/"new Date\(\)"/g, 'new Date()')};`,
                     );
                 } else if (bodyParam?.isPrimitive) {
-                    lines.push(`      const ${bodyParam.name}: any = 'test-body';`);
+                    lines.push(`      const ${bodyParam.name}: Record<string, unknown> = 'test-body';`);
                 } else if (bodyParam) {
-                    lines.push(`      const ${bodyParam.name}: any = { data: 'test-body' };`);
+                    lines.push(`      const ${bodyParam.name}: Record<string, unknown> = { data: 'test-body' };`);
                 }
 
                 params.forEach(p => {
                     if (p.modelName) {
-                        lines.push(`      const ${p.name}: any = ${p.value};`);
+                        lines.push(`      const ${p.name}: Record<string, unknown> = ${p.value};`);
                     } else {
-                        lines.push(`      const ${p.name}: any = ${p.value};`);
+                        lines.push(`      const ${p.name}: Record<string, unknown> = ${p.value};`);
                     }
                 });
                 return lines;
@@ -217,18 +217,32 @@ export class ServiceTestGenerator {
 
     private getParameterExampleValue(param: Parameter): string | undefined {
         let potentialValue: unknown = undefined;
-        const pickExampleValue = (example: unknown): { found: boolean; value: unknown } => {
-            if (!example || typeof example !== 'object') return { found: false, value: undefined };
+        const pickExampleValue = (
+            example: unknown,
+        ): { found: boolean; value: Record<string, unknown> | string | number | boolean | null } => {
+            if (!example || typeof example !== 'object') return { found: false, value: null };
             if (Object.prototype.hasOwnProperty.call(example, 'dataValue')) {
-                return { found: true, value: (example as Record<string, unknown>).dataValue };
+                return {
+                    found: true,
+                    value: (example as Record<string, string | number | boolean | Record<string, unknown> | null>)
+                        .dataValue,
+                };
             }
             if (Object.prototype.hasOwnProperty.call(example, 'value')) {
-                return { found: true, value: (example as Record<string, unknown>).value };
+                return {
+                    found: true,
+                    value: (example as Record<string, string | number | boolean | Record<string, unknown> | null>)
+                        .value,
+                };
             }
             if (Object.prototype.hasOwnProperty.call(example, 'serializedValue')) {
-                return { found: true, value: (example as Record<string, unknown>).serializedValue };
+                return {
+                    found: true,
+                    value: (example as Record<string, string | number | boolean | Record<string, unknown> | null>)
+                        .serializedValue,
+                };
             }
-            return { found: false, value: undefined };
+            return { found: false, value: null };
         };
 
         if (param.example !== undefined) {
@@ -245,7 +259,9 @@ export class ServiceTestGenerator {
                     Object.prototype.hasOwnProperty.call(firstExample, '$ref')
                 ) {
                     // type-coverage:ignore-next-line
-                    const resolved = this.parser.resolveReference<ExampleObject>((firstExample as any).$ref);
+                    const resolved = this.parser.resolveReference<ExampleObject>(
+                        (firstExample as Record<string, string>).$ref,
+                    );
                     const resolvedValue = pickExampleValue(resolved);
                     if (resolvedValue.found) potentialValue = resolvedValue.value;
                 } else if (firstExample === null || typeof firstExample !== 'object') {

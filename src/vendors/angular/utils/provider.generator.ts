@@ -119,7 +119,7 @@ export class ProviderGenerator {
                 },
                 {
                     name: 'interceptors',
-                    type: `(new (...args: any[]) => HttpInterceptor)[]`,
+                    type: `(new (...args: unknown[]) => HttpInterceptor)[]`,
                     hasQuestionToken: true,
                     docs: ['An array of custom HttpInterceptor classes.'],
                 },
@@ -153,7 +153,7 @@ export class ProviderGenerator {
         if (this.hasMtls) {
             configInterface.addProperty({
                 name: 'httpsAgentConfig',
-                type: 'any',
+                type: 'Record<string, unknown>',
                 hasQuestionToken: true,
                 docs: ['Configuration for the HTTPS Agent (e.g. PFX, Cert, Key) for Mutual TLS.'],
             });

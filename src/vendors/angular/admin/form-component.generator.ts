@@ -115,7 +115,7 @@ export class FormComponentGenerator {
                     // we search those specifically.
                     if (!control) {
                         // Silently fallback to any, assuming it might be handled in sub-type interfaces or not significant for layout
-                        return { name: prop.name, type: 'any' };
+                        return { name: prop.name, type: 'Record<string, unknown>' };
                     }
 
                     // Build the final Angular-specific type string from the agnostic IR.
@@ -140,7 +140,7 @@ export class FormComponentGenerator {
                             // dataType here is the Value type
                             // We use `any` for the generic here to simplify avoiding deep recursion in the type definition,
                             // since the form logic handles the transformation.
-                            finalType = `FormArray<FormGroup<{ key: FormControl<string | null>, value: FormControl<any> }>>`;
+                            finalType = `FormArray<FormGroup<{ key: FormControl<string | null>, value: FormControl<unknown> }>>`;
                             break;
                         case 'control':
                         default:
@@ -346,7 +346,9 @@ export class FormComponentGenerator {
         needsComplexPatch: boolean,
     ): void {
         const getByIdOp = resource.operations.find(op => op.action === 'getById');
-        const patchCall = needsComplexPatch ? 'this.patchForm(entity)' : 'this.form.patchValue(entity as any)';
+        const patchCall = needsComplexPatch
+            ? 'this.patchForm(entity)'
+            : 'this.form.patchValue(entity as Record<string, unknown>)';
         let body = `this.initForm();\nconst id = this.route.snapshot.paramMap.get('id');\nif (id) {\n  this.id.set(id);`;
         if (getByIdOp?.methodName) {
             body += `\n  this.${camelCase(serviceName)}.${getByIdOp.methodName}(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(entity => {\n    ${patchCall};\n  });`;
@@ -413,7 +415,7 @@ export class FormComponentGenerator {
             const singularCamel = camelCase(singular(arrayName));
             const arrayGetterName = `${singularCamel}Array`;
 
-            const arrayItemInterfaceName = prop.nestedFormInterface || 'any';
+            const arrayItemInterfaceName = prop.nestedFormInterface || 'unknown';
 
             classDeclaration.addGetAccessor({
                 name: arrayGetterName,
@@ -425,7 +427,7 @@ export class FormComponentGenerator {
             const createMethod = classDeclaration.addMethod({
                 name: `create${singularPascal}`,
                 scope: Scope.Private,
-                parameters: [{ name: 'item?', type: 'any' }],
+                parameters: [{ name: 'item?', type: 'Record<string, unknown>' }],
                 returnType: `FormGroup<${arrayItemInterfaceName}>`,
             });
 
@@ -455,14 +457,14 @@ export class FormComponentGenerator {
             classDeclaration.addGetAccessor({
                 name: getterName,
                 // Return specialized FormArray of KV pairs
-                returnType: `FormArray<FormGroup<{ key: FormControl<string | null>, value: FormControl<any> }>>`,
+                returnType: `FormArray<FormGroup<{ key: FormControl<string | null>, value: FormControl<unknown> }>>`,
                 statements: `return this.form.get('${mapName}') as FormArray;`,
             });
 
             const createMethod = classDeclaration.addMethod({
                 name: `create${pascalName}Entry`,
                 scope: Scope.Private,
-                parameters: [{ name: 'item?', type: 'any' }],
+                parameters: [{ name: 'item?', type: 'Record<string, unknown>' }],
                 returnType: `FormGroup`, // Simplify return type to generic FormGroup for brevity/compatibility
             });
 
@@ -535,7 +537,7 @@ export class FormComponentGenerator {
         if (complexProps.length === 0) return;
 
         let body = `const { ${complexProps.join(', ')}, ...rest } = entity;\n`;
-        body += 'this.form.patchValue(rest as any);\n\n';
+        body += 'this.form.patchValue(rest as Record<string, unknown>);\n\n';
 
         // Patch Arrays
         arrayProps.forEach(prop => {
@@ -543,7 +545,7 @@ export class FormComponentGenerator {
             const createItemMethodName = `create${pascalCase(singular(prop.name))}`;
             body += `if (Array.isArray(entity.${prop.name})) {\n`;
             body += `  this.${arrayGetterName}.clear();\n`;
-            body += `  entity.${prop.name}.forEach((item: any) => this.${arrayGetterName}.push(this.${createItemMethodName}(item)));\n`;
+            body += `  entity.${prop.name}.forEach((item: Record<string, unknown>) => this.${arrayGetterName}.push(this.${createItemMethodName}(item)));\n`;
             body += `}\n`;
         });
 
@@ -563,7 +565,7 @@ export class FormComponentGenerator {
             analysis.polymorphicProperties.forEach(poly => {
                 const dPropName = poly.propertyName;
 
-                body += `\nconst ${dPropName}Value = (entity as any).${dPropName};\n`;
+                body += `\nconst ${dPropName}Value = (entity as Record<string, unknown>).${dPropName};\n`;
                 body += `if (${dPropName}Value) {\n`;
                 body += `  this.form.get('${dPropName}')?.setValue(${dPropName}Value, { emitEvent: true });\n`;
 
@@ -572,7 +574,7 @@ export class FormComponentGenerator {
                     const typeName = opt.discriminatorValue;
                     const isMethodName = `is${pascalCase(dPropName)}_${subSchemaName}`;
                     body += `  if (this.${isMethodName}(entity)) {\n`;
-                    body += `    (this.form.get('${typeName}') as FormGroup)?.patchValue(entity as any);\n  }\n`;
+                    body += `    (this.form.get('${typeName}') as FormGroup)?.patchValue(entity as Record<string, unknown>);\n  }\n`;
                 });
                 body += `}\n`;
             });
@@ -580,7 +582,7 @@ export class FormComponentGenerator {
         classDeclaration.addMethod({
             name: 'patchForm',
             scope: Scope.Private,
-            parameters: [{ name: 'entity', type: resource.modelName || 'any' }],
+            parameters: [{ name: 'entity', type: resource.modelName || 'unknown' }],
             statements: body,
         });
     }
@@ -598,14 +600,14 @@ export class FormComponentGenerator {
 
             if (poly.options.length > 0) {
                 let switchBody = `// Remove all options for this discriminator\n`;
-                switchBody += `this.${optionsName}.forEach(opt => this.form.removeControl(opt as any));\n\nswitch(type) {\n`;
+                switchBody += `this.${optionsName}.forEach(opt => this.form.removeControl(opt as Record<string, unknown>));\n\nswitch(type) {\n`;
 
                 poly.options.forEach(opt => {
                     const subFormProps = opt.controls
                         .map(c => `'${c.name}': ${FormInitializerRenderer.renderControlInitializer(c)}`)
                         .join(', ');
                     switchBody += `  case '${opt.discriminatorValue}':\n`;
-                    switchBody += `    this.form.addControl('${opt.subFormName}' as any, this.fb.group({ ${subFormProps} }));\n`;
+                    switchBody += `    this.form.addControl('${opt.subFormName}' as Record<string, unknown>, this.fb.group({ ${subFormProps} }));\n`;
                     switchBody += '    break;\n';
                 });
                 switchBody += '}';
@@ -629,14 +631,14 @@ export class FormComponentGenerator {
                     scope: Scope.Private,
                     parameters: [{ name: 'entity', type: resource.modelName }],
                     returnType: `entity is ${subSchemaName}`,
-                    statements: `return (entity as any).${dPropName} === '${typeName}';`,
+                    statements: `return (entity as Record<string, unknown>).${dPropName} === '${typeName}';`,
                 });
             });
         });
     }
 
     private addGetPayload(classDeclaration: ClassDeclaration, analysis: FormAnalysisResult) {
-        let body = `const baseValue = this.form.getRawValue() as any; \n`;
+        let body = `const baseValue = this.form.getRawValue() as Record<string, unknown>; \n`;
 
         // We start by creating a shallow copy.
         // Note: Nested objects are still references, but we primarily modify top-level structural keys
@@ -652,7 +654,7 @@ export class FormComponentGenerator {
         if (readOnlyFields.length > 0) {
             body += `\n// Strip readOnly fields\n`;
             readOnlyFields.forEach(field => {
-                body += `delete (payload as any)['${field}'];\n`;
+                body += `delete (payload as Record<string, unknown>)['${field}'];\n`;
             });
         }
 
@@ -660,8 +662,8 @@ export class FormComponentGenerator {
         const maps = analysis.topLevelControls.filter(c => c.controlType === 'map');
         maps.forEach(m => {
             body += `if (Array.isArray(payload['${m.name}'])) {\n`;
-            body += `  const mapObj: Record<string, any> = {};\n`;
-            body += `  payload['${m.name}'].forEach((pair: any) => { if(pair.key) mapObj[pair.key] = pair.value; });\n`;
+            body += `  const mapObj: Record<string, unknown> = {};\n`;
+            body += `  payload['${m.name}'].forEach((pair: { key: string, value: unknown }) => { if(pair.key) mapObj[pair.key] = pair.value; });\n`;
             body += `  payload['${m.name}'] = mapObj;\n`;
             body += `}\n`;
         });
@@ -677,7 +679,7 @@ export class FormComponentGenerator {
                 body += `  const subFormValue = (this.form.get(${dProp}Value) as FormGroup | undefined)?.getRawValue() || {};\n`;
                 body += `  payload = { ...payload, ...subFormValue };\n`;
                 body += `}\n`;
-                body += `this.${optionsName}.forEach(opt => delete (payload as any)[opt]);\n`;
+                body += `this.${optionsName}.forEach(opt => delete (payload as Record<string, unknown>)[opt]);\n`;
             });
         }
 
@@ -693,7 +695,7 @@ export class FormComponentGenerator {
                 { name: 'event', type: 'Event' },
                 { name: 'formControlName', type: 'string' },
             ],
-            statements: `const file = (event.target as HTMLInputElement).files?.[0];\nif (file) {\n    this.form.patchValue({ [formControlName]: file } as any);\n    this.form.get(formControlName)?.markAsDirty();\n}`,
+            statements: `const file = (event.target as HTMLInputElement).files?.[0];\nif (file) {\n    this.form.patchValue({ [formControlName]: file } as Record<string, unknown>);\n    this.form.get(formControlName)?.markAsDirty();\n}`,
         });
     }
 

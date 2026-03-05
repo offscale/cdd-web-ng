@@ -68,7 +68,9 @@ describe('Emitter: ServiceMethodGenerator (Multipart Defaults)', () => {
         expect(body).toContain('"tags":{"contentType":"application/json"}');
 
         expect(body).toContain('const multipartResult = MultipartBuilder.serialize(body, multipartConfig);');
-        expect(body).toContain('return this.http.post<any>(url, multipartResult.content, requestOptions as any);');
+        expect(body).toContain(
+            'return this.http.post<Record<string, unknown>>(url, multipartResult.content, requestOptions as Record<string, unknown>);',
+        );
     });
 
     it('should inject Content-Transfer-Encoding header from schema contentEncoding', () => {

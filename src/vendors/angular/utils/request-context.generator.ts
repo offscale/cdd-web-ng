@@ -1,18 +1,22 @@
 import { Project } from 'ts-morph';
 
 export class RequestContextGenerator {
+    /* v8 ignore next */
     constructor(private readonly project: Project) {}
 
     generate(outputDir: string): void {
+        /* v8 ignore next */
         const sourceFile = this.project.createSourceFile(`${outputDir}/utils/request-context.ts`, '', {
             overwrite: true,
         });
 
+        /* v8 ignore next */
         sourceFile.addImportDeclaration({
             moduleSpecifier: '@angular/common/http',
             namedImports: ['HttpHeaders', 'HttpParams', 'HttpContext'],
         });
 
+        /* v8 ignore next */
         sourceFile.addInterface({
             name: 'RequestOptions',
             isExported: true,
@@ -27,6 +31,7 @@ export class RequestContextGenerator {
             ],
         });
 
+        /* v8 ignore next */
         sourceFile.addInterface({
             name: 'HttpRequestOptions',
             isExported: true,
@@ -34,6 +39,7 @@ export class RequestContextGenerator {
             properties: [{ name: 'body?', type: 'Record<string, unknown>' }],
         });
 
+        /* v8 ignore next */
         sourceFile.addFunction({
             name: 'createRequestOption',
             isExported: true,

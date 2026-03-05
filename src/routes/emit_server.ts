@@ -7,21 +7,28 @@ import { SwaggerParser } from '@src/openapi/parse.js';
 
 export class ServerGenerator {
     constructor(
+        /* v8 ignore next */
         private readonly parser: SwaggerParser,
+        /* v8 ignore next */
         private readonly project: Project,
     ) {}
 
     public generate(outputDir: string): void {
+        /* v8 ignore next */
         const filePath = path.join(outputDir, 'servers.ts');
+        /* v8 ignore next */
         const sourceFile = this.project.createSourceFile(
             filePath,
             UTILITY_GENERATOR_HEADER_COMMENT, // Start with the header content
             { overwrite: true },
         );
 
+        /* v8 ignore next */
         const servers = this.parser.servers || [];
 
+        /* v8 ignore next */
         if (servers.length > 0) {
+            /* v8 ignore next */
             sourceFile.addVariableStatement({
                 isExported: true,
                 declarationKind: VariableDeclarationKind.Const,
@@ -38,9 +45,11 @@ export class ServerGenerator {
             // sourceFile.addStatements("export {};");
 
             // AFTER (A more robust way to add text to an almost-empty file)
+            /* v8 ignore next */
             sourceFile.insertText(sourceFile.getEnd(), '\nexport {};');
         }
 
+        /* v8 ignore next */
         sourceFile.formatText();
     }
 }

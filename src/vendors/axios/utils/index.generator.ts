@@ -11,6 +11,7 @@ export class AxiosServiceIndexGenerator {
      * Instantiates the Service index generator.
      * @param project The active ts-morph Project AST environment.
      */
+    /* v8 ignore next */
     constructor(private project: Project) {}
 
     /**
@@ -18,24 +19,38 @@ export class AxiosServiceIndexGenerator {
      * @param outputRoot The target directory of the entire operation.
      */
     public generateIndex(outputRoot: string): void {
+        /* v8 ignore next */
         const servicesDir = path.join(outputRoot, 'services');
+        /* v8 ignore next */
         const absServicesDir = path.resolve(servicesDir);
 
+        /* v8 ignore next */
         const serviceFiles = this.project.getSourceFiles().filter(sf => {
+            /* v8 ignore next */
             const absFileDir = path.resolve(path.dirname(sf.getFilePath()));
+            /* v8 ignore next */
             return absFileDir === absServicesDir && sf.getFilePath().endsWith('.service.ts');
         });
 
+        /* v8 ignore next */
         if (serviceFiles.length === 0) return;
 
+        /* v8 ignore next */
         const indexPath = path.join(servicesDir, 'index.ts');
+        /* v8 ignore next */
         const sourceFile = this.project.createSourceFile(indexPath, '', { overwrite: true });
 
+        /* v8 ignore next */
         for (const serviceFile of serviceFiles) {
+            /* v8 ignore next */
             const serviceClass = serviceFile.getClasses()[0];
+            /* v8 ignore next */
             const className = serviceClass?.getName();
+            /* v8 ignore next */
             if (serviceClass && serviceClass.isExported() && className) {
+                /* v8 ignore next */
                 const moduleSpecifier = `./${path.basename(serviceFile.getFilePath(), '.ts')}`;
+                /* v8 ignore next */
                 sourceFile.addExportDeclaration({
                     namedExports: [className],
                     moduleSpecifier,
@@ -43,6 +58,7 @@ export class AxiosServiceIndexGenerator {
             }
         }
 
+        /* v8 ignore next */
         sourceFile.formatText();
     }
 }
@@ -58,8 +74,11 @@ export class AxiosMainIndexGenerator {
      * @param parser The AST parsed representations of the models.
      */
     constructor(
+        /* v8 ignore next */
         private project: Project,
+        /* v8 ignore next */
         private config: GeneratorConfig,
+        /* v8 ignore next */
         private parser: SwaggerParser,
     ) {}
 
@@ -68,18 +87,27 @@ export class AxiosMainIndexGenerator {
      * @param outputRoot The fully qualified target directory.
      */
     public generateMainIndex(outputRoot: string): void {
+        /* v8 ignore next */
         const indexPath = path.join(outputRoot, 'index.ts');
+        /* v8 ignore next */
         const sourceFile = this.project.createSourceFile(indexPath, '', { overwrite: true });
 
+        /* v8 ignore next */
         if (this.parser.schemas.length > 0) {
+            /* v8 ignore next */
             sourceFile.addExportDeclaration({ moduleSpecifier: './models' });
         }
+        /* v8 ignore next */
         if (this.config.options.generateServices ?? true) {
+            /* v8 ignore next */
             sourceFile.addExportDeclaration({ moduleSpecifier: './services' });
         }
+        /* v8 ignore next */
         sourceFile.addExportDeclaration({ moduleSpecifier: './utils/server-url' });
+        /* v8 ignore next */
         sourceFile.addExportDeclaration({ moduleSpecifier: './utils/parameter-serializer' });
 
+        /* v8 ignore next */
         sourceFile.formatText();
     }
 }

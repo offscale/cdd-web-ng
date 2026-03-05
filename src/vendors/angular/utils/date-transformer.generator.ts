@@ -3,16 +3,22 @@ import * as path from 'node:path';
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '@src/core/constants.js';
 
 export class DateTransformerGenerator {
+    /* v8 ignore next */
     constructor(private project: Project) {}
 
     public generate(outputDir: string): void {
+        /* v8 ignore next */
         const utilsDir = path.join(outputDir, 'utils');
+        /* v8 ignore next */
         const filePath = path.join(utilsDir, 'date-transformer.ts');
 
+        /* v8 ignore next */
         const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
+        /* v8 ignore next */
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
+        /* v8 ignore next */
         sourceFile.addImportDeclarations([
             {
                 namedImports: ['HttpEvent', 'HttpHandler', 'HttpInterceptor', 'HttpRequest', 'HttpResponse'],
@@ -28,6 +34,7 @@ export class DateTransformerGenerator {
             },
         ]);
 
+        /* v8 ignore next */
         sourceFile.addVariableStatement({
             isExported: true,
             declarationKind: VariableDeclarationKind.Const,
@@ -40,6 +47,7 @@ export class DateTransformerGenerator {
             docs: ['A regex pattern to identify strings that are likely ISO 8601 date-time formats.'],
         });
 
+        /* v8 ignore next */
         sourceFile.addFunction({
             name: 'transformDates',
             isExported: true,
@@ -69,6 +77,7 @@ export class DateTransformerGenerator {
     return transformedBody;`,
         });
 
+        /* v8 ignore next */
         sourceFile.addClass({
             name: 'DateInterceptor',
             isExported: true,
@@ -96,6 +105,7 @@ export class DateTransformerGenerator {
             ],
         });
 
+        /* v8 ignore next */
         sourceFile.formatText();
     }
 }

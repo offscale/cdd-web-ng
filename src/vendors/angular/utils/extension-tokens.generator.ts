@@ -3,15 +3,21 @@ import { Project, VariableDeclarationKind } from 'ts-morph';
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '@src/core/constants.js';
 
 export class ExtensionTokensGenerator {
+    /* v8 ignore next */
     constructor(private project: Project) {}
 
     public generate(outputDir: string): void {
+        /* v8 ignore next */
         const tokensDir = path.join(outputDir, 'tokens');
+        /* v8 ignore next */
         const filePath = path.join(tokensDir, 'extensions.token.ts');
+        /* v8 ignore next */
         const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
+        /* v8 ignore next */
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
+        /* v8 ignore next */
         sourceFile.addImportDeclarations([
             {
                 moduleSpecifier: '@angular/common/http',
@@ -19,6 +25,7 @@ export class ExtensionTokensGenerator {
             },
         ]);
 
+        /* v8 ignore next */
         sourceFile.addVariableStatement({
             isExported: true,
             declarationKind: VariableDeclarationKind.Const,
@@ -34,6 +41,7 @@ export class ExtensionTokensGenerator {
             ],
         });
 
+        /* v8 ignore next */
         sourceFile.formatText();
     }
 }

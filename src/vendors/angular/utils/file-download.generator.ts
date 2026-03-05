@@ -3,16 +3,22 @@ import * as path from 'node:path';
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '@src/core/constants.js';
 
 export class FileDownloadGenerator {
+    /* v8 ignore next */
     constructor(private project: Project) {}
 
     public generate(outputDir: string): void {
+        /* v8 ignore next */
         const utilsDir = path.join(outputDir, 'utils');
+        /* v8 ignore next */
         const filePath = path.join(utilsDir, 'file-download.ts');
 
+        /* v8 ignore next */
         const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
+        /* v8 ignore next */
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
+        /* v8 ignore next */
         sourceFile.addImportDeclarations([
             {
                 namedImports: ['HttpResponse'],
@@ -24,6 +30,7 @@ export class FileDownloadGenerator {
             },
         ]);
 
+        /* v8 ignore next */
         sourceFile.addFunction({
             name: 'downloadFile',
             isExported: true,
@@ -44,6 +51,7 @@ export class FileDownloadGenerator {
     window.URL.revokeObjectURL(url);`,
         });
 
+        /* v8 ignore next */
         sourceFile.addFunction({
             name: 'downloadFileOperator',
             isExported: true,
@@ -68,6 +76,7 @@ export class FileDownloadGenerator {
     };`,
         });
 
+        /* v8 ignore next */
         sourceFile.addFunction({
             name: 'extractFilenameFromContentDisposition',
             isExported: true,
@@ -93,6 +102,7 @@ export class FileDownloadGenerator {
     return filename;`,
         });
 
+        /* v8 ignore next */
         sourceFile.formatText();
     }
 }

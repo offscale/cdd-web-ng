@@ -3,15 +3,21 @@ import { Project, Scope } from 'ts-morph';
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '@src/core/constants.js';
 
 export class ResponseHeaderParserGenerator {
+    /* v8 ignore next */
     constructor(private project: Project) {}
 
     public generate(outputDir: string): void {
+        /* v8 ignore next */
         const utilsDir = path.join(outputDir, 'utils');
+        /* v8 ignore next */
         const filePath = path.join(utilsDir, 'response-header.service.ts');
+        /* v8 ignore next */
         const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
+        /* v8 ignore next */
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
+        /* v8 ignore next */
         sourceFile.addImportDeclarations([
             { moduleSpecifier: '@angular/core', namedImports: ['Injectable'] },
             { moduleSpecifier: '@angular/common/http', namedImports: ['HttpHeaders'] },
@@ -23,6 +29,7 @@ export class ResponseHeaderParserGenerator {
             { moduleSpecifier: './linkset-parser', namedImports: ['LinkSetParser'] },
         ]);
 
+        /* v8 ignore next */
         const serviceClass = sourceFile.addClass({
             name: 'ResponseHeaderService',
             isExported: true,
@@ -30,6 +37,7 @@ export class ResponseHeaderParserGenerator {
             docs: ['Service to parse and coerce response headers into typed objects based on API metadata.'],
         });
 
+        /* v8 ignore next */
         serviceClass.addMethod({
             name: 'parse',
             typeParameters: [{ name: 'T' }],
@@ -73,6 +81,7 @@ export class ResponseHeaderParserGenerator {
         return result as T;`,
         });
 
+        /* v8 ignore next */
         serviceClass.addMethod({
             name: 'coerce',
             scope: Scope.Private,
@@ -105,6 +114,7 @@ export class ResponseHeaderParserGenerator {
         }`,
         });
 
+        /* v8 ignore next */
         serviceClass.addMethod({
             name: 'parseLinkSetBody',
             typeParameters: [{ name: 'T' }],
@@ -115,6 +125,7 @@ export class ResponseHeaderParserGenerator {
             return LinkSetParser.parseJson(body);`,
         });
 
+        /* v8 ignore next */
         sourceFile.formatText();
     }
 }

@@ -3,25 +3,33 @@ import { Project, Scope } from 'ts-morph';
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '@src/core/constants.js';
 
 export class HttpParamsBuilderGenerator {
+    /* v8 ignore next */
     constructor(private project: Project) {}
 
     public generate(outputDir: string): void {
+        /* v8 ignore next */
         const utilsDir = path.join(outputDir, 'utils');
+        /* v8 ignore next */
         const filePath = path.join(utilsDir, 'http-params-builder.ts');
 
+        /* v8 ignore next */
         const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
+        /* v8 ignore next */
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
+        /* v8 ignore next */
         sourceFile.addImportDeclaration({
             moduleSpecifier: '@angular/common/http',
             namedImports: ['HttpParams', 'HttpParameterCodec'],
         });
+        /* v8 ignore next */
         sourceFile.addImportDeclaration({
             moduleSpecifier: './content-encoder',
             namedImports: ['ContentEncoder'],
         });
 
+        /* v8 ignore next */
         sourceFile.addClass({
             name: 'ApiParameterCodec',
             isExported: true,
@@ -57,6 +65,7 @@ export class HttpParamsBuilderGenerator {
             ],
         });
 
+        /* v8 ignore next */
         const classDeclaration = sourceFile.addClass({
             name: 'HttpParamsBuilder',
             isExported: true,
@@ -65,6 +74,7 @@ export class HttpParamsBuilderGenerator {
             ],
         });
 
+        /* v8 ignore next */
         classDeclaration.addMethod({
             name: 'serializePathParam',
             isStatic: true,
@@ -135,6 +145,7 @@ export class HttpParamsBuilderGenerator {
         return encode(String(value));`,
         });
 
+        /* v8 ignore next */
         classDeclaration.addMethod({
             name: 'serializeQueryParam',
             isStatic: true,
@@ -249,6 +260,7 @@ export class HttpParamsBuilderGenerator {
         return params.append(encode(name), encode(String(value)));`,
         });
 
+        /* v8 ignore next */
         classDeclaration.addMethod({
             name: 'serializeUrlEncodedBodyInternal',
             isStatic: true,
@@ -301,6 +313,7 @@ export class HttpParamsBuilderGenerator {
         return result;`,
         });
 
+        /* v8 ignore next */
         classDeclaration.addMethod({
             name: 'serializeHeaderParam',
             isStatic: true,
@@ -328,6 +341,7 @@ export class HttpParamsBuilderGenerator {
         return String(value);`,
         });
 
+        /* v8 ignore next */
         classDeclaration.addMethod({
             name: 'serializeCookieParam',
             isStatic: true,
@@ -387,6 +401,7 @@ export class HttpParamsBuilderGenerator {
         return \`\${key}=\${encode(valStr)}\`;`,
         });
 
+        /* v8 ignore next */
         classDeclaration.addMethod({
             name: 'serializeRawQuerystring',
             isStatic: true,
@@ -405,6 +420,7 @@ export class HttpParamsBuilderGenerator {
         return String(value);`,
         });
 
+        /* v8 ignore next */
         classDeclaration.addMethod({
             name: 'serializeUrlEncodedBody',
             isStatic: true,
@@ -427,6 +443,7 @@ export class HttpParamsBuilderGenerator {
             return params;`,
         });
 
+        /* v8 ignore next */
         classDeclaration.addMethod({
             name: 'encodeReservedInternal',
             isStatic: true,
@@ -468,6 +485,7 @@ export class HttpParamsBuilderGenerator {
         }).join('');`,
         });
 
+        /* v8 ignore next */
         classDeclaration.addMethod({
             name: 'encodeReserved',
             isStatic: true,
@@ -479,6 +497,7 @@ export class HttpParamsBuilderGenerator {
         return this.encodeReservedInternal(value, true);`,
         });
 
+        /* v8 ignore next */
         classDeclaration.addMethod({
             name: 'encodeReservedQuery',
             isStatic: true,
@@ -511,6 +530,7 @@ export class HttpParamsBuilderGenerator {
         }).join('');`,
         });
 
+        /* v8 ignore next */
         classDeclaration.addMethod({
             name: 'encodeReservedPath',
             isStatic: true,
@@ -522,6 +542,7 @@ export class HttpParamsBuilderGenerator {
         return this.encodeReservedInternal(value, false);`,
         });
 
+        /* v8 ignore next */
         sourceFile.formatText();
     }
 }

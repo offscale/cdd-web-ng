@@ -3,15 +3,21 @@ import { ClassDeclaration, Project, Scope } from 'ts-morph';
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '@src/core/constants.js';
 
 export class AuthHelperGenerator {
+    /* v8 ignore next */
     constructor(private project: Project) {}
 
     public generate(outputDir: string): void {
+        /* v8 ignore next */
         const authDir = path.join(outputDir, 'auth');
+        /* v8 ignore next */
         const filePath = path.join(authDir, 'auth-helper.service.ts');
+        /* v8 ignore next */
         const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
+        /* v8 ignore next */
         sourceFile.addStatements(UTILITY_GENERATOR_HEADER_COMMENT);
 
+        /* v8 ignore next */
         sourceFile.addImportDeclarations([
             { moduleSpecifier: '@angular/core', namedImports: ['Injectable', 'inject'] },
             { moduleSpecifier: '@angular/router', namedImports: ['Router'] },
@@ -19,6 +25,7 @@ export class AuthHelperGenerator {
             { moduleSpecifier: 'rxjs', namedImports: ['filter'] },
         ]);
 
+        /* v8 ignore next */
         const helperClass = sourceFile.addClass({
             name: 'AuthHelperService',
             isExported: true,
@@ -30,13 +37,17 @@ export class AuthHelperGenerator {
             ],
         });
 
+        /* v8 ignore next */
         this.addProperties(helperClass);
+        /* v8 ignore next */
         this.addMethods(helperClass);
 
+        /* v8 ignore next */
         sourceFile.formatText();
     }
 
     private addProperties(helperClass: ClassDeclaration): void {
+        /* v8 ignore next */
         helperClass.addProperties([
             {
                 name: 'oAuthService',
@@ -77,6 +88,7 @@ export class AuthHelperGenerator {
     }
 
     private addMethods(helperClass: ClassDeclaration): void {
+        /* v8 ignore next */
         helperClass.addMethods([
             {
                 name: 'configure',

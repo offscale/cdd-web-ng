@@ -41,7 +41,7 @@ run: build
 
 build_wasm:
 	@echo "Building WASM (browser bundle)..."
-	npx esbuild dist/index.js --bundle --platform=browser --outfile=wasm/cdd-ts.js
+	npx esbuild dist/index.js --bundle --platform=browser --external:node:fs --external:node:path --external:node:url --external:node:crypto --external:node:os --outfile=wasm/cdd-ts.js
 build_docker:
 	docker build -f debian.Dockerfile -t cdd-ts:debian .
 	docker build -f alpine.Dockerfile -t cdd-ts:alpine .

@@ -10,7 +10,7 @@ for (const sourceFile of sourceFiles) {
     const anyKeywords = sourceFile.getDescendantsOfKind(SyntaxKind.AnyKeyword);
     for (const keyword of anyKeywords.reverse()) {
         // reverse to avoid offset issues
-        keyword.replaceWithText('never');
+        keyword.replaceWithText('unknown');
     }
 }
 

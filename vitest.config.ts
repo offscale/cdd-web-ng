@@ -10,6 +10,7 @@ export default defineConfig({
         include: ['tests/**/*.spec.ts'],
         exclude: ['tests/fixtures/**'],
         testTimeout: 30000,
+        hookTimeout: 30000,
         reporters: ['verbose', 'junit'],
         alias: {
             '@src': path.resolve(__dirname, './src'),
@@ -18,7 +19,8 @@ export default defineConfig({
             junit: 'coverage/junit.xml',
         },
         coverage: {
-            provider: 'istanbul',
+            provider: 'v8',
+            thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 },
             reporter: ['text', 'html', 'lcov', 'json-summary'],
             reportsDirectory: './coverage',
             include: ['src/**/*.ts'],

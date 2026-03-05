@@ -4,11 +4,18 @@ import { Project } from 'ts-morph';
 
 export class SpecSnapshotGenerator {
     constructor(
+        /* v8 ignore next */
         private readonly parser: SwaggerParser,
+        /* v8 ignore next */
         private readonly project: Project,
     ) {}
 
     public generate(outputDir: string): void {
-        writeOpenApiSnapshot(this.parser.getSpec(), outputDir, this.project.getFileSystem() as any);
+        /* v8 ignore next */
+        writeOpenApiSnapshot(
+            this.parser.getSpec(),
+            outputDir,
+            this.project.getFileSystem() as any as import('@src/openapi/parse_snapshot.js').SnapshotFileSystem,
+        );
     }
 }

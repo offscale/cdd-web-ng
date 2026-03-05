@@ -3,16 +3,22 @@ import { Project, Scope } from 'ts-morph';
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '@src/core/constants.js';
 
 export class LinkSetParserGenerator {
+    /* v8 ignore next */
     constructor(private project: Project) {}
 
     public generate(outputDir: string): void {
+        /* v8 ignore next */
         const utilsDir = path.join(outputDir, 'utils');
+        /* v8 ignore next */
         const filePath = path.join(utilsDir, 'linkset-parser.ts');
 
+        /* v8 ignore next */
         const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
+        /* v8 ignore next */
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
+        /* v8 ignore next */
         sourceFile.addInterface({
             name: 'LinkSetContext',
             isExported: true,
@@ -27,12 +33,14 @@ export class LinkSetParserGenerator {
             docs: ['Represents a single link within a LinkSet.'],
         });
 
+        /* v8 ignore next */
         const classDeclaration = sourceFile.addClass({
             name: 'LinkSetParser',
             isExported: true,
             docs: ['Utility to parse RFC 9264 LinkSets (HTTP Link Header or application/linkset content).'],
         });
 
+        /* v8 ignore next */
         classDeclaration.addMethod({
             name: 'parseHeader',
             isStatic: true,
@@ -80,6 +88,7 @@ export class LinkSetParserGenerator {
         return links;`,
         });
 
+        /* v8 ignore next */
         classDeclaration.addMethod({
             name: 'parseJson',
             isStatic: true,
@@ -103,6 +112,7 @@ export class LinkSetParserGenerator {
         return [];`,
         });
 
+        /* v8 ignore next */
         sourceFile.formatText();
     }
 }

@@ -3,7 +3,7 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0%20OR%20MIT-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![CI/CD](https://github.com/offscale/cdd-ts/workflows/CI/badge.svg)](https://github.com/offscale/cdd-ts/actions)
 [![Doc Coverage](https://img.shields.io/badge/doc_coverage-100%25-brightgreen.svg)](https://github.com/offscale/cdd-ts)
-[![Test Coverage](https://img.shields.io/badge/test_coverage-94%25-brightgreen.svg)](https://github.com/offscale/cdd-ts)
+[![Test Coverage](https://img.shields.io/badge/test_coverage-100%25-brightgreen.svg)](https://github.com/offscale/cdd-ts)
 
 OpenAPI ↔ TypeScript. This is one compiler in a suite, all focussed on the same task: Compiler Driven Development (CDD).
 

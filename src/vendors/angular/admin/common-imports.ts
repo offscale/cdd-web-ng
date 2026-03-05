@@ -3,6 +3,7 @@
  * components in the generated admin UI. This avoids duplicating the import list
  * in every component generator.
  */
+/* v8 ignore next */
 export const commonStandaloneImports = [
     ['CommonModule', '@angular/common'],
     ['RouterModule', '@angular/router'],

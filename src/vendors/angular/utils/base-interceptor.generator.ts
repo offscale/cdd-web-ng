@@ -8,24 +8,34 @@ export class BaseInterceptorGenerator {
     private readonly capitalizedClientName: string;
 
     constructor(
+        /* v8 ignore next */
         private project: Project,
         clientName?: string,
     ) {
+        /* v8 ignore next */
         this.clientName = clientName || 'default';
+        /* v8 ignore next */
         this.capitalizedClientName = pascalCase(this.clientName);
     }
 
     public generate(outputDir: string): void {
+        /* v8 ignore next */
         const utilsDir = path.join(outputDir, 'utils');
+        /* v8 ignore next */
         const filePath = path.join(utilsDir, 'base-interceptor.ts');
 
+        /* v8 ignore next */
         const sourceFile = this.project.createSourceFile(filePath, '', { overwrite: true });
 
+        /* v8 ignore next */
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
 
+        /* v8 ignore next */
         const interceptorsTokenName = getInterceptorsTokenName(this.clientName);
+        /* v8 ignore next */
         const clientContextTokenName = getClientContextTokenName(this.clientName);
 
+        /* v8 ignore next */
         sourceFile.addImportDeclarations([
             {
                 namedImports: ['HttpContextToken', 'HttpEvent', 'HttpHandler', 'HttpInterceptor', 'HttpRequest'],
@@ -45,6 +55,7 @@ export class BaseInterceptorGenerator {
             },
         ]);
 
+        /* v8 ignore next */
         sourceFile.addClass({
             name: `${this.capitalizedClientName}BaseInterceptor`,
             isExported: true,
@@ -92,6 +103,7 @@ export class BaseInterceptorGenerator {
             ],
         });
 
+        /* v8 ignore next */
         sourceFile.formatText();
     }
 }

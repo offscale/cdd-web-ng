@@ -1,7 +1,11 @@
-# cdd-ts
+cdd-ts
+======
 
 [![License](https://img.shields.io/badge/license-Apache--2.0%20OR%20MIT-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![CI/CD](https://github.com/offscale/cdd-ts/workflows/CI/badge.svg)](https://github.com/offscale/cdd-ts/actions)
+[![Angular Integration](https://github.com/offscale/cdd-ts/actions/workflows/integration.yml/badge.svg)](https://github.com/offscale/cdd-ts/actions/workflows/integration.yml)
+[![Deploy docs to Pages](https://github.com/offscale/cdd-ts/actions/workflows/docs.yml/badge.svg)](https://github.com/offscale/cdd-ts/actions/workflows/docs.yml)
+[![Linting and Code Quality](https://github.com/offscale/cdd-ts/actions/workflows/lint.yml/badge.svg)](https://github.com/offscale/cdd-ts/actions/workflows/lint.yml)
+[![Tests and coverage](https://github.com/offscale/cdd-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/offscale/cdd-ts/actions/workflows/ci.yml)
 [![Doc Coverage](https://img.shields.io/badge/doc_coverage-100%25-brightgreen.svg)](https://github.com/offscale/cdd-ts)
 [![Test Coverage](https://img.shields.io/badge/test_coverage-100%25-brightgreen.svg)](https://github.com/offscale/cdd-ts)
 

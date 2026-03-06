@@ -562,7 +562,9 @@ function validateSchemaExternalDocs(
     /* v8 ignore next */
     if (Array.isArray(obj.prefixItems)) {
         /* v8 ignore next */
-        (obj.prefixItems as OpenApiValue[]).forEach((s: OpenApiValue, i: number) => visit(s, `${location}.prefixItems[${i}]`));
+        (obj.prefixItems as OpenApiValue[]).forEach((s: OpenApiValue, i: number) =>
+            visit(s, `${location}.prefixItems[${i}]`),
+        );
     }
 
     /* v8 ignore next */
@@ -605,7 +607,11 @@ function validateSchemaExternalDocs(
     }
 }
 
-function isPropertyRequired(schema: OpenApiValue, propName: string, seen: WeakSet<object> = new WeakSet<object>()): boolean {
+function isPropertyRequired(
+    schema: OpenApiValue,
+    propName: string,
+    seen: WeakSet<object> = new WeakSet<object>(),
+): boolean {
     /* v8 ignore next */
     /* v8 ignore start */
     if (!schema || typeof schema !== 'object') return false;
@@ -1875,7 +1881,11 @@ function validateHeaderObject(headerObj: OpenApiValue, location: string, isOpenA
     }
 }
 
-function validateHeadersMap(headers: Record<string, OpenApiValue> | undefined, location: string, isOpenApi3: boolean): void {
+function validateHeadersMap(
+    headers: Record<string, OpenApiValue> | undefined,
+    location: string,
+    isOpenApi3: boolean,
+): void {
     /* v8 ignore next */
     /* v8 ignore start */
     if (!headers) return;
@@ -2540,7 +2550,9 @@ export function validateSpec(spec: SwaggerSpec): void {
                 }
 
                 /* v8 ignore next */
-                for (const [expression, callbackPathItem] of Object.entries(callbackObj as Record<string, OpenApiValue>)) {
+                for (const [expression, callbackPathItem] of Object.entries(
+                    callbackObj as Record<string, OpenApiValue>,
+                )) {
                     /* v8 ignore next */
                     /* v8 ignore start */
                     if (!callbackPathItem || typeof callbackPathItem !== 'object') continue;
@@ -2918,13 +2930,15 @@ export function validateSpec(spec: SwaggerSpec): void {
                         /* v8 ignore next */
                         if (param.examples && typeof param.examples === 'object') {
                             /* v8 ignore next */
-                            Object.entries(param.examples as Record<string, OpenApiValue>).forEach(([name, example]) => {
-                                /* v8 ignore next */
-                                validateExampleObject(
-                                    example,
-                                    `${method.toUpperCase()} ${pathKey}.parameters.${param.name}.examples.${name}`,
-                                );
-                            });
+                            Object.entries(param.examples as Record<string, OpenApiValue>).forEach(
+                                ([name, example]) => {
+                                    /* v8 ignore next */
+                                    validateExampleObject(
+                                        example,
+                                        `${method.toUpperCase()} ${pathKey}.parameters.${param.name}.examples.${name}`,
+                                    );
+                                },
+                            );
                         }
 
                         /* v8 ignore next */
@@ -3172,13 +3186,19 @@ export function validateSpec(spec: SwaggerSpec): void {
     /* v8 ignore next */
     if (isOpenApi3 && spec.components?.pathItems) {
         /* v8 ignore next */
-        collectOperationIds(spec.components.pathItems as OpenApiValue as Record<string, OpenApiValue>, 'components.pathItems:');
+        collectOperationIds(
+            spec.components.pathItems as OpenApiValue as Record<string, OpenApiValue>,
+            'components.pathItems:',
+        );
     }
 
     /* v8 ignore next */
     if (isOpenApi3 && spec.components?.webhooks) {
         /* v8 ignore next */
-        collectOperationIds(spec.components.webhooks as OpenApiValue as Record<string, OpenApiValue>, 'components.webhooks:');
+        collectOperationIds(
+            spec.components.webhooks as OpenApiValue as Record<string, OpenApiValue>,
+            'components.webhooks:',
+        );
     }
 
     /* v8 ignore next */
@@ -3399,7 +3419,10 @@ export function validateSpec(spec: SwaggerSpec): void {
             /* v8 ignore next */
             if (param.content) {
                 /* v8 ignore next */
-                validateContentMap(param.content as Record<string, OpenApiValue>, `components.parameters.${name}.content`);
+                validateContentMap(
+                    param.content as Record<string, OpenApiValue>,
+                    `components.parameters.${name}.content`,
+                );
             }
         }
     }
@@ -3409,7 +3432,11 @@ export function validateSpec(spec: SwaggerSpec): void {
         /* v8 ignore next */
         if (spec.components.headers) {
             /* v8 ignore next */
-            validateHeadersMap(spec.components.headers as Record<string, OpenApiValue>, 'components.headers', isOpenApi3);
+            validateHeadersMap(
+                spec.components.headers as Record<string, OpenApiValue>,
+                'components.headers',
+                isOpenApi3,
+            );
         }
 
         /* v8 ignore next */
@@ -3448,7 +3475,9 @@ export function validateSpec(spec: SwaggerSpec): void {
         /* v8 ignore next */
         if (spec.components.callbacks) {
             /* v8 ignore next */
-            for (const [name, callbackObj] of Object.entries(spec.components.callbacks as Record<string, OpenApiValue>)) {
+            for (const [name, callbackObj] of Object.entries(
+                spec.components.callbacks as Record<string, OpenApiValue>,
+            )) {
                 /* v8 ignore next */
                 /* v8 ignore start */
                 if (!callbackObj || typeof callbackObj !== 'object') continue;
@@ -3474,16 +3503,18 @@ export function validateSpec(spec: SwaggerSpec): void {
                 }
 
                 /* v8 ignore next */
-                Object.entries(callbackObj as Record<string, OpenApiValue>).forEach(([expression, callbackPathItem]) => {
-                    /* v8 ignore next */
-                    validateCallbackExpression(expression, `components.callbacks.${name}.${expression}`);
-                    /* v8 ignore next */
-                    validatePathItemOperations(
-                        callbackPathItem,
-                        `components.callbacks.${name}.${expression}`,
-                        isOpenApi3,
-                    );
-                });
+                Object.entries(callbackObj as Record<string, OpenApiValue>).forEach(
+                    ([expression, callbackPathItem]) => {
+                        /* v8 ignore next */
+                        validateCallbackExpression(expression, `components.callbacks.${name}.${expression}`);
+                        /* v8 ignore next */
+                        validatePathItemOperations(
+                            callbackPathItem,
+                            `components.callbacks.${name}.${expression}`,
+                            isOpenApi3,
+                        );
+                    },
+                );
             }
         }
 

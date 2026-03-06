@@ -14,12 +14,18 @@ describe('CliGenerator', () => {
                 servers: [{ url: 'http://api.example.com' }],
                 components: {
                     securitySchemes: {
-                        BearerAuth: { type: 'http', scheme: 'bearer' }
-                    }
-                }
+                        BearerAuth: { type: 'http', scheme: 'bearer' },
+                    },
+                },
             },
             operations: [
-                { tags: ['Users'], operationId: 'getUser', path: '/users/{id}', summary: 'Get User', parameters: [{ name: 'id', in: 'path', required: true }] },
+                {
+                    tags: ['Users'],
+                    operationId: 'getUser',
+                    path: '/users/{id}',
+                    summary: 'Get User',
+                    parameters: [{ name: 'id', in: 'path', required: true }],
+                },
                 { tags: [{ name: 'Posts' }], path: '/posts', description: 'List Posts' },
                 { path: '/no-tag', summary: 'No Tag', requestBody: { content: {} } },
             ],

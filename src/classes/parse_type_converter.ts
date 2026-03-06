@@ -3,7 +3,9 @@ import {
     MediaTypeObject,
     RequestBody,
     SwaggerDefinition,
-    SwaggerResponse, OpenApiValue } from '../core/types/index.js';
+    SwaggerResponse,
+    OpenApiValue,
+} from '../core/types/index.js';
 import { pascalCase } from '../functions/utils_string.js';
 
 export function isDataTypeInterface(type: string): boolean {

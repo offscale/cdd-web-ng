@@ -27,7 +27,7 @@ usersCommand.command('getUser')
         expect(spec.info?.title).toBe('api-cli');
         expect(spec.info?.version).toBe('2.0.0');
         expect(spec.info?.description).toBe('Test CLI');
-        
+
         expect(spec.servers).toBeDefined();
         expect(spec.servers![0].url).toBe('http://localhost');
 
@@ -37,10 +37,10 @@ usersCommand.command('getUser')
         expect(getUserOp.operationId).toBe('getUser');
         expect(getUserOp.tags).toEqual(['Users']);
         expect(getUserOp.description).toBe('Get User by ID');
-        
+
         expect(getUserOp.parameters).toBeDefined();
         expect(getUserOp.parameters.length).toBe(2);
-        
+
         expect(getUserOp.parameters[0].name).toBe('id');
         expect(getUserOp.parameters[0].required).toBe(true);
         expect(getUserOp.parameters[0].description).toBe('User ID');

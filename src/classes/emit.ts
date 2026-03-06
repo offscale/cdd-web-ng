@@ -805,7 +805,9 @@ export class TypeGenerator {
         pushTag('discriminator', (def as Record<string, OpenApiValue>).discriminator);
 
         /* v8 ignore next */
-        const extensionEntries = Object.entries(def as Record<string, OpenApiValue>).filter(([key]) => key.startsWith('x-'));
+        const extensionEntries = Object.entries(def as Record<string, OpenApiValue>).filter(([key]) =>
+            key.startsWith('x-'),
+        );
         /* v8 ignore next */
         extensionEntries.forEach(([key, value]) => {
             /* v8 ignore next */

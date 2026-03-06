@@ -6,7 +6,9 @@ import {
     Parameter,
     PathInfo,
     SwaggerDefinition,
-    SwaggerResponse, OpenApiValue } from '@src/core/types/index.js';
+    SwaggerResponse,
+    OpenApiValue,
+} from '@src/core/types/index.js';
 import { camelCase, getTypeScriptType, isDataTypeInterface, sanitizeComment } from '@src/functions/utils.js';
 import { SwaggerParser } from '@src/openapi/parse.js';
 import { OptionalKind, ParameterDeclarationStructure } from 'ts-morph';
@@ -640,7 +642,9 @@ export class ServiceMethodAnalyzer {
 
     private resolveType(schema: OpenApiValue, knownTypes: string[]): string {
         /* v8 ignore next */
-        return schema !== undefined ? getTypeScriptType(schema as SwaggerDefinition, this.config, knownTypes) : 'unknown';
+        return schema !== undefined
+            ? getTypeScriptType(schema as SwaggerDefinition, this.config, knownTypes)
+            : 'unknown';
     }
 
     private analyzeErrorResponses(
@@ -1365,7 +1369,8 @@ export class ServiceMethodAnalyzer {
         /* v8 ignore next */
         const contentType = keys[0]!;
         /* v8 ignore next */
-        const encoding = (p.content as Record<string, { encoding?: Record<string, OpenApiValue> }>)?.[contentType]?.encoding;
+        const encoding = (p.content as Record<string, { encoding?: Record<string, OpenApiValue> }>)?.[contentType]
+            ?.encoding;
         /* v8 ignore next */
         return {
             /* v8 ignore start */
@@ -1699,7 +1704,8 @@ export class ServiceMethodAnalyzer {
         } else {
             const isRef =
                 /* v8 ignore next */
-                !!(schema as Record<string, OpenApiValue>)?.$ref || !!(schema as Record<string, OpenApiValue>)?.$dynamicRef;
+                !!(schema as Record<string, OpenApiValue>)?.$ref ||
+                !!(schema as Record<string, OpenApiValue>)?.$dynamicRef;
             /* v8 ignore next */
             const isArray = resolved.type === 'array';
 

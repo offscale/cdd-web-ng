@@ -299,7 +299,9 @@ export class CustomValidatorsGenerator {
                         .writeLine(
                             "const isString = (value: Record<string, never> | string | number | boolean | null): value is string => typeof value === 'string';",
                         )
-                        .writeLine('const deepEqual = (left: Record<string, never> | string | number | boolean | null, right: Record<string, never> | string | number | boolean | null): boolean => {')
+                        .writeLine(
+                            'const deepEqual = (left: Record<string, never> | string | number | boolean | null, right: Record<string, never> | string | number | boolean | null): boolean => {',
+                        )
                         .indent(() => {
                             /* v8 ignore next */
                             writer.writeLine('if (Object.is(left, right)) return true;');
@@ -424,7 +426,9 @@ export class CustomValidatorsGenerator {
                                 /* v8 ignore next */
                                 writer.writeLine('const?: Record<string, never> | string | number | boolean | null;');
                                 /* v8 ignore next */
-                                writer.writeLine('enum?: Array<Record<string, never> | string | number | boolean | null>;');
+                                writer.writeLine(
+                                    'enum?: Array<Record<string, never> | string | number | boolean | null>;',
+                                );
                                 /* v8 ignore next */
                                 writer.writeLine('pattern?: string;');
                                 /* v8 ignore next */

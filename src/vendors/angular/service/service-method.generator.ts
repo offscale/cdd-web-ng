@@ -14,7 +14,9 @@ import {
     RequestBody,
     SwaggerDefinition,
     SwaggerResponse,
-    MediaTypeObject, OpenApiValue } from '@src/core/types/index.js';
+    MediaTypeObject,
+    OpenApiValue,
+} from '@src/core/types/index.js';
 import { SwaggerParser } from '@src/openapi/parse.js';
 import { ServiceMethodAnalyzer } from '@src/functions/parse_analyzer.js';
 import { ResponseVariant, ServiceMethodModel, ParamSerialization } from '@src/functions/types.js';
@@ -1167,10 +1169,9 @@ export class ServiceMethodGenerator {
             const rootName = typeof schema === 'object' && schema.xml?.name ? schema.xml.name : param.name;
             const xmlConfig =
                 /* v8 ignore next */
-                (this.analyzer as OpenApiValue as { getXmlConfig: (a: OpenApiValue, b: number) => unknown }).getXmlConfig(
-                    schema,
-                    5,
-                );
+                (
+                    this.analyzer as OpenApiValue as { getXmlConfig: (a: OpenApiValue, b: number) => unknown }
+                ).getXmlConfig(schema, 5);
             /* v8 ignore next */
             lines.push(`let ${paramName}Serialized: Record<string, never> = ${paramName};`);
             /* v8 ignore next */

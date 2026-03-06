@@ -355,7 +355,9 @@ export class SpecLoader {
                 /* v8 ignore next */
                 /* v8 ignore next */
                 /* v8 ignore start */
-                for (const [expression, callbackPathItem] of Object.entries(callbackObj as Record<string, OpenApiValue>)) {
+                for (const [expression, callbackPathItem] of Object.entries(
+                    callbackObj as Record<string, OpenApiValue>,
+                )) {
                     /* v8 ignore stop */
                     /* v8 ignore next */
                     /* v8 ignore next */
@@ -401,7 +403,10 @@ export class SpecLoader {
                 /* v8 ignore next */
                 /* v8 ignore next */
                 /* v8 ignore start */
-                collectFromPaths(components.pathItems as Record<string, OpenApiValue>, `${prefix}components.pathItems.`);
+                collectFromPaths(
+                    components.pathItems as Record<string, OpenApiValue>,
+                    `${prefix}components.pathItems.`,
+                );
                 /* v8 ignore stop */
             }
             /* v8 ignore next */
@@ -425,7 +430,10 @@ export class SpecLoader {
                 /* v8 ignore next */
                 /* v8 ignore next */
                 /* v8 ignore start */
-                collectFromCallbacks(components.callbacks as Record<string, OpenApiValue>, `${prefix}components.callbacks.`);
+                collectFromCallbacks(
+                    components.callbacks as Record<string, OpenApiValue>,
+                    `${prefix}components.callbacks.`,
+                );
                 /* v8 ignore stop */
             }
         }

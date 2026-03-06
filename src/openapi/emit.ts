@@ -17,7 +17,9 @@ import {
     SwaggerSpec,
     TagObject,
     SpecOperation,
-    XmlObject, OpenApiValue } from '../core/types/index.js';
+    XmlObject,
+    OpenApiValue,
+} from '../core/types/index.js';
 import { OAS_3_1_DIALECT } from '../core/constants.js';
 import type { ReverseSchemaMap } from '../classes/parse.js';
 
@@ -1686,7 +1688,9 @@ export function buildOpenApiSpecFromServices(
                             /* v8 ignore next */
                             /* v8 ignore next */
                             /* v8 ignore start */
-                            param.examples = { example: (ex as Record<string, OpenApiValue>).__oasExample as ExampleObject };
+                            param.examples = {
+                                example: (ex as Record<string, OpenApiValue>).__oasExample as ExampleObject,
+                            };
                             /* v8 ignore stop */
                         } else {
                             /* v8 ignore next */
@@ -1865,10 +1869,16 @@ export function buildOpenApiSpecFromServices(
                         /* v8 ignore next */
                         rh.mediaTypes.forEach((t: string) => {
                             /* v8 ignore next */
-                            let schema: Record<string, OpenApiValue> = { type: t.includes('json') ? 'object' : 'string' };
+                            let schema: Record<string, OpenApiValue> = {
+                                type: t.includes('json') ? 'object' : 'string',
+                            };
                             /* v8 ignore next */
                             /* v8 ignore start */
-                            if (op.responseTypeHint && op.responseTypeHint !== 'unknown' && schemas[op.responseTypeHint]) {
+                            if (
+                                op.responseTypeHint &&
+                                op.responseTypeHint !== 'unknown' &&
+                                schemas[op.responseTypeHint]
+                            ) {
                                 /* v8 ignore stop */
                                 /* v8 ignore next */
                                 /* v8 ignore next */

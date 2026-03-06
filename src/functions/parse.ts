@@ -13,7 +13,9 @@ import {
     SwaggerDefinition,
     SwaggerResponse,
     SwaggerSpec,
-    TagObject, OpenApiValue } from '../core/types/index.js';
+    TagObject,
+    OpenApiValue,
+} from '../core/types/index.js';
 import { parseGeneratedModelSource, ReverseSchemaMap, schemaFromTypeNode } from '../classes/parse.js';
 import { OAS_3_1_DIALECT } from '../core/constants.js';
 
@@ -55,7 +57,9 @@ export type CodeScanFileSystem = {
     };
     /** Reads the content of a file. */
     // type-coverage:ignore-next-line
-    readFileSync: ((filePath: string, encoding: string) => string) | ((filePath: string, options: OpenApiValue) => string);
+    readFileSync:
+        | ((filePath: string, encoding: string) => string)
+        | ((filePath: string, options: OpenApiValue) => string);
     /** Reads the directory entries. */
     readdirSync: (dirPath: string) => string[];
 };
@@ -1102,7 +1106,9 @@ function extractRequestBindings(handler: import('ts-morph').Node): RequestBindin
     /* v8 ignore next */
     /* v8 ignore start */
     const params =
-        (handler as OpenApiValue as { getParameters?(): import('ts-morph').ParameterDeclaration[] }).getParameters?.() ?? [];
+        (
+            handler as OpenApiValue as { getParameters?(): import('ts-morph').ParameterDeclaration[] }
+        ).getParameters?.() ?? [];
     /* v8 ignore stop */
 
     // type-coverage:ignore-next-line
@@ -3879,8 +3885,8 @@ function inferExpressSchemaHints(handler: Node): {
     /* v8 ignore start */
     if (
         !fnNode ||
-        typeof (fnNode as OpenApiValue as { getParameters(): import('ts-morph').ParameterDeclaration[] }).getParameters !==
-            'function'
+        typeof (fnNode as OpenApiValue as { getParameters(): import('ts-morph').ParameterDeclaration[] })
+            .getParameters !== 'function'
     )
         return {};
     /* v8 ignore stop */

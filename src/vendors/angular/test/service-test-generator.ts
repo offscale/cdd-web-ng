@@ -10,7 +10,9 @@ import {
     PathInfo,
     SwaggerDefinition,
     ExampleObject,
-    ReferenceLike, OpenApiValue } from '@src/core/types/index.js';
+    ReferenceLike,
+    OpenApiValue,
+} from '@src/core/types/index.js';
 import {
     camelCase,
     getBasePathTokenName,
@@ -410,7 +412,11 @@ export class ServiceTestGenerator {
                 /* v8 ignore next */
                 potentialValue = schema.example;
                 /* v8 ignore next */
-            } else if (schema.examples && Array.isArray(schema.examples) && (schema.examples as OpenApiValue[]).length > 0) {
+            } else if (
+                schema.examples &&
+                Array.isArray(schema.examples) &&
+                (schema.examples as OpenApiValue[]).length > 0
+            ) {
                 /* v8 ignore next */
                 potentialValue = (schema.examples as OpenApiValue[])[0];
             }

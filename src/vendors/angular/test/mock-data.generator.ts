@@ -59,7 +59,14 @@ export class MockDataGenerator {
         schema: SwaggerDefinition | undefined,
         visited: Set<SwaggerDefinition>,
         maxDepth: number = 10,
-    ): Record<string, never> | string | number | boolean | null | undefined | Array<string | number | boolean | null | Record<string, never>> {
+    ):
+        | Record<string, never>
+        | string
+        | number
+        | boolean
+        | null
+        | undefined
+        | Array<string | number | boolean | null | Record<string, never>> {
         /* v8 ignore next */
         if (!schema || maxDepth <= 0) {
             /* v8 ignore next */
@@ -223,7 +230,16 @@ export class MockDataGenerator {
         return last.replace(/~1/g, '/').replace(/~0/g, '~');
     }
 
-    private resolveExternalValue(externalValue: string): Record<string, never> | string | number | boolean | null | undefined | Array<string | number | boolean | null | Record<string, never>> {
+    private resolveExternalValue(
+        externalValue: string,
+    ):
+        | Record<string, never>
+        | string
+        | number
+        | boolean
+        | null
+        | undefined
+        | Array<string | number | boolean | null | Record<string, never>> {
         /* v8 ignore next */
         try {
             /* v8 ignore next */

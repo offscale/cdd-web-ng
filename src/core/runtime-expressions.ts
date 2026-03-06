@@ -1,4 +1,4 @@
-import { OpenApiValue } from "@src/core/types/index.js";
+import { OpenApiValue } from '@src/core/types/index.js';
 
 /**
  * @fileoverview

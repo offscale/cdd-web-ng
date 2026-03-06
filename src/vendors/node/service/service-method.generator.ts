@@ -165,7 +165,9 @@ export class NodeServiceMethodGenerator {
                     `const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(${model.body.paramName}, ${JSON.stringify(model.body.config)});`,
                 );
                 /* v8 ignore next */
-                lines.push(`urlParamEntries.forEach((entry: { key: string; value: string }) => formBody.append(entry.key, entry.value));`);
+                lines.push(
+                    `urlParamEntries.forEach((entry: { key: string; value: string }) => formBody.append(entry.key, entry.value));`,
+                );
                 /* v8 ignore next */
                 dataArgument = 'formBody.toString()';
                 /* v8 ignore next */

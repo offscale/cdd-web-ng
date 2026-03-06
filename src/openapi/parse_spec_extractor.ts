@@ -10,7 +10,9 @@ import {
     RequestBody,
     SpecOperation,
     SwaggerDefinition,
-    SwaggerResponse, OpenApiValue } from '../core/types/index.js';
+    SwaggerResponse,
+    OpenApiValue,
+} from '../core/types/index.js';
 import { isUriReference, pascalCase } from '../functions/utils_string.js';
 import { normalizeSecurityKey } from '../functions/utils_naming.js';
 

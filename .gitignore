@@ -32,3 +32,13 @@ node_modules/.vite
 
 # Documentation Output
 docs
+
+# Temporary evaluation & fix scripts
+evaluate*.cjs
+fix*.cjs
+fix*.ts
+scripts/fix*.cjs
+scripts/fix*.ts
+scripts/refactor*.ts
+scripts/remove*.ts
+*.patch

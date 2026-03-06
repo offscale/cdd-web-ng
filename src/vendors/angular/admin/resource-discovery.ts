@@ -6,7 +6,9 @@ import {
     PathInfo,
     Resource,
     ResourceOperation,
-    SwaggerDefinition, OpenApiValue } from '@src/core/types/index.js';
+    SwaggerDefinition,
+    OpenApiValue,
+} from '@src/core/types/index.js';
 import { camelCase, pascalCase, singular } from '@src/functions/utils.js';
 
 function getMethodName(op: PathInfo): string {
@@ -148,7 +150,8 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
                 parser,
             ),
             findSchema(
-                op.requestBody?.content?.['application/x-www-form-urlencoded']?.schema as OpenApiValue as SwaggerDefinition,
+                op.requestBody?.content?.['application/x-www-form-urlencoded']
+                    ?.schema as OpenApiValue as SwaggerDefinition,
                 parser,
             ),
         ].filter(Boolean) as SwaggerDefinition[];

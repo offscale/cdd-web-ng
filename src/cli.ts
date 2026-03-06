@@ -246,7 +246,10 @@ async function runToOpenApi(options: ToActionOptions, returnObject = false): Pro
                     fs as OpenApiValue as Parameters<typeof parseGeneratedMetadata>[1],
                 );
                 // type-coverage:ignore-next-line
-                spec = applyReverseMetadata(spec as OpenApiValue as Parameters<typeof applyReverseMetadata>[0], metadata);
+                spec = applyReverseMetadata(
+                    spec as OpenApiValue as Parameters<typeof applyReverseMetadata>[0],
+                    metadata,
+                );
             } catch (metaError) {
                 const metaMessage = metaError instanceof Error ? metaError.message : String(metaError);
                 console.warn(`⚠️  ${metaMessage}`);
@@ -268,7 +271,10 @@ async function runToOpenApi(options: ToActionOptions, returnObject = false): Pro
                     fs as OpenApiValue as Parameters<typeof parseGeneratedMetadata>[1],
                 );
                 // type-coverage:ignore-next-line
-                spec = applyReverseMetadata(spec as OpenApiValue as Parameters<typeof applyReverseMetadata>[0], metadata);
+                spec = applyReverseMetadata(
+                    spec as OpenApiValue as Parameters<typeof applyReverseMetadata>[0],
+                    metadata,
+                );
             } catch (metaError) {
                 const metaMessage = metaError instanceof Error ? metaError.message : String(metaError);
                 console.warn(`⚠️  ${metaMessage}`);

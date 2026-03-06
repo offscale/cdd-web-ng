@@ -1,4 +1,4 @@
-import { OpenApiValue } from "./openapi.js";
+import { OpenApiValue } from './openapi.js';
 import {
     ExternalDocumentationObject,
     Parameter,

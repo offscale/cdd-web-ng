@@ -15,7 +15,10 @@ interface DynamicRefObject {
 /* v8 ignore next */
 const isRefObject = (obj: OpenApiValue): obj is RefObject =>
     /* v8 ignore next */
-    typeof obj === 'object' && obj !== null && '$ref' in obj && typeof (obj as { $ref: OpenApiValue }).$ref === 'string';
+    typeof obj === 'object' &&
+    obj !== null &&
+    '$ref' in obj &&
+    typeof (obj as { $ref: OpenApiValue }).$ref === 'string';
 
 /* v8 ignore next */
 const isDynamicRefObject = (obj: OpenApiValue): obj is DynamicRefObject =>

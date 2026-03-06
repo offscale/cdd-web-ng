@@ -14,7 +14,9 @@ import {
     ServerObject,
     SwaggerDefinition,
     SwaggerSpec,
-    SpecOperation, OpenApiValue } from '../core/types/index.js';
+    SpecOperation,
+    OpenApiValue,
+} from '../core/types/index.js';
 import { extractPaths, isUriReference, normalizeSecurityKey, pascalCase } from '../functions/utils.js';
 import { SpecValidationError, validateSpec } from './parse_validator.js';
 import { OAS_3_1_DIALECT } from '../core/constants.js';

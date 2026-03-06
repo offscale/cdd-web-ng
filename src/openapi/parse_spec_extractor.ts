@@ -10,8 +10,7 @@ import {
     RequestBody,
     SpecOperation,
     SwaggerDefinition,
-    SwaggerResponse,
-} from '../core/types/index.js';
+    SwaggerResponse, OpenApiValue } from '../core/types/index.js';
 import { isUriReference, pascalCase } from '../functions/utils_string.js';
 import { normalizeSecurityKey } from '../functions/utils_naming.js';
 
@@ -27,9 +26,9 @@ type UnifiedParameter = SwaggerOfficialParameter & {
     allowEmptyValue?: boolean;
     content?: Record<string, { schema?: SwaggerDefinition | boolean }>;
     deprecated?: boolean;
-    example?: unknown;
-    examples?: Record<string, unknown>;
-    [key: string]: unknown;
+    example?: OpenApiValue;
+    examples?: Record<string, OpenApiValue>;
+    [key: string]: OpenApiValue;
 };
 
 export function groupPathsByController(parser: { operations: PathInfo[] }): Record<string, PathInfo[]> {
@@ -64,9 +63,9 @@ export function groupPathsByController(parser: { operations: PathInfo[] }): Reco
 export function extractPaths(
     swaggerPaths: { [p: string]: PathItem } | undefined,
     resolveRef?: (ref: string) => unknown,
-    components?: { securitySchemes?: Record<string, unknown> } | undefined,
+    components?: { securitySchemes?: Record<string, OpenApiValue> } | undefined,
     options?: { isOpenApi3?: boolean; defaultConsumes?: string[]; defaultProduces?: string[] },
-    resolveObj?: (obj: unknown) => unknown,
+    resolveObj?: (obj: OpenApiValue) => unknown,
 ): PathInfo[] {
     /* v8 ignore next */
     if (!swaggerPaths) {
@@ -244,7 +243,7 @@ export function extractPaths(
         const operationsToProcess: { method: string; operation: SpecOperation }[] = [];
 
         /* v8 ignore next */
-        const pathItemRec = pathItem as Record<string, unknown>;
+        const pathItemRec = pathItem as Record<string, OpenApiValue>;
 
         /* v8 ignore next */
         for (const method of methods) {
@@ -475,7 +474,7 @@ export function extractPaths(
                         /* v8 ignore next */
                         if (key.startsWith('x-')) {
                             /* v8 ignore next */
-                            (param as Record<string, unknown>)[key] = p[key];
+                            (param as Record<string, OpenApiValue>)[key] = p[key];
                         }
                     });
 
@@ -513,7 +512,7 @@ export function extractPaths(
                 /* v8 ignore next */
                 consumes.forEach(mediaType => {
                     /* v8 ignore next */
-                    content[mediaType] = { schema: bodyParam.schema as unknown as SwaggerDefinition };
+                    content[mediaType] = { schema: bodyParam.schema as OpenApiValue as SwaggerDefinition };
                 });
 
                 /* v8 ignore next */
@@ -558,7 +557,7 @@ export function extractPaths(
                     const swagger2Response = resolvedResp as Response;
                     /* v8 ignore next */
                     const headers = resolveHeaders(
-                        (resolvedResp as Record<string, unknown>).headers as Record<string, HeaderObject>,
+                        (resolvedResp as Record<string, OpenApiValue>).headers as Record<string, HeaderObject>,
                     );
 
                     /* v8 ignore next */
@@ -574,7 +573,7 @@ export function extractPaths(
                         produces.forEach(mediaType => {
                             /* v8 ignore next */
                             content[mediaType] = {
-                                schema: swagger2Response.schema as unknown as SwaggerDefinition,
+                                schema: swagger2Response.schema as OpenApiValue as SwaggerDefinition,
                             };
                         });
 
@@ -689,9 +688,9 @@ export function extractPaths(
             /* v8 ignore next */
             Object.keys(operation).forEach(key => {
                 /* v8 ignore next */
-                const piRec = pathInfo as Record<string, unknown>;
+                const piRec = pathInfo as Record<string, OpenApiValue>;
                 /* v8 ignore next */
-                const opRec = operation as Record<string, unknown>;
+                const opRec = operation as Record<string, OpenApiValue>;
                 /* v8 ignore next */
                 if (key.startsWith('x-') && !(key in piRec)) {
                     /* v8 ignore next */

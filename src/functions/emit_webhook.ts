@@ -3,7 +3,7 @@ import { Project, VariableDeclarationKind } from 'ts-morph';
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '../core/constants.js';
 import { SwaggerParser } from '@src/openapi/parse.js';
 import { extractPaths, getRequestBodyType, getResponseType, pascalCase } from '@src/functions/utils.js';
-import { PathInfo, PathItem } from '@src/core/types/index.js';
+import { PathInfo, PathItem, OpenApiValue } from '@src/core/types/index.js';
 
 export class WebhookGenerator {
     constructor(
@@ -26,7 +26,7 @@ export class WebhookGenerator {
             /* v8 ignore next */
             if (
                 type &&
-                type !== 'any' &&
+                type !== 'unknown' &&
                 /^[A-Z]/.test(type) &&
                 !['Date', 'Blob', 'File'].includes(type) &&
                 !type.includes('{') &&
@@ -199,7 +199,7 @@ export class WebhookGenerator {
         const resolveRef = (ref: string) => this.parser.resolveReference(ref);
         /* v8 ignore stop */
         /* v8 ignore next */
-        const resolveObj = (obj: unknown) => this.parser.resolve(obj as unknown);
+        const resolveObj = (obj: OpenApiValue) => this.parser.resolve(obj as OpenApiValue);
         /* v8 ignore next */
         return extractPaths(tempMap, resolveRef, this.parser.spec.components, undefined, resolveObj);
     }

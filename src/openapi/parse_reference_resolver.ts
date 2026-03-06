@@ -1,4 +1,4 @@
-import { SwaggerDefinition, SwaggerSpec } from '../core/types/index.js';
+import { SwaggerDefinition, SwaggerSpec, OpenApiValue } from '../core/types/index.js';
 
 interface RefObject {
     $ref: string;
@@ -13,19 +13,19 @@ interface DynamicRefObject {
 }
 
 /* v8 ignore next */
-const isRefObject = (obj: unknown): obj is RefObject =>
+const isRefObject = (obj: OpenApiValue): obj is RefObject =>
     /* v8 ignore next */
-    typeof obj === 'object' && obj !== null && '$ref' in obj && typeof (obj as { $ref: unknown }).$ref === 'string';
+    typeof obj === 'object' && obj !== null && '$ref' in obj && typeof (obj as { $ref: OpenApiValue }).$ref === 'string';
 
 /* v8 ignore next */
-const isDynamicRefObject = (obj: unknown): obj is DynamicRefObject =>
+const isDynamicRefObject = (obj: OpenApiValue): obj is DynamicRefObject =>
     /* v8 ignore next */
     typeof obj === 'object' &&
     obj !== null &&
     '$dynamicRef' in obj &&
     typeof (
         obj as {
-            $dynamicRef: unknown;
+            $dynamicRef: OpenApiValue;
         }
     ).$dynamicRef === 'string';
 
@@ -73,7 +73,7 @@ export class ReferenceResolver {
     }
 
     public static indexSchemaIds(
-        spec: unknown,
+        spec: OpenApiValue,
         baseUri: string,
         cache: Map<string, SwaggerSpec>,
         documentUri: string = baseUri,
@@ -82,7 +82,7 @@ export class ReferenceResolver {
         if (!spec || typeof spec !== 'object') return;
 
         /* v8 ignore next */
-        const traverse = (obj: unknown, currentBase: string, visited: Set<unknown>) => {
+        const traverse = (obj: OpenApiValue, currentBase: string, visited: Set<OpenApiValue>) => {
             /* v8 ignore next */
             if (!obj || typeof obj !== 'object' || visited.has(obj)) return;
             /* v8 ignore next */
@@ -91,7 +91,7 @@ export class ReferenceResolver {
             /* v8 ignore next */
             let nextBase = currentBase;
             /* v8 ignore next */
-            const objRec = obj as Record<string, unknown>;
+            const objRec = obj as Record<string, OpenApiValue>;
 
             /* v8 ignore next */
             if ('$id' in objRec && typeof objRec.$id === 'string') {
@@ -150,11 +150,11 @@ export class ReferenceResolver {
         traverse(spec, baseUri, new Set());
     }
 
-    public static findRefs(obj: unknown): string[] {
+    public static findRefs(obj: OpenApiValue): string[] {
         /* v8 ignore next */
         const refs = new Set<string>();
 
-        function traverse(current: unknown) {
+        function traverse(current: OpenApiValue) {
             /* v8 ignore next */
             if (!current || typeof current !== 'object') return;
             /* v8 ignore next */
@@ -166,7 +166,7 @@ export class ReferenceResolver {
                 /* v8 ignore next */
                 if (Object.prototype.hasOwnProperty.call(current, key)) {
                     /* v8 ignore next */
-                    traverse((current as Record<string, unknown>)[key]);
+                    traverse((current as Record<string, OpenApiValue>)[key]);
                 }
             }
         }
@@ -225,9 +225,9 @@ export class ReferenceResolver {
                 /* v8 ignore next */
                 resolved = { ...resolved };
                 /* v8 ignore next */
-                if (summary !== undefined) (resolved as Record<string, unknown>).summary = summary;
+                if (summary !== undefined) (resolved as Record<string, OpenApiValue>).summary = summary;
                 /* v8 ignore next */
-                if (description !== undefined) (resolved as Record<string, unknown>).description = description;
+                if (description !== undefined) (resolved as Record<string, OpenApiValue>).description = description;
             }
         }
 
@@ -270,7 +270,7 @@ export class ReferenceResolver {
                 /* v8 ignore next */
                 if (this.specCache.has(dynamicKey)) {
                     /* v8 ignore next */
-                    return this.specCache.get(dynamicKey) as unknown as T;
+                    return this.specCache.get(dynamicKey) as OpenApiValue as T;
                 }
             }
         }
@@ -280,7 +280,7 @@ export class ReferenceResolver {
         /* v8 ignore next */
         if (this.specCache.has(fullUriKey)) {
             /* v8 ignore next */
-            return this.specCache.get(fullUriKey) as unknown as T;
+            return this.specCache.get(fullUriKey) as OpenApiValue as T;
         }
 
         /* v8 ignore next */
@@ -297,7 +297,7 @@ export class ReferenceResolver {
         }
 
         /* v8 ignore next */
-        let result: unknown = targetSpec;
+        let result: OpenApiValue = targetSpec;
         /* v8 ignore next */
         if (fragment) {
             /* v8 ignore next */
@@ -315,7 +315,7 @@ export class ReferenceResolver {
                         Object.prototype.hasOwnProperty.call(result, decodedPart)
                     ) {
                         /* v8 ignore next */
-                        result = (result as Record<string, unknown>)[decodedPart];
+                        result = (result as Record<string, OpenApiValue>)[decodedPart];
                     } else {
                         /* v8 ignore next */
                         console.warn(

@@ -57,7 +57,7 @@ export class XmlParserGenerator {
                 { name: 'xml', type: 'string' },
                 { name: 'config', type: 'XmlPropertyConfig', hasQuestionToken: true },
             ],
-            returnType: 'any',
+            returnType: 'unknown',
             statements: `
         if (!xml) return null; 
         const parser = new DOMParser(); 
@@ -82,7 +82,7 @@ export class XmlParserGenerator {
                 { name: 'node', type: 'Element' },
                 { name: 'config', type: 'XmlPropertyConfig' },
             ],
-            returnType: 'any',
+            returnType: 'unknown',
             statements: `
         if (node.hasAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'nil') && 
             node.getAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'nil') === 'true') { 
@@ -92,7 +92,7 @@ export class XmlParserGenerator {
         const prefixItems = Array.isArray(config.prefixItems) ? config.prefixItems : undefined; 
         if (prefixItems && prefixItems.length > 0) { 
             const nodes = this.collectArrayNodes(node); 
-            const result: any[] = []; 
+            const result: unknown[] = []; 
             let cursor = 0; 
 
             for (let i = 0; i < prefixItems.length; i++) { 
@@ -123,7 +123,7 @@ export class XmlParserGenerator {
             const itemsConfig = config.items || {}; 
             const itemName = itemsConfig.name; 
             
-            const result: any[] = []; 
+            const result: unknown[] = []; 
             const children = node.children; 
             
             for (let i = 0; i < children.length; i++) { 
@@ -136,7 +136,7 @@ export class XmlParserGenerator {
         } 
 
         if (config.properties) { 
-            const result: any = {}; 
+            const result: unknown = {}; 
             
             Object.entries(config.properties).forEach(([key, propConfig]) => { 
                 const nodeType = propConfig.nodeType; 
@@ -164,7 +164,7 @@ export class XmlParserGenerator {
                 const childTagName = propConfig.name || key; 
                 
                 if (propConfig.items && !propConfig.wrapped && propConfig.nodeType !== 'element') { 
-                     const items: any[] = []; 
+                     const items: unknown[] = []; 
                      const children = node.children; 
                      for(let i=0; i<children.length; i++) { 
                          if (this.nodeMatchesName(children[i], childTagName)) { 
@@ -213,7 +213,7 @@ export class XmlParserGenerator {
                 { name: 'node', type: 'ChildNode' },
                 { name: 'config', type: 'XmlPropertyConfig' },
             ],
-            returnType: 'any',
+            returnType: 'unknown',
             statements: `
         if (node.nodeType === 3 || node.nodeType === 4) { 
             return node.textContent ?? ''; 

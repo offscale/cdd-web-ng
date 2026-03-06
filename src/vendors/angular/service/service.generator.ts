@@ -1,7 +1,7 @@
 // src/generators/angular/service/service.generator.ts
 import { ClassDeclaration, Project, Scope, SourceFile } from 'ts-morph';
 import { SwaggerParser } from '@src/openapi/parse.js';
-import { GeneratorConfig, PathInfo, SwaggerDefinition } from '@src/core/types/index.js';
+import { GeneratorConfig, PathInfo, SwaggerDefinition, OpenApiValue } from '@src/core/types/index.js';
 import {
     getBasePathTokenName,
     getClientContextTokenName,
@@ -168,7 +168,7 @@ export class ServiceGenerator extends AbstractServiceGenerator {
                 /* v8 ignore next */
                 /* v8 ignore start */
                 return schema.some(
-                    (item: unknown) =>
+                    (item: OpenApiValue) =>
                         /* v8 ignore stop */
                         /* v8 ignore next */
                         /* v8 ignore next */

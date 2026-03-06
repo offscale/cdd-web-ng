@@ -144,12 +144,12 @@ export class ParameterSerializerGenerator {
             scope: Scope.Public,
             parameters: [
                 { name: 'key', type: 'string' },
-                { name: 'value', type: 'any' },
+                { name: 'value', type: 'unknown' },
                 { name: 'style', type: 'string', initializer: "'simple'" },
                 { name: 'explode', type: 'boolean', initializer: 'false' },
                 { name: 'allowReserved', type: 'boolean', initializer: 'false' },
                 { name: 'serialization', type: "'json' | undefined", hasQuestionToken: true },
-                { name: 'contentEncoderConfig', type: 'any', hasQuestionToken: true },
+                { name: 'contentEncoderConfig', type: 'unknown', hasQuestionToken: true },
             ],
             returnType: 'string',
             statements: `
@@ -223,8 +223,8 @@ export class ParameterSerializerGenerator {
             isStatic: true,
             scope: Scope.Public,
             parameters: [
-                { name: 'config', type: 'any' },
-                { name: 'value', type: 'any' },
+                { name: 'config', type: 'unknown' },
+                { name: 'value', type: 'unknown' },
             ],
             returnType: 'SerializedQueryParam[]',
             statements: `
@@ -267,7 +267,7 @@ export class ParameterSerializerGenerator {
         const explode = config.explode ?? true;
         
         if (style === 'deepObject' && typeof value === 'object') {
-             const processDeep = (obj: any, prefix: string) => {
+             const processDeep = (obj: unknown, prefix: string) => {
                  Object.keys(obj).forEach(k => {
                      const keyPath = \`\${prefix}[\${k}]\`;
                      const v = obj[k];
@@ -335,12 +335,12 @@ export class ParameterSerializerGenerator {
             isStatic: true,
             scope: Scope.Public,
             parameters: [
-                { name: 'value', type: 'any' },
+                { name: 'value', type: 'unknown' },
                 { name: 'explode', type: 'boolean', initializer: 'false' },
                 { name: 'serialization', type: "'json' | undefined", hasQuestionToken: true },
                 { name: 'contentType', type: 'string | undefined', hasQuestionToken: true },
-                { name: 'encoding', type: 'Record<string, any> | undefined', hasQuestionToken: true },
-                { name: 'contentEncoderConfig', type: 'any', hasQuestionToken: true },
+                { name: 'encoding', type: 'Record<string, unknown> | undefined', hasQuestionToken: true },
+                { name: 'contentEncoderConfig', type: 'unknown', hasQuestionToken: true },
             ],
             returnType: 'string',
             statements: `
@@ -385,12 +385,12 @@ export class ParameterSerializerGenerator {
             scope: Scope.Public,
             parameters: [
                 { name: 'key', type: 'string' },
-                { name: 'value', type: 'any' },
+                { name: 'value', type: 'unknown' },
                 { name: 'style', type: 'string', initializer: "'form'" },
                 { name: 'explode', type: 'boolean', initializer: 'true' },
                 { name: 'allowReserved', type: 'boolean', initializer: 'false' },
                 { name: 'serialization', type: "'json' | undefined", hasQuestionToken: true },
-                { name: 'contentEncoderConfig', type: 'any', hasQuestionToken: true },
+                { name: 'contentEncoderConfig', type: 'unknown', hasQuestionToken: true },
             ],
             returnType: 'string',
             statements: `
@@ -401,7 +401,7 @@ export class ParameterSerializerGenerator {
         if (serialization === 'json') return \`\${key}=\${encodeURIComponent(JSON.stringify(value))}\`;
         
         const isCookieStyle = style === 'cookie';
-        const encode = (v: any) => {
+        const encode = (v: unknown) => {
             if (isCookieStyle) return String(v);
             if (allowReserved) return this.encodeReserved(String(v));
             return encodeURIComponent(String(v));
@@ -437,11 +437,11 @@ export class ParameterSerializerGenerator {
             isStatic: true,
             scope: Scope.Public,
             parameters: [
-                { name: 'value', type: 'any' },
+                { name: 'value', type: 'unknown' },
                 { name: 'serialization', type: "'json' | undefined", hasQuestionToken: true },
                 { name: 'contentType', type: 'string | undefined', hasQuestionToken: true },
-                { name: 'encodings', type: 'Record<string, any> | undefined', hasQuestionToken: true },
-                { name: 'contentEncoderConfig', type: 'any', hasQuestionToken: true },
+                { name: 'encodings', type: 'Record<string, unknown> | undefined', hasQuestionToken: true },
+                { name: 'contentEncoderConfig', type: 'unknown', hasQuestionToken: true },
             ],
             returnType: 'string',
             statements: `
@@ -483,8 +483,8 @@ export class ParameterSerializerGenerator {
             isStatic: true,
             scope: Scope.Public,
             parameters: [
-                { name: 'body', type: 'any' },
-                { name: 'encodings', type: 'Record<string, any>', initializer: '{}' },
+                { name: 'body', type: 'unknown' },
+                { name: 'encodings', type: 'Record<string, unknown>', initializer: '{}' },
             ],
             returnType: 'SerializedQueryParam[]',
             docs: [

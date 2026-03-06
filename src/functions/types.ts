@@ -1,6 +1,6 @@
 // src/analysis/service-method-types.ts
 import { OptionalKind, ParameterDeclarationStructure } from 'ts-morph';
-import { ServerObject } from '@src/core/types/index.js';
+import { ServerObject, OpenApiValue } from '@src/core/types/index.js';
 
 export interface ParamSerialization {
     paramName: string;
@@ -9,8 +9,8 @@ export interface ParamSerialization {
     explode: boolean;
     allowReserved: boolean;
     contentType?: string;
-    encoding?: Record<string, unknown>;
-    contentEncoderConfig?: Record<string, unknown>;
+    encoding?: Record<string, OpenApiValue>;
+    contentEncoderConfig?: Record<string, OpenApiValue>;
     serializationLink?: 'json' | 'json-subset' | undefined;
 }
 
@@ -18,9 +18,9 @@ export type BodyVariant =
     | { type: 'json'; paramName: string }
     | { type: 'json-lines'; paramName: string }
     | { type: 'json-seq'; paramName: string }
-    | { type: 'xml'; paramName: string; rootName: string; config: Record<string, unknown> }
-    | { type: 'multipart'; paramName: string; config: Record<string, unknown> }
-    | { type: 'urlencoded'; paramName: string; config: Record<string, unknown> }
+    | { type: 'xml'; paramName: string; rootName: string; config: Record<string, OpenApiValue> }
+    | { type: 'multipart'; paramName: string; config: Record<string, OpenApiValue> }
+    | { type: 'urlencoded'; paramName: string; config: Record<string, OpenApiValue> }
     | { type: 'raw'; paramName: string }
     | { type: 'encoded-form-data'; paramName: string; mappings: string[] };
 
@@ -38,8 +38,8 @@ export interface ResponseVariant {
     mediaType: string;
     type: string;
     serialization: ResponseSerialization;
-    xmlConfig?: Record<string, unknown>;
-    decodingConfig?: Record<string, unknown>;
+    xmlConfig?: Record<string, OpenApiValue>;
+    decodingConfig?: Record<string, OpenApiValue>;
     sseMode?: 'event' | 'data';
     isDefault: boolean;
 }
@@ -62,13 +62,13 @@ export interface ServiceMethodModel {
 
     responseType: string;
     responseSerialization: ResponseSerialization;
-    responseXmlConfig?: Record<string, unknown>;
-    responseDecodingConfig?: Record<string, unknown>;
+    responseXmlConfig?: Record<string, OpenApiValue>;
+    responseDecodingConfig?: Record<string, OpenApiValue>;
     sseMode?: 'event' | 'data';
 
     responseVariants: ResponseVariant[];
 
-    requestEncodingConfig?: Record<string, unknown>;
+    requestEncodingConfig?: Record<string, OpenApiValue>;
 
     errorResponses: ErrorResponseInfo[];
 
@@ -81,7 +81,7 @@ export interface ServiceMethodModel {
     requestContentType?: string;
 
     security: Record<string, string[]>[];
-    extensions: Record<string, unknown>;
+    extensions: Record<string, OpenApiValue>;
     hasServers: boolean;
     basePath?: string;
     operationServers?: ServerObject[];

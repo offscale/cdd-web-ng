@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import { Project, VariableDeclarationKind } from 'ts-morph';
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '../core/constants.js';
 import { SwaggerParser } from '@src/openapi/parse.js';
-import { PathItem } from '@src/core/types/index.js';
+import { PathItem, OpenApiValue } from '@src/core/types/index.js';
 
 /**
  * Generates the `paths.ts` file.
@@ -39,11 +39,11 @@ export class PathsGenerator {
             /* v8 ignore next */
             const extensions = Object.fromEntries(
                 /* v8 ignore next */
-                Object.entries(pathItem as Record<string, unknown>).filter(([key]) => key.startsWith('x-')),
+                Object.entries(pathItem as Record<string, OpenApiValue>).filter(([key]) => key.startsWith('x-')),
             );
 
             /* v8 ignore next */
-            const meta: Record<string, unknown> = {
+            const meta: Record<string, OpenApiValue> = {
                 /* v8 ignore start */
                 ...(pathItem.$ref ? { $ref: pathItem.$ref } : {}),
                 /* v8 ignore stop */

@@ -61,8 +61,8 @@ export class ContentEncoderGenerator {
         if (typeof TextEncoder !== 'undefined') {
             return new TextEncoder().encode(input);
         }
-        if (typeof (globalThis as any).Buffer !== 'undefined') {
-            return Uint8Array.from((globalThis as any).Buffer.from(input, 'utf-8'));
+        if (typeof (globalThis as unknown).Buffer !== 'undefined') {
+            return Uint8Array.from((globalThis as unknown).Buffer.from(input, 'utf-8'));
         }
         const out = new Uint8Array(input.length);
         for (let i = 0; i < input.length; i++) {
@@ -79,8 +79,8 @@ export class ContentEncoderGenerator {
             parameters: [{ name: 'bytes', type: 'Uint8Array' }],
             returnType: 'string',
             statements: `
-        if (typeof (globalThis as any).Buffer !== 'undefined') {
-            return (globalThis as any).Buffer.from(bytes).toString('base64');
+        if (typeof (globalThis as unknown).Buffer !== 'undefined') {
+            return (globalThis as unknown).Buffer.from(bytes).toString('base64');
         }
         let binary = '';
         for (let i = 0; i < bytes.length; i++) {
@@ -95,10 +95,10 @@ export class ContentEncoderGenerator {
             isStatic: true,
             scope: Scope.Private,
             parameters: [
-                { name: 'value', type: 'any' },
+                { name: 'value', type: 'unknown' },
                 { name: 'encoding', type: 'string' },
             ],
-            returnType: 'any',
+            returnType: 'unknown',
             docs: ['Applies base64/base64url encoding to string or binary values.'],
             statements: `
         if (value === null || value === undefined) return value;
@@ -131,10 +131,10 @@ export class ContentEncoderGenerator {
             isStatic: true,
             scope: Scope.Public,
             parameters: [
-                { name: 'data', type: 'any' },
+                { name: 'data', type: 'unknown' },
                 { name: 'config', type: 'ContentEncoderConfig', hasQuestionToken: true },
             ],
-            returnType: 'any',
+            returnType: 'unknown',
             statements: `
         if (data === null || data === undefined || !config) { 
             return data; 
@@ -173,7 +173,7 @@ export class ContentEncoderGenerator {
                 const result = { ...current }; 
                 Object.keys(config.properties).forEach(key => { 
                     if (Object.prototype.hasOwnProperty.call(current, key)) { 
-                        result[key] = this.encode((current as any)[key], config.properties![key]); 
+                        result[key] = this.encode((current as unknown)[key], config.properties![key]); 
                     } 
                 }); 
                 return result; 

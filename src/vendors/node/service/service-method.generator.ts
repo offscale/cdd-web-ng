@@ -131,7 +131,7 @@ export class NodeServiceMethodGenerator {
                 );
                 /* v8 ignore next */
                 lines.push(
-                    `serialized_${p.paramName}.forEach((entry: any) => url.searchParams.append(entry.key, entry.value));`,
+                    `serialized_${p.paramName}.forEach((entry: { key: string; value: string }) => url.searchParams.append(entry.key, entry.value));`,
                 );
             });
         }
@@ -165,7 +165,7 @@ export class NodeServiceMethodGenerator {
                     `const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(${model.body.paramName}, ${JSON.stringify(model.body.config)});`,
                 );
                 /* v8 ignore next */
-                lines.push(`urlParamEntries.forEach((entry: any) => formBody.append(entry.key, entry.value));`);
+                lines.push(`urlParamEntries.forEach((entry: { key: string; value: string }) => formBody.append(entry.key, entry.value));`);
                 /* v8 ignore next */
                 dataArgument = 'formBody.toString()';
                 /* v8 ignore next */
@@ -190,7 +190,7 @@ export class NodeServiceMethodGenerator {
         /* v8 ignore next */
         lines.push(`    const req = client.request(url, requestOptions, (res) => {`);
         /* v8 ignore next */
-        lines.push(`        const chunks: any[] = [];`);
+        lines.push(`        const chunks: unknown[] = [];`);
         /* v8 ignore next */
         lines.push(`        res.on('data', (chunk) => chunks.push(chunk));`);
         /* v8 ignore next */
@@ -208,11 +208,11 @@ export class NodeServiceMethodGenerator {
         /* v8 ignore next */
         if (model.responseSerialization === 'blob' || model.responseSerialization === 'arraybuffer') {
             /* v8 ignore next */
-            lines.push(`            resolve(buffer as any);`);
+            lines.push(`            resolve(buffer as unknown);`);
             /* v8 ignore next */
         } else if (model.responseSerialization === 'text') {
             /* v8 ignore next */
-            lines.push(`            resolve(buffer.toString('utf-8') as any);`);
+            lines.push(`            resolve(buffer.toString('utf-8') as unknown);`);
         } else {
             /* v8 ignore next */
             lines.push(`            try {`);
@@ -221,7 +221,7 @@ export class NodeServiceMethodGenerator {
             /* v8 ignore next */
             lines.push(`            } catch (e) {`);
             /* v8 ignore next */
-            lines.push(`                resolve(buffer.toString('utf-8') as any);`);
+            lines.push(`                resolve(buffer.toString('utf-8') as unknown);`);
             /* v8 ignore next */
             lines.push(`            }`);
         }

@@ -1,4 +1,5 @@
-// src/analysis/validation-types.ts
+import { JsonValue } from './form-types.js';
+
 export type ValidationRule =
     | { type: 'required' }
     | { type: 'minLength'; value: number }
@@ -15,6 +16,6 @@ export type ValidationRule =
     | { type: 'maxItems'; value: number }
     | { type: 'minProperties'; value: number }
     | { type: 'maxProperties'; value: number }
-    | { type: 'contains'; schema: unknown; min?: number; max?: number }
-    | { type: 'const'; value: Exclude<unknown, undefined> }
+    | { type: 'contains'; schema: JsonValue; min?: number; max?: number }
+    | { type: 'const'; value: JsonValue }
     | { type: 'not'; rules: ValidationRule[] };

@@ -35,7 +35,7 @@ export class DocumentMetaGenerator {
                 { name: 'jsonSchemaDialect', type: 'string', hasQuestionToken: true },
                 {
                     name: 'extensions',
-                    type: 'Record<string, any>',
+                    type: 'Record<string, unknown>',
                     hasQuestionToken: true,
                     docs: ['Top-level specification extensions (x-*) preserved for reverse generation.'],
                 },

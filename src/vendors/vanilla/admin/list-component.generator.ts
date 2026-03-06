@@ -97,7 +97,7 @@ export class ListComponentGenerator {
         /* v8 ignore next */
         classDecl.addProperty({
             name: 'data',
-            type: 'any[]',
+            type: 'unknown[]',
             initializer: '[]',
         });
 

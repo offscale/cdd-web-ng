@@ -24,6 +24,9 @@ jobs:
             - name: Run tests and collect coverage
               run: npm run-script test:coverage
 
+            - name: Build
+              run: npm run-script build
+
             - name: Build WASM
               run: make build_wasm
 

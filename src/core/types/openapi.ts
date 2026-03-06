@@ -1,3 +1,4 @@
+export type OpenApiValue = unknown;
 // ===================================================================================
 // OpenAPI / Swagger Specification Types
 // ===================================================================================
@@ -7,7 +8,7 @@ export interface LicenseObject {
     url?: string;
     identifier?: string;
 
-    [key: string]: unknown;
+    [key: string]: OpenApiValue;
 }
 
 export interface ContactObject {
@@ -15,7 +16,7 @@ export interface ContactObject {
     url?: string;
     email?: string;
 
-    [key: string]: unknown;
+    [key: string]: OpenApiValue;
 }
 
 export interface InfoObject {
@@ -27,14 +28,14 @@ export interface InfoObject {
     license?: LicenseObject;
     version: string;
 
-    [key: string]: unknown;
+    [key: string]: OpenApiValue;
 }
 
 export interface ExternalDocumentationObject {
     description?: string;
     url: string;
 
-    [key: string]: unknown;
+    [key: string]: OpenApiValue;
 }
 
 export interface ReferenceObject {
@@ -42,7 +43,7 @@ export interface ReferenceObject {
     summary?: string;
     description?: string;
 
-    [key: string]: unknown;
+    [key: string]: OpenApiValue;
 }
 
 export interface DynamicReferenceObject {
@@ -50,7 +51,7 @@ export interface DynamicReferenceObject {
     summary?: string;
     description?: string;
 
-    [key: string]: unknown;
+    [key: string]: OpenApiValue;
 }
 
 export type ReferenceLike = ReferenceObject | DynamicReferenceObject;
@@ -63,7 +64,7 @@ export interface TagObject {
     parent?: string;
     kind?: string;
 
-    [key: string]: unknown;
+    [key: string]: OpenApiValue;
 }
 
 export interface ServerVariableObject {
@@ -71,7 +72,7 @@ export interface ServerVariableObject {
     default: string;
     description?: string;
 
-    [key: string]: unknown;
+    [key: string]: OpenApiValue;
 }
 
 export interface ServerObject {
@@ -80,7 +81,7 @@ export interface ServerObject {
     name?: string;
     variables?: { [variable: string]: ServerVariableObject };
 
-    [key: string]: unknown;
+    [key: string]: OpenApiValue;
 }
 
 export interface DiscriminatorObject {
@@ -88,7 +89,7 @@ export interface DiscriminatorObject {
     mapping?: { [key: string]: string };
     defaultMapping?: string;
 
-    [key: string]: unknown;
+    [key: string]: OpenApiValue;
 }
 
 export interface XmlObject {
@@ -99,18 +100,18 @@ export interface XmlObject {
     wrapped?: boolean;
     nodeType?: 'element' | 'attribute' | 'text' | 'cdata' | 'none' | string;
 
-    [key: string]: unknown;
+    [key: string]: OpenApiValue;
 }
 
 export interface LinkObject {
     operationRef?: string;
     operationId?: string;
-    parameters?: { [name: string]: unknown | string };
-    requestBody?: unknown;
+    parameters?: { [name: string]: OpenApiValue | string };
+    requestBody?: OpenApiValue;
     description?: string;
     server?: ServerObject;
 
-    [key: string]: unknown;
+    [key: string]: OpenApiValue;
 }
 
 export interface ExampleObject {
@@ -120,7 +121,7 @@ export interface ExampleObject {
      * Embedded literal example. The `value` field and `externalValue` field are mutually exclusive.
      * @deprecated for non-JSON serialization targets in OAS 3.2. Use `dataValue` and/or `serializedValue` instead.
      */
-    value?: unknown;
+    value?: OpenApiValue;
     /**
      * A URI that identifies the literal example.
      */
@@ -130,7 +131,7 @@ export interface ExampleObject {
      * If this field is present, `value` MUST be absent.
      * (OAS 3.2)
      */
-    dataValue?: unknown;
+    dataValue?: OpenApiValue;
     /**
      * An example of the serialized form of the value.
      * If `dataValue` is present, then this field SHOULD contain the serialization of the given data.
@@ -138,7 +139,7 @@ export interface ExampleObject {
      */
     serializedValue?: string;
 
-    [key: string]: unknown;
+    [key: string]: OpenApiValue;
 }
 
 export interface HeaderObject {
@@ -153,10 +154,10 @@ export interface HeaderObject {
     explode?: boolean;
     allowReserved?: boolean;
     content?: Record<string, MediaTypeObject | ReferenceLike>;
-    example?: unknown;
+    example?: OpenApiValue;
     examples?: Record<string, ExampleObject | ReferenceLike>;
 
-    [key: string]: unknown;
+    [key: string]: OpenApiValue;
 }
 
 export interface Parameter {
@@ -173,15 +174,15 @@ export interface Parameter {
     allowEmptyValue?: boolean;
     content?: Record<string, MediaTypeObject | ReferenceLike>;
     deprecated?: boolean;
-    example?: unknown;
+    example?: OpenApiValue;
     examples?: Record<string, ExampleObject | ReferenceLike>;
 
-    [key: string]: unknown;
+    [key: string]: OpenApiValue;
 }
 
 export interface EncodingProperty {
     contentType?: string;
-    headers?: Record<string, unknown>;
+    headers?: Record<string, OpenApiValue>;
     style?: string;
     explode?: boolean;
     allowReserved?: boolean;
@@ -189,7 +190,7 @@ export interface EncodingProperty {
     prefixEncoding?: EncodingProperty[];
     itemEncoding?: EncodingProperty;
 
-    [key: string]: unknown;
+    [key: string]: OpenApiValue;
 }
 
 export interface RequestBody {
@@ -197,19 +198,19 @@ export interface RequestBody {
     required?: boolean;
     content?: Record<string, MediaTypeObject | ReferenceLike>;
 
-    [key: string]: unknown;
+    [key: string]: OpenApiValue;
 }
 
 export interface MediaTypeObject {
     schema?: SwaggerDefinition | boolean | { $ref: string } | { $dynamicRef?: string };
     itemSchema?: SwaggerDefinition | boolean | { $ref: string } | { $dynamicRef?: string };
-    example?: unknown;
+    example?: OpenApiValue;
     examples?: Record<string, ExampleObject | ReferenceLike>;
     encoding?: Record<string, EncodingProperty>;
     prefixEncoding?: EncodingProperty[];
     itemEncoding?: EncodingProperty;
 
-    [key: string]: unknown;
+    [key: string]: OpenApiValue;
 }
 
 export interface SwaggerResponse {
@@ -219,7 +220,7 @@ export interface SwaggerResponse {
     links?: Record<string, LinkObject | ReferenceLike>;
     headers?: Record<string, HeaderObject | ReferenceLike>;
 
-    [key: string]: unknown;
+    [key: string]: OpenApiValue;
 }
 
 export interface SwaggerDefinition {
@@ -236,9 +237,9 @@ export interface SwaggerDefinition {
     format?: string;
     description?: string;
     title?: string;
-    default?: unknown;
+    default?: OpenApiValue;
     deprecated?: boolean;
-    const?: unknown;
+    const?: OpenApiValue;
     maximum?: number;
     exclusiveMaximum?: boolean | number;
     minimum?: number;
@@ -252,7 +253,7 @@ export interface SwaggerDefinition {
     multipleOf?: number;
     minProperties?: number;
     maxProperties?: number;
-    enum?: unknown[];
+    enum?: OpenApiValue[];
     items?: SwaggerDefinition | boolean | (SwaggerDefinition | boolean)[];
     prefixItems?: (SwaggerDefinition | boolean)[];
     contains?: SwaggerDefinition | boolean;
@@ -287,12 +288,12 @@ export interface SwaggerDefinition {
     writeOnly?: boolean;
     nullable?: boolean;
     required?: string[];
-    example?: unknown;
-    examples?: unknown[];
+    example?: OpenApiValue;
+    examples?: OpenApiValue[];
     xml?: XmlObject;
     externalDocs?: ExternalDocumentationObject;
 
-    [key: string]: unknown;
+    [key: string]: OpenApiValue;
 }
 
 export interface SecurityScheme {
@@ -302,12 +303,12 @@ export interface SecurityScheme {
     name?: string;
     scheme?: 'bearer' | string;
     bearerFormat?: string;
-    flows?: Record<string, unknown>;
+    flows?: Record<string, OpenApiValue>;
     openIdConnectUrl?: string;
     oauth2MetadataUrl?: string;
     deprecated?: boolean;
 
-    [key: string]: unknown;
+    [key: string]: OpenApiValue;
 }
 
 export interface SpecOperation {
@@ -318,16 +319,16 @@ export interface SpecOperation {
     operationId?: string;
     consumes?: string[];
     produces?: string[];
-    parameters?: unknown[];
-    requestBody?: unknown;
-    responses: Record<string, unknown>;
+    parameters?: OpenApiValue[];
+    requestBody?: OpenApiValue;
+    responses: Record<string, OpenApiValue>;
     schemes?: string[];
     deprecated?: boolean;
     security?: Record<string, string[]>[];
     servers?: ServerObject[];
     callbacks?: Record<string, PathItem | ReferenceLike>;
 
-    [key: string]: unknown;
+    [key: string]: OpenApiValue;
 }
 
 export interface PathItem {
@@ -344,10 +345,10 @@ export interface PathItem {
     trace?: SpecOperation;
     query?: SpecOperation;
     additionalOperations?: Record<string, SpecOperation>;
-    parameters?: unknown[];
+    parameters?: OpenApiValue[];
     servers?: ServerObject[];
 
-    [key: string]: unknown;
+    [key: string]: OpenApiValue;
 }
 
 export interface SwaggerSpec {
@@ -389,5 +390,5 @@ export interface SwaggerSpec {
     };
     securityDefinitions?: { [securityDefinitionName: string]: SecurityScheme };
 
-    [key: string]: unknown;
+    [key: string]: OpenApiValue;
 }

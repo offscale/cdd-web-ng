@@ -1,3 +1,5 @@
+import { OpenApiValue } from "@src/core/types/index.js";
+
 /**
  * @fileoverview
  * Implements the OpenAPI Runtime Expression evaluator defined in OAS 3.x.
@@ -18,11 +20,11 @@ export interface RuntimeContext {
         headers: Record<string, string | string[] | undefined>;
         query: Record<string, string | string[] | undefined>;
         path: Record<string, string | undefined>;
-        body?: unknown;
+        body?: OpenApiValue;
     };
     response?: {
         headers: Record<string, string | string[] | undefined>;
-        body?: unknown;
+        body?: OpenApiValue;
     };
 }
 
@@ -34,7 +36,7 @@ export interface RuntimeContext {
  * @param pointer The JSON pointer string (e.g., "/user/0/id").
  * @returns The resolved value or undefined if not found.
  */
-export function evaluateJsonPointer(data: unknown, pointer: string): unknown {
+export function evaluateJsonPointer(data: OpenApiValue, pointer: string): OpenApiValue {
     /* v8 ignore next */
     if (pointer === '' || pointer === '#') return data;
 
@@ -70,7 +72,7 @@ export function evaluateJsonPointer(data: unknown, pointer: string): unknown {
     const tokens = cleanPointer.split('/').slice(1).map(decodeToken);
 
     /* v8 ignore next */
-    let current: unknown = data;
+    let current: OpenApiValue = data;
     /* v8 ignore next */
     for (const token of tokens) {
         /* v8 ignore next */
@@ -91,15 +93,15 @@ export function evaluateJsonPointer(data: unknown, pointer: string): unknown {
                 return undefined;
             }
             /* v8 ignore next */
-            current = (current as unknown[])[index];
+            current = (current as OpenApiValue[])[index];
         } else {
             /* v8 ignore next */
-            if (!(token in (current as Record<string, unknown>))) {
+            if (!(token in (current as Record<string, OpenApiValue>))) {
                 /* v8 ignore next */
                 return undefined;
             }
             /* v8 ignore next */
-            current = (current as Record<string, unknown>)[token];
+            current = (current as Record<string, OpenApiValue>)[token];
         }
     }
     /* v8 ignore next */
@@ -136,7 +138,7 @@ function getQuery(query: Record<string, string | string[] | undefined>, key: str
  * Resolves a single, bare runtime expression (e.g. "$request.body#/id").
  * Preserves the type of the referenced value (e.g. boolean, number, object).
  */
-function resolveSingleExpression(expr: string, context: RuntimeContext): unknown {
+function resolveSingleExpression(expr: string, context: RuntimeContext): OpenApiValue {
     /* v8 ignore next */
     if (expr === '$url') return context.url;
     /* v8 ignore next */
@@ -213,7 +215,7 @@ function resolveSingleExpression(expr: string, context: RuntimeContext): unknown
  * @param context The runtime data (request info, response info).
  * @returns The evaluated result.
  */
-export function evaluateRuntimeExpression(expression: string, context: RuntimeContext): unknown {
+export function evaluateRuntimeExpression(expression: string, context: RuntimeContext): OpenApiValue {
     /* v8 ignore next */
     const hasBraces = expression.includes('{') && expression.includes('}');
 

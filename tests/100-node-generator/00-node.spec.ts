@@ -272,21 +272,21 @@ describe('Node Implementation', () => {
                     .getStatements()
                     .map(s => s.getText())
                     .join('\\n'),
-            ).toContain('resolve(buffer as any)');
+            ).toContain('resolve(buffer as unknown)');
             expect(
                 serviceClass!
                     .getMethod('getBuffer')!
                     .getStatements()
                     .map(s => s.getText())
                     .join('\\n'),
-            ).toContain('resolve(buffer as any)');
+            ).toContain('resolve(buffer as unknown)');
             expect(
                 serviceClass!
                     .getMethod('getText')!
                     .getStatements()
                     .map(s => s.getText())
                     .join('\\n'),
-            ).toContain("resolve(buffer.toString('utf-8') as any)");
+            ).toContain("resolve(buffer.toString('utf-8') as unknown)");
         });
 
         it('should generate properly without services when generateServices is false', async () => {

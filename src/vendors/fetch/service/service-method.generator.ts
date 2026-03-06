@@ -133,7 +133,7 @@ export class FetchServiceMethodGenerator {
                 );
                 /* v8 ignore next */
                 lines.push(
-                    `serialized_${p.paramName}.forEach((entry: any) => url.searchParams.append(entry.key, entry.value));`,
+                    `serialized_${p.paramName}.forEach((entry: { key: string; value: string }) => url.searchParams.append(entry.key, entry.value));`,
                 );
             });
         }
@@ -167,7 +167,7 @@ export class FetchServiceMethodGenerator {
                     `const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(${model.body.paramName}, ${JSON.stringify(model.body.config)});`,
                 );
                 /* v8 ignore next */
-                lines.push(`urlParamEntries.forEach((entry: any) => formBody.append(entry.key, entry.value));`);
+                lines.push(`urlParamEntries.forEach((entry: { key: string; value: string }) => formBody.append(entry.key, entry.value));`);
                 /* v8 ignore next */
                 bodyArgument = 'formBody';
                 /* v8 ignore next */
@@ -182,7 +182,7 @@ export class FetchServiceMethodGenerator {
         /* v8 ignore next */
         if (bodyArgument !== 'undefined') {
             /* v8 ignore next */
-            lines.push(`fetchOptions.body = ${bodyArgument} as any;`);
+            lines.push(`fetchOptions.body = ${bodyArgument} as unknown;`);
         }
 
         /* v8 ignore next */
@@ -201,7 +201,7 @@ export class FetchServiceMethodGenerator {
             lines.push(`return response.blob();`);
         } else {
             /* v8 ignore next */
-            lines.push(`return response.text() as any;`);
+            lines.push(`return response.text() as unknown;`);
         }
 
         /* v8 ignore next */

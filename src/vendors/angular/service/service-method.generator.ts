@@ -14,8 +14,7 @@ import {
     RequestBody,
     SwaggerDefinition,
     SwaggerResponse,
-    MediaTypeObject,
-} from '@src/core/types/index.js';
+    MediaTypeObject, OpenApiValue } from '@src/core/types/index.js';
 import { SwaggerParser } from '@src/openapi/parse.js';
 import { ServiceMethodAnalyzer } from '@src/functions/parse_analyzer.js';
 import { ResponseVariant, ServiceMethodModel, ParamSerialization } from '@src/functions/types.js';
@@ -370,7 +369,7 @@ export class ServiceMethodGenerator {
     }
 
     private extractExampleValue(
-        exampleObj: unknown,
+        exampleObj: OpenApiValue,
         preferSerialized = false,
     ): {
         found: boolean;
@@ -551,7 +550,7 @@ export class ServiceMethodGenerator {
     private wrapExampleValue(picked: {
         value: Record<string, never> | string | number | boolean | null;
         kind?: 'data' | 'value' | 'serialized' | 'external';
-    }): unknown {
+    }): OpenApiValue {
         /* v8 ignore next */
         /* v8 ignore start */
         if (picked.kind === 'serialized') {
@@ -583,7 +582,7 @@ export class ServiceMethodGenerator {
         /* v8 ignore stop */
     }
 
-    private extractParameterExample(param: Parameter): unknown | undefined {
+    private extractParameterExample(param: Parameter): OpenApiValue | undefined {
         /* v8 ignore next */
         if (param.example !== undefined) return param.example;
 
@@ -655,8 +654,8 @@ export class ServiceMethodGenerator {
             /* v8 ignore stop */
             /* v8 ignore next */
             /* v8 ignore start */
-            if (Array.isArray(schema.examples) && (schema.examples as unknown[]).length > 0)
-                return (schema.examples as unknown[])[0];
+            if (Array.isArray(schema.examples) && (schema.examples as OpenApiValue[]).length > 0)
+                return (schema.examples as OpenApiValue[])[0];
             /* v8 ignore stop */
         }
 
@@ -685,7 +684,7 @@ export class ServiceMethodGenerator {
     private extractMediaTypeExample(
         mediaObj: MediaTypeObject | ReferenceLike,
         mediaType?: string,
-    ): unknown | undefined {
+    ): OpenApiValue | undefined {
         const resolved =
             /* v8 ignore next */
             this.parser.resolve<MediaTypeObject>(mediaObj as ReferenceLike) ?? (mediaObj as MediaTypeObject);
@@ -826,7 +825,7 @@ export class ServiceMethodGenerator {
                     ? querystringParam.content[contentType]!.encoding
                     : undefined;
             /* v8 ignore next */
-            const meta: Record<string, unknown> = {
+            const meta: Record<string, OpenApiValue> = {
                 name: querystringParam.name,
             };
             /* v8 ignore next */
@@ -1168,7 +1167,7 @@ export class ServiceMethodGenerator {
             const rootName = typeof schema === 'object' && schema.xml?.name ? schema.xml.name : param.name;
             const xmlConfig =
                 /* v8 ignore next */
-                (this.analyzer as unknown as { getXmlConfig: (a: unknown, b: number) => unknown }).getXmlConfig(
+                (this.analyzer as OpenApiValue as { getXmlConfig: (a: OpenApiValue, b: number) => unknown }).getXmlConfig(
                     schema,
                     5,
                 );
@@ -1308,7 +1307,7 @@ export class ServiceMethodGenerator {
                     explode: p.explode,
                     allowReserved: p.allowReserved,
                     serialization: p.serializationLink,
-                    allowEmptyValue: (p as unknown as Record<string, never>).allowEmptyValue,
+                    allowEmptyValue: (p as OpenApiValue as Record<string, never>).allowEmptyValue,
                     ...(p.contentType ? { contentType: p.contentType } : {}),
                     ...(p.encoding ? { encoding: p.encoding } : {}),
                     ...(p.contentEncoderConfig ? { contentEncoderConfig: p.contentEncoderConfig } : {}),
@@ -2202,7 +2201,7 @@ export class ServiceMethodGenerator {
             /* v8 ignore next */
             uniqueTypes.length > 1
                 ? unionType
-                : responseType === 'any'
+                : responseType === 'unknown'
                   ? 'Record<string, never>'
                   : responseType || 'Record<string, never>';
         /* v8 ignore next */

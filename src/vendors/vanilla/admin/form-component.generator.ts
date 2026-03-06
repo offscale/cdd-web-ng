@@ -157,7 +157,7 @@ export class FormComponentGenerator {
         });
 
         /* v8 ignore next */
-        const saveDataStatements = [`const payload: any = {};`];
+        const saveDataStatements = [`const payload: unknown = {};`];
 
         /* v8 ignore next */
         resource.formProperties.forEach(p => {

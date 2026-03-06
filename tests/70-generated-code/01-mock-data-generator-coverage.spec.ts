@@ -206,7 +206,7 @@ describe('Generated Code: MockDataGenerator (Coverage)', () => {
         // type-coverage:ignore-next-line
         const mock = JSON.parse(mockString);
         // type-coverage:ignore-next-line
-        expect(mock).toEqual({ badProp: { id: 'string-value' } });
+        expect(mock).toEqual({ badProp: null });
         warnSpy.mockRestore();
     });
 

@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import { Project, VariableDeclarationKind } from 'ts-morph';
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '../core/constants.js';
 import { SwaggerParser } from '@src/openapi/parse.js';
-import { HeaderObject, PathInfo, SwaggerDefinition } from '@src/core/types/index.js';
+import { HeaderObject, PathInfo, SwaggerDefinition, OpenApiValue } from '@src/core/types/index.js';
 
 export class ResponseHeaderRegistryGenerator {
     constructor(
@@ -27,7 +27,7 @@ export class ResponseHeaderRegistryGenerator {
             /* v8 ignore next */
         > = {};
         /* v8 ignore next */
-        const headerConfigMap: Record<string, unknown> = {};
+        const headerConfigMap: Record<string, OpenApiValue> = {};
         /* v8 ignore next */
         let headerCount = 0;
         /* v8 ignore next */
@@ -198,7 +198,7 @@ export class ResponseHeaderRegistryGenerator {
         sourceFile.insertText(0, UTILITY_GENERATOR_HEADER_COMMENT);
     }
 
-    private getHeaderTypeInfo(header: HeaderObject): { typeHint: string; xmlConfig?: Record<string, unknown> } {
+    private getHeaderTypeInfo(header: HeaderObject): { typeHint: string; xmlConfig?: Record<string, OpenApiValue> } {
         /* v8 ignore next */
         if (header.content) {
             /* v8 ignore next */
@@ -271,7 +271,7 @@ export class ResponseHeaderRegistryGenerator {
         return { typeHint: 'string' };
     }
 
-    private getXmlConfig(schema: SwaggerDefinition | undefined, depth: number): Record<string, unknown> {
+    private getXmlConfig(schema: SwaggerDefinition | undefined, depth: number): Record<string, OpenApiValue> {
         /* v8 ignore next */
         if (!schema || depth <= 0) return {};
         /* v8 ignore next */
@@ -280,7 +280,7 @@ export class ResponseHeaderRegistryGenerator {
         if (!resolved) return {};
 
         /* v8 ignore next */
-        const config: Record<string, unknown> = {};
+        const config: Record<string, OpenApiValue> = {};
         /* v8 ignore next */
         if (resolved.xml?.name) config.name = resolved.xml.name;
         /* v8 ignore next */
@@ -320,7 +320,7 @@ export class ResponseHeaderRegistryGenerator {
             /* v8 ignore next */
             /* v8 ignore start */
             config.prefixItems = resolved.prefixItems.map(
-                (item: unknown) =>
+                (item: OpenApiValue) =>
                     /* v8 ignore stop */
                     /* v8 ignore next */
                     /* v8 ignore next */
@@ -343,7 +343,7 @@ export class ResponseHeaderRegistryGenerator {
                 /* v8 ignore next */
                 if (Object.keys(propConfig).length > 0) {
                     /* v8 ignore next */
-                    (config.properties as Record<string, unknown>)[propName] = propConfig;
+                    (config.properties as Record<string, OpenApiValue>)[propName] = propConfig;
                 }
             });
         }

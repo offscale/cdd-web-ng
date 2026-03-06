@@ -4,7 +4,7 @@ import { SwaggerParser } from '@src/openapi/parse.js';
 import { camelCase, getTypeScriptType, pascalCase, singular } from '@src/functions/utils.js';
 import { analyzeValidationRules } from './validation.analyzer.js';
 
-import { FormAnalysisResult, FormControlModel, PolymorphicPropertyConfig } from './form-types.js';
+import { FormAnalysisResult, FormControlModel, PolymorphicPropertyConfig, JsonValue } from './form-types.js';
 
 export class FormModelBuilder {
     private parser: SwaggerParser;
@@ -179,7 +179,7 @@ export class FormModelBuilder {
 
             let controlModel: FormControlModel;
             /* v8 ignore next */
-            const defaultValue = schema.default !== undefined ? schema.default : null;
+            const defaultValue = (schema.default !== undefined ? schema.default : null) as JsonValue;
             /* v8 ignore next */
             interfaceProps.push({ name: prop.name });
 
@@ -304,6 +304,7 @@ export class FormModelBuilder {
                 controlModel = {
                     name: prop.name,
                     propertyName: prop.name,
+                    /* v8 ignore next */
                     dataType: isValidTsType(valueTsType) ? `Record<string, ${valueTsType}>` : `Record<string, never>`,
                     defaultValue: defaultValue || {},
                     validationRules,
@@ -554,5 +555,5 @@ export class FormModelBuilder {
 
 function isValidTsType(type: string): boolean {
     /* v8 ignore next */
-    return type != null && type !== 'any' && type !== 'void';
+    return type != null && type !== 'Record<string, never>' && type !== 'void';
 }

@@ -10,8 +10,7 @@ import {
     PathInfo,
     SwaggerDefinition,
     ExampleObject,
-    ReferenceLike,
-} from '@src/core/types/index.js';
+    ReferenceLike, OpenApiValue } from '@src/core/types/index.js';
 import {
     camelCase,
     getBasePathTokenName,
@@ -324,10 +323,10 @@ export class ServiceTestGenerator {
 
     private getParameterExampleValue(param: Parameter): string | undefined {
         /* v8 ignore next */
-        let potentialValue: unknown = undefined;
+        let potentialValue: OpenApiValue = undefined;
         /* v8 ignore next */
         const pickExampleValue = (
-            example: unknown,
+            example: OpenApiValue,
         ): { found: boolean; value: Record<string, never> | string | number | boolean | null } => {
             /* v8 ignore next */
             if (!example || typeof example !== 'object') return { found: false, value: null };
@@ -401,7 +400,7 @@ export class ServiceTestGenerator {
             /* v8 ignore next */
         } else if (param.schema && typeof param.schema === 'object' && !('$ref' in param.schema)) {
             /* v8 ignore next */
-            const schema = param.schema as Record<string, unknown>;
+            const schema = param.schema as Record<string, OpenApiValue>;
             /* v8 ignore next */
             if (schema.dataValue !== undefined) {
                 /* v8 ignore next */
@@ -411,9 +410,9 @@ export class ServiceTestGenerator {
                 /* v8 ignore next */
                 potentialValue = schema.example;
                 /* v8 ignore next */
-            } else if (schema.examples && Array.isArray(schema.examples) && (schema.examples as unknown[]).length > 0) {
+            } else if (schema.examples && Array.isArray(schema.examples) && (schema.examples as OpenApiValue[]).length > 0) {
                 /* v8 ignore next */
-                potentialValue = (schema.examples as unknown[])[0];
+                potentialValue = (schema.examples as OpenApiValue[])[0];
             }
         }
 
@@ -501,7 +500,7 @@ export class ServiceTestGenerator {
         /* v8 ignore next */
         const responseType = successResponseSchema
             ? getTypeScriptType(successResponseSchema as SwaggerDefinition, this.config, knownTypes)
-            : 'any';
+            : 'unknown';
         /* v8 ignore next */
         const responseModelType = responseType.replace(/\[\]| \| null/g, '');
         /* v8 ignore next */
@@ -514,7 +513,7 @@ export class ServiceTestGenerator {
         /* v8 ignore next */
         const bodyType = requestBodySchema
             ? getTypeScriptType(requestBodySchema as SwaggerDefinition, this.config, knownTypes)
-            : 'any';
+            : 'unknown';
 
         /* v8 ignore next */
         const bodyModelType = bodyType.replace(/\[\]| \| null/g, '');

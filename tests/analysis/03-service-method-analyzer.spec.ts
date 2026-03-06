@@ -1020,7 +1020,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
         const op = { ...spec.paths['/upload'].post, path: '/upload', method: 'POST', methodName: 'upload' } as any;
         const model = analyzer.analyze(op)!;
         const bodyParam = model.parameters.find(p => p.name === 'body');
-        expect(bodyParam?.type).toBe('FormData | any[] | any');
+        expect(bodyParam?.type).toBe('FormData | OpenApiValue[] | OpenApiValue');
     });
 
     it('should preserve multipart prefix and item encodings', () => {
@@ -1250,7 +1250,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
             const op = { ...spec.paths['/empty'].get, path: '/empty', method: 'GET', methodName: 'getEmpty' } as any;
             const model = analyzer.analyze(op)!;
             expect(model.responseVariants).toHaveLength(0);
-            expect(model.responseType).toBe('any');
+            expect(model.responseType).toBe('unknown');
         });
 
         it('should handle sequential json media type with itemSchema only', () => {
@@ -1731,7 +1731,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
             const spec = { openapi: '3.0.0', info: { title: 'Resolve', version: '1.0' }, paths: {} };
             const { analyzer } = setupAnalyzer(spec);
             // type-coverage:ignore-next-line
-            expect((analyzer as any).resolveType(undefined, [])).toBe('any');
+            expect((analyzer as any).resolveType(undefined, [])).toBe('unknown');
         });
 
         it('should avoid requestEncodingConfig when body is forced to json with no content', () => {
@@ -1803,7 +1803,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                 responses: { '200': { description: 'ok', content: { 'text/event-stream': mediaObj } } },
             } as any;
             const model = analyzer.analyze(op)!;
-            expect(model.responseVariants[0].type).toBe('any');
+            expect(model.responseVariants[0].type).toBe('unknown');
         });
 
         it('should skip multipart itemEncoding initialization when items are tuple arrays', () => {

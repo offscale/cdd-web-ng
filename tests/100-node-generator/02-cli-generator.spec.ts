@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Project } from 'ts-morph';
-import { CliGenerator } from '../../src/vendors/cli/cli.generator.js';
+import { CliGenerator } from '../../src/vendors/cli/emit.js';
 
 describe('CliGenerator', () => {
     it('should generate cli.ts with correct imports and commands', () => {
@@ -8,10 +8,20 @@ describe('CliGenerator', () => {
         const generator = new CliGenerator();
 
         const mockParser = {
+            spec: {
+                openapi: '3.1.0',
+                info: { title: 'api-cli', version: '1.0.0', description: 'Test CLI' },
+                servers: [{ url: 'http://api.example.com' }],
+                components: {
+                    securitySchemes: {
+                        BearerAuth: { type: 'http', scheme: 'bearer' }
+                    }
+                }
+            },
             operations: [
-                { tags: ['Users'], operationId: 'getUser', path: '/users/{id}', summary: 'Get User' },
+                { tags: ['Users'], operationId: 'getUser', path: '/users/{id}', summary: 'Get User', parameters: [{ name: 'id', in: 'path', required: true }] },
                 { tags: [{ name: 'Posts' }], path: '/posts', description: 'List Posts' },
-                { path: '/no-tag', summary: 'No Tag' },
+                { path: '/no-tag', summary: 'No Tag', requestBody: { content: {} } },
             ],
         } as unknown as import('../../src/openapi/parse.js').SwaggerParser;
 

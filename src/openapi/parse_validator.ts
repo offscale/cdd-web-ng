@@ -1,6 +1,6 @@
 // src/core/validator.ts
 
-import { Parameter, ServerObject, SwaggerSpec, TagObject } from '@src/core/types/index.js';
+import { Parameter, ServerObject, SwaggerSpec, TagObject, OpenApiValue } from '@src/core/types/index.js';
 import { isUrl } from '@src/functions/utils.js';
 
 /**
@@ -320,7 +320,7 @@ function validateCallbackExpression(expression: string, location: string): void 
 
 type SchemaTypeKind = 'primitive' | 'array' | 'object' | 'unknown';
 
-function getSchemaTypeKind(schema: unknown): SchemaTypeKind {
+function getSchemaTypeKind(schema: OpenApiValue): SchemaTypeKind {
     /* v8 ignore next */
     /* v8 ignore start */
     if (!schema || typeof schema !== 'object') return 'unknown';
@@ -331,9 +331,9 @@ function getSchemaTypeKind(schema: unknown): SchemaTypeKind {
     /* v8 ignore stop */
 
     /* v8 ignore next */
-    const rawType = (schema as { type?: unknown }).type;
+    const rawType = (schema as { type?: string | string[] }).type;
     /* v8 ignore next */
-    const normalizeType = (value: unknown): SchemaTypeKind => {
+    const normalizeType = (value: OpenApiValue): SchemaTypeKind => {
         /* v8 ignore next */
         /* v8 ignore start */
         if (typeof value !== 'string') return 'unknown';
@@ -359,7 +359,7 @@ function getSchemaTypeKind(schema: unknown): SchemaTypeKind {
     if (Array.isArray(rawType)) {
         /* v8 ignore stop */
         /* v8 ignore next */
-        const filtered = rawType.filter((t: unknown) => t !== 'null');
+        const filtered = rawType.filter((t: OpenApiValue) => t !== 'null');
         /* v8 ignore next */
         if (filtered.length === 1) {
             /* v8 ignore next */
@@ -383,7 +383,7 @@ const PARAM_STYLE_BY_IN: Record<string, Set<string>> = {
 /* v8 ignore next */
 const XML_NODE_TYPES = new Set(['element', 'attribute', 'text', 'cdata', 'none']);
 
-function validateExternalDocsObject(externalDocs: unknown, location: string): void {
+function validateExternalDocsObject(externalDocs: OpenApiValue, location: string): void {
     /* v8 ignore next */
     /* v8 ignore start */
     if (externalDocs === undefined || externalDocs === null) return;
@@ -394,7 +394,7 @@ function validateExternalDocsObject(externalDocs: unknown, location: string): vo
         throw new SpecValidationError(`ExternalDocs at '${location}' must be an object.`);
     }
     /* v8 ignore next */
-    const url = (externalDocs as { url?: unknown }).url;
+    const url = (externalDocs as { url?: string }).url;
     /* v8 ignore next */
     if (typeof url !== 'string' || !isUriReference(url)) {
         /* v8 ignore next */
@@ -403,7 +403,7 @@ function validateExternalDocsObject(externalDocs: unknown, location: string): vo
 }
 
 function validateSchemaExternalDocs(
-    schema: unknown,
+    schema: OpenApiValue,
     location: string,
     seen: WeakSet<object> = new WeakSet<object>(),
 ): void {
@@ -415,7 +415,7 @@ function validateSchemaExternalDocs(
     /* v8 ignore stop */
 
     /* v8 ignore next */
-    const obj = schema as Record<string, unknown>;
+    const obj = schema as Record<string, OpenApiValue>;
     /* v8 ignore next */
     /* v8 ignore start */
     if (seen.has(obj)) return;
@@ -502,7 +502,7 @@ function validateSchemaExternalDocs(
     /* v8 ignore next */
     if ('externalDocs' in obj) {
         /* v8 ignore next */
-        validateExternalDocsObject((obj as { externalDocs?: unknown }).externalDocs, `${location}.externalDocs`);
+        validateExternalDocsObject((obj as { externalDocs?: OpenApiValue }).externalDocs, `${location}.externalDocs`);
     }
 
     /* v8 ignore next */
@@ -524,20 +524,20 @@ function validateSchemaExternalDocs(
     }
 
     /* v8 ignore next */
-    const visit = (child: unknown, childPath: string) => validateSchemaExternalDocs(child, childPath, seen);
+    const visit = (child: OpenApiValue, childPath: string) => validateSchemaExternalDocs(child, childPath, seen);
 
     /* v8 ignore next */
     if (Array.isArray(obj.allOf))
         /* v8 ignore next */
-        (obj.allOf as unknown[]).forEach((s: unknown, i: number) => visit(s, `${location}.allOf[${i}]`));
+        (obj.allOf as OpenApiValue[]).forEach((s: OpenApiValue, i: number) => visit(s, `${location}.allOf[${i}]`));
     /* v8 ignore next */
     if (Array.isArray(obj.anyOf))
         /* v8 ignore next */
-        (obj.anyOf as unknown[]).forEach((s: unknown, i: number) => visit(s, `${location}.anyOf[${i}]`));
+        (obj.anyOf as OpenApiValue[]).forEach((s: OpenApiValue, i: number) => visit(s, `${location}.anyOf[${i}]`));
     /* v8 ignore next */
     if (Array.isArray(obj.oneOf))
         /* v8 ignore next */
-        (obj.oneOf as unknown[]).forEach((s: unknown, i: number) => visit(s, `${location}.oneOf[${i}]`));
+        (obj.oneOf as OpenApiValue[]).forEach((s: OpenApiValue, i: number) => visit(s, `${location}.oneOf[${i}]`));
     /* v8 ignore next */
     if (obj.not) visit(obj.not, `${location}.not`);
     /* v8 ignore next */
@@ -552,7 +552,7 @@ function validateSchemaExternalDocs(
         /* v8 ignore next */
         if (Array.isArray(obj.items)) {
             /* v8 ignore next */
-            (obj.items as unknown[]).forEach((s: unknown, i: number) => visit(s, `${location}.items[${i}]`));
+            (obj.items as OpenApiValue[]).forEach((s: OpenApiValue, i: number) => visit(s, `${location}.items[${i}]`));
         } else {
             /* v8 ignore next */
             visit(obj.items, `${location}.items`);
@@ -562,13 +562,13 @@ function validateSchemaExternalDocs(
     /* v8 ignore next */
     if (Array.isArray(obj.prefixItems)) {
         /* v8 ignore next */
-        (obj.prefixItems as unknown[]).forEach((s: unknown, i: number) => visit(s, `${location}.prefixItems[${i}]`));
+        (obj.prefixItems as OpenApiValue[]).forEach((s: OpenApiValue, i: number) => visit(s, `${location}.prefixItems[${i}]`));
     }
 
     /* v8 ignore next */
     if (obj.properties && typeof obj.properties === 'object') {
         /* v8 ignore next */
-        Object.entries(obj.properties as Record<string, unknown>).forEach(([key, value]) =>
+        Object.entries(obj.properties as Record<string, OpenApiValue>).forEach(([key, value]) =>
             /* v8 ignore next */
             visit(value, `${location}.properties.${key}`),
         );
@@ -577,7 +577,7 @@ function validateSchemaExternalDocs(
     /* v8 ignore next */
     if (obj.patternProperties && typeof obj.patternProperties === 'object') {
         /* v8 ignore next */
-        Object.entries(obj.patternProperties as Record<string, unknown>).forEach(([key, value]) =>
+        Object.entries(obj.patternProperties as Record<string, OpenApiValue>).forEach(([key, value]) =>
             /* v8 ignore next */
             visit(value, `${location}.patternProperties.${key}`),
         );
@@ -592,7 +592,7 @@ function validateSchemaExternalDocs(
     /* v8 ignore next */
     if (obj.dependentSchemas && typeof obj.dependentSchemas === 'object') {
         /* v8 ignore next */
-        Object.entries(obj.dependentSchemas as Record<string, unknown>).forEach(([key, value]) =>
+        Object.entries(obj.dependentSchemas as Record<string, OpenApiValue>).forEach(([key, value]) =>
             /* v8 ignore next */
             visit(value, `${location}.dependentSchemas.${key}`),
         );
@@ -605,13 +605,13 @@ function validateSchemaExternalDocs(
     }
 }
 
-function isPropertyRequired(schema: unknown, propName: string, seen: WeakSet<object> = new WeakSet<object>()): boolean {
+function isPropertyRequired(schema: OpenApiValue, propName: string, seen: WeakSet<object> = new WeakSet<object>()): boolean {
     /* v8 ignore next */
     /* v8 ignore start */
     if (!schema || typeof schema !== 'object') return false;
     /* v8 ignore stop */
     /* v8 ignore next */
-    const obj = schema as Record<string, unknown>;
+    const obj = schema as Record<string, OpenApiValue>;
     /* v8 ignore next */
     /* v8 ignore start */
     if (seen.has(obj)) return false;
@@ -627,7 +627,7 @@ function isPropertyRequired(schema: unknown, propName: string, seen: WeakSet<obj
     /* v8 ignore next */
     if (Array.isArray(obj.allOf)) {
         /* v8 ignore next */
-        return (obj.allOf as unknown[]).some(sub => {
+        return (obj.allOf as OpenApiValue[]).some(sub => {
             /* v8 ignore next */
             if (!sub || typeof sub !== 'object') return false;
             /* v8 ignore next */
@@ -641,7 +641,7 @@ function isPropertyRequired(schema: unknown, propName: string, seen: WeakSet<obj
     return false;
 }
 
-function validateDiscriminatorObject(schema: Record<string, unknown>, location: string): void {
+function validateDiscriminatorObject(schema: Record<string, OpenApiValue>, location: string): void {
     /* v8 ignore next */
     const discriminator = schema.discriminator;
     /* v8 ignore next */
@@ -664,7 +664,7 @@ function validateDiscriminatorObject(schema: Record<string, unknown>, location: 
     }
 
     /* v8 ignore next */
-    const propName = (discriminator as { propertyName?: unknown }).propertyName;
+    const propName = (discriminator as { propertyName?: string }).propertyName;
     /* v8 ignore next */
     if (typeof propName !== 'string' || propName.trim().length === 0) {
         /* v8 ignore next */
@@ -680,7 +680,7 @@ function validateDiscriminatorObject(schema: Record<string, unknown>, location: 
     }
 
     /* v8 ignore next */
-    const mapping = (discriminator as { mapping?: unknown }).mapping;
+    const mapping = (discriminator as { mapping?: Record<string, string> }).mapping;
     /* v8 ignore next */
     if (mapping !== undefined && (typeof mapping !== 'object' || Array.isArray(mapping))) {
         /* v8 ignore next */
@@ -689,7 +689,7 @@ function validateDiscriminatorObject(schema: Record<string, unknown>, location: 
     /* v8 ignore next */
     if (mapping && typeof mapping === 'object') {
         /* v8 ignore next */
-        Object.entries(mapping as Record<string, unknown>).forEach(([key, value]) => {
+        Object.entries(mapping as Record<string, OpenApiValue>).forEach(([key, value]) => {
             /* v8 ignore next */
             if (typeof value !== 'string') {
                 /* v8 ignore next */
@@ -701,7 +701,7 @@ function validateDiscriminatorObject(schema: Record<string, unknown>, location: 
     }
 
     /* v8 ignore next */
-    const defaultMapping = (discriminator as { defaultMapping?: unknown }).defaultMapping;
+    const defaultMapping = (discriminator as { defaultMapping?: string }).defaultMapping;
     /* v8 ignore next */
     if (defaultMapping !== undefined && typeof defaultMapping !== 'string') {
         /* v8 ignore next */
@@ -720,7 +720,7 @@ function validateDiscriminatorObject(schema: Record<string, unknown>, location: 
     }
 }
 
-function validateXmlObject(schema: Record<string, unknown>, location: string): void {
+function validateXmlObject(schema: Record<string, OpenApiValue>, location: string): void {
     /* v8 ignore next */
     const xml = schema.xml;
     /* v8 ignore next */
@@ -735,12 +735,12 @@ function validateXmlObject(schema: Record<string, unknown>, location: string): v
 
     /* v8 ignore next */
     const xmlObj = xml as {
-        nodeType?: unknown;
-        name?: unknown;
-        namespace?: unknown;
-        prefix?: unknown;
-        attribute?: unknown;
-        wrapped?: unknown;
+        nodeType?: OpenApiValue;
+        name?: OpenApiValue;
+        namespace?: OpenApiValue;
+        prefix?: OpenApiValue;
+        attribute?: OpenApiValue;
+        wrapped?: OpenApiValue;
     };
 
     /* v8 ignore next */
@@ -975,7 +975,7 @@ function validateServers(servers: ServerObject[] | undefined, location: string):
                     );
                 }
                 /* v8 ignore next */
-                if (variable.enum && !variable.enum.every((v: unknown) => typeof v === 'string')) {
+                if (variable.enum && !variable.enum.every((v: OpenApiValue) => typeof v === 'string')) {
                     /* v8 ignore next */
                     throw new SpecValidationError(
                         `Server variable "${varName}" enum MUST contain only strings at ${location}[${index}].`,
@@ -1005,7 +1005,7 @@ function validateServers(servers: ServerObject[] | undefined, location: string):
     });
 }
 
-function validateHttpsUrl(value: unknown, location: string, fieldName: string): void {
+function validateHttpsUrl(value: OpenApiValue, location: string, fieldName: string): void {
     /* v8 ignore next */
     if (typeof value !== 'string' || value.trim().length === 0) {
         /* v8 ignore next */
@@ -1025,7 +1025,7 @@ function validateHttpsUrl(value: unknown, location: string, fieldName: string): 
     }
 }
 
-function validateOAuthFlow(flow: unknown, flowName: string, location: string): void {
+function validateOAuthFlow(flow: OpenApiValue, flowName: string, location: string): void {
     /* v8 ignore next */
     if (!flow || typeof flow !== 'object') {
         /* v8 ignore next */
@@ -1033,7 +1033,7 @@ function validateOAuthFlow(flow: unknown, flowName: string, location: string): v
     }
 
     /* v8 ignore next */
-    const f = flow as Record<string, unknown>;
+    const f = flow as Record<string, OpenApiValue>;
 
     /* v8 ignore next */
     const requiresAuthorizationUrl = flowName === 'implicit' || flowName === 'authorizationCode';
@@ -1073,7 +1073,7 @@ function validateOAuthFlow(flow: unknown, flowName: string, location: string): v
 }
 
 function validateSecuritySchemes(
-    schemes: Record<string, unknown> | undefined,
+    schemes: Record<string, OpenApiValue> | undefined,
     location: string,
     isOpenApi3: boolean,
 ): void {
@@ -1098,7 +1098,7 @@ function validateSecuritySchemes(
         }
 
         /* v8 ignore next */
-        const scheme = rawScheme as Record<string, unknown>;
+        const scheme = rawScheme as Record<string, OpenApiValue>;
         /* v8 ignore next */
         const type = scheme.type;
 
@@ -1165,7 +1165,7 @@ function validateSecuritySchemes(
                 }
 
                 /* v8 ignore next */
-                const flowEntries = Object.entries(flows as Record<string, unknown>);
+                const flowEntries = Object.entries(flows as Record<string, OpenApiValue>);
 
                 /* v8 ignore next */
                 if (flowEntries.length === 0) {
@@ -1203,7 +1203,7 @@ function validateSecuritySchemes(
     }
 }
 
-function isRefLike(obj: unknown): obj is { $ref?: string; $dynamicRef?: string } {
+function isRefLike(obj: OpenApiValue): obj is { $ref?: string; $dynamicRef?: string } {
     /* v8 ignore next */
     /* v8 ignore start */
     if (!obj || typeof obj !== 'object') return false;
@@ -1212,13 +1212,13 @@ function isRefLike(obj: unknown): obj is { $ref?: string; $dynamicRef?: string }
     return '$ref' in obj || '$dynamicRef' in obj;
 }
 
-function validateReferenceObject(refObj: unknown, location: string): void {
+function validateReferenceObject(refObj: OpenApiValue, location: string): void {
     /* v8 ignore next */
     /* v8 ignore start */
     if (!refObj || typeof refObj !== 'object') return;
     /* v8 ignore stop */
     /* v8 ignore next */
-    const obj = refObj as Record<string, unknown>;
+    const obj = refObj as Record<string, OpenApiValue>;
     /* v8 ignore next */
     const hasRef = typeof obj.$ref === 'string';
     /* v8 ignore next */
@@ -1270,20 +1270,20 @@ function validateReferenceObject(refObj: unknown, location: string): void {
     }
 }
 
-function validateUniqueParameters(params: unknown, location: string): void {
+function validateUniqueParameters(params: OpenApiValue, location: string): void {
     /* v8 ignore next */
     if (!Array.isArray(params)) return;
     /* v8 ignore next */
     const seen = new Set<string>();
     /* v8 ignore next */
-    for (const param of params as unknown[]) {
+    for (const param of params as OpenApiValue[]) {
         /* v8 ignore next */
         if (!param || typeof param !== 'object') continue;
 
         /* v8 ignore next */
-        const name = (param as { name?: unknown }).name;
+        const name = (param as { name?: string }).name;
         /* v8 ignore next */
-        const loc = (param as { in?: unknown }).in;
+        const loc = (param as { in?: string }).in;
 
         /* v8 ignore next */
         if (typeof name !== 'string' || typeof loc !== 'string') continue;
@@ -1309,7 +1309,7 @@ function validateUniqueParameters(params: unknown, location: string): void {
 /**
  * Validates OAS 3.2 Example Object field exclusivity and basic typing.
  */
-function validateExampleObject(exampleObj: unknown, location: string): void {
+function validateExampleObject(exampleObj: OpenApiValue, location: string): void {
     /* v8 ignore next */
     if (!exampleObj || typeof exampleObj !== 'object') return;
 
@@ -1323,10 +1323,10 @@ function validateExampleObject(exampleObj: unknown, location: string): void {
 
     /* v8 ignore next */
     const example = exampleObj as {
-        value?: unknown;
-        dataValue?: unknown;
-        serializedValue?: unknown;
-        externalValue?: unknown;
+        value?: OpenApiValue;
+        dataValue?: OpenApiValue;
+        serializedValue?: OpenApiValue;
+        externalValue?: string;
     };
 
     /* v8 ignore next */
@@ -1479,7 +1479,7 @@ function isFormUrlEncodedMediaType(mediaType: string | undefined): boolean {
     return normalizeMediaType(mediaType) === 'application/x-www-form-urlencoded';
 }
 
-function validateEncodingObject(encodingObj: unknown, location: string): void {
+function validateEncodingObject(encodingObj: OpenApiValue, location: string): void {
     /* v8 ignore next */
     if (!encodingObj || typeof encodingObj !== 'object' || Array.isArray(encodingObj)) {
         /* v8 ignore next */
@@ -1488,14 +1488,14 @@ function validateEncodingObject(encodingObj: unknown, location: string): void {
 
     /* v8 ignore next */
     const encoding = encodingObj as {
-        contentType?: unknown;
-        headers?: Record<string, unknown>;
-        style?: unknown;
-        explode?: unknown;
-        allowReserved?: unknown;
-        encoding?: Record<string, unknown>;
-        prefixEncoding?: unknown;
-        itemEncoding?: unknown;
+        contentType?: string;
+        headers?: Record<string, OpenApiValue>;
+        style?: string;
+        explode?: boolean;
+        allowReserved?: boolean;
+        encoding?: Record<string, OpenApiValue>;
+        prefixEncoding?: string[];
+        itemEncoding?: Record<string, OpenApiValue>;
     };
 
     /* v8 ignore next */
@@ -1545,7 +1545,7 @@ function validateEncodingObject(encodingObj: unknown, location: string): void {
         }
 
         /* v8 ignore next */
-        Object.entries(encoding.headers as Record<string, unknown>).forEach(([headerName, headerObj]) => {
+        Object.entries(encoding.headers as Record<string, OpenApiValue>).forEach(([headerName, headerObj]) => {
             /* v8 ignore next */
             if (headerName.toLowerCase() === 'content-type') {
                 /* v8 ignore next */
@@ -1582,7 +1582,7 @@ function validateEncodingObject(encodingObj: unknown, location: string): void {
         }
 
         /* v8 ignore next */
-        Object.entries(encoding.encoding as Record<string, unknown>).forEach(([key, value]) => {
+        Object.entries(encoding.encoding as Record<string, OpenApiValue>).forEach(([key, value]) => {
             /* v8 ignore next */
             validateEncodingObject(value, `${location}.encoding.${key}`);
         });
@@ -1599,7 +1599,7 @@ function validateEncodingObject(encodingObj: unknown, location: string): void {
         }
 
         /* v8 ignore next */
-        (encoding.prefixEncoding as unknown[]).forEach((value, index) => {
+        (encoding.prefixEncoding as OpenApiValue[]).forEach((value, index) => {
             /* v8 ignore next */
             validateEncodingObject(value, `${location}.prefixEncoding[${index}]`);
         });
@@ -1612,7 +1612,7 @@ function validateEncodingObject(encodingObj: unknown, location: string): void {
     }
 }
 
-function validateMediaTypeObject(mediaObj: unknown, location: string, mediaType?: string): void {
+function validateMediaTypeObject(mediaObj: OpenApiValue, location: string, mediaType?: string): void {
     /* v8 ignore next */
     /* v8 ignore start */
     if (!mediaObj || typeof mediaObj !== 'object') return;
@@ -1628,13 +1628,13 @@ function validateMediaTypeObject(mediaObj: unknown, location: string, mediaType?
 
     /* v8 ignore next */
     const media = mediaObj as {
-        example?: unknown;
-        examples?: unknown;
-        encoding?: unknown;
-        prefixEncoding?: unknown;
-        itemEncoding?: unknown;
-        schema?: unknown;
-        itemSchema?: unknown;
+        example?: OpenApiValue;
+        examples?: OpenApiValue;
+        encoding?: OpenApiValue;
+        prefixEncoding?: string[];
+        itemEncoding?: Record<string, OpenApiValue>;
+        schema?: Record<string, OpenApiValue> | boolean;
+        itemSchema?: Record<string, OpenApiValue> | boolean;
     };
 
     /* v8 ignore next */
@@ -1687,7 +1687,7 @@ function validateMediaTypeObject(mediaObj: unknown, location: string, mediaType?
     /* v8 ignore next */
     if (media.examples && typeof media.examples === 'object') {
         /* v8 ignore next */
-        Object.entries(media.examples as Record<string, unknown>).forEach(([name, example]) => {
+        Object.entries(media.examples as Record<string, OpenApiValue>).forEach(([name, example]) => {
             /* v8 ignore next */
             validateExampleObject(example, `${location}.examples.${name}`);
         });
@@ -1702,7 +1702,7 @@ function validateMediaTypeObject(mediaObj: unknown, location: string, mediaType?
         }
 
         /* v8 ignore next */
-        Object.entries(media.encoding as Record<string, unknown>).forEach(([key, value]) => {
+        Object.entries(media.encoding as Record<string, OpenApiValue>).forEach(([key, value]) => {
             /* v8 ignore next */
             validateEncodingObject(value, `${location}.encoding.${key}`);
         });
@@ -1719,7 +1719,7 @@ function validateMediaTypeObject(mediaObj: unknown, location: string, mediaType?
         }
 
         /* v8 ignore next */
-        (media.prefixEncoding as unknown[]).forEach((value, index) => {
+        (media.prefixEncoding as OpenApiValue[]).forEach((value, index) => {
             /* v8 ignore next */
             validateEncodingObject(value, `${location}.prefixEncoding[${index}]`);
         });
@@ -1758,7 +1758,7 @@ function validateMediaTypeObject(mediaObj: unknown, location: string, mediaType?
     }
 }
 
-function validateContentMap(content: Record<string, unknown> | undefined, location: string): void {
+function validateContentMap(content: Record<string, OpenApiValue> | undefined, location: string): void {
     /* v8 ignore next */
     /* v8 ignore start */
     if (!content) return;
@@ -1771,7 +1771,7 @@ function validateContentMap(content: Record<string, unknown> | undefined, locati
     }
 }
 
-function validateHeaderObject(headerObj: unknown, location: string, isOpenApi3: boolean): void {
+function validateHeaderObject(headerObj: OpenApiValue, location: string, isOpenApi3: boolean): void {
     /* v8 ignore next */
     /* v8 ignore start */
     if (!headerObj || typeof headerObj !== 'object') return;
@@ -1787,14 +1787,14 @@ function validateHeaderObject(headerObj: unknown, location: string, isOpenApi3: 
 
     /* v8 ignore next */
     const header = headerObj as {
-        schema?: unknown;
-        content?: Record<string, unknown>;
-        name?: unknown;
-        in?: unknown;
-        style?: unknown;
-        allowEmptyValue?: unknown;
-        example?: unknown;
-        examples?: unknown;
+        schema?: Record<string, OpenApiValue> | boolean;
+        content?: Record<string, OpenApiValue>;
+        name?: OpenApiValue;
+        in?: OpenApiValue;
+        style?: string;
+        allowEmptyValue?: OpenApiValue;
+        example?: OpenApiValue;
+        examples?: OpenApiValue;
     };
 
     /* v8 ignore next */
@@ -1834,7 +1834,7 @@ function validateHeaderObject(headerObj: unknown, location: string, isOpenApi3: 
     /* v8 ignore next */
     if (header.examples && typeof header.examples === 'object') {
         /* v8 ignore next */
-        Object.entries(header.examples as Record<string, unknown>).forEach(([name, example]) => {
+        Object.entries(header.examples as Record<string, OpenApiValue>).forEach(([name, example]) => {
             /* v8 ignore next */
             validateExampleObject(example, `${location}.examples.${name}`);
         });
@@ -1875,7 +1875,7 @@ function validateHeaderObject(headerObj: unknown, location: string, isOpenApi3: 
     }
 }
 
-function validateHeadersMap(headers: Record<string, unknown> | undefined, location: string, isOpenApi3: boolean): void {
+function validateHeadersMap(headers: Record<string, OpenApiValue> | undefined, location: string, isOpenApi3: boolean): void {
     /* v8 ignore next */
     /* v8 ignore start */
     if (!headers) return;
@@ -1894,7 +1894,7 @@ function validateHeadersMap(headers: Record<string, unknown> | undefined, locati
     }
 }
 
-function validateLinkObject(linkObj: unknown, location: string): void {
+function validateLinkObject(linkObj: OpenApiValue, location: string): void {
     /* v8 ignore next */
     /* v8 ignore start */
     if (!linkObj || typeof linkObj !== 'object') return;
@@ -1910,11 +1910,11 @@ function validateLinkObject(linkObj: unknown, location: string): void {
 
     /* v8 ignore next */
     const link = linkObj as {
-        operationId?: unknown;
-        operationRef?: unknown;
-        parameters?: unknown;
-        requestBody?: unknown;
-        server?: unknown;
+        operationId?: string;
+        operationRef?: string;
+        parameters?: Record<string, string>;
+        requestBody?: OpenApiValue;
+        server?: Record<string, OpenApiValue>;
     };
 
     /* v8 ignore next */
@@ -1956,7 +1956,7 @@ function validateLinkObject(linkObj: unknown, location: string): void {
             );
         }
         /* v8 ignore next */
-        Object.entries(link.parameters as Record<string, unknown>).forEach(([name, value]) => {
+        Object.entries(link.parameters as Record<string, OpenApiValue>).forEach(([name, value]) => {
             /* v8 ignore next */
             /* v8 ignore start */
             if (typeof value === 'string') {
@@ -1980,7 +1980,7 @@ function validateLinkObject(linkObj: unknown, location: string): void {
     }
 }
 
-function validateLinksMap(links: Record<string, unknown> | undefined, location: string): void {
+function validateLinksMap(links: Record<string, OpenApiValue> | undefined, location: string): void {
     /* v8 ignore next */
     /* v8 ignore start */
     if (!links) return;
@@ -1993,7 +1993,7 @@ function validateLinksMap(links: Record<string, unknown> | undefined, location: 
     }
 }
 
-function validateRequestBody(requestBody: unknown, location: string): void {
+function validateRequestBody(requestBody: OpenApiValue, location: string): void {
     /* v8 ignore next */
     if (!requestBody || typeof requestBody !== 'object') return;
 
@@ -2006,7 +2006,7 @@ function validateRequestBody(requestBody: unknown, location: string): void {
     }
 
     /* v8 ignore next */
-    const body = requestBody as { content?: Record<string, unknown> };
+    const body = requestBody as { content?: Record<string, OpenApiValue> };
 
     /* v8 ignore next */
     if (body.content === undefined) {
@@ -2026,7 +2026,7 @@ function validateRequestBody(requestBody: unknown, location: string): void {
     validateContentMap(body.content, `${location}.content`);
 }
 
-function validateResponseObject(responseObj: unknown, location: string, isOpenApi3: boolean): void {
+function validateResponseObject(responseObj: OpenApiValue, location: string, isOpenApi3: boolean): void {
     /* v8 ignore next */
     /* v8 ignore start */
     if (!responseObj || typeof responseObj !== 'object') return;
@@ -2042,10 +2042,10 @@ function validateResponseObject(responseObj: unknown, location: string, isOpenAp
 
     /* v8 ignore next */
     const response = responseObj as {
-        description?: unknown;
-        headers?: Record<string, unknown>;
-        content?: Record<string, unknown>;
-        links?: Record<string, unknown>;
+        description?: string;
+        headers?: Record<string, OpenApiValue>;
+        content?: Record<string, OpenApiValue>;
+        links?: Record<string, OpenApiValue>;
     };
 
     /* v8 ignore next */
@@ -2080,7 +2080,7 @@ function validateResponseObject(responseObj: unknown, location: string, isOpenAp
 }
 
 function validateResponses(
-    responses: Record<string, unknown> | undefined,
+    responses: Record<string, OpenApiValue> | undefined,
     location: string,
     isOpenApi3: boolean,
 ): void {
@@ -2108,7 +2108,7 @@ function validateResponses(
 }
 
 function validateComponentResponses(
-    responses: Record<string, unknown> | undefined,
+    responses: Record<string, OpenApiValue> | undefined,
     location: string,
     isOpenApi3: boolean,
 ): void {
@@ -2137,7 +2137,7 @@ function isValidResponseCode(status: string): boolean {
     return false;
 }
 
-function validatePathItemOperations(pathItem: unknown, location: string, isOpenApi3: boolean): void {
+function validatePathItemOperations(pathItem: OpenApiValue, location: string, isOpenApi3: boolean): void {
     /* v8 ignore next */
     /* v8 ignore start */
     if (!pathItem || typeof pathItem !== 'object') return;
@@ -2154,12 +2154,12 @@ function validatePathItemOperations(pathItem: unknown, location: string, isOpenA
     /* v8 ignore next */
     const operationKeys = ['get', 'post', 'put', 'delete', 'options', 'head', 'patch', 'trace', 'query'];
     /* v8 ignore next */
-    const pi = pathItem as Record<string, unknown>;
+    const pi = pathItem as Record<string, OpenApiValue>;
 
     /* v8 ignore next */
     for (const method of operationKeys) {
         /* v8 ignore next */
-        const operation = pi[method] as Record<string, unknown> | undefined;
+        const operation = pi[method] as Record<string, OpenApiValue> | undefined;
         /* v8 ignore next */
         if (operation) {
             /* v8 ignore next */
@@ -2190,7 +2190,7 @@ function validatePathItemOperations(pathItem: unknown, location: string, isOpenA
             validateRequestBody(operation.requestBody, `${location}.${method}.requestBody`);
             /* v8 ignore next */
             validateResponses(
-                operation.responses as Record<string, unknown>,
+                operation.responses as Record<string, OpenApiValue>,
                 `${location}.${method}.responses`,
                 isOpenApi3,
             );
@@ -2200,9 +2200,9 @@ function validatePathItemOperations(pathItem: unknown, location: string, isOpenA
     /* v8 ignore next */
     if (pi.additionalOperations) {
         /* v8 ignore next */
-        for (const [method, opVal] of Object.entries(pi.additionalOperations as Record<string, unknown>)) {
+        for (const [method, opVal] of Object.entries(pi.additionalOperations as Record<string, OpenApiValue>)) {
             /* v8 ignore next */
-            const operation = opVal as Record<string, unknown> | undefined;
+            const operation = opVal as Record<string, OpenApiValue> | undefined;
             /* v8 ignore next */
             /* v8 ignore start */
             if (operation?.responses === undefined) {
@@ -2236,7 +2236,7 @@ function validatePathItemOperations(pathItem: unknown, location: string, isOpenA
             validateRequestBody(operation?.requestBody, `${location}.additionalOperations.${method}.requestBody`);
             /* v8 ignore next */
             validateResponses(
-                operation?.responses as Record<string, unknown>,
+                operation?.responses as Record<string, OpenApiValue>,
                 `${location}.additionalOperations.${method}.responses`,
                 isOpenApi3,
             );
@@ -2245,7 +2245,7 @@ function validatePathItemOperations(pathItem: unknown, location: string, isOpenA
 }
 
 function validateOperationsContent(
-    paths: Record<string, unknown> | undefined,
+    paths: Record<string, OpenApiValue> | undefined,
     locationPrefix: string,
     isOpenApi3: boolean,
 ): void {
@@ -2354,7 +2354,7 @@ export function validateSpec(spec: SwaggerSpec): void {
     /* v8 ignore next */
     if (spec.info.contact) {
         /* v8 ignore next */
-        const contact = spec.info.contact as { url?: unknown; email?: unknown };
+        const contact = spec.info.contact as { url?: OpenApiValue; email?: OpenApiValue };
         /* v8 ignore next */
         if (contact.url !== undefined) {
             /* v8 ignore next */
@@ -2457,14 +2457,14 @@ export function validateSpec(spec: SwaggerSpec): void {
     };
 
     /* v8 ignore next */
-    const collectOperationIds = (paths: Record<string, unknown> | undefined, locationPrefix: string) => {
+    const collectOperationIds = (paths: Record<string, OpenApiValue> | undefined, locationPrefix: string) => {
         /* v8 ignore next */
         if (!paths) return;
 
         /* v8 ignore next */
         for (const [pathKey, pVal] of Object.entries(paths)) {
             /* v8 ignore next */
-            const pathItem = pVal as Record<string, unknown>;
+            const pathItem = pVal as Record<string, OpenApiValue>;
             /* v8 ignore next */
             /* v8 ignore start */
             if (!pathItem || typeof pathItem !== 'object') continue;
@@ -2473,7 +2473,7 @@ export function validateSpec(spec: SwaggerSpec): void {
             /* v8 ignore next */
             for (const method of operationKeys) {
                 /* v8 ignore next */
-                const operation = pathItem[method] as Record<string, unknown> | undefined;
+                const operation = pathItem[method] as Record<string, OpenApiValue> | undefined;
                 /* v8 ignore next */
                 if (operation?.operationId) {
                     /* v8 ignore next */
@@ -2485,13 +2485,13 @@ export function validateSpec(spec: SwaggerSpec): void {
             }
 
             /* v8 ignore next */
-            const addOps = pathItem.additionalOperations as Record<string, unknown> | undefined;
+            const addOps = pathItem.additionalOperations as Record<string, OpenApiValue> | undefined;
             /* v8 ignore next */
             if (addOps) {
                 /* v8 ignore next */
                 for (const [method, opVal] of Object.entries(addOps)) {
                     /* v8 ignore next */
-                    const operation = opVal as Record<string, unknown> | undefined;
+                    const operation = opVal as Record<string, OpenApiValue> | undefined;
                     /* v8 ignore next */
                     if (operation?.operationId) {
                         /* v8 ignore next */
@@ -2504,28 +2504,28 @@ export function validateSpec(spec: SwaggerSpec): void {
 
     /* v8 ignore next */
     const collectCallbackPathItems = (
-        paths: Record<string, unknown> | undefined,
+        paths: Record<string, OpenApiValue> | undefined,
         locationPrefix: string,
-    ): Record<string, unknown> => {
+    ): Record<string, OpenApiValue> => {
         /* v8 ignore next */
-        const callbacks: Record<string, unknown> = {};
+        const callbacks: Record<string, OpenApiValue> = {};
         /* v8 ignore next */
         if (!paths) return callbacks;
 
         /* v8 ignore next */
-        const visitOperation = (operation: unknown, opLocation: string) => {
+        const visitOperation = (operation: OpenApiValue, opLocation: string) => {
             /* v8 ignore next */
             /* v8 ignore start */
             if (!operation || typeof operation !== 'object') return;
             /* v8 ignore stop */
 
             /* v8 ignore next */
-            const cbMap = (operation as Record<string, unknown>).callbacks;
+            const cbMap = (operation as Record<string, OpenApiValue>).callbacks;
             /* v8 ignore next */
             if (!cbMap || typeof cbMap !== 'object') return;
 
             /* v8 ignore next */
-            for (const [callbackName, callbackObj] of Object.entries(cbMap as Record<string, unknown>)) {
+            for (const [callbackName, callbackObj] of Object.entries(cbMap as Record<string, OpenApiValue>)) {
                 /* v8 ignore next */
                 /* v8 ignore start */
                 if (!callbackObj || typeof callbackObj !== 'object') continue;
@@ -2540,7 +2540,7 @@ export function validateSpec(spec: SwaggerSpec): void {
                 }
 
                 /* v8 ignore next */
-                for (const [expression, callbackPathItem] of Object.entries(callbackObj as Record<string, unknown>)) {
+                for (const [expression, callbackPathItem] of Object.entries(callbackObj as Record<string, OpenApiValue>)) {
                     /* v8 ignore next */
                     /* v8 ignore start */
                     if (!callbackPathItem || typeof callbackPathItem !== 'object') continue;
@@ -2562,7 +2562,7 @@ export function validateSpec(spec: SwaggerSpec): void {
         /* v8 ignore next */
         for (const [pathKey, pVal] of Object.entries(paths)) {
             /* v8 ignore next */
-            const pathItem = pVal as Record<string, unknown>;
+            const pathItem = pVal as Record<string, OpenApiValue>;
             /* v8 ignore next */
             /* v8 ignore start */
             if (!pathItem || typeof pathItem !== 'object') continue;
@@ -2580,7 +2580,7 @@ export function validateSpec(spec: SwaggerSpec): void {
             }
 
             /* v8 ignore next */
-            const addOps = pathItem.additionalOperations as Record<string, unknown> | undefined;
+            const addOps = pathItem.additionalOperations as Record<string, OpenApiValue> | undefined;
             /* v8 ignore next */
             if (addOps) {
                 /* v8 ignore next */
@@ -2603,7 +2603,7 @@ export function validateSpec(spec: SwaggerSpec): void {
         /* v8 ignore next */
         for (const pathKey of Object.keys(spec.paths)) {
             /* v8 ignore next */
-            const pathItemObj = spec.paths[pathKey] as Record<string, unknown>;
+            const pathItemObj = spec.paths[pathKey] as Record<string, OpenApiValue>;
             /* v8 ignore next */
             const pathItemRec = pathItemObj;
 
@@ -2618,7 +2618,7 @@ export function validateSpec(spec: SwaggerSpec): void {
                 /* v8 ignore next */
                 operationKeys.some(method => pathItemRec[method]) ||
                 (pathItemRec.additionalOperations &&
-                    Object.keys(pathItemRec.additionalOperations as Record<string, unknown>).length > 0);
+                    Object.keys(pathItemRec.additionalOperations as Record<string, OpenApiValue>).length > 0);
 
             /* v8 ignore next */
             const hasPathParams = Array.isArray(pathItemObj.parameters) && pathItemObj.parameters.length > 0;
@@ -2657,7 +2657,7 @@ export function validateSpec(spec: SwaggerSpec): void {
             /* v8 ignore next */
             if (isOpenApi3 && pathItemRec.additionalOperations) {
                 /* v8 ignore next */
-                const additionalOps = pathItemRec.additionalOperations as Record<string, unknown>;
+                const additionalOps = pathItemRec.additionalOperations as Record<string, OpenApiValue>;
                 /* v8 ignore next */
                 for (const methodKey of Object.keys(additionalOps)) {
                     /* v8 ignore next */
@@ -2686,7 +2686,7 @@ export function validateSpec(spec: SwaggerSpec): void {
                     if (operation && typeof operation === 'object') {
                         /* v8 ignore stop */
                         /* v8 ignore next */
-                        const opRec = operation as Record<string, unknown>;
+                        const opRec = operation as Record<string, OpenApiValue>;
                         /* v8 ignore next */
                         /* v8 ignore start */
                         if (opRec.responses === undefined) {
@@ -2777,7 +2777,7 @@ export function validateSpec(spec: SwaggerSpec): void {
             /* v8 ignore next */
             for (const method of operationKeys) {
                 /* v8 ignore next */
-                const operation = pathItemRec[method] as Record<string, unknown> | undefined;
+                const operation = pathItemRec[method] as Record<string, OpenApiValue> | undefined;
                 /* v8 ignore next */
                 if (operation) {
                     /* v8 ignore next */
@@ -2812,8 +2812,8 @@ export function validateSpec(spec: SwaggerSpec): void {
                                     /* v8 ignore next */
                                     !!p &&
                                     typeof p === 'object' &&
-                                    (p as unknown as Record<string, unknown>).in === 'path' &&
-                                    (p as unknown as Record<string, unknown>).name === name,
+                                    (p as OpenApiValue as Record<string, OpenApiValue>).in === 'path' &&
+                                    (p as OpenApiValue as Record<string, OpenApiValue>).name === name,
                             );
 
                             /* v8 ignore next */
@@ -2872,7 +2872,7 @@ export function validateSpec(spec: SwaggerSpec): void {
                         }
 
                         /* v8 ignore next */
-                        const paramRec = param as unknown as Record<string, unknown>;
+                        const paramRec = param as OpenApiValue as Record<string, OpenApiValue>;
 
                         /* v8 ignore next */
                         if (typeof paramRec.name !== 'string' || paramRec.name.trim().length === 0) {
@@ -2918,7 +2918,7 @@ export function validateSpec(spec: SwaggerSpec): void {
                         /* v8 ignore next */
                         if (param.examples && typeof param.examples === 'object') {
                             /* v8 ignore next */
-                            Object.entries(param.examples as Record<string, unknown>).forEach(([name, example]) => {
+                            Object.entries(param.examples as Record<string, OpenApiValue>).forEach(([name, example]) => {
                                 /* v8 ignore next */
                                 validateExampleObject(
                                     example,
@@ -3040,7 +3040,7 @@ export function validateSpec(spec: SwaggerSpec): void {
                         if (isOpenApi3 && param.content) {
                             /* v8 ignore next */
                             validateContentMap(
-                                param.content as Record<string, unknown>,
+                                param.content as Record<string, OpenApiValue>,
                                 `paths.${pathKey}.${method}.parameters.${param.name}.content`,
                             );
                         }
@@ -3052,7 +3052,7 @@ export function validateSpec(spec: SwaggerSpec): void {
                         validateRequestBody(operation.requestBody, `paths.${pathKey}.${method}.requestBody`);
                         /* v8 ignore next */
                         validateResponses(
-                            operation.responses as Record<string, unknown>,
+                            operation.responses as Record<string, OpenApiValue>,
                             `paths.${pathKey}.${method}.responses`,
                             isOpenApi3,
                         );
@@ -3064,14 +3064,14 @@ export function validateSpec(spec: SwaggerSpec): void {
 
     /* v8 ignore next */
     const callbackPaths = {
-        ...collectCallbackPathItems(spec.paths as Record<string, unknown> | undefined, 'paths.'),
-        ...collectCallbackPathItems(spec.webhooks as Record<string, unknown> | undefined, 'webhooks.'),
+        ...collectCallbackPathItems(spec.paths as Record<string, OpenApiValue> | undefined, 'paths.'),
+        ...collectCallbackPathItems(spec.webhooks as Record<string, OpenApiValue> | undefined, 'webhooks.'),
     };
 
     /* v8 ignore next */
     if (isOpenApi3) {
         /* v8 ignore next */
-        validateOperationsContent(spec.webhooks as Record<string, unknown> | undefined, 'webhooks.', isOpenApi3);
+        validateOperationsContent(spec.webhooks as Record<string, OpenApiValue> | undefined, 'webhooks.', isOpenApi3);
         /* v8 ignore next */
         if (Object.keys(callbackPaths).length > 0) {
             /* v8 ignore next */
@@ -3086,14 +3086,14 @@ export function validateSpec(spec: SwaggerSpec): void {
         validateServers(spec.servers, 'servers');
 
         /* v8 ignore next */
-        const validateServerLocations = (paths: Record<string, unknown> | undefined, locationPrefix: string) => {
+        const validateServerLocations = (paths: Record<string, OpenApiValue> | undefined, locationPrefix: string) => {
             /* v8 ignore next */
             if (!paths) return;
 
             /* v8 ignore next */
             for (const [pathKey, pVal] of Object.entries(paths)) {
                 /* v8 ignore next */
-                const pathItem = pVal as Record<string, unknown>;
+                const pathItem = pVal as Record<string, OpenApiValue>;
                 /* v8 ignore next */
                 /* v8 ignore start */
                 if (!pathItem || typeof pathItem !== 'object') continue;
@@ -3108,7 +3108,7 @@ export function validateSpec(spec: SwaggerSpec): void {
                 /* v8 ignore next */
                 for (const method of operationKeys) {
                     /* v8 ignore next */
-                    const operation = pathItem[method] as Record<string, unknown> | undefined;
+                    const operation = pathItem[method] as Record<string, OpenApiValue> | undefined;
                     /* v8 ignore next */
                     if (operation?.servers) {
                         /* v8 ignore next */
@@ -3120,13 +3120,13 @@ export function validateSpec(spec: SwaggerSpec): void {
                 }
 
                 /* v8 ignore next */
-                const addOps = pathItem.additionalOperations as Record<string, unknown> | undefined;
+                const addOps = pathItem.additionalOperations as Record<string, OpenApiValue> | undefined;
                 /* v8 ignore next */
                 if (addOps) {
                     /* v8 ignore next */
                     for (const [method, opVal] of Object.entries(addOps)) {
                         /* v8 ignore next */
-                        const operation = opVal as Record<string, unknown> | undefined;
+                        const operation = opVal as Record<string, OpenApiValue> | undefined;
                         /* v8 ignore next */
                         /* v8 ignore start */
                         if (operation?.servers) {
@@ -3148,9 +3148,9 @@ export function validateSpec(spec: SwaggerSpec): void {
         };
 
         /* v8 ignore next */
-        validateServerLocations(spec.paths as Record<string, unknown> | undefined, 'paths.');
+        validateServerLocations(spec.paths as Record<string, OpenApiValue> | undefined, 'paths.');
         /* v8 ignore next */
-        validateServerLocations(spec.webhooks as Record<string, unknown> | undefined, 'webhooks.');
+        validateServerLocations(spec.webhooks as Record<string, OpenApiValue> | undefined, 'webhooks.');
         /* v8 ignore next */
         if (Object.keys(callbackPaths).length > 0) {
             /* v8 ignore next */
@@ -3160,9 +3160,9 @@ export function validateSpec(spec: SwaggerSpec): void {
 
     // 6. OperationId Uniqueness (OpenAPI/Swagger)
     /* v8 ignore next */
-    collectOperationIds(spec.paths as Record<string, unknown> | undefined, '');
+    collectOperationIds(spec.paths as Record<string, OpenApiValue> | undefined, '');
     /* v8 ignore next */
-    collectOperationIds(spec.webhooks as Record<string, unknown> | undefined, 'webhooks:');
+    collectOperationIds(spec.webhooks as Record<string, OpenApiValue> | undefined, 'webhooks:');
     /* v8 ignore next */
     if (Object.keys(callbackPaths).length > 0) {
         /* v8 ignore next */
@@ -3172,19 +3172,19 @@ export function validateSpec(spec: SwaggerSpec): void {
     /* v8 ignore next */
     if (isOpenApi3 && spec.components?.pathItems) {
         /* v8 ignore next */
-        collectOperationIds(spec.components.pathItems as unknown as Record<string, unknown>, 'components.pathItems:');
+        collectOperationIds(spec.components.pathItems as OpenApiValue as Record<string, OpenApiValue>, 'components.pathItems:');
     }
 
     /* v8 ignore next */
     if (isOpenApi3 && spec.components?.webhooks) {
         /* v8 ignore next */
-        collectOperationIds(spec.components.webhooks as unknown as Record<string, unknown>, 'components.webhooks:');
+        collectOperationIds(spec.components.webhooks as OpenApiValue as Record<string, OpenApiValue>, 'components.webhooks:');
     }
 
     /* v8 ignore next */
     if (isOpenApi3 && spec.components?.callbacks) {
         /* v8 ignore next */
-        for (const [name, callbackObj] of Object.entries(spec.components.callbacks as Record<string, unknown>)) {
+        for (const [name, callbackObj] of Object.entries(spec.components.callbacks as Record<string, OpenApiValue>)) {
             /* v8 ignore next */
             /* v8 ignore start */
             if (!callbackObj || typeof callbackObj !== 'object') continue;
@@ -3194,7 +3194,7 @@ export function validateSpec(spec: SwaggerSpec): void {
             if (isRefLike(callbackObj)) continue;
             /* v8 ignore stop */
             /* v8 ignore next */
-            collectOperationIds(callbackObj as Record<string, unknown>, `components.callbacks.${name}:`);
+            collectOperationIds(callbackObj as Record<string, OpenApiValue>, `components.callbacks.${name}:`);
         }
     }
 
@@ -3215,7 +3215,7 @@ export function validateSpec(spec: SwaggerSpec): void {
         /* v8 ignore next */
         for (const [name, paramObj] of Object.entries(spec.components.parameters)) {
             /* v8 ignore next */
-            const param = paramObj as Record<string, unknown>;
+            const param = paramObj as Record<string, OpenApiValue>;
             /* v8 ignore next */
             if (!param || typeof param !== 'object') {
                 /* v8 ignore next */
@@ -3288,7 +3288,7 @@ export function validateSpec(spec: SwaggerSpec): void {
                 /* v8 ignore next */
                 /* v8 ignore next */
                 /* v8 ignore start */
-                Object.entries(param.examples as Record<string, unknown>).forEach(([exampleName, example]) => {
+                Object.entries(param.examples as Record<string, OpenApiValue>).forEach(([exampleName, example]) => {
                     /* v8 ignore stop */
                     /* v8 ignore next */
                     /* v8 ignore next */
@@ -3399,7 +3399,7 @@ export function validateSpec(spec: SwaggerSpec): void {
             /* v8 ignore next */
             if (param.content) {
                 /* v8 ignore next */
-                validateContentMap(param.content as Record<string, unknown>, `components.parameters.${name}.content`);
+                validateContentMap(param.content as Record<string, OpenApiValue>, `components.parameters.${name}.content`);
             }
         }
     }
@@ -3409,13 +3409,13 @@ export function validateSpec(spec: SwaggerSpec): void {
         /* v8 ignore next */
         if (spec.components.headers) {
             /* v8 ignore next */
-            validateHeadersMap(spec.components.headers as Record<string, unknown>, 'components.headers', isOpenApi3);
+            validateHeadersMap(spec.components.headers as Record<string, OpenApiValue>, 'components.headers', isOpenApi3);
         }
 
         /* v8 ignore next */
         if (spec.components.links) {
             /* v8 ignore next */
-            validateLinksMap(spec.components.links as Record<string, unknown>, 'components.links');
+            validateLinksMap(spec.components.links as Record<string, OpenApiValue>, 'components.links');
         }
 
         /* v8 ignore next */
@@ -3448,7 +3448,7 @@ export function validateSpec(spec: SwaggerSpec): void {
         /* v8 ignore next */
         if (spec.components.callbacks) {
             /* v8 ignore next */
-            for (const [name, callbackObj] of Object.entries(spec.components.callbacks as Record<string, unknown>)) {
+            for (const [name, callbackObj] of Object.entries(spec.components.callbacks as Record<string, OpenApiValue>)) {
                 /* v8 ignore next */
                 /* v8 ignore start */
                 if (!callbackObj || typeof callbackObj !== 'object') continue;
@@ -3474,7 +3474,7 @@ export function validateSpec(spec: SwaggerSpec): void {
                 }
 
                 /* v8 ignore next */
-                Object.entries(callbackObj as Record<string, unknown>).forEach(([expression, callbackPathItem]) => {
+                Object.entries(callbackObj as Record<string, OpenApiValue>).forEach(([expression, callbackPathItem]) => {
                     /* v8 ignore next */
                     validateCallbackExpression(expression, `components.callbacks.${name}.${expression}`);
                     /* v8 ignore next */
@@ -3491,7 +3491,7 @@ export function validateSpec(spec: SwaggerSpec): void {
         if (spec.components.pathItems) {
             /* v8 ignore next */
             validateOperationsContent(
-                spec.components.pathItems as Record<string, unknown>,
+                spec.components.pathItems as Record<string, OpenApiValue>,
                 'components.pathItems.',
                 isOpenApi3,
             );
@@ -3501,7 +3501,7 @@ export function validateSpec(spec: SwaggerSpec): void {
         if (spec.components.webhooks) {
             /* v8 ignore next */
             validateOperationsContent(
-                spec.components.webhooks as Record<string, unknown>,
+                spec.components.webhooks as Record<string, OpenApiValue>,
                 'components.webhooks.',
                 isOpenApi3,
             );
@@ -3511,7 +3511,7 @@ export function validateSpec(spec: SwaggerSpec): void {
         if (spec.components.responses) {
             /* v8 ignore next */
             validateComponentResponses(
-                spec.components.responses as Record<string, unknown>,
+                spec.components.responses as Record<string, OpenApiValue>,
                 'components.responses',
                 isOpenApi3,
             );
@@ -3559,8 +3559,8 @@ export function validateSpec(spec: SwaggerSpec): void {
             /* v8 ignore next */
             for (const type of componentTypes) {
                 /* v8 ignore next */
-                const componentGroup = (spec.components as Record<string, unknown>)[type] as
-                    | Record<string, unknown>
+                const componentGroup = (spec.components as Record<string, OpenApiValue>)[type] as
+                    | Record<string, OpenApiValue>
                     | undefined;
                 /* v8 ignore next */
                 if (componentGroup) {
@@ -3592,7 +3592,7 @@ export function validateSpec(spec: SwaggerSpec): void {
         if (spec.components?.securitySchemes) {
             /* v8 ignore next */
             validateSecuritySchemes(
-                spec.components.securitySchemes as Record<string, unknown>,
+                spec.components.securitySchemes as Record<string, OpenApiValue>,
                 'components.securitySchemes',
                 true,
             );

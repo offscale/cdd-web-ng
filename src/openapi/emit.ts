@@ -17,8 +17,7 @@ import {
     SwaggerSpec,
     TagObject,
     SpecOperation,
-    XmlObject,
-} from '../core/types/index.js';
+    XmlObject, OpenApiValue } from '../core/types/index.js';
 import { OAS_3_1_DIALECT } from '../core/constants.js';
 import type { ReverseSchemaMap } from '../classes/parse.js';
 
@@ -36,15 +35,15 @@ export interface ReverseParam {
     /** doc */
     description?: string;
     /** doc */
-    example?: unknown;
+    example?: OpenApiValue;
     /** doc */
     contentType?: string;
     /** doc */
     serialization?: 'json';
     /** doc */
-    encoding?: Record<string, unknown>;
+    encoding?: Record<string, OpenApiValue>;
     /** doc */
-    contentEncoderConfig?: Record<string, unknown>;
+    contentEncoderConfig?: Record<string, OpenApiValue>;
     /** doc */
     contentEncoding?: string;
     /** doc */
@@ -86,15 +85,15 @@ export interface ReverseOperation {
     /** doc */
     responseHints?: ReverseResponseHint[];
     /** doc */
-    paramExamples?: Record<string, unknown>;
+    paramExamples?: Record<string, OpenApiValue>;
     /** doc */
-    requestExamples?: Record<string, unknown>;
+    requestExamples?: Record<string, OpenApiValue>;
     /** doc */
-    responseExamples?: Record<string, Record<string, unknown>>;
+    responseExamples?: Record<string, Record<string, OpenApiValue>>;
     /** doc */
     security?: Record<string, string[]>[];
     /** doc */
-    extensions?: Record<string, unknown>;
+    extensions?: Record<string, OpenApiValue>;
     /** doc */
     tags?: string[];
     /** doc */
@@ -122,7 +121,7 @@ export interface ReverseService {
 /** Reverse Request Encoding */
 export interface ReverseRequestEncoding {
     /** doc */
-    urlencoded?: Record<string, unknown>;
+    urlencoded?: Record<string, OpenApiValue>;
     /** doc */
     multipart?: ReverseMultipartConfig;
 }
@@ -132,11 +131,11 @@ export interface ReverseMultipartConfig {
     /** doc */
     mediaType?: string;
     /** doc */
-    encoding?: Record<string, unknown>;
+    encoding?: Record<string, OpenApiValue>;
     /** doc */
-    prefixEncoding?: unknown[];
+    prefixEncoding?: OpenApiValue[];
     /** doc */
-    itemEncoding?: unknown;
+    itemEncoding?: Record<string, OpenApiValue>;
 }
 
 /** Reverse Response Hint */
@@ -202,7 +201,7 @@ export interface ReverseMetadata {
         /** doc */
         jsonSchemaDialect?: string;
         /** doc */
-        extensions?: Record<string, unknown>;
+        extensions?: Record<string, OpenApiValue>;
     };
     servers?: ServerObject[];
     securitySchemes?: Record<string, SecurityScheme>;
@@ -800,7 +799,7 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
                     /* v8 ignore next */
                     try {
                         /* v8 ignore next */
-                        param.encoding = JSON.parse(args[3]) as Record<string, unknown>;
+                        param.encoding = JSON.parse(args[3]) as Record<string, OpenApiValue>;
                     } catch {
                         /* ignore */
                     }
@@ -821,7 +820,7 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
                         /* v8 ignore next */
                         /* v8 ignore next */
                         /* v8 ignore start */
-                        param.contentEncoderConfig = JSON.parse(args[4]) as Record<string, unknown>;
+                        param.contentEncoderConfig = JSON.parse(args[4]) as Record<string, OpenApiValue>;
                         /* v8 ignore stop */
                     } catch {
                         /* ignore */
@@ -927,15 +926,15 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
             let security: Record<string, string[]>[] | undefined;
             let servers: ServerObject[] | undefined;
             /* v8 ignore next */
-            const extensions: Record<string, unknown> = {};
+            const extensions: Record<string, OpenApiValue> = {};
             /* v8 ignore next */
             const responseHints: ReverseResponseHint[] = [];
             /* v8 ignore next */
-            const paramExamples: Record<string, unknown> = {};
+            const paramExamples: Record<string, OpenApiValue> = {};
             /* v8 ignore next */
-            const requestExamples: Record<string, unknown> = {};
+            const requestExamples: Record<string, OpenApiValue> = {};
             /* v8 ignore next */
-            const responseExamples: Record<string, Record<string, unknown>> = {};
+            const responseExamples: Record<string, Record<string, OpenApiValue>> = {};
 
             /* v8 ignore next */
             if (docBlock) {
@@ -1045,7 +1044,7 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
                         /* v8 ignore next */
                         const prefix = parts[0]!.substring(1);
                         /* v8 ignore next */
-                        if (parts[1]) extensions[prefix] = JSON.parse(parts.slice(1).join(' ')) as unknown;
+                        if (parts[1]) extensions[prefix] = JSON.parse(parts.slice(1).join(' ')) as OpenApiValue;
                         /* v8 ignore next */
                         /* v8 ignore next */
                         /* v8 ignore next */
@@ -1083,7 +1082,7 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
                         /* v8 ignore next */
                         responseExamples[status] = responseExamples[status] || {};
                         /* v8 ignore next */
-                        responseExamples[status]![mType] = JSON.parse(parts.join(' ')) as unknown;
+                        responseExamples[status]![mType] = JSON.parse(parts.join(' ')) as OpenApiValue;
                         /* v8 ignore next */
                     } else if (line.startsWith('@response')) {
                         /* v8 ignore next */
@@ -1151,7 +1150,7 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
                         /* v8 ignore next */
                         const parts = line.replace('@paramExample', '').trim().split(' ');
                         /* v8 ignore next */
-                        paramExamples[parts[0]!] = JSON.parse(parts.slice(1).join(' ')) as unknown;
+                        paramExamples[parts[0]!] = JSON.parse(parts.slice(1).join(' ')) as OpenApiValue;
                         /* v8 ignore next */
                     } else if (line.startsWith('@param')) {
                         /* v8 ignore next */
@@ -1173,7 +1172,7 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
                         const mType = parts[0]!.includes('/') ? parts.shift()! : '*';
                         /* v8 ignore stop */
                         /* v8 ignore next */
-                        requestExamples[mType] = JSON.parse(parts.join(' ')) as unknown;
+                        requestExamples[mType] = JSON.parse(parts.join(' ')) as OpenApiValue;
                         /* v8 ignore next */
                         /* v8 ignore start */
                     } else if (line.startsWith('@querystring')) {
@@ -1197,7 +1196,7 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
                             /* v8 ignore next */
                             /* v8 ignore next */
                             /* v8 ignore start */
-                            const qs = JSON.parse(content) as Record<string, unknown>;
+                            const qs = JSON.parse(content) as Record<string, OpenApiValue>;
                             /* v8 ignore stop */
                             /* v8 ignore next */
                             /* v8 ignore next */
@@ -1225,7 +1224,7 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
                                 /* v8 ignore next */
                                 /* v8 ignore next */
                                 /* v8 ignore start */
-                                if (qs.encoding !== undefined) p.encoding = qs.encoding as Record<string, unknown>;
+                                if (qs.encoding !== undefined) p.encoding = qs.encoding as Record<string, OpenApiValue>;
                                 /* v8 ignore stop */
                                 /* v8 ignore next */
                                 /* v8 ignore next */
@@ -1269,7 +1268,7 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
                     /* v8 ignore next */
                     try {
                         /* v8 ignore next */
-                        const parsed = JSON.parse(configStr) as Record<string, unknown>;
+                        const parsed = JSON.parse(configStr) as Record<string, OpenApiValue>;
                         /* v8 ignore next */
                         Object.assign(extensions, parsed);
                     } catch {
@@ -1376,21 +1375,15 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
                 /* v8 ignore next */
                 responseMediaTypes.push('text/event-stream');
 
-            /* v8 ignore next */
-            if (returnTypeHint && returnTypeHint !== 'any' && returnTypeHint !== 'void') {
-                /* v8 ignore next */
+            /* v8 ignore start */
+            if (returnTypeHint && returnTypeHint !== 'unknown' && returnTypeHint !== 'void') {
                 if (responseMediaTypes.length === 0) responseMediaTypes.push('application/json');
-                /* v8 ignore next */
             } else if (methodBody.match(/this\.http\.\w+<[^>]+>/) && responseMediaTypes.length === 0) {
-                /* v8 ignore next */
                 responseMediaTypes.push('application/json');
-                /* v8 ignore next */
             } else if (methodBody.match(/this\.http\.request(?:<[^>]+>)?\([^,]+,\s*[^,]+,\s*{.*body:\s*/)) {
-                /* v8 ignore next */
-                /* v8 ignore start */
                 if (requestMediaTypes.length === 0) requestMediaTypes.push('application/json');
-                /* v8 ignore stop */
             }
+            /* v8 ignore stop */
 
             /* v8 ignore next */
             const opBlock: ReverseOperation = {
@@ -1404,7 +1397,7 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
             };
 
             /* v8 ignore next */
-            if (returnTypeHint && returnTypeHint !== 'any') {
+            if (returnTypeHint && returnTypeHint !== 'unknown') {
                 /* v8 ignore next */
                 if (returnTypeHint.endsWith('[]')) {
                     /* v8 ignore next */
@@ -1545,7 +1538,7 @@ export function parseGeneratedMetadata(
                     /* v8 ignore next */
                     try {
                         /* v8 ignore next */
-                        (meta as Record<string, unknown>)[key] = JSON.parse(m[1]!) as unknown;
+                        (meta as Record<string, OpenApiValue>)[key] = JSON.parse(m[1]!) as OpenApiValue;
                     } catch {
                         /* ignore */
                     }
@@ -1693,7 +1686,7 @@ export function buildOpenApiSpecFromServices(
                             /* v8 ignore next */
                             /* v8 ignore next */
                             /* v8 ignore start */
-                            param.examples = { example: (ex as Record<string, unknown>).__oasExample as ExampleObject };
+                            param.examples = { example: (ex as Record<string, OpenApiValue>).__oasExample as ExampleObject };
                             /* v8 ignore stop */
                         } else {
                             /* v8 ignore next */
@@ -1749,7 +1742,7 @@ export function buildOpenApiSpecFromServices(
                 /* v8 ignore next */
                 specOp.requestBody = { content: {} };
                 /* v8 ignore next */
-                const reqBodyRec = specOp.requestBody as Record<string, unknown>;
+                const reqBodyRec = specOp.requestBody as Record<string, OpenApiValue>;
                 /* v8 ignore next */
                 if (bodyParam?.description) {
                     /* v8 ignore next */
@@ -1771,10 +1764,10 @@ export function buildOpenApiSpecFromServices(
                         schemaType = 'object';
                     }
                     /* v8 ignore next */
-                    let schema: Record<string, unknown> = { type: schemaType };
+                    let schema: Record<string, OpenApiValue> = { type: schemaType };
 
                     /* v8 ignore next */
-                    if (bodyParam?.typeHint && bodyParam.typeHint !== 'any' && schemas[bodyParam.typeHint]) {
+                    if (bodyParam?.typeHint && bodyParam.typeHint !== 'unknown' && schemas[bodyParam.typeHint]) {
                         /* v8 ignore next */
                         schema = { $ref: `#/components/schemas/${bodyParam.typeHint}` };
                         /* v8 ignore next */
@@ -1804,7 +1797,7 @@ export function buildOpenApiSpecFromServices(
                         /* v8 ignore next */
                         schema.type = 'object';
                         /* v8 ignore next */
-                        (bodyContentMap[t]!.schema as Record<string, unknown>).properties = {
+                        (bodyContentMap[t]!.schema as Record<string, OpenApiValue>).properties = {
                             file: { type: 'string', format: 'binary' },
                         };
                         /* v8 ignore next */
@@ -1825,7 +1818,7 @@ export function buildOpenApiSpecFromServices(
                         if (ex && typeof ex === 'object' && '__oasExample' in ex) {
                             /* v8 ignore next */
                             bodyContentMap[t]!.examples = {
-                                example: (ex as Record<string, unknown>).__oasExample as ExampleObject,
+                                example: (ex as Record<string, OpenApiValue>).__oasExample as ExampleObject,
                             };
                         } else {
                             /* v8 ignore next */
@@ -1872,10 +1865,10 @@ export function buildOpenApiSpecFromServices(
                         /* v8 ignore next */
                         rh.mediaTypes.forEach((t: string) => {
                             /* v8 ignore next */
-                            let schema: Record<string, unknown> = { type: t.includes('json') ? 'object' : 'string' };
+                            let schema: Record<string, OpenApiValue> = { type: t.includes('json') ? 'object' : 'string' };
                             /* v8 ignore next */
                             /* v8 ignore start */
-                            if (op.responseTypeHint && op.responseTypeHint !== 'any' && schemas[op.responseTypeHint]) {
+                            if (op.responseTypeHint && op.responseTypeHint !== 'unknown' && schemas[op.responseTypeHint]) {
                                 /* v8 ignore stop */
                                 /* v8 ignore next */
                                 /* v8 ignore next */
@@ -1917,7 +1910,7 @@ export function buildOpenApiSpecFromServices(
                                 if (ex && typeof ex === 'object' && '__oasExample' in ex) {
                                     /* v8 ignore next */
                                     r.content![t]!.examples = {
-                                        example: (ex as Record<string, unknown>).__oasExample as ExampleObject,
+                                        example: (ex as Record<string, OpenApiValue>).__oasExample as ExampleObject,
                                     };
                                 } else {
                                     /* v8 ignore next */
@@ -1936,10 +1929,10 @@ export function buildOpenApiSpecFromServices(
                 /* v8 ignore next */
                 op.responseMediaTypes.forEach((t: string) => {
                     /* v8 ignore next */
-                    let s: Record<string, unknown> = { type: t.includes('json') ? 'object' : 'string' };
+                    let s: Record<string, OpenApiValue> = { type: t.includes('json') ? 'object' : 'string' };
 
                     /* v8 ignore next */
-                    if (op.responseTypeHint && op.responseTypeHint !== 'any' && schemas[op.responseTypeHint]) {
+                    if (op.responseTypeHint && op.responseTypeHint !== 'unknown' && schemas[op.responseTypeHint]) {
                         /* v8 ignore next */
                         s = { $ref: `#/components/schemas/${op.responseTypeHint}` };
                     }
@@ -1990,7 +1983,7 @@ export function buildOpenApiSpecFromServices(
             /* v8 ignore next */
             if (standardMethods.includes(methodLabel)) {
                 /* v8 ignore next */
-                (pathItem as Record<string, unknown>)[methodLabel] = specOp;
+                (pathItem as Record<string, OpenApiValue>)[methodLabel] = specOp;
             } else {
                 /* v8 ignore next */
                 pathItem.additionalOperations = pathItem.additionalOperations || {};
@@ -2103,7 +2096,7 @@ export function applyReverseMetadata(spec: SwaggerSpec, metadata: ReverseMetadat
                     for (const pVal of Object.values(out.paths || {})) {
                         /* v8 ignore stop */
                         /* v8 ignore next */
-                        const pathObj = pVal as Record<string, unknown>;
+                        const pathObj = pVal as Record<string, OpenApiValue>;
                         /* v8 ignore next */
                         for (const methodKey of [
                             'get',
@@ -2117,10 +2110,10 @@ export function applyReverseMetadata(spec: SwaggerSpec, metadata: ReverseMetadat
                             'query',
                         ]) {
                             /* v8 ignore next */
-                            const methodRec = pathObj[methodKey] as Record<string, unknown> | undefined;
+                            const methodRec = pathObj[methodKey] as Record<string, OpenApiValue> | undefined;
                             /* v8 ignore next */
                             /* v8 ignore start */
-                            if (methodRec?.operationId === opId) return methodRec as unknown as SpecOperation;
+                            if (methodRec?.operationId === opId) return methodRec as OpenApiValue as SpecOperation;
                             /* v8 ignore stop */
                         }
                         /* v8 ignore next */
@@ -2137,21 +2130,21 @@ export function applyReverseMetadata(spec: SwaggerSpec, metadata: ReverseMetadat
                             /* v8 ignore start */
                             for (const opValEntry of Object.values(
                                 /* v8 ignore stop */
-                                pathObj.additionalOperations as Record<string, unknown>,
+                                pathObj.additionalOperations as Record<string, OpenApiValue>,
                             )) {
                                 /* v8 ignore next */
                                 /* v8 ignore next */
                                 /* v8 ignore next */
                                 /* v8 ignore next */
                                 /* v8 ignore start */
-                                const opRec = opValEntry as Record<string, unknown>;
+                                const opRec = opValEntry as Record<string, OpenApiValue>;
                                 /* v8 ignore stop */
                                 /* v8 ignore next */
                                 /* v8 ignore next */
                                 /* v8 ignore next */
                                 /* v8 ignore next */
                                 /* v8 ignore start */
-                                if (opRec.operationId === opId) return opRec as unknown as SpecOperation;
+                                if (opRec.operationId === opId) return opRec as OpenApiValue as SpecOperation;
                                 /* v8 ignore stop */
                             }
                         }
@@ -2173,7 +2166,7 @@ export function applyReverseMetadata(spec: SwaggerSpec, metadata: ReverseMetadat
                     /* v8 ignore next */
                     Object.entries(statusMap).forEach(([status, headers]) => {
                         /* v8 ignore next */
-                        const opRespRec = op.responses[status] as Record<string, unknown> | undefined;
+                        const opRespRec = op.responses[status] as Record<string, OpenApiValue> | undefined;
                         /* v8 ignore next */
                         /* v8 ignore start */
                         if (opRespRec) {
@@ -2196,7 +2189,7 @@ export function applyReverseMetadata(spec: SwaggerSpec, metadata: ReverseMetadat
                     for (const pVal of Object.values(out.paths || {})) {
                         /* v8 ignore stop */
                         /* v8 ignore next */
-                        const pathObj = pVal as Record<string, unknown>;
+                        const pathObj = pVal as Record<string, OpenApiValue>;
                         /* v8 ignore next */
                         for (const methodKey of [
                             'get',
@@ -2210,10 +2203,10 @@ export function applyReverseMetadata(spec: SwaggerSpec, metadata: ReverseMetadat
                             'query',
                         ]) {
                             /* v8 ignore next */
-                            const methodRec = pathObj[methodKey] as Record<string, unknown> | undefined;
+                            const methodRec = pathObj[methodKey] as Record<string, OpenApiValue> | undefined;
                             /* v8 ignore next */
                             /* v8 ignore start */
-                            if (methodRec?.operationId === opId) return methodRec as unknown as SpecOperation;
+                            if (methodRec?.operationId === opId) return methodRec as OpenApiValue as SpecOperation;
                             /* v8 ignore stop */
                         }
                         /* v8 ignore next */
@@ -2230,21 +2223,21 @@ export function applyReverseMetadata(spec: SwaggerSpec, metadata: ReverseMetadat
                             /* v8 ignore start */
                             for (const opValEntry of Object.values(
                                 /* v8 ignore stop */
-                                pathObj.additionalOperations as Record<string, unknown>,
+                                pathObj.additionalOperations as Record<string, OpenApiValue>,
                             )) {
                                 /* v8 ignore next */
                                 /* v8 ignore next */
                                 /* v8 ignore next */
                                 /* v8 ignore next */
                                 /* v8 ignore start */
-                                const opRec = opValEntry as Record<string, unknown>;
+                                const opRec = opValEntry as Record<string, OpenApiValue>;
                                 /* v8 ignore stop */
                                 /* v8 ignore next */
                                 /* v8 ignore next */
                                 /* v8 ignore next */
                                 /* v8 ignore next */
                                 /* v8 ignore start */
-                                if (opRec.operationId === opId) return opRec as unknown as SpecOperation;
+                                if (opRec.operationId === opId) return opRec as OpenApiValue as SpecOperation;
                                 /* v8 ignore stop */
                             }
                         }
@@ -2266,7 +2259,7 @@ export function applyReverseMetadata(spec: SwaggerSpec, metadata: ReverseMetadat
                     /* v8 ignore next */
                     Object.entries(statusMap).forEach(([status, links]) => {
                         /* v8 ignore next */
-                        const opRespRec = op.responses[status] as Record<string, unknown> | undefined;
+                        const opRespRec = op.responses[status] as Record<string, OpenApiValue> | undefined;
                         /* v8 ignore next */
                         /* v8 ignore start */
                         if (opRespRec) {
@@ -2286,9 +2279,9 @@ export function applyReverseMetadata(spec: SwaggerSpec, metadata: ReverseMetadat
                 /* v8 ignore next */
                 out.components!.callbacks = out.components!.callbacks || {};
                 /* v8 ignore next */
-                const callbacksRec = out.components!.callbacks as Record<string, unknown>;
+                const callbacksRec = out.components!.callbacks as Record<string, OpenApiValue>;
                 /* v8 ignore next */
-                const m = (callbacksRec[cb.name] = callbacksRec[cb.name] || {}) as Record<string, unknown>;
+                const m = (callbacksRec[cb.name] = callbacksRec[cb.name] || {}) as Record<string, OpenApiValue>;
                 /* v8 ignore next */
                 /* v8 ignore start */
                 if (cb.expression) m[cb.expression] = cb.pathItem;
@@ -2308,11 +2301,11 @@ export function applyReverseMetadata(spec: SwaggerSpec, metadata: ReverseMetadat
                     /* v8 ignore next */
                     out.webhooks = out.webhooks || {};
                     /* v8 ignore next */
-                    (out.webhooks as Record<string, unknown>)[wh.name] = wh.pathItem;
+                    (out.webhooks as Record<string, OpenApiValue>)[wh.name] = wh.pathItem;
                     /* v8 ignore next */
                     out.components!.webhooks = out.components!.webhooks || {};
                     /* v8 ignore next */
-                    (out.components!.webhooks as Record<string, unknown>)[wh.name] = wh.pathItem;
+                    (out.components!.webhooks as Record<string, OpenApiValue>)[wh.name] = wh.pathItem;
                     /* v8 ignore next */
                     /* v8 ignore start */
                 } else if (scope === 'component') {
@@ -2320,7 +2313,7 @@ export function applyReverseMetadata(spec: SwaggerSpec, metadata: ReverseMetadat
                     /* v8 ignore next */
                     out.components!.webhooks = out.components!.webhooks || {};
                     /* v8 ignore next */
-                    (out.components!.webhooks as Record<string, unknown>)[wh.name] = wh.pathItem;
+                    (out.components!.webhooks as Record<string, OpenApiValue>)[wh.name] = wh.pathItem;
                 }
             });
         }

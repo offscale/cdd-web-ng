@@ -4,7 +4,7 @@ import { Project } from 'ts-morph';
 
 import { TypeGenerator } from '@src/classes/emit.js';
 import { SwaggerParser } from '@src/openapi/parse.js';
-import { GeneratorConfig } from '@src/core/types/index.js';
+import { GeneratorConfig, OpenApiValue } from '@src/core/types/index.js';
 
 const typeGenSpec = {
     openapi: '3.0.0',
@@ -194,7 +194,7 @@ describe('Emitter: TypeGenerator', () => {
 
             const indexSig = iface.getIndexSignatures()[0];
             expect(indexSig).toBeDefined();
-            expect(indexSig.getReturnType().getText()).toContain('any');
+            expect(indexSig.getReturnType().getText()).toContain('unknown');
         });
 
         it('should generate specific index signature if unevaluatedProperties has schema', () => {

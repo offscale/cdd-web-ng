@@ -299,7 +299,7 @@ export class CustomValidatorsGenerator {
                         .writeLine(
                             "const isString = (value: Record<string, never> | string | number | boolean | null): value is string => typeof value === 'string';",
                         )
-                        .writeLine('const deepEqual = (left: unknown, right: unknown): boolean => {')
+                        .writeLine('const deepEqual = (left: Record<string, never> | string | number | boolean | null, right: Record<string, never> | string | number | boolean | null): boolean => {')
                         .indent(() => {
                             /* v8 ignore next */
                             writer.writeLine('if (Object.is(left, right)) return true;');
@@ -404,7 +404,7 @@ export class CustomValidatorsGenerator {
                         })
                         .writeLine('};')
                         .writeLine(
-                            'const matchesSchema = (value: Record<string, never> | string | number | boolean | null, schemaValue: unknown): boolean => {',
+                            'const matchesSchema = (value: Record<string, never> | string | number | boolean | null, schemaValue: Record<string, never> | string | number | boolean | null): boolean => {',
                         )
                         .indent(() => {
                             /* v8 ignore next */
@@ -422,9 +422,9 @@ export class CustomValidatorsGenerator {
                                 /* v8 ignore next */
                                 writer.writeLine('type?: string | string[];');
                                 /* v8 ignore next */
-                                writer.writeLine('const?: unknown;');
+                                writer.writeLine('const?: Record<string, never> | string | number | boolean | null;');
                                 /* v8 ignore next */
-                                writer.writeLine('enum?: unknown[];');
+                                writer.writeLine('enum?: Array<Record<string, never> | string | number | boolean | null>;');
                                 /* v8 ignore next */
                                 writer.writeLine('pattern?: string;');
                                 /* v8 ignore next */

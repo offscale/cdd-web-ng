@@ -6,8 +6,7 @@ import {
     PathInfo,
     Resource,
     ResourceOperation,
-    SwaggerDefinition,
-} from '@src/core/types/index.js';
+    SwaggerDefinition, OpenApiValue } from '@src/core/types/index.js';
 import { camelCase, pascalCase, singular } from '@src/functions/utils.js';
 
 function getMethodName(op: PathInfo): string {
@@ -136,7 +135,7 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
     operations.forEach(op => {
         /* v8 ignore next */
         const reqSchema = findSchema(
-            op.requestBody?.content?.['application/json']?.schema as unknown as SwaggerDefinition,
+            op.requestBody?.content?.['application/json']?.schema as OpenApiValue as SwaggerDefinition,
             parser,
         );
         /* v8 ignore next */
@@ -145,11 +144,11 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
         /* v8 ignore next */
         const formSchemas = [
             findSchema(
-                op.requestBody?.content?.['multipart/form-data']?.schema as unknown as SwaggerDefinition,
+                op.requestBody?.content?.['multipart/form-data']?.schema as OpenApiValue as SwaggerDefinition,
                 parser,
             ),
             findSchema(
-                op.requestBody?.content?.['application/x-www-form-urlencoded']?.schema as unknown as SwaggerDefinition,
+                op.requestBody?.content?.['application/x-www-form-urlencoded']?.schema as OpenApiValue as SwaggerDefinition,
                 parser,
             ),
         ].filter(Boolean) as SwaggerDefinition[];
@@ -189,11 +188,11 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
         const resSchema =
             /* v8 ignore next */
             findSchema(
-                op.responses?.['200']?.content?.['application/json']?.schema as unknown as SwaggerDefinition,
+                op.responses?.['200']?.content?.['application/json']?.schema as OpenApiValue as SwaggerDefinition,
                 parser,
             ) ??
             findSchema(
-                op.responses?.['201']?.content?.['application/json']?.schema as unknown as SwaggerDefinition,
+                op.responses?.['201']?.content?.['application/json']?.schema as OpenApiValue as SwaggerDefinition,
                 parser,
             );
         /* v8 ignore next */
@@ -266,7 +265,7 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
             /* v8 ignore next */
             schema.allOf.forEach(sub => {
                 /* v8 ignore next */
-                const resolvedSub = findSchema(sub as unknown as SwaggerDefinition, parser);
+                const resolvedSub = findSchema(sub as OpenApiValue as SwaggerDefinition, parser);
                 /* v8 ignore next */
                 if (resolvedSub) {
                     /* v8 ignore next */
@@ -296,7 +295,7 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
     /* v8 ignore next */
     const properties: FormProperty[] = Object.entries(finalSchema.properties!).map(([name, propSchema]) => {
         /* v8 ignore next */
-        const resolvedSchema = findSchema(propSchema as unknown as SwaggerDefinition, parser);
+        const resolvedSchema = findSchema(propSchema as OpenApiValue as SwaggerDefinition, parser);
         const finalPropSchema =
             /* v8 ignore next */
             resolvedSchema && typeof propSchema === 'object'
@@ -307,11 +306,11 @@ export function getFormProperties(operations: PathInfo[], parser: SwaggerParser)
             typeof finalPropSchema === 'object' &&
             finalSchema.required?.includes(name) &&
             // type-coverage:ignore-next-line
-            !(finalPropSchema as unknown as { required?: string[] }).required?.includes(name)
+            !(finalPropSchema as OpenApiValue as { required?: string[] }).required?.includes(name)
         ) {
             // type-coverage:ignore-next-line
             /* v8 ignore next */
-            ((finalPropSchema as unknown as { required?: string[] }).required ||= []).push(name);
+            ((finalPropSchema as OpenApiValue as { required?: string[] }).required ||= []).push(name);
         }
         /* v8 ignore next */
         return { name, schema: finalPropSchema };

@@ -10,7 +10,7 @@ import {
     TypeAliasDeclaration,
     TypeNode,
 } from 'ts-morph';
-import { SwaggerDefinition } from '../core/types/index.js';
+import { SwaggerDefinition, OpenApiValue } from '../core/types/index.js';
 
 /** Map of schema names to reconstructed schema definitions. */
 export type ReverseSchemaMap = Record<string, SwaggerDefinition | boolean>;
@@ -673,7 +673,7 @@ export function schemaFromTypeNode(node: TypeNode): SwaggerDefinition {
             return schemaFromTypeNode((node as import('ts-morph').ParenthesizedTypeNode).getTypeNode());
         case SyntaxKind.TypeOperator: {
             /* v8 ignore next */
-            const typeOp = node as unknown as { getTypeNode?: () => TypeNode };
+            const typeOp = node as OpenApiValue as { getTypeNode?: () => TypeNode };
             /* v8 ignore next */
             /* v8 ignore start */
             return schemaFromTypeNode(typeOp.getTypeNode ? typeOp.getTypeNode!() : node);
@@ -978,14 +978,14 @@ function schemaFromUnion(node: import('ts-morph').UnionTypeNode): SwaggerDefinit
             const [onlyType] = Array.from(types);
             /* v8 ignore next */
             /* v8 ignore start */
-            if (onlyType) (schema as { type?: unknown }).type = onlyType;
+            if (onlyType) (schema as { type?: string | string[] }).type = onlyType;
             /* v8 ignore stop */
             /* v8 ignore next */
             /* v8 ignore start */
         } else if (types.size > 1) {
             /* v8 ignore stop */
             /* v8 ignore next */
-            (schema as { type?: unknown }).type = Array.from(types);
+            (schema as { type?: string | string[] }).type = Array.from(types);
         }
         /* v8 ignore next */
         return schema;
@@ -1037,9 +1037,9 @@ function allLiteralTypes(nodes: TypeNode[]): boolean {
     return nodes.every(node => node.getKind() === SyntaxKind.LiteralType);
 }
 
-function extractEnumValues(literals: SwaggerDefinition[]): unknown[] {
+function extractEnumValues(literals: SwaggerDefinition[]): OpenApiValue[] {
     /* v8 ignore next */
-    const values: unknown[] = [];
+    const values: OpenApiValue[] = [];
     /* v8 ignore next */
     literals.forEach(schema => {
         /* v8 ignore next */
@@ -1173,7 +1173,7 @@ function applyNullability(schema: SwaggerDefinition): SwaggerDefinition {
 
 function applyDocs(schema: SwaggerDefinition, node: Node): void {
     /* v8 ignore next */
-    const nodeAsAny = node as unknown as { getJsDocs?: () => import('ts-morph').JSDoc[] };
+    const nodeAsAny = node as OpenApiValue as { getJsDocs?: () => import('ts-morph').JSDoc[] };
     /* v8 ignore next */
     /* v8 ignore start */
     const jsDocs = nodeAsAny.getJsDocs ? nodeAsAny.getJsDocs() : [];
@@ -1184,7 +1184,7 @@ function applyDocs(schema: SwaggerDefinition, node: Node): void {
     /* v8 ignore next */
     const primaryDoc = jsDocs[0];
     /* v8 ignore next */
-    const exampleValues: unknown[] = [];
+    const exampleValues: OpenApiValue[] = [];
 
     /* v8 ignore next */
     const description = primaryDoc.getDescription().trim();
@@ -1276,7 +1276,7 @@ function applyDocs(schema: SwaggerDefinition, node: Node): void {
         /* v8 ignore next */
         const rawValue = text ? parseDocValue(text) : true;
         /* v8 ignore next */
-        const schemaRec = schema as Record<string, unknown>;
+        const schemaRec = schema as Record<string, OpenApiValue>;
 
         /* v8 ignore next */
         /* v8 ignore start */
@@ -1802,7 +1802,7 @@ function applyDocs(schema: SwaggerDefinition, node: Node): void {
     }
 }
 
-function asNumber(value: unknown): number | undefined {
+function asNumber(value: OpenApiValue): number | undefined {
     /* v8 ignore next */
     if (typeof value === 'number' && !Number.isNaN(value)) return value;
 
@@ -1817,7 +1817,7 @@ function asNumber(value: unknown): number | undefined {
     return undefined;
 }
 
-function asBoolean(value: unknown): boolean {
+function asBoolean(value: OpenApiValue): boolean {
     /* v8 ignore next */
     if (typeof value === 'boolean') return value;
 
@@ -1832,7 +1832,7 @@ function asBoolean(value: unknown): boolean {
     return Boolean(value);
 }
 
-function parseDocValue(value: string): unknown {
+function parseDocValue(value: string): OpenApiValue {
     /* v8 ignore next */
     try {
         /* v8 ignore next */

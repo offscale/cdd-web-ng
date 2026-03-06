@@ -4,7 +4,7 @@ import { Project } from 'ts-morph';
 
 import { TypeGenerator } from '@src/classes/emit.js';
 import { SwaggerParser } from '@src/openapi/parse.js';
-import { GeneratorConfig } from '@src/core/types/index.js';
+import { GeneratorConfig, OpenApiValue } from '@src/core/types/index.js';
 
 const linkSpec = {
     openapi: '3.0.0',
@@ -48,7 +48,7 @@ describe('Emitter: Link Interface Generation', () => {
 
         const userIdProp = userAddressParams.getPropertyOrThrow('userId');
         // Use getTypeNodeOrThrow().getText() to check strict signature source, prevent 'any' collapse in assertion
-        expect(userIdProp.getTypeNodeOrThrow().getText()).toBe('string | any');
+        expect(userIdProp.getTypeNodeOrThrow().getText()).toBe('string | unknown');
 
         const docs = userAddressParams.getJsDocs()[0];
         // Trim usage to handle potential newlines inserted by ts-morph formatting

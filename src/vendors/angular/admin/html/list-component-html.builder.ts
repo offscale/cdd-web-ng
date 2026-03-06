@@ -119,8 +119,8 @@ export function generateListComponentHtml(
                     .appendChild(_.create('mat-icon').setTextContent('delete')),
             );
         /* v8 ignore next */
+        /* v8 ignore next */
         for (const action of customItemActions)
-            /* v8 ignore next */
             actionsCell.appendChild(
                 _.create('button')
                     .setAttribute('mat-icon-button', '')

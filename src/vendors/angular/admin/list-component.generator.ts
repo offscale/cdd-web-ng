@@ -112,7 +112,7 @@ export class ListComponentGenerator {
 
         /* v8 ignore next */
         sourceFile.addStatements([
-            `import { Component, ViewChild, AfterViewInit, effect, inject, signal, ChangeDetectionStrategy, DestroyRef } from '@angular/core';`,
+            `import { Component, viewChild, AfterViewInit, effect, inject, signal, ChangeDetectionStrategy, DestroyRef } from '@angular/core';`,
             `import { takeUntilDestroyed } from '@angular/core/rxjs-interop';`,
             `import { MatPaginator, PageEvent } from '@angular/material/paginator';`,
             `import { MatTableDataSource } from '@angular/material/table';`,
@@ -181,8 +181,8 @@ export class ListComponentGenerator {
             },
             { name: 'destroyRef', scope: Scope.Private, isReadonly: true, initializer: 'inject(DestroyRef)' },
             {
-                name: `paginator!: MatPaginator`,
-                decorators: [{ name: 'ViewChild', arguments: ['MatPaginator'] }],
+                name: 'paginator',
+                initializer: 'viewChild.required(MatPaginator)',
             },
             {
                 name: 'dataSource',
@@ -213,7 +213,7 @@ export class ListComponentGenerator {
                     writer.writeLine(`if (!this.isViewInitialized()) { return; }`);
                     /* v8 ignore next */
                     writer
-                        .writeLine('this.paginator.page.pipe(')
+                        .writeLine('this.paginator().page.pipe(')
                         .indent(() => {
                             /* v8 ignore next */
                             writer.writeLine(`startWith({} as PageEvent),`);
@@ -222,9 +222,9 @@ export class ListComponentGenerator {
                             /* v8 ignore next */
                             writer.indent(() => {
                                 /* v8 ignore next */
-                                writer.writeLine(`const page = pageEvent.pageIndex ?? this.paginator.pageIndex;`);
+                                writer.writeLine(`const page = pageEvent.pageIndex ?? this.paginator().pageIndex;`);
                                 /* v8 ignore next */
-                                writer.writeLine(`const limit = pageEvent.pageSize ?? this.paginator.pageSize;`);
+                                writer.writeLine(`const limit = pageEvent.pageSize ?? this.paginator().pageSize;`);
                                 /* v8 ignore next */
                                 writer.writeLine(`const query = { _page: page + 1, _limit: limit };`);
                                 /* v8 ignore next */
@@ -290,12 +290,12 @@ export class ListComponentGenerator {
         /* v8 ignore next */
         componentClass.addMethod({
             name: 'ngAfterViewInit',
-            statements: ['this.dataSource.paginator = this.paginator;', 'this.isViewInitialized.set(true);'],
+            statements: ['this.dataSource.paginator = this.paginator();', 'this.isViewInitialized.set(true);'],
         });
         /* v8 ignore next */
         componentClass.addMethod({
             name: 'refresh',
-            statements: `this.paginator.page.emit({ pageIndex: this.paginator.pageIndex, pageSize: this.paginator.pageSize, length: this.paginator.length });`,
+            statements: `this.paginator().page.emit({ pageIndex: this.paginator().pageIndex, pageSize: this.paginator().pageSize, length: this.paginator().length });`,
         });
     }
 
@@ -365,8 +365,7 @@ export class ListComponentGenerator {
             /* v8 ignore next */
             const body = `this.${camelCase(model.serviceName)}.${action.operation.methodName}(${args}).pipe(
     takeUntilDestroyed(this.destroyRef),
-    catchError((err: unknown) => {
-        console.error('Action failed', err);
+    catchError((err: Error) => {        console.error('Action failed', err);
         this.snackBar.open('Action failed', 'Close', { duration: 5000, panelClass: 'error-snackbar' });
         return of(null);
     })

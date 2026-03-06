@@ -150,7 +150,7 @@ export class ProviderGenerator {
                 },
                 {
                     name: 'interceptors',
-                    type: `(new (...args: unknown[]) => HttpInterceptor)[]`,
+                    type: `(new (...args: Array<string | number | boolean | null>) => HttpInterceptor)[]`,
                     hasQuestionToken: true,
                     docs: ['An array of custom HttpInterceptor classes.'],
                 },

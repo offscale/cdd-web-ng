@@ -1,3 +1,4 @@
+import { OpenApiValue } from "./openapi.js";
 import {
     ExternalDocumentationObject,
     Parameter,
@@ -32,7 +33,7 @@ export interface PathInfo {
     servers?: ServerObject[] | undefined;
     callbacks?: Record<string, PathItem | { $ref: string }>;
 
-    [key: string]: unknown;
+    [key: string]: OpenApiValue;
 }
 
 /** A processed representation of an API operation, classified for UI generation. */

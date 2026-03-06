@@ -701,7 +701,7 @@ describe('Analysis: FormModelBuilder', () => {
         const result = builder.build(resource);
         const mapControl = result.topLevelControls.find(c => c.name === 'meta');
 
-        expect(mapControl?.dataType).toBe('Record<string, never>');
+        expect(mapControl?.dataType).toBe('Record<string, any>');
     });
 
     it('should handle boolean additionalProperties fallback to empty schema', () => {

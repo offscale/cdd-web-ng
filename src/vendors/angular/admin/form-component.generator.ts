@@ -148,7 +148,7 @@ export class FormComponentGenerator {
                     // we search those specifically.
                     /* v8 ignore next */
                     if (!control) {
-                        // Silently fallback to any, assuming it might be handled in sub-type interfaces or not significant for layout
+                        // Silently fallback to Record<string, never>, assuming it might be handled in sub-type interfaces or not significant for layout
                         /* v8 ignore next */
                         return { name: prop.name, type: 'Record<string, never>' };
                     }
@@ -182,7 +182,7 @@ export class FormComponentGenerator {
                         case 'map':
                             // Maps are rendered as FormArray of Key-Value tuples for editing
                             // dataType here is the Value type
-                            // We use `any` for the generic here to simplify avoiding deep recursion in the type definition,
+                            // We use Record<string, never> for the generic here to simplify avoiding deep recursion in the type definition,
                             // since the form logic handles the transformation.
                             /* v8 ignore next */
                             finalType = `FormArray<FormGroup<{ key: FormControl<string | null>, value: FormControl<Record<string, never>> }>>`;
@@ -563,7 +563,7 @@ export class FormComponentGenerator {
             const arrayGetterName = `${singularCamel}Array`;
 
             /* v8 ignore next */
-            const arrayItemInterfaceName = prop.nestedFormInterface || 'unknown';
+            const arrayItemInterfaceName = prop.nestedFormInterface || 'Record<string, never>';
 
             /* v8 ignore next */
             classDeclaration.addGetAccessor({
@@ -801,7 +801,7 @@ export class FormComponentGenerator {
         classDeclaration.addMethod({
             name: 'patchForm',
             scope: Scope.Private,
-            parameters: [{ name: 'entity', type: resource.modelName || 'unknown' }],
+            parameters: [{ name: 'entity', type: resource.modelName || 'Record<string, never>' }],
             statements: body,
         });
     }

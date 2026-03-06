@@ -4,7 +4,7 @@ import { Project } from 'ts-morph';
 
 import { TypeGenerator } from '@src/classes/emit.js';
 import { SwaggerParser } from '@src/openapi/parse.js';
-import { GeneratorConfig } from '@src/core/types/index.js';
+import { GeneratorConfig, OpenApiValue } from '@src/core/types/index.js';
 
 const typeGenSpec = {
     openapi: '3.0.0',
@@ -104,7 +104,7 @@ describe('Emitter: TypeGenerator', () => {
 
     it('should generate `any` for an empty enum', () => {
         const { getText } = runGenerator(typeGenSpec);
-        expect(getText()).toContain('export type EmptyEnum = any;');
+        expect(getText()).toContain('export type EmptyEnum = unknown;');
     });
 
     it('should generate extended interfaces using `extends` for `allOf`', () => {
@@ -131,7 +131,7 @@ describe('Emitter: TypeGenerator', () => {
 
     it('should generate index signatures for `additionalProperties`', () => {
         const { getText } = runGenerator(typeGenSpec);
-        expect(getText()).toContain('export interface FreeObject {\n    [key: string]: any;\n}');
+        expect(getText()).toContain('export interface FreeObject {\n    [key: string]: unknown;\n}');
         expect(getText()).toContain('export interface StringMap {\n    [key: string]: string;\n}');
     });
 

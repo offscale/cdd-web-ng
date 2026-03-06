@@ -76,7 +76,7 @@ export class MultipartBuilderGenerator {
             isStatic: true,
             scope: Scope.Public,
             parameters: [
-                { name: 'body', type: 'any' },
+                { name: 'body', type: 'unknown' },
                 // Supports both Legacy Map (Record) and New Config Object
                 {
                     name: 'configInput',
@@ -131,7 +131,7 @@ export class MultipartBuilderGenerator {
             isStatic: true,
             scope: Scope.Private,
             parameters: [
-                { name: 'body', type: 'any' },
+                { name: 'body', type: 'unknown' },
                 { name: 'encodings', type: 'Record<string, EncodingConfig>' },
             ],
             returnType: 'MultipartResult',
@@ -162,7 +162,7 @@ export class MultipartBuilderGenerator {
             parameters: [
                 { name: 'formData', type: 'FormData' },
                 { name: 'key', type: 'string' },
-                { name: 'value', type: 'any' },
+                { name: 'value', type: 'unknown' },
                 { name: 'contentType', type: 'string', hasQuestionToken: true },
             ],
             statements: `
@@ -186,13 +186,13 @@ export class MultipartBuilderGenerator {
             isStatic: true,
             scope: Scope.Private,
             parameters: [
-                { name: 'body', type: 'any' },
+                { name: 'body', type: 'unknown' },
                 { name: 'config', type: 'MultipartConfig' },
             ],
             returnType: 'MultipartResult',
             statements: `
         const boundary = this.generateBoundary();
-        const parts: any[] = [];
+        const parts: unknown[] = [];
         const crlf = '\\r\\n';
         
         const encodings = config.encoding || {};
@@ -205,9 +205,9 @@ export class MultipartBuilderGenerator {
             if (style === 'tabDelimited') return '\\t';
             return ',';
         };
-        const serializeArrayValue = (items: any[], style: string) =>
+        const serializeArrayValue = (items: unknown[], style: string) =>
             items.map(v => String(v)).join(getDelimiter(style));
-        const serializeObjectValue = (obj: Record<string, any>, style: string) =>
+        const serializeObjectValue = (obj: Record<string, unknown>, style: string) =>
             Object.entries(obj)
                 .map(([k, v]) => \`\${k}\${getDelimiter(style)}\${v}\`)
                 .join(getDelimiter(style));
@@ -251,7 +251,7 @@ export class MultipartBuilderGenerator {
                             );
                         });
                     } else {
-                        const serialized = serializeObjectValue(value as Record<string, any>, style);
+                        const serialized = serializeObjectValue(value as Record<string, unknown>, style);
                         this.appendPart(parts, serialized, { ...itemConfig, contentType: undefined }, boundary, disp);
                     }
                     return;
@@ -286,13 +286,13 @@ export class MultipartBuilderGenerator {
             isStatic: true,
             scope: Scope.Private,
             parameters: [
-                { name: 'body', type: 'any[]' },
+                { name: 'body', type: 'unknown[]' },
                 { name: 'config', type: 'MultipartConfig' },
             ],
             returnType: 'MultipartResult',
             statements: `
         const boundary = this.generateBoundary();
-        const parts: any[] = [];
+        const parts: unknown[] = [];
         const crlf = '\\r\\n';
 
         body.forEach((item, index) => {
@@ -331,7 +331,7 @@ export class MultipartBuilderGenerator {
             scope: Scope.Private,
             parameters: [
                 { name: 'parts', type: '(string | Blob)[]' },
-                { name: 'value', type: 'any' },
+                { name: 'value', type: 'unknown' },
                 { name: 'config', type: 'EncodingConfig' },
                 { name: 'boundary', type: 'string' },
                 { name: 'defaultDisposition', type: 'string', hasQuestionToken: true },
@@ -383,10 +383,10 @@ export class MultipartBuilderGenerator {
             // We simple pass the inner config we have.
             // Note: we ignore mediaType for nested, allowing default or inferred
             const nestedResult = (Array.isArray(value)) 
-                ? this.serializeArrayManual(value, config as any) 
+                ? this.serializeArrayManual(value, config as unknown) 
                 : this.serializeObjectManual(value, config.encoding ? { encoding: config.encoding } : {});
                 
-            payload = nestedResult.content as any;
+            payload = nestedResult.content as unknown;
             
             // Extract boundary from nested result to set content type correctly
             if (nestedResult.headers && nestedResult.headers['Content-Type']) {
@@ -411,7 +411,7 @@ export class MultipartBuilderGenerator {
         }
 
         parts.push('--' + boundary + crlf + headersStr + crlf);
-        parts.push(payload as any);
+        parts.push(payload as unknown);
         parts.push(crlf);
             `,
         });

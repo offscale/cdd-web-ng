@@ -4,12 +4,14 @@ import { ValidationRule } from './validation-types.js';
 
 export type ControlType = 'control' | 'group' | 'array' | 'map';
 
+export type JsonValue = string | number | boolean | null | { [key: string]: JsonValue } | JsonValue[];
+
 export interface FormControlModel {
     name: string;
     propertyName: string;
     dataType: string;
     controlType: ControlType;
-    defaultValue: unknown;
+    defaultValue: JsonValue;
     validationRules: ValidationRule[];
 
     nestedFormInterface?: string;

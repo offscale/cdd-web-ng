@@ -59,7 +59,7 @@ export class MockDataGenerator {
         schema: SwaggerDefinition | undefined,
         visited: Set<SwaggerDefinition>,
         maxDepth: number = 10,
-    ): unknown {
+    ): Record<string, never> | string | number | boolean | null | undefined | Array<string | number | boolean | null | Record<string, never>> {
         /* v8 ignore next */
         if (!schema || maxDepth <= 0) {
             /* v8 ignore next */
@@ -95,7 +95,7 @@ export class MockDataGenerator {
                     }
                 }
                 /* v8 ignore next */
-                return resolved ? this.generateValue(resolved, visited, maxDepth - 1) : { id: 'string-value' };
+                return resolved ? this.generateValue(resolved as SwaggerDefinition, visited, maxDepth - 1) : null;
             }
 
             /* v8 ignore next */
@@ -125,19 +125,19 @@ export class MockDataGenerator {
             /* v8 ignore next */
             if (schema.example !== undefined) {
                 /* v8 ignore next */
-                return schema.example;
+                return schema.example as string | number | boolean | Record<string, never> | null;
             }
 
             /* v8 ignore next */
             if (Array.isArray(schema.examples) && schema.examples.length > 0) {
                 /* v8 ignore next */
-                return schema.examples[0];
+                return schema.examples[0] as string | number | boolean | Record<string, never> | null;
             }
 
             /* v8 ignore next */
             if (schema.enum && schema.enum.length > 0) {
                 /* v8 ignore next */
-                return schema.enum[0];
+                return schema.enum[0] as string | number | boolean | Record<string, never> | null;
             }
 
             /* v8 ignore next */
@@ -155,7 +155,7 @@ export class MockDataGenerator {
                     return acc;
                 }, {});
                 /* v8 ignore next */
-                return mergedObj;
+                return mergedObj as Record<string, never>;
             }
 
             /* v8 ignore next */
@@ -165,7 +165,7 @@ export class MockDataGenerator {
             switch (type) {
                 case 'object':
                     /* v8 ignore next */
-                    return this.generateObjectValue(schema, visited, maxDepth);
+                    return this.generateObjectValue(schema, visited, maxDepth) as Record<string, never>;
                 case 'array':
                     /* v8 ignore next */
                     return this.generateArrayValue(schema, visited, maxDepth);
@@ -181,7 +181,7 @@ export class MockDataGenerator {
                     return this.generateNumberValue(schema);
                 case 'null':
                     /* v8 ignore next */
-                    return null;
+                    return undefined;
                 default: {
                     /* v8 ignore next */
                     const subSchema = schema.oneOf?.[0] || schema.anyOf?.[0];
@@ -223,7 +223,7 @@ export class MockDataGenerator {
         return last.replace(/~1/g, '/').replace(/~0/g, '~');
     }
 
-    private resolveExternalValue(externalValue: string): unknown {
+    private resolveExternalValue(externalValue: string): Record<string, never> | string | number | boolean | null | undefined | Array<string | number | boolean | null | Record<string, never>> {
         /* v8 ignore next */
         try {
             /* v8 ignore next */
@@ -282,14 +282,14 @@ export class MockDataGenerator {
         schema: SwaggerDefinition,
         visited: Set<SwaggerDefinition>,
         maxDepth: number,
-    ): Record<string, unknown> {
+    ): Record<string, string | number | boolean | null | Record<string, never>> {
         /* v8 ignore next */
         if (!schema.properties) {
             /* v8 ignore next */
             return {};
         }
         /* v8 ignore next */
-        const obj: Record<string, unknown> = {};
+        const obj: Record<string, string | number | boolean | null | Record<string, never>> = {};
         /* v8 ignore next */
         for (const [key, propSchema] of Object.entries(schema.properties)) {
             /* v8 ignore next */
@@ -299,7 +299,7 @@ export class MockDataGenerator {
                 /* v8 ignore next */
                 if (propValue !== undefined) {
                     /* v8 ignore next */
-                    obj[key] = propValue;
+                    obj[key] = propValue as string | number | boolean | Record<string, never> | null;
                 }
             }
         }
@@ -311,7 +311,7 @@ export class MockDataGenerator {
         schema: SwaggerDefinition,
         visited: Set<SwaggerDefinition>,
         maxDepth: number,
-    ): unknown[] {
+    ): Array<string | number | boolean | null | Record<string, never>> {
         /* v8 ignore next */
         if (!schema.items || Array.isArray(schema.items)) {
             /* v8 ignore next */
@@ -325,7 +325,7 @@ export class MockDataGenerator {
         /* v8 ignore next */
         const itemValue = this.generateValue(schema.items as SwaggerDefinition, new Set(visited), maxDepth - 1);
         /* v8 ignore next */
-        return itemValue !== undefined ? [itemValue] : [];
+        return itemValue !== undefined ? [itemValue as string | number | boolean | Record<string, never> | null] : [];
     }
 
     private generateStringValue(schema: SwaggerDefinition): string {

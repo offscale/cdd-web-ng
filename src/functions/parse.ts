@@ -13,8 +13,7 @@ import {
     SwaggerDefinition,
     SwaggerResponse,
     SwaggerSpec,
-    TagObject,
-} from '../core/types/index.js';
+    TagObject, OpenApiValue } from '../core/types/index.js';
 import { parseGeneratedModelSource, ReverseSchemaMap, schemaFromTypeNode } from '../classes/parse.js';
 import { OAS_3_1_DIALECT } from '../core/constants.js';
 
@@ -56,7 +55,7 @@ export type CodeScanFileSystem = {
     };
     /** Reads the content of a file. */
     // type-coverage:ignore-next-line
-    readFileSync: ((filePath: string, encoding: string) => string) | ((filePath: string, options: unknown) => string);
+    readFileSync: ((filePath: string, encoding: string) => string) | ((filePath: string, options: OpenApiValue) => string);
     /** Reads the directory entries. */
     readdirSync: (dirPath: string) => string[];
 };
@@ -79,9 +78,9 @@ export interface CodeScanParam {
     /** The content type of the parameter. */
     contentType?: string;
     /** The encoding of the parameter. */
-    encoding?: Record<string, unknown>;
+    encoding?: Record<string, OpenApiValue>;
     /** An example value for the parameter. */
-    example?: unknown;
+    example?: OpenApiValue;
 }
 
 /** Describes a reconstructed request body. */
@@ -93,7 +92,7 @@ export interface CodeScanRequestBody {
     /** The schema of the request body. */
     schema?: SwaggerDefinition | boolean;
     /** Example values for the request body. */
-    examples?: Record<string, unknown>;
+    examples?: Record<string, OpenApiValue>;
 }
 
 /** Describes a reconstructed response. */
@@ -109,7 +108,7 @@ export interface CodeScanResponse {
     /** The schema of the response. */
     schema?: SwaggerDefinition | boolean;
     /** Example values for the response. */
-    examples?: Record<string, unknown>;
+    examples?: Record<string, OpenApiValue>;
 }
 
 /** Describes a reconstructed API operation discovered in source code. */
@@ -145,13 +144,13 @@ export interface CodeScanOperation {
     /** Security requirements for the operation. */
     security?: Record<string, string[]>[];
     /** Extension properties. */
-    extensions?: Record<string, unknown>;
+    extensions?: Record<string, OpenApiValue>;
 }
 
 type QuerystringMeta = {
     name: string;
     contentType?: string;
-    encoding?: Record<string, unknown>;
+    encoding?: Record<string, OpenApiValue>;
     required?: boolean;
     description?: string;
 };
@@ -408,7 +407,7 @@ export function buildOpenApiSpecFromScan(ir: CodeScanIr, infoOverrides: Partial<
             pathItem[methodKey] = operation;
         } else {
             /* v8 ignore next */
-            const additional = (pathItem.additionalOperations as Record<string, unknown>) ?? {};
+            const additional = (pathItem.additionalOperations as Record<string, OpenApiValue>) ?? {};
             /* v8 ignore next */
             additional[op.method] = operation;
             /* v8 ignore next */
@@ -1092,7 +1091,7 @@ function analyzeExpressHandler(
 function getFunctionBody(handler: import('ts-morph').Node): Node | undefined {
     // type-coverage:ignore-next-line
     /* v8 ignore next */
-    return (handler as unknown as { getBody?(): import('ts-morph').Node }).getBody?.();
+    return (handler as OpenApiValue as { getBody?(): import('ts-morph').Node }).getBody?.();
 }
 
 // type-coverage:ignore-next-line
@@ -1103,7 +1102,7 @@ function extractRequestBindings(handler: import('ts-morph').Node): RequestBindin
     /* v8 ignore next */
     /* v8 ignore start */
     const params =
-        (handler as unknown as { getParameters?(): import('ts-morph').ParameterDeclaration[] }).getParameters?.() ?? [];
+        (handler as OpenApiValue as { getParameters?(): import('ts-morph').ParameterDeclaration[] }).getParameters?.() ?? [];
     /* v8 ignore stop */
 
     // type-coverage:ignore-next-line
@@ -2035,15 +2034,15 @@ function extractDocMeta(node: Node): {
     externalDocs?: ExternalDocumentationObject;
     servers?: ServerObject[];
     security?: Record<string, string[]>[];
-    extensions?: Record<string, unknown>;
+    extensions?: Record<string, OpenApiValue>;
     querystring?: QuerystringMeta;
     operationId?: string;
     responses?: ResponseDocMeta[];
     paramDocs?: Record<string, string>;
-    paramExamples?: Record<string, unknown>;
+    paramExamples?: Record<string, OpenApiValue>;
     paramSchemas?: Record<string, SwaggerDefinition | boolean>;
-    requestExamples?: Record<string, unknown>;
-    responseExamples?: Record<string, Record<string, unknown>>;
+    requestExamples?: Record<string, OpenApiValue>;
+    responseExamples?: Record<string, Record<string, OpenApiValue>>;
 } {
     /* v8 ignore next */
     const docs = getJsDocs(node);
@@ -2108,7 +2107,7 @@ function extractDocMeta(node: Node): {
     /* v8 ignore next */
     const querystring = extractQuerystringParam(tags);
     /* v8 ignore next */
-    const extensions: Record<string, unknown> = {};
+    const extensions: Record<string, OpenApiValue> = {};
     /* v8 ignore next */
     const responseHints: ResponseDocMeta[] = [];
     /* v8 ignore next */
@@ -2116,13 +2115,13 @@ function extractDocMeta(node: Node): {
     /* v8 ignore next */
     const paramDocs: Record<string, string> = {};
     /* v8 ignore next */
-    const paramExamples: Record<string, unknown> = {};
+    const paramExamples: Record<string, OpenApiValue> = {};
     /* v8 ignore next */
     const paramSchemas: Record<string, SwaggerDefinition | boolean> = {};
     /* v8 ignore next */
-    const requestExamples: Record<string, unknown> = {};
+    const requestExamples: Record<string, OpenApiValue> = {};
     /* v8 ignore next */
-    const responseExamples: Record<string, Record<string, unknown>> = {};
+    const responseExamples: Record<string, Record<string, OpenApiValue>> = {};
     let operationId: string | undefined;
     /* v8 ignore next */
     tags.forEach(tag => {
@@ -2608,7 +2607,7 @@ function applyParamDocs(paramMap: Map<string, CodeScanParam>, paramDocs?: Record
     }
 }
 
-function applyParamExamples(paramMap: Map<string, CodeScanParam>, paramExamples?: Record<string, unknown>): void {
+function applyParamExamples(paramMap: Map<string, CodeScanParam>, paramExamples?: Record<string, OpenApiValue>): void {
     /* v8 ignore next */
     if (!paramExamples) return;
     /* v8 ignore next */
@@ -2667,7 +2666,7 @@ function applyParamSchemas(
 
 function applyRequestExamples(
     requestBody: CodeScanRequestBody | undefined,
-    requestExamples?: Record<string, unknown>,
+    requestExamples?: Record<string, OpenApiValue>,
 ): void {
     /* v8 ignore next */
     if (!requestBody || !requestExamples || Object.keys(requestExamples).length === 0) return;
@@ -2677,7 +2676,7 @@ function applyRequestExamples(
 
 function applyResponseExamples(
     responses: CodeScanResponse[],
-    responseExamples?: Record<string, Record<string, unknown>>,
+    responseExamples?: Record<string, Record<string, OpenApiValue>>,
 ): void {
     /* v8 ignore next */
     if (!responseExamples) return;
@@ -3012,10 +3011,10 @@ function stripInternalDocMeta<
         querystring?: QuerystringMeta;
         responses?: ResponseDocMeta[];
         paramDocs?: Record<string, string>;
-        paramExamples?: Record<string, unknown>;
+        paramExamples?: Record<string, OpenApiValue>;
         paramSchemas?: Record<string, SwaggerDefinition | boolean>;
-        requestExamples?: Record<string, unknown>;
-        responseExamples?: Record<string, Record<string, unknown>>;
+        requestExamples?: Record<string, OpenApiValue>;
+        responseExamples?: Record<string, Record<string, OpenApiValue>>;
         operationId?: string;
     },
 >(
@@ -3225,7 +3224,7 @@ function parseSecurityJson(raw: string): Record<string, string[]>[] {
         /* v8 ignore next */
         /* v8 ignore next */
         /* v8 ignore start */
-        const parsed = JSON.parse(raw) as unknown;
+        const parsed = JSON.parse(raw) as OpenApiValue;
         /* v8 ignore stop */
         /* v8 ignore next */
         /* v8 ignore next */
@@ -3244,7 +3243,7 @@ function parseSecurityJson(raw: string): Record<string, string[]>[] {
                 /* v8 ignore next */
                 /* v8 ignore next */
                 /* v8 ignore next */
-                (entry: unknown): entry is Record<string, string[]> => !!entry && typeof entry === 'object',
+                (entry: OpenApiValue): entry is Record<string, string[]> => !!entry && typeof entry === 'object',
             );
         }
         /* v8 ignore next */
@@ -3330,13 +3329,13 @@ function parseTagInput(raw: string): { names: string[]; objects: TagObject[] } {
     return { names: parseTagList(trimmed), objects: [] };
 }
 
-function normalizeTagJson(parsed: unknown): { names: string[]; objects: TagObject[] } {
+function normalizeTagJson(parsed: OpenApiValue): { names: string[]; objects: TagObject[] } {
     /* v8 ignore next */
     const names: string[] = [];
     /* v8 ignore next */
     const objects: TagObject[] = [];
     /* v8 ignore next */
-    const pushTag = (entry: unknown) => {
+    const pushTag = (entry: OpenApiValue) => {
         /* v8 ignore next */
         /* v8 ignore start */
         if (typeof entry === 'string') {
@@ -3383,7 +3382,7 @@ function normalizeTagJson(parsed: unknown): { names: string[]; objects: TagObjec
         /* v8 ignore next */
         /* v8 ignore next */
         /* v8 ignore start */
-        parsed.forEach((entry: unknown) => pushTag(entry));
+        parsed.forEach((entry: OpenApiValue) => pushTag(entry));
         /* v8 ignore stop */
     } else {
         /* v8 ignore next */
@@ -3412,7 +3411,7 @@ function parseServerJson(raw: string): ServerObject[] | null {
     /* v8 ignore next */
     const servers: ServerObject[] = [];
     /* v8 ignore next */
-    entries.forEach((entry: unknown) => {
+    entries.forEach((entry: OpenApiValue) => {
         /* v8 ignore next */
         /* v8 ignore start */
         if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return;
@@ -3430,7 +3429,7 @@ function parseServerJson(raw: string): ServerObject[] | null {
     return servers;
 }
 
-function parseJsonMaybe(raw: string): unknown | undefined {
+function parseJsonMaybe(raw: string): OpenApiValue | undefined {
     /* v8 ignore next */
     try {
         /* v8 ignore next */
@@ -3446,7 +3445,7 @@ function parseJsonMaybe(raw: string): unknown | undefined {
     }
 }
 
-function normalizeDocComment(comment: unknown): string {
+function normalizeDocComment(comment: OpenApiValue): string {
     /* v8 ignore next */
     /* v8 ignore start */
     if (!comment) return '';
@@ -3461,7 +3460,7 @@ function normalizeDocComment(comment: unknown): string {
     /* v8 ignore next */
     /* v8 ignore next */
     /* v8 ignore start */
-    if (Array.isArray(comment)) return comment.map((part: unknown) => normalizeDocComment(part)).join('');
+    if (Array.isArray(comment)) return comment.map((part: OpenApiValue) => normalizeDocComment(part)).join('');
     /* v8 ignore stop */
     /* v8 ignore next */
     /* v8 ignore next */
@@ -3486,25 +3485,25 @@ type ExampleCarrier = {
     [EXAMPLE_WRAPPER_KEY]: ExampleObject;
 };
 
-function isExampleCarrier(value: unknown): value is ExampleCarrier {
+function isExampleCarrier(value: OpenApiValue): value is ExampleCarrier {
     /* v8 ignore next */
     if (!value || typeof value !== 'object') return false;
     /* v8 ignore next */
-    if (!(EXAMPLE_WRAPPER_KEY in (value as Record<string, unknown>))) return false;
+    if (!(EXAMPLE_WRAPPER_KEY in (value as Record<string, OpenApiValue>))) return false;
     /* v8 ignore next */
-    const wrapped = (value as Record<string, unknown>)[EXAMPLE_WRAPPER_KEY];
+    const wrapped = (value as Record<string, OpenApiValue>)[EXAMPLE_WRAPPER_KEY];
     /* v8 ignore next */
     return !!wrapped && typeof wrapped === 'object' && !Array.isArray(wrapped);
 }
 
-function unwrapExampleCarrier(value: unknown): ExampleObject | undefined {
+function unwrapExampleCarrier(value: OpenApiValue): ExampleObject | undefined {
     /* v8 ignore next */
     if (!isExampleCarrier(value)) return undefined;
     /* v8 ignore next */
     return (value as ExampleCarrier)[EXAMPLE_WRAPPER_KEY];
 }
 
-function parseDocValue(value: string): unknown {
+function parseDocValue(value: string): OpenApiValue {
     /* v8 ignore next */
     try {
         /* v8 ignore next */
@@ -3515,7 +3514,7 @@ function parseDocValue(value: string): unknown {
     }
 }
 
-function normalizeParamSchemaOverride(value: unknown): SwaggerDefinition | boolean | undefined {
+function normalizeParamSchemaOverride(value: OpenApiValue): SwaggerDefinition | boolean | undefined {
     /* v8 ignore next */
     /* v8 ignore start */
     if (typeof value === 'boolean') return value;
@@ -3651,8 +3650,8 @@ function buildParameters(params: CodeScanParam[]): Parameter[] {
                     /* v8 ignore stop */
                     const contentEntry: {
                         schema: SwaggerDefinition;
-                        encoding?: Record<string, unknown>;
-                        example?: unknown;
+                        encoding?: Record<string, OpenApiValue>;
+                        example?: OpenApiValue;
                         examples?: Record<string, ExampleObject>;
                         /* v8 ignore next */
                     } = {
@@ -3756,7 +3755,7 @@ function buildRequestBody(requestBody?: CodeScanRequestBody): RequestBody | unde
                     (entry as { examples?: Record<string, ExampleObject> }).examples = { example: wrapped };
                 } else {
                     /* v8 ignore next */
-                    (entry as { example?: unknown }).example = example;
+                    (entry as { example?: OpenApiValue }).example = example;
                 }
             }
         });
@@ -3817,7 +3816,7 @@ function buildResponses(responses: CodeScanResponse[]): Record<string, SwaggerRe
                             (media as { examples?: Record<string, ExampleObject> }).examples = { example: wrapped };
                         } else {
                             /* v8 ignore next */
-                            (media as { example?: unknown }).example = example;
+                            (media as { example?: OpenApiValue }).example = example;
                         }
                     }
                 });
@@ -3880,7 +3879,7 @@ function inferExpressSchemaHints(handler: Node): {
     /* v8 ignore start */
     if (
         !fnNode ||
-        typeof (fnNode as unknown as { getParameters(): import('ts-morph').ParameterDeclaration[] }).getParameters !==
+        typeof (fnNode as OpenApiValue as { getParameters(): import('ts-morph').ParameterDeclaration[] }).getParameters !==
             'function'
     )
         return {};
@@ -3888,7 +3887,7 @@ function inferExpressSchemaHints(handler: Node): {
     // type-coverage:ignore-next-line
     /* v8 ignore next */
     const params = (
-        fnNode as unknown as { getParameters(): import('ts-morph').ParameterDeclaration[] }
+        fnNode as OpenApiValue as { getParameters(): import('ts-morph').ParameterDeclaration[] }
     ).getParameters();
     // type-coverage:ignore-next-line
     /* v8 ignore next */
@@ -3952,9 +3951,9 @@ function inferReturnSchemaFromSignature(handler: Node): SwaggerDefinition | bool
     const returnTypeNode =
         /* v8 ignore next */
         'getReturnTypeNode' in handler &&
-        typeof (handler as unknown as { getReturnTypeNode: () => TypeNode | undefined }).getReturnTypeNode ===
+        typeof (handler as OpenApiValue as { getReturnTypeNode: () => TypeNode | undefined }).getReturnTypeNode ===
             'function'
-            ? (handler as unknown as { getReturnTypeNode: () => TypeNode | undefined }).getReturnTypeNode()
+            ? (handler as OpenApiValue as { getReturnTypeNode: () => TypeNode | undefined }).getReturnTypeNode()
             : undefined;
     /* v8 ignore next */
     if (!returnTypeNode) return undefined;

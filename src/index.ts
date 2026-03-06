@@ -44,7 +44,7 @@ function getGeneratorFactory(framework: string, implementation?: string): IClien
     }
 }
 
-import { CliGenerator } from './vendors/cli/cli.generator.js';
+import { CliGenerator } from './vendors/cli/emit.js';
 
 /**
  * Orchestrates the entire code generation process based on a configuration object.
@@ -126,6 +126,8 @@ export async function generateFromConfig(
 /**
  * AST scanner utilities for reverse-generating OpenAPI specs from TypeScript.
  */
+export { parseGeneratedCliSource } from './vendors/cli/parse.js';
+
 export {
     buildOpenApiSpecFromScan,
     scanTypeScriptProject,

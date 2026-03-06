@@ -9,7 +9,7 @@ import {
     PropertySignatureStructure,
     SourceFile,
 } from 'ts-morph';
-import { GeneratorConfig, HeaderObject, PathItem, SwaggerDefinition } from '@src/core/types/index.js';
+import { GeneratorConfig, HeaderObject, PathItem, SwaggerDefinition, OpenApiValue } from '@src/core/types/index.js';
 import { SwaggerParser } from '@src/openapi/parse.js';
 import { extractPaths, getTypeScriptType, pascalCase, sanitizeComment } from '@src/functions/utils.js';
 
@@ -88,7 +88,7 @@ export class TypeGenerator {
                     /* v8 ignore next */
                     /* v8 ignore start */
                     const content =
-                        (postOp.requestBody as Record<string, Record<string, { schema?: unknown }>>).content || {};
+                        (postOp.requestBody as Record<string, Record<string, { schema?: OpenApiValue }>>).content || {};
                     /* v8 ignore stop */
                     // type-coverage:ignore-next-line
                     /* v8 ignore next */
@@ -133,7 +133,7 @@ export class TypeGenerator {
                                 /* v8 ignore next */
                                 /* v8 ignore start */
                                 const content =
-                                    (operation.requestBody as Record<string, Record<string, { schema?: unknown }>>)
+                                    (operation.requestBody as Record<string, Record<string, { schema?: OpenApiValue }>>)
                                         .content || {};
                                 /* v8 ignore stop */
                                 // type-coverage:ignore-next-line
@@ -175,7 +175,7 @@ export class TypeGenerator {
                     /* v8 ignore next */
                     key => ({
                         name: key,
-                        type: 'string | any',
+                        type: 'string | unknown',
                         docs: [`Value or expression for parameter '${key}'`],
                     }),
                 );
@@ -326,7 +326,7 @@ export class TypeGenerator {
         if (def.anyOf || def.oneOf) return false;
         // dependentSchemas/dependentRequired involve intersection/union logic which can only be represented by type alias
         /* v8 ignore next */
-        if (def.dependentSchemas || (def as Record<string, unknown>).dependentRequired) return false;
+        if (def.dependentSchemas || (def as Record<string, OpenApiValue>).dependentRequired) return false;
         /* v8 ignore next */
         return def.type === 'object' || !!def.properties || !!def.allOf || !!def.patternProperties;
     }
@@ -343,7 +343,7 @@ export class TypeGenerator {
             sourceFile.addTypeAlias({
                 name: pascalCase(name),
                 isExported: true,
-                type: 'any',
+                type: 'unknown',
                 docs: this.buildJSDoc(def),
             });
             /* v8 ignore next */
@@ -501,7 +501,7 @@ export class TypeGenerator {
             const valueType =
                 /* v8 ignore next */
                 def.additionalProperties === true
-                    ? 'any'
+                    ? 'unknown'
                     : getTypeScriptType(
                           def.additionalProperties as SwaggerDefinition,
                           this.config,
@@ -517,7 +517,7 @@ export class TypeGenerator {
             const valueType =
                 /* v8 ignore next */
                 def.unevaluatedProperties === true
-                    ? 'any'
+                    ? 'unknown'
                     : getTypeScriptType(
                           def.unevaluatedProperties as SwaggerDefinition,
                           this.config,
@@ -549,7 +549,7 @@ export class TypeGenerator {
             /* v8 ignore next */
             const distinct = Array.from(new Set(returnTypes));
             /* v8 ignore next */
-            const returnType = distinct.includes('any') ? 'any' : distinct.join(' | ');
+            const returnType = distinct.includes('unknown') ? 'unknown' : distinct.join(' | ');
 
             /* v8 ignore next */
             interfaceDecl.addIndexSignature({
@@ -658,7 +658,7 @@ export class TypeGenerator {
         const tags: OptionalKind<JSDocTagStructure>[] = [];
 
         /* v8 ignore next */
-        const pushTag = (tagName: string, value?: unknown, options?: { omitTrue?: boolean }) => {
+        const pushTag = (tagName: string, value?: OpenApiValue, options?: { omitTrue?: boolean }) => {
             /* v8 ignore next */
             if (value === undefined) return;
             /* v8 ignore next */
@@ -680,7 +680,7 @@ export class TypeGenerator {
         };
 
         /* v8 ignore next */
-        if ((def as Record<string, unknown>).deprecated) tags.push({ tagName: 'deprecated' });
+        if ((def as Record<string, OpenApiValue>).deprecated) tags.push({ tagName: 'deprecated' });
         /* v8 ignore next */
         if (def.example !== undefined) {
             /* v8 ignore next */
@@ -733,79 +733,79 @@ export class TypeGenerator {
         /* v8 ignore next */
         pushTag('maxProperties', def.maxProperties);
         /* v8 ignore next */
-        pushTag('propertyNames', (def as Record<string, unknown>).propertyNames);
+        pushTag('propertyNames', (def as Record<string, OpenApiValue>).propertyNames);
         /* v8 ignore next */
-        if (Object.prototype.hasOwnProperty.call(def as Record<string, unknown>, 'additionalProperties')) {
+        if (Object.prototype.hasOwnProperty.call(def as Record<string, OpenApiValue>, 'additionalProperties')) {
             /* v8 ignore next */
-            pushTag('additionalProperties', (def as Record<string, unknown>).additionalProperties);
+            pushTag('additionalProperties', (def as Record<string, OpenApiValue>).additionalProperties);
         }
         /* v8 ignore next */
         pushTag('readOnly', def.readOnly, { omitTrue: true });
         /* v8 ignore next */
         pushTag('writeOnly', def.writeOnly, { omitTrue: true });
         /* v8 ignore next */
-        pushTag('nullable', (def as Record<string, unknown>).nullable, { omitTrue: true });
+        pushTag('nullable', (def as Record<string, OpenApiValue>).nullable, { omitTrue: true });
         /* v8 ignore next */
         pushTag('title', def.title);
         /* v8 ignore next */
-        pushTag('schemaDialect', (def as Record<string, unknown>).$schema);
+        pushTag('schemaDialect', (def as Record<string, OpenApiValue>).$schema);
         /* v8 ignore next */
-        pushTag('schemaId', (def as Record<string, unknown>).$id);
+        pushTag('schemaId', (def as Record<string, OpenApiValue>).$id);
         /* v8 ignore next */
-        pushTag('schemaAnchor', (def as Record<string, unknown>).$anchor);
+        pushTag('schemaAnchor', (def as Record<string, OpenApiValue>).$anchor);
         /* v8 ignore next */
-        pushTag('schemaDynamicAnchor', (def as Record<string, unknown>).$dynamicAnchor);
+        pushTag('schemaDynamicAnchor', (def as Record<string, OpenApiValue>).$dynamicAnchor);
         /* v8 ignore next */
-        pushTag('const', (def as Record<string, unknown>).const);
+        pushTag('const', (def as Record<string, OpenApiValue>).const);
         /* v8 ignore next */
-        pushTag('if', (def as Record<string, unknown>).if);
+        pushTag('if', (def as Record<string, OpenApiValue>).if);
         /* v8 ignore next */
-        pushTag('then', (def as Record<string, unknown>).then);
+        pushTag('then', (def as Record<string, OpenApiValue>).then);
         /* v8 ignore next */
-        pushTag('else', (def as Record<string, unknown>).else);
+        pushTag('else', (def as Record<string, OpenApiValue>).else);
         /* v8 ignore next */
-        pushTag('not', (def as Record<string, unknown>).not);
+        pushTag('not', (def as Record<string, OpenApiValue>).not);
         /* v8 ignore next */
-        pushTag('oneOf', (def as Record<string, unknown>).oneOf);
+        pushTag('oneOf', (def as Record<string, OpenApiValue>).oneOf);
         /* v8 ignore next */
-        pushTag('anyOf', (def as Record<string, unknown>).anyOf);
+        pushTag('anyOf', (def as Record<string, OpenApiValue>).anyOf);
         /* v8 ignore next */
-        pushTag('contains', (def as Record<string, unknown>).contains);
+        pushTag('contains', (def as Record<string, OpenApiValue>).contains);
         /* v8 ignore next */
-        pushTag('minContains', (def as Record<string, unknown>).minContains);
+        pushTag('minContains', (def as Record<string, OpenApiValue>).minContains);
         /* v8 ignore next */
-        pushTag('maxContains', (def as Record<string, unknown>).maxContains);
+        pushTag('maxContains', (def as Record<string, OpenApiValue>).maxContains);
         /* v8 ignore next */
-        pushTag('contentMediaType', (def as Record<string, unknown>).contentMediaType);
+        pushTag('contentMediaType', (def as Record<string, OpenApiValue>).contentMediaType);
         /* v8 ignore next */
-        pushTag('contentEncoding', (def as Record<string, unknown>).contentEncoding);
+        pushTag('contentEncoding', (def as Record<string, OpenApiValue>).contentEncoding);
         /* v8 ignore next */
-        pushTag('contentSchema', (def as Record<string, unknown>).contentSchema);
+        pushTag('contentSchema', (def as Record<string, OpenApiValue>).contentSchema);
         /* v8 ignore next */
-        pushTag('patternProperties', (def as Record<string, unknown>).patternProperties);
+        pushTag('patternProperties', (def as Record<string, OpenApiValue>).patternProperties);
         /* v8 ignore next */
-        pushTag('dependentSchemas', (def as Record<string, unknown>).dependentSchemas);
+        pushTag('dependentSchemas', (def as Record<string, OpenApiValue>).dependentSchemas);
         /* v8 ignore next */
-        pushTag('dependentRequired', (def as Record<string, unknown>).dependentRequired);
+        pushTag('dependentRequired', (def as Record<string, OpenApiValue>).dependentRequired);
         /* v8 ignore next */
-        pushTag('unevaluatedProperties', (def as Record<string, unknown>).unevaluatedProperties);
+        pushTag('unevaluatedProperties', (def as Record<string, OpenApiValue>).unevaluatedProperties);
         /* v8 ignore next */
-        pushTag('unevaluatedItems', (def as Record<string, unknown>).unevaluatedItems);
+        pushTag('unevaluatedItems', (def as Record<string, OpenApiValue>).unevaluatedItems);
         /* v8 ignore next */
-        pushTag('schemaDialect', (def as Record<string, unknown>).$schema);
+        pushTag('schemaDialect', (def as Record<string, OpenApiValue>).$schema);
         /* v8 ignore next */
-        pushTag('schemaId', (def as Record<string, unknown>).$id);
+        pushTag('schemaId', (def as Record<string, OpenApiValue>).$id);
         /* v8 ignore next */
-        pushTag('schemaAnchor', (def as Record<string, unknown>).$anchor);
+        pushTag('schemaAnchor', (def as Record<string, OpenApiValue>).$anchor);
         /* v8 ignore next */
-        pushTag('schemaDynamicAnchor', (def as Record<string, unknown>).$dynamicAnchor);
+        pushTag('schemaDynamicAnchor', (def as Record<string, OpenApiValue>).$dynamicAnchor);
         /* v8 ignore next */
-        pushTag('xml', (def as Record<string, unknown>).xml);
+        pushTag('xml', (def as Record<string, OpenApiValue>).xml);
         /* v8 ignore next */
-        pushTag('discriminator', (def as Record<string, unknown>).discriminator);
+        pushTag('discriminator', (def as Record<string, OpenApiValue>).discriminator);
 
         /* v8 ignore next */
-        const extensionEntries = Object.entries(def as Record<string, unknown>).filter(([key]) => key.startsWith('x-'));
+        const extensionEntries = Object.entries(def as Record<string, OpenApiValue>).filter(([key]) => key.startsWith('x-'));
         /* v8 ignore next */
         extensionEntries.forEach(([key, value]) => {
             /* v8 ignore next */

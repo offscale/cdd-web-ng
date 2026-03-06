@@ -24,7 +24,7 @@ describe('Core Utils: Type Converter', () => {
                 };
                 const result = utils.getTypeScriptType(schema as any, config, []);
                 expect(result).toContain('{ foo?: string }');
-                expect(result).toContain('({ foo: any }');
+                expect(result).toContain('({ foo: unknown }');
                 expect(result).toContain('bar: number');
                 expect(result).toContain("'invalid-key'");
             });
@@ -64,12 +64,12 @@ describe('Core Utils: Type Converter', () => {
                     dependentRequired: {},
                 };
                 const result = utils.getTypeScriptType(schema as any, config, []);
-                expect(result).toBe('{ [key: string]: any }');
+                expect(result).toBe('{ [key: string]: unknown }');
             });
         });
 
         it('should treat boolean schema "true" as any', () => {
-            expect(utils.getTypeScriptType(true, config, [])).toBe('any');
+            expect(utils.getTypeScriptType(true, config, [])).toBe('unknown');
         });
 
         it('should treat boolean schema "false" as never', () => {
@@ -99,7 +99,7 @@ describe('Core Utils: Type Converter', () => {
 
             it('should fallback to any for non-primitive const values', () => {
                 const schema: SwaggerDefinition = { const: { nested: true } };
-                expect(utils.getTypeScriptType(schema, config, [])).toBe('any');
+                expect(utils.getTypeScriptType(schema, config, [])).toBe('unknown');
             });
 
             it('should prefer const over type/enum if present', () => {
@@ -130,7 +130,7 @@ describe('Core Utils: Type Converter', () => {
 
         it('should return "any" for Ref types NOT found in knownTypes', () => {
             const schema: SwaggerDefinition = { $ref: '#/components/schemas/UnknownUser' };
-            expect(utils.getTypeScriptType(schema, config, ['User'])).toBe('any');
+            expect(utils.getTypeScriptType(schema, config, ['User'])).toBe('unknown');
         });
 
         it('should resolve $dynamicRef to a known type', () => {
@@ -141,17 +141,17 @@ describe('Core Utils: Type Converter', () => {
 
         it('should return "any" for unresolvable $dynamicRef', () => {
             const schema = { $dynamicRef: '#/components/schemas/HiddenDynamic' };
-            expect(utils.getTypeScriptType(schema, config, [])).toBe('any');
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('unknown');
         });
 
         it('should fall back to any when $ref has an empty segment', () => {
             const schema: SwaggerDefinition = { $ref: '#/components/schemas/' };
-            expect(utils.getTypeScriptType(schema, config, ['User'])).toBe('any');
+            expect(utils.getTypeScriptType(schema, config, ['User'])).toBe('unknown');
         });
 
         it('should fall back to any when $dynamicRef has an empty segment', () => {
             const schema: SwaggerDefinition = { $dynamicRef: '#/components/schemas/' };
-            expect(utils.getTypeScriptType(schema, config, ['DynamicUser'])).toBe('any');
+            expect(utils.getTypeScriptType(schema, config, ['DynamicUser'])).toBe('unknown');
         });
 
         it('should handle array of types (nullable)', () => {
@@ -167,7 +167,7 @@ describe('Core Utils: Type Converter', () => {
             expect(utils.getTypeScriptType(schemaNull, config)).toBe('null'); // Hits baseType null check
 
             const schemaAny: SwaggerDefinition = { nullable: true }; // undefined type hits any fallback
-            expect(utils.getTypeScriptType(schemaAny, config)).toBe('any');
+            expect(utils.getTypeScriptType(schemaAny, config)).toBe('unknown');
         });
         it('should handle oneOf compositions', () => {
             const schema: SwaggerDefinition = { oneOf: [{ type: 'string' }, { type: 'number' }] };
@@ -341,7 +341,7 @@ describe('Core Utils: Type Converter', () => {
                 prefixItems: [{ type: 'string' }],
                 unevaluatedItems: true,
             };
-            expect(utils.getTypeScriptType(schemaTrue, config, [])).toBe('[string, ...any[]]');
+            expect(utils.getTypeScriptType(schemaTrue, config, [])).toBe('[string, ...unknown[]]');
 
             const schemaFalse: SwaggerDefinition = {
                 prefixItems: [{ type: 'string' }],
@@ -380,18 +380,18 @@ describe('Core Utils: Type Converter', () => {
 
         it('should default array items to any when items is missing', () => {
             const schema: SwaggerDefinition = { type: 'array' };
-            expect(utils.getTypeScriptType(schema, config, [])).toBe('any[]');
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('unknown[]');
         });
 
         // OBJECTS
-        it('should return `{ [key: string]: any }` for object schema with no properties', () => {
+        it('should return `{ [key: string]: unknown }` for object schema with no properties', () => {
             const schema: SwaggerDefinition = { type: 'object' };
-            expect(utils.getTypeScriptType(schema, config, [])).toBe('{ [key: string]: any }');
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('{ [key: string]: unknown }');
         });
 
         it('should handle `additionalProperties: true`', () => {
             const schema: SwaggerDefinition = { type: 'object', additionalProperties: true };
-            expect(utils.getTypeScriptType(schema, config, [])).toBe('{ [key: string]: any }');
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('{ [key: string]: unknown }');
         });
 
         it('should handle `additionalProperties` schema', () => {
@@ -406,7 +406,7 @@ describe('Core Utils: Type Converter', () => {
 
         it('should handle `unevaluatedProperties: true`', () => {
             const schema: SwaggerDefinition = { type: 'object', unevaluatedProperties: true };
-            expect(utils.getTypeScriptType(schema, config, [])).toBe('{ [key: string]: any }');
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('{ [key: string]: unknown }');
         });
 
         it('should include patternProperties in index signature', () => {
@@ -432,7 +432,7 @@ describe('Core Utils: Type Converter', () => {
             };
             const res = utils.getTypeScriptType(schema, config, []);
             expect(res).toContain('fixed?: string');
-            expect(res).toContain('[key: string]: number | any');
+            expect(res).toContain('[key: string]: number | unknown');
         });
 
         it('should return closed object when additionalProperties and unevaluatedProperties are false', () => {
@@ -450,7 +450,7 @@ describe('Core Utils: Type Converter', () => {
                 type: 'object',
                 properties: {},
             };
-            expect(utils.getTypeScriptType(schema, config, [])).toBe('{ [key: string]: any }');
+            expect(utils.getTypeScriptType(schema, config, [])).toBe('{ [key: string]: unknown }');
         });
 
         it('should return index signature for empty properties with additionalProperties schema', () => {
@@ -494,7 +494,7 @@ describe('Core Utils: Type Converter', () => {
             };
             const res = utils.getTypeScriptType(schema, config, []);
             expect(res).toContain('id?: string');
-            expect(res).toContain('[key: string]: number | any');
+            expect(res).toContain('[key: string]: number | unknown');
         });
 
         it('should quote invalid identifier keys', () => {
@@ -526,19 +526,19 @@ describe('Core Utils: Type Converter', () => {
 
         it('should return "any" for unknown schema types in switch default', () => {
             const schema = { type: 'alien-type' };
-            expect(utils.getTypeScriptType(schema as any, config)).toBe('any');
+            expect(utils.getTypeScriptType(schema as any, config)).toBe('unknown');
         });
 
         it('should return "any" for null or undefined schema input', () => {
-            expect(utils.getTypeScriptType(undefined as any, config, [])).toBe('any');
-            expect(utils.getTypeScriptType(null as any, config, [])).toBe('any');
+            expect(utils.getTypeScriptType(undefined as any, config, [])).toBe('unknown');
+            expect(utils.getTypeScriptType(null as any, config, [])).toBe('unknown');
         });
     });
 
     describe('getRequestBodyType', () => {
         it('should return "any" if requestBody is undefined or empty', () => {
-            expect(utils.getRequestBodyType(undefined, config, [])).toBe('any');
-            expect(utils.getRequestBodyType({ content: undefined as any }, config, [])).toBe('any');
+            expect(utils.getRequestBodyType(undefined, config, [])).toBe('unknown');
+            expect(utils.getRequestBodyType({ content: undefined as any }, config, [])).toBe('unknown');
         });
 
         it('should prioritize JSON content types', () => {
@@ -621,7 +621,7 @@ describe('Core Utils: Type Converter', () => {
                     },
                 },
             };
-            expect(utils.getRequestBodyType(rb as any, config, [])).toBe('any');
+            expect(utils.getRequestBodyType(rb as any, config, [])).toBe('unknown');
         });
 
         it('should return array type based on itemSchema for sequential payloads', () => {
@@ -706,7 +706,7 @@ describe('Core Utils: Type Converter', () => {
         });
         it('should return false for primitives', () => {
             expect(utils.isDataTypeInterface('string')).toBe(false);
-            expect(utils.isDataTypeInterface('any')).toBe(false);
+            expect(utils.isDataTypeInterface('unknown')).toBe(false);
             expect(utils.isDataTypeInterface('Date')).toBe(false);
             expect(utils.isDataTypeInterface('Blob')).toBe(false);
             expect(utils.isDataTypeInterface('File')).toBe(false);

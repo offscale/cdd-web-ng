@@ -44,7 +44,7 @@ export class ContentDecoderGenerator {
                 },
                 {
                     name: 'xmlConfig',
-                    type: 'any',
+                    type: 'unknown',
                     hasQuestionToken: true,
                     docs: ["Configuration for XmlParser when decode is 'xml'."],
                 },
@@ -81,8 +81,8 @@ export class ContentDecoderGenerator {
             else if (pad === 3) normalized += '=';
         }
 
-        if (typeof (globalThis as any).Buffer !== 'undefined') {
-            return Uint8Array.from((globalThis as any).Buffer.from(normalized, 'base64'));
+        if (typeof (globalThis as unknown).Buffer !== 'undefined') {
+            return Uint8Array.from((globalThis as unknown).Buffer.from(normalized, 'base64'));
         }
         const binary = atob(normalized);
         const bytes = new Uint8Array(binary.length);
@@ -103,8 +103,8 @@ export class ContentDecoderGenerator {
         if (typeof TextDecoder !== 'undefined') {
             return new TextDecoder().decode(bytes);
         }
-        if (typeof (globalThis as any).Buffer !== 'undefined') {
-            return (globalThis as any).Buffer.from(bytes).toString('utf-8');
+        if (typeof (globalThis as unknown).Buffer !== 'undefined') {
+            return (globalThis as unknown).Buffer.from(bytes).toString('utf-8');
         }
         let result = '';
         for (let i = 0; i < bytes.length; i++) {
@@ -119,10 +119,10 @@ export class ContentDecoderGenerator {
             isStatic: true,
             scope: Scope.Public,
             parameters: [
-                { name: 'data', type: 'any' },
+                { name: 'data', type: 'unknown' },
                 { name: 'config', type: 'ContentDecoderConfig', hasQuestionToken: true },
             ],
-            returnType: 'any',
+            returnType: 'unknown',
             statements: `
         if (data === null || data === undefined || !config) {
             return data;
@@ -173,7 +173,7 @@ export class ContentDecoderGenerator {
                 const result = { ...current };
                 Object.keys(config.properties).forEach(key => {
                     if (Object.prototype.hasOwnProperty.call(current, key)) {
-                        result[key] = this.decode((current as any)[key], config.properties![key]);
+                        result[key] = this.decode((current as unknown)[key], config.properties![key]);
                     }
                 });
                 return result;

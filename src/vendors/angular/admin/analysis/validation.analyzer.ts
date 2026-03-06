@@ -1,6 +1,7 @@
 // src/analysis/validation.analyzer.ts
 import { SwaggerDefinition } from '@src/core/types/index.js';
 import { ValidationRule } from './validation-types.js';
+import { JsonValue } from './form-types.js';
 
 export function analyzeValidationRules(schema: SwaggerDefinition | boolean): ValidationRule[] {
     /* v8 ignore next */
@@ -18,7 +19,7 @@ export function analyzeValidationRules(schema: SwaggerDefinition | boolean): Val
     /* v8 ignore next */
     if (schema.const !== undefined) {
         /* v8 ignore next */
-        rules.push({ type: 'const', value: schema.const });
+        rules.push({ type: 'const', value: schema.const as JsonValue });
     }
 
     /* v8 ignore next */
@@ -101,7 +102,7 @@ export function analyzeValidationRules(schema: SwaggerDefinition | boolean): Val
         /* v8 ignore next */
         rules.push({
             type: 'contains',
-            schema: containsSchema,
+            schema: containsSchema as JsonValue,
             /* v8 ignore start */
             ...(min !== undefined ? { min } : {}),
             /* v8 ignore stop */

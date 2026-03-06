@@ -6,8 +6,7 @@ import {
     Parameter,
     PathInfo,
     SwaggerDefinition,
-    SwaggerResponse,
-} from '@src/core/types/index.js';
+    SwaggerResponse, OpenApiValue } from '@src/core/types/index.js';
 import { camelCase, getTypeScriptType, isDataTypeInterface, sanitizeComment } from '@src/functions/utils.js';
 import { SwaggerParser } from '@src/openapi/parse.js';
 import { OptionalKind, ParameterDeclarationStructure } from 'ts-morph';
@@ -41,7 +40,7 @@ export class ServiceMethodAnalyzer {
         const defaultVariant = responseVariants.find(v => v.isDefault) ||
             responseVariants[0] || {
                 mediaType: 'application/json',
-                type: 'any',
+                type: 'unknown',
                 serialization: 'json',
                 isDefault: true,
             };
@@ -142,7 +141,7 @@ export class ServiceMethodAnalyzer {
         const requestContentType = this.getRequestBodyContentType(operation.requestBody);
 
         /* v8 ignore next */
-        let requestEncodingConfig: Record<string, unknown> | undefined = undefined;
+        let requestEncodingConfig: Record<string, OpenApiValue> | undefined = undefined;
         /* v8 ignore next */
         if (
             body &&
@@ -182,13 +181,13 @@ export class ServiceMethodAnalyzer {
         const effectiveSecurity = opSecurity !== undefined ? opSecurity : specSecurity || [];
 
         /* v8 ignore next */
-        const extensions: Record<string, unknown> = {};
+        const extensions: Record<string, OpenApiValue> = {};
         /* v8 ignore next */
         Object.keys(operation).forEach(key => {
             /* v8 ignore next */
             if (key.startsWith('x-')) {
                 /* v8 ignore next */
-                extensions[key] = (operation as Record<string, unknown>)[key];
+                extensions[key] = (operation as Record<string, OpenApiValue>)[key];
             }
         });
 
@@ -429,9 +428,9 @@ export class ServiceMethodAnalyzer {
                     /* v8 ignore next */
                     let serialization: ResponseSerialization = 'json';
                     /* v8 ignore next */
-                    let type = 'any';
+                    let type = 'unknown';
                     /* v8 ignore next */
-                    let decodingConfig: Record<string, unknown> | undefined = undefined;
+                    let decodingConfig: Record<string, OpenApiValue> | undefined = undefined;
 
                     /* v8 ignore next */
                     const sequentialKind = this.inferSequentialJsonKind(normalized, mediaObj as MediaTypeObject);
@@ -440,7 +439,7 @@ export class ServiceMethodAnalyzer {
                         (mediaObj as MediaTypeObject).itemSchema !== undefined
                             ? (mediaObj as MediaTypeObject).itemSchema
                             : (mediaObj as MediaTypeObject).schema !== undefined
-                              ? (((mediaObj as MediaTypeObject).schema as Record<string, unknown>)?.items ??
+                              ? (((mediaObj as MediaTypeObject).schema as Record<string, OpenApiValue>)?.items ??
                                 (mediaObj as MediaTypeObject).schema)
                               : undefined;
 
@@ -471,7 +470,7 @@ export class ServiceMethodAnalyzer {
                             /* v8 ignore next */
                             /* v8 ignore next */
                             /* v8 ignore start */
-                            type = 'any';
+                            type = 'unknown';
                             /* v8 ignore stop */
                         }
                     }
@@ -529,7 +528,7 @@ export class ServiceMethodAnalyzer {
                         /* v8 ignore next */
                         effectiveSchema !== undefined
                             ? getTypeScriptType(effectiveSchema as SwaggerDefinition, this.config, knownTypes)
-                            : 'any';
+                            : 'unknown';
                     const decodingConfig =
                         /* v8 ignore next */
                         effectiveSchema !== undefined
@@ -639,9 +638,9 @@ export class ServiceMethodAnalyzer {
         return { variants, ...(successCode ? { successCode } : {}) };
     }
 
-    private resolveType(schema: unknown, knownTypes: string[]): string {
+    private resolveType(schema: OpenApiValue, knownTypes: string[]): string {
         /* v8 ignore next */
-        return schema !== undefined ? getTypeScriptType(schema as SwaggerDefinition, this.config, knownTypes) : 'any';
+        return schema !== undefined ? getTypeScriptType(schema as SwaggerDefinition, this.config, knownTypes) : 'unknown';
     }
 
     private analyzeErrorResponses(
@@ -853,8 +852,8 @@ export class ServiceMethodAnalyzer {
                         ? (content as MediaTypeObject).itemSchema
                         : (content as MediaTypeObject)?.schema &&
                             typeof (content as MediaTypeObject).schema === 'object' &&
-                            ((content as MediaTypeObject).schema as Record<string, unknown>).items
-                          ? ((content as MediaTypeObject).schema as Record<string, unknown>).items
+                            ((content as MediaTypeObject).schema as Record<string, OpenApiValue>).items
+                          ? ((content as MediaTypeObject).schema as Record<string, OpenApiValue>).items
                           : (content as MediaTypeObject)?.schema !== undefined
                             ? (content as MediaTypeObject).schema
                             : undefined;
@@ -863,7 +862,7 @@ export class ServiceMethodAnalyzer {
                 const itemType = itemSchema
                     ? /* v8 ignore stop */
                       getTypeScriptType(itemSchema as SwaggerDefinition, this.config, knownTypes)
-                    : 'any';
+                    : 'unknown';
                 /* v8 ignore next */
                 const needsParens = itemType.includes('|') || itemType.includes('&');
                 /* v8 ignore next */
@@ -936,7 +935,7 @@ export class ServiceMethodAnalyzer {
                 /* v8 ignore next */
                 parameters.push({
                     name: 'body',
-                    type: 'FormData | any[] | any',
+                    type: 'FormData | OpenApiValue[] | OpenApiValue',
                     hasQuestionToken: !requestBody.required,
                 });
                 /* v8 ignore next */
@@ -964,7 +963,7 @@ export class ServiceMethodAnalyzer {
                 /* v8 ignore next */
                 const rawBodyType = effectiveSchema
                     ? getTypeScriptType(effectiveSchema as SwaggerDefinition, this.config, knownTypes)
-                    : 'any';
+                    : 'unknown';
                 /* v8 ignore next */
                 /* v8 ignore start */
                 const bodyType = rawBodyType.includes('|') ? `(${rawBodyType})` : rawBodyType;
@@ -1033,7 +1032,7 @@ export class ServiceMethodAnalyzer {
         const bodyParamDef = parameters.find(p => !nonBodyOpParams.has(p.name!));
 
         /* v8 ignore next */
-        const formDataParams = operation.parameters?.filter(p => (p as Record<string, unknown>).in === 'formData');
+        const formDataParams = operation.parameters?.filter(p => (p as Record<string, OpenApiValue>).in === 'formData');
         /* v8 ignore next */
         if (formDataParams && formDataParams.length > 0) {
             /* v8 ignore next */
@@ -1334,7 +1333,7 @@ export class ServiceMethodAnalyzer {
                 configMap[key]!.headers = {};
             }
             /* v8 ignore next */
-            const headers = configMap[key]!.headers as Record<string, unknown>;
+            const headers = configMap[key]!.headers as Record<string, OpenApiValue>;
             /* v8 ignore next */
             const hasTransferHeader = Object.keys(headers).some(h => h.toLowerCase() === 'content-transfer-encoding');
             /* v8 ignore next */
@@ -1354,7 +1353,7 @@ export class ServiceMethodAnalyzer {
         return keys.some(k => this.isJsonMediaType(this.normalizeMediaType(k)));
     }
 
-    private getParameterContent(p: Parameter): { contentType?: string; encoding?: Record<string, unknown> } {
+    private getParameterContent(p: Parameter): { contentType?: string; encoding?: Record<string, OpenApiValue> } {
         /* v8 ignore next */
         if (!p.content) return {};
         /* v8 ignore next */
@@ -1366,7 +1365,7 @@ export class ServiceMethodAnalyzer {
         /* v8 ignore next */
         const contentType = keys[0]!;
         /* v8 ignore next */
-        const encoding = (p.content as Record<string, { encoding?: Record<string, unknown> }>)?.[contentType]?.encoding;
+        const encoding = (p.content as Record<string, { encoding?: Record<string, OpenApiValue> }>)?.[contentType]?.encoding;
         /* v8 ignore next */
         return {
             /* v8 ignore start */
@@ -1668,7 +1667,7 @@ export class ServiceMethodAnalyzer {
         return properties.some(p => p.readOnly || p.writeOnly);
     }
 
-    private getXmlConfig(schema: SwaggerDefinition | boolean | undefined, depth: number): Record<string, unknown> {
+    private getXmlConfig(schema: SwaggerDefinition | boolean | undefined, depth: number): Record<string, OpenApiValue> {
         /* v8 ignore next */
         if (!schema || typeof schema !== 'object' || depth <= 0) return {};
         /* v8 ignore next */
@@ -1677,7 +1676,7 @@ export class ServiceMethodAnalyzer {
         if (!resolved) return {};
 
         /* v8 ignore next */
-        const config: Record<string, unknown> = {};
+        const config: Record<string, OpenApiValue> = {};
         /* v8 ignore next */
         if (resolved.xml?.name) config.name = resolved.xml.name;
         /* v8 ignore next */
@@ -1700,7 +1699,7 @@ export class ServiceMethodAnalyzer {
         } else {
             const isRef =
                 /* v8 ignore next */
-                !!(schema as Record<string, unknown>)?.$ref || !!(schema as Record<string, unknown>)?.$dynamicRef;
+                !!(schema as Record<string, OpenApiValue>)?.$ref || !!(schema as Record<string, OpenApiValue>)?.$dynamicRef;
             /* v8 ignore next */
             const isArray = resolved.type === 'array';
 
@@ -1739,7 +1738,7 @@ export class ServiceMethodAnalyzer {
                 /* v8 ignore next */
                 if (Object.keys(propConfig).length > 0) {
                     /* v8 ignore next */
-                    (config.properties as Record<string, unknown>)[propName] = propConfig;
+                    (config.properties as Record<string, OpenApiValue>)[propName] = propConfig;
                 }
             });
         }
@@ -1754,8 +1753,8 @@ export class ServiceMethodAnalyzer {
                 if (subConfig.properties) {
                     /* v8 ignore next */
                     config.properties = {
-                        ...(config.properties as Record<string, unknown>),
-                        ...(subConfig.properties as Record<string, unknown>),
+                        ...(config.properties as Record<string, OpenApiValue>),
+                        ...(subConfig.properties as Record<string, OpenApiValue>),
                     };
                 }
             });
@@ -1767,7 +1766,7 @@ export class ServiceMethodAnalyzer {
     private getDecodingConfig(
         schema: SwaggerDefinition | boolean | undefined,
         depth: number = 5,
-    ): Record<string, unknown> {
+    ): Record<string, OpenApiValue> {
         /* v8 ignore next */
         if (!schema || typeof schema !== 'object' || depth <= 0) return {};
         /* v8 ignore next */
@@ -1776,7 +1775,7 @@ export class ServiceMethodAnalyzer {
         if (!resolved) return {};
 
         /* v8 ignore next */
-        const config: Record<string, unknown> = {};
+        const config: Record<string, OpenApiValue> = {};
 
         /* v8 ignore next */
         if (resolved.contentEncoding) {
@@ -1814,7 +1813,7 @@ export class ServiceMethodAnalyzer {
         /* v8 ignore next */
         if (resolved.properties) {
             /* v8 ignore next */
-            const propConfigs: Record<string, unknown> = {};
+            const propConfigs: Record<string, OpenApiValue> = {};
             /* v8 ignore next */
             Object.entries(resolved.properties).forEach(([propName, propSchema]) => {
                 /* v8 ignore next */
@@ -1842,8 +1841,8 @@ export class ServiceMethodAnalyzer {
                 if (subConfig.properties) {
                     /* v8 ignore next */
                     config.properties = {
-                        ...((config.properties as Record<string, unknown>) || {}),
-                        ...(subConfig.properties as Record<string, unknown>),
+                        ...((config.properties as Record<string, OpenApiValue>) || {}),
+                        ...(subConfig.properties as Record<string, OpenApiValue>),
                     };
                 }
             });
@@ -1941,7 +1940,7 @@ export class ServiceMethodAnalyzer {
     private getEncodingConfig(
         schema: SwaggerDefinition | boolean | undefined,
         depth: number = 5,
-    ): Record<string, unknown> {
+    ): Record<string, OpenApiValue> {
         /* v8 ignore next */
         if (!schema || typeof schema !== 'object' || depth <= 0) return {};
         /* v8 ignore next */
@@ -1950,7 +1949,7 @@ export class ServiceMethodAnalyzer {
         if (!resolved) return {};
 
         /* v8 ignore next */
-        const config: Record<string, unknown> = {};
+        const config: Record<string, OpenApiValue> = {};
 
         /* v8 ignore next */
         if (resolved.contentMediaType) {
@@ -1986,7 +1985,7 @@ export class ServiceMethodAnalyzer {
         /* v8 ignore next */
         if (resolved.properties) {
             /* v8 ignore next */
-            const propConfigs: Record<string, unknown> = {};
+            const propConfigs: Record<string, OpenApiValue> = {};
             /* v8 ignore next */
             Object.entries(resolved.properties).forEach(([propName, propSchema]) => {
                 /* v8 ignore next */
@@ -2014,8 +2013,8 @@ export class ServiceMethodAnalyzer {
                 if (subConfig.properties) {
                     /* v8 ignore next */
                     config.properties = {
-                        ...((config.properties as Record<string, unknown>) || {}),
-                        ...(subConfig.properties as Record<string, unknown>),
+                        ...((config.properties as Record<string, OpenApiValue>) || {}),
+                        ...(subConfig.properties as Record<string, OpenApiValue>),
                     };
                 }
             });

@@ -74,7 +74,7 @@ export class WebhookHelperGenerator {
         serviceClass.addMethod({
             name: 'isWebhookEvent',
             scope: Scope.Public,
-            typeParameters: [{ name: 'T', default: 'unknown' }],
+            typeParameters: [{ name: 'T', default: 'Record<string, never>' }],
             parameters: [
                 { name: 'eventName', type: 'string' },
                 { name: 'payload', type: 'Record<string, never>' },

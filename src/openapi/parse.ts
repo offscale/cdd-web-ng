@@ -14,8 +14,7 @@ import {
     ServerObject,
     SwaggerDefinition,
     SwaggerSpec,
-    SpecOperation,
-} from '../core/types/index.js';
+    SpecOperation, OpenApiValue } from '../core/types/index.js';
 import { extractPaths, isUriReference, normalizeSecurityKey, pascalCase } from '../functions/utils.js';
 import { SpecValidationError, validateSpec } from './parse_validator.js';
 import { OAS_3_1_DIALECT } from '../core/constants.js';
@@ -93,7 +92,7 @@ export class SwaggerParser {
         /* v8 ignore next */
         const resolveRef = (ref: string) => this.resolveReference(ref);
         /* v8 ignore next */
-        const resolveObj = (obj: unknown) => this.resolve(obj);
+        const resolveObj = (obj: OpenApiValue) => this.resolve(obj);
 
         const extractOptions: {
             isOpenApi3: boolean;
@@ -435,13 +434,13 @@ export class SwaggerParser {
         return Array.from(definitions.entries()).map(([name, definition]) => ({ name, definition }));
     }
 
-    private isSchemaDocument(candidate: unknown): candidate is SwaggerDefinition {
+    private isSchemaDocument(candidate: OpenApiValue): candidate is SwaggerDefinition {
         /* v8 ignore next */
         /* v8 ignore start */
         if (!candidate || typeof candidate !== 'object') return false;
         /* v8 ignore stop */
         /* v8 ignore next */
-        const doc = candidate as Record<string, unknown>;
+        const doc = candidate as Record<string, OpenApiValue>;
 
         /* v8 ignore next */
         if ('openapi' in doc || 'swagger' in doc || 'info' in doc || 'paths' in doc) {
@@ -590,7 +589,7 @@ export class SwaggerParser {
                 if (!pathItem || typeof pathItem !== 'object') return;
                 /* v8 ignore stop */
                 /* v8 ignore next */
-                const pathRec = pathItem as Extract<PathItem, Record<string, unknown>>;
+                const pathRec = pathItem as Extract<PathItem, Record<string, OpenApiValue>>;
                 /* v8 ignore next */
                 methods.forEach(method => {
                     /* v8 ignore next */
@@ -799,7 +798,7 @@ export class SwaggerParser {
 
         /* v8 ignore next */
         /* v8 ignore start */
-        const recordFromPathItem = (pathItem: unknown, pathKey: string, prefix: string) => {
+        const recordFromPathItem = (pathItem: OpenApiValue, pathKey: string, prefix: string) => {
             /* v8 ignore stop */
             /* v8 ignore next */
             /* v8 ignore next */
@@ -813,7 +812,7 @@ export class SwaggerParser {
             /* v8 ignore next */
             /* v8 ignore next */
             /* v8 ignore start */
-            const pi = pathItem as Record<string, unknown>;
+            const pi = pathItem as Record<string, OpenApiValue>;
             /* v8 ignore stop */
 
             /* v8 ignore next */
@@ -964,7 +963,7 @@ export class SwaggerParser {
                 if (!pathItem || typeof pathItem !== 'object') continue;
                 /* v8 ignore stop */
                 /* v8 ignore next */
-                if (!(pathItem as Record<string, unknown>).$ref) continue;
+                if (!(pathItem as Record<string, OpenApiValue>).$ref) continue;
                 /* v8 ignore next */
                 /* v8 ignore start */
                 if (resolvedPaths.has(pathKey)) continue;
@@ -976,7 +975,7 @@ export class SwaggerParser {
                 /* v8 ignore start */
                 const resolved = this.resolveReference<PathItem>(
                     /* v8 ignore stop */
-                    (pathItem as Record<string, unknown>).$ref as string,
+                    (pathItem as Record<string, OpenApiValue>).$ref as string,
                     this.documentUri,
                 );
                 /* v8 ignore next */
@@ -1008,12 +1007,12 @@ export class SwaggerParser {
                 if (!pathItem || typeof pathItem !== 'object') continue;
                 /* v8 ignore stop */
                 /* v8 ignore next */
-                if (!(pathItem as Record<string, unknown>).$ref) continue;
+                if (!(pathItem as Record<string, OpenApiValue>).$ref) continue;
                 /* v8 ignore next */
                 if (resolvedWebhookPaths.has(pathKey)) continue;
                 /* v8 ignore next */
                 const resolved = this.resolveReference<PathItem>(
-                    (pathItem as Record<string, unknown>).$ref as string,
+                    (pathItem as Record<string, OpenApiValue>).$ref as string,
                     this.documentUri,
                 );
                 /* v8 ignore next */

@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 
 import yaml from 'js-yaml';
 
-import { SwaggerSpec } from '../core/types/index.js';
+import { SwaggerSpec, OpenApiValue } from '../core/types/index.js';
 import { isUrl } from '../functions/utils.js';
 import { validateSpec } from './parse_validator.js';
 import { ReferenceResolver } from './parse_reference_resolver.js';
@@ -125,16 +125,16 @@ export class SpecLoader {
         }
     }
 
-    private static findOperationRefs(spec: unknown): string[] {
+    private static findOperationRefs(spec: OpenApiValue): string[] {
         /* v8 ignore next */
         const refs = new Set<string>();
 
         /* v8 ignore next */
-        const traverse = (node: unknown) => {
+        const traverse = (node: OpenApiValue) => {
             /* v8 ignore next */
             if (!node || typeof node !== 'object') return;
             /* v8 ignore next */
-            const record = node as Record<string, unknown>;
+            const record = node as Record<string, OpenApiValue>;
             /* v8 ignore next */
             if (typeof record.operationRef === 'string') {
                 /* v8 ignore next */
@@ -243,12 +243,12 @@ export class SpecLoader {
         };
 
         /* v8 ignore next */
-        const isRefLike = (value: unknown): boolean =>
+        const isRefLike = (value: OpenApiValue): boolean =>
             /* v8 ignore next */
             !!value && typeof value === 'object' && ('$ref' in (value as object) || '$dynamicRef' in (value as object));
 
         /* v8 ignore next */
-        const collectFromPathItem = (pathItem: unknown, pathKey: string, prefix: string) => {
+        const collectFromPathItem = (pathItem: OpenApiValue, pathKey: string, prefix: string) => {
             /* v8 ignore next */
             /* v8 ignore start */
             if (!pathItem || typeof pathItem !== 'object') return;
@@ -257,12 +257,12 @@ export class SpecLoader {
             if (isRefLike(pathItem)) return;
 
             /* v8 ignore next */
-            const pi = pathItem as Record<string, unknown>;
+            const pi = pathItem as Record<string, OpenApiValue>;
 
             /* v8 ignore next */
             for (const method of operationKeys) {
                 /* v8 ignore next */
-                const operation = pi[method] as Record<string, unknown> | undefined;
+                const operation = pi[method] as Record<string, OpenApiValue> | undefined;
                 /* v8 ignore next */
                 if (operation && typeof operation.operationId === 'string') {
                     /* v8 ignore next */
@@ -279,14 +279,14 @@ export class SpecLoader {
                 /* v8 ignore next */
                 /* v8 ignore next */
                 /* v8 ignore start */
-                for (const [method, opVal] of Object.entries(pi.additionalOperations as Record<string, unknown>)) {
+                for (const [method, opVal] of Object.entries(pi.additionalOperations as Record<string, OpenApiValue>)) {
                     /* v8 ignore stop */
                     /* v8 ignore next */
                     /* v8 ignore next */
                     /* v8 ignore next */
                     /* v8 ignore next */
                     /* v8 ignore start */
-                    const operation = opVal as Record<string, unknown> | undefined;
+                    const operation = opVal as Record<string, OpenApiValue> | undefined;
                     /* v8 ignore stop */
                     /* v8 ignore next */
                     /* v8 ignore next */
@@ -308,7 +308,7 @@ export class SpecLoader {
         };
 
         /* v8 ignore next */
-        const collectFromPaths = (paths: Record<string, unknown> | undefined, prefix: string) => {
+        const collectFromPaths = (paths: Record<string, OpenApiValue> | undefined, prefix: string) => {
             /* v8 ignore next */
             if (!paths) return;
             /* v8 ignore next */
@@ -320,7 +320,7 @@ export class SpecLoader {
 
         /* v8 ignore next */
         /* v8 ignore start */
-        const collectFromCallbacks = (callbacks: Record<string, unknown> | undefined, prefix: string) => {
+        const collectFromCallbacks = (callbacks: Record<string, OpenApiValue> | undefined, prefix: string) => {
             /* v8 ignore stop */
             /* v8 ignore next */
             /* v8 ignore next */
@@ -355,7 +355,7 @@ export class SpecLoader {
                 /* v8 ignore next */
                 /* v8 ignore next */
                 /* v8 ignore start */
-                for (const [expression, callbackPathItem] of Object.entries(callbackObj as Record<string, unknown>)) {
+                for (const [expression, callbackPathItem] of Object.entries(callbackObj as Record<string, OpenApiValue>)) {
                     /* v8 ignore stop */
                     /* v8 ignore next */
                     /* v8 ignore next */
@@ -386,9 +386,9 @@ export class SpecLoader {
             /* v8 ignore next */
             const spec = doc as SwaggerSpec;
             /* v8 ignore next */
-            collectFromPaths(spec.paths as Record<string, unknown> | undefined, `${prefix}paths.`);
+            collectFromPaths(spec.paths as Record<string, OpenApiValue> | undefined, `${prefix}paths.`);
             /* v8 ignore next */
-            collectFromPaths(spec.webhooks as Record<string, unknown> | undefined, `${prefix}webhooks.`);
+            collectFromPaths(spec.webhooks as Record<string, OpenApiValue> | undefined, `${prefix}webhooks.`);
 
             /* v8 ignore next */
             const components = spec.components;
@@ -401,7 +401,7 @@ export class SpecLoader {
                 /* v8 ignore next */
                 /* v8 ignore next */
                 /* v8 ignore start */
-                collectFromPaths(components.pathItems as Record<string, unknown>, `${prefix}components.pathItems.`);
+                collectFromPaths(components.pathItems as Record<string, OpenApiValue>, `${prefix}components.pathItems.`);
                 /* v8 ignore stop */
             }
             /* v8 ignore next */
@@ -413,7 +413,7 @@ export class SpecLoader {
                 /* v8 ignore next */
                 /* v8 ignore next */
                 /* v8 ignore start */
-                collectFromPaths(components.webhooks as Record<string, unknown>, `${prefix}components.webhooks.`);
+                collectFromPaths(components.webhooks as Record<string, OpenApiValue>, `${prefix}components.webhooks.`);
                 /* v8 ignore stop */
             }
             /* v8 ignore next */
@@ -425,7 +425,7 @@ export class SpecLoader {
                 /* v8 ignore next */
                 /* v8 ignore next */
                 /* v8 ignore start */
-                collectFromCallbacks(components.callbacks as Record<string, unknown>, `${prefix}components.callbacks.`);
+                collectFromCallbacks(components.callbacks as Record<string, OpenApiValue>, `${prefix}components.callbacks.`);
                 /* v8 ignore stop */
             }
         }

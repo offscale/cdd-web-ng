@@ -3,8 +3,7 @@ import {
     MediaTypeObject,
     RequestBody,
     SwaggerDefinition,
-    SwaggerResponse,
-} from '../core/types/index.js';
+    SwaggerResponse, OpenApiValue } from '../core/types/index.js';
 import { pascalCase } from '../functions/utils_string.js';
 
 export function isDataTypeInterface(type: string): boolean {
@@ -19,7 +18,7 @@ export function isDataTypeInterface(type: string): boolean {
         'string',
         'number',
         'boolean',
-        'any',
+        'unknown',
         'void',
         'undefined',
         'null',
@@ -52,7 +51,7 @@ export function isDataTypeInterface(type: string): boolean {
 /**
  * Helpers for formatting literal values into TypeScript types.
  */
-function formatLiteralValue(val: unknown): string {
+function formatLiteralValue(val: OpenApiValue): string {
     /* v8 ignore next */
     if (val === null) return 'null';
     /* v8 ignore next */
@@ -60,7 +59,7 @@ function formatLiteralValue(val: unknown): string {
     /* v8 ignore next */
     if (typeof val === 'number' || typeof val === 'boolean') return String(val);
     /* v8 ignore next */
-    return 'any';
+    return 'unknown';
 }
 
 function normalizeMediaType(value: string | undefined): string | undefined {
@@ -256,11 +255,11 @@ export function getTypeScriptType(
     knownTypes: string[] = [],
 ): string {
     /* v8 ignore next */
-    if (schema === true) return 'any';
+    if (schema === true) return 'unknown';
     /* v8 ignore next */
     if (schema === false) return 'never';
     /* v8 ignore next */
-    if (!schema) return 'any';
+    if (!schema) return 'unknown';
 
     // OAS 3.0 nullable support: add a null union when explicitly requested.
     /* v8 ignore next */
@@ -270,7 +269,7 @@ export function getTypeScriptType(
         /* v8 ignore next */
         const baseType = getTypeScriptType(rest as SwaggerDefinition, config, knownTypes);
         /* v8 ignore next */
-        if (baseType === 'any' || /\bnull\b/.test(baseType)) {
+        if (baseType === 'unknown' || /\bnull\b/.test(baseType)) {
             /* v8 ignore next */
             return baseType;
         }
@@ -303,9 +302,9 @@ export function getTypeScriptType(
                 const safeKey = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(propName) ? propName : `'${propName}'`;
 
                 // Schema: If 'propName' key exists in the object, then the object must ALSO satisfy 'depType'.
-                // TS Intersection: ( { prop: any } & DepType ) | { prop?: never }
+                // TS Intersection: ( { prop: unknown } & DepType ) | { prop?: never }
                 /* v8 ignore next */
-                dependencies.push(`(({ ${safeKey}: any } & ${depType}) | { ${safeKey}?: never })`);
+                dependencies.push(`(({ ${safeKey}: unknown } & ${depType}) | { ${safeKey}?: never })`);
             });
         }
 
@@ -345,14 +344,14 @@ export function getTypeScriptType(
         /* v8 ignore next */
         const typeName = pascalCase(schema.$ref.split('/').pop() || '');
         /* v8 ignore next */
-        return knownTypes.includes(typeName) ? typeName : 'any';
+        return knownTypes.includes(typeName) ? typeName : 'unknown';
     }
     /* v8 ignore next */
     if (schema.$dynamicRef) {
         /* v8 ignore next */
         const typeName = pascalCase(schema.$dynamicRef.split('/').pop() || '');
         /* v8 ignore next */
-        return knownTypes.includes(typeName) ? typeName : 'any';
+        return knownTypes.includes(typeName) ? typeName : 'unknown';
     }
 
     // OAS 3.1 / JSON Schema 2020-12: const support
@@ -471,10 +470,10 @@ export function getTypeScriptType(
                 /* v8 ignore next */
                 return getObjectType(schema, config, knownTypes);
             /* v8 ignore next */
-            return 'any';
+            return 'unknown';
         default:
             /* v8 ignore next */
-            return 'any';
+            return 'unknown';
     }
 }
 
@@ -530,7 +529,7 @@ function getArrayType(schema: SwaggerDefinition, config: GeneratorConfig, knownT
             /* v8 ignore next */
             if (unevaluated === true) {
                 /* v8 ignore next */
-                restType = `, ...any[]`;
+                restType = `, ...unknown[]`;
                 /* v8 ignore next */
             } else if (unevaluated === false) {
                 /* v8 ignore next */
@@ -573,7 +572,7 @@ function getObjectType(schema: SwaggerDefinition, config: GeneratorConfig, known
         const valueType =
             /* v8 ignore next */
             schema.additionalProperties === true
-                ? 'any'
+                ? 'unknown'
                 : getTypeScriptType(schema.additionalProperties as SwaggerDefinition, config, knownTypes);
         /* v8 ignore next */
         indexSignatureTypes.push(valueType);
@@ -602,7 +601,7 @@ function getObjectType(schema: SwaggerDefinition, config: GeneratorConfig, known
         const valueType =
             /* v8 ignore next */
             schema.unevaluatedProperties === true
-                ? 'any'
+                ? 'unknown'
                 : getTypeScriptType(schema.unevaluatedProperties as SwaggerDefinition, config, knownTypes);
         /* v8 ignore next */
         indexSignatureTypes.push(valueType);
@@ -614,9 +613,9 @@ function getObjectType(schema: SwaggerDefinition, config: GeneratorConfig, known
     /* v8 ignore next */
     if (indexSignatureTypes.length > 0) {
         /* v8 ignore next */
-        if (indexSignatureTypes.includes('any')) {
+        if (indexSignatureTypes.includes('unknown')) {
             /* v8 ignore next */
-            indexSignatureType = 'any';
+            indexSignatureType = 'unknown';
         } else {
             /* v8 ignore next */
             indexSignatureType = [...new Set(indexSignatureTypes)].join(' | ');
@@ -639,7 +638,7 @@ function getObjectType(schema: SwaggerDefinition, config: GeneratorConfig, known
             /* v8 ignore next */
             if (explicitlyClosed) return '{}';
             /* v8 ignore next */
-            return indexSignatureType ? `{ [key: string]: ${indexSignatureType} }` : '{ [key: string]: any }';
+            return indexSignatureType ? `{ [key: string]: ${indexSignatureType} }` : '{ [key: string]: unknown }';
         }
 
         /* v8 ignore next */
@@ -657,7 +656,7 @@ function getObjectType(schema: SwaggerDefinition, config: GeneratorConfig, known
         /* v8 ignore next */
         if (indexSignatureType) {
             /* v8 ignore next */
-            return `{ ${props.join('; ')}; [key: string]: ${indexSignatureType} | any }`;
+            return `{ ${props.join('; ')}; [key: string]: ${indexSignatureType} | unknown }`;
         }
 
         // Note: We rely on this exact formatting without trailing semicolon for unit tests assertions
@@ -668,7 +667,7 @@ function getObjectType(schema: SwaggerDefinition, config: GeneratorConfig, known
     /* v8 ignore next */
     if (explicitlyClosed) return '{}';
     /* v8 ignore next */
-    return indexSignatureType ? `{ [key: string]: ${indexSignatureType} }` : '{ [key: string]: any }';
+    return indexSignatureType ? `{ [key: string]: ${indexSignatureType} }` : '{ [key: string]: unknown }';
 }
 
 export function getRequestBodyType(
@@ -677,7 +676,7 @@ export function getRequestBodyType(
     knownTypes: string[],
 ): string {
     /* v8 ignore next */
-    if (!requestBody || !requestBody.content) return 'any';
+    if (!requestBody || !requestBody.content) return 'unknown';
 
     /* v8 ignore next */
     const content = requestBody.content as Record<string, MediaTypeObject>;
@@ -697,7 +696,7 @@ export function getRequestBodyType(
     }
 
     /* v8 ignore next */
-    return 'any';
+    return 'unknown';
 }
 
 export function getResponseType(

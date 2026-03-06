@@ -593,7 +593,7 @@ describe('Generators (Angular): FormComponentGenerator', () => {
             // type-coverage:ignore-next-line
             (generator as any).generateFormComponentTs(resource, '/admin/test-any-array/test-form', analysis);
             const sourceFile = project.getSourceFileOrThrow('/admin/test-any-array/test-form/test-form.component.ts');
-            expect(sourceFile.getText()).toContain('FormArray<FormGroup<unknown>>');
+            expect(sourceFile.getText()).toContain('FormArray<FormGroup<Record<string, never>>>');
         });
 
         it('should generate onSubmit branches for create-only and update-only flows', () => {
@@ -679,7 +679,7 @@ describe('Generators (Angular): FormComponentGenerator', () => {
             // type-coverage:ignore-next-line
             (generator as any).addPatchForm(classDeclaration, { name: 'test', modelName: '' } as any, analysisComplex);
             const patchMethod = classDeclaration.getMethodOrThrow('patchForm');
-            expect(patchMethod.getParameters()[0].getType().getText()).toBe('unknown');
+            expect(patchMethod.getParameters()[0].getType().getText()).toBe('Record<string, never>');
         });
     });
 });

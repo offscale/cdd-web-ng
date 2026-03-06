@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import { Project, VariableDeclarationKind } from 'ts-morph';
 import { UTILITY_GENERATOR_HEADER_COMMENT } from '../core/constants.js';
 import { SwaggerParser } from '@src/openapi/parse.js';
-import { TagObject } from '@src/core/types/index.js';
+import { TagObject, OpenApiValue } from '@src/core/types/index.js';
 
 export class TagGenerator {
     constructor(
@@ -21,7 +21,7 @@ export class TagGenerator {
         /* v8 ignore next */
         const tagsFound = this.parser.spec.tags || [];
         /* v8 ignore next */
-        const extractExtensions = (tag: Record<string, unknown>) =>
+        const extractExtensions = (tag: Record<string, OpenApiValue>) =>
             /* v8 ignore next */
             Object.fromEntries(Object.entries(tag).filter(([key]) => key.startsWith('x-')));
 

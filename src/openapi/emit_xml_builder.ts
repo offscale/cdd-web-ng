@@ -52,7 +52,7 @@ export class XmlBuilderGenerator {
             isStatic: true,
             scope: Scope.Public,
             parameters: [
-                { name: 'data', type: 'any' },
+                { name: 'data', type: 'unknown' },
                 { name: 'rootTag', type: 'string' },
                 { name: 'config', type: 'XmlPropertyConfig', hasQuestionToken: true },
             ],
@@ -72,7 +72,7 @@ export class XmlBuilderGenerator {
             scope: Scope.Private,
             parameters: [
                 { name: 'tagName', type: 'string' },
-                { name: 'data', type: 'any' },
+                { name: 'data', type: 'unknown' },
                 { name: 'config', type: 'XmlPropertyConfig' },
             ],
             returnType: 'string',
@@ -113,7 +113,7 @@ export class XmlBuilderGenerator {
         const isWrapped = config.wrapped || nodeType === 'element'; 
 
         const resolveItemConfig = (index: number) => (index < prefixItems.length ? prefixItems[index] : itemConfig); 
-        const resolveItemName = (cfg: any, fallback: string) => (cfg && cfg.name ? cfg.name : fallback); 
+        const resolveItemName = (cfg: unknown, fallback: string) => (cfg && cfg.name ? cfg.name : fallback); 
 
         if (isWrapped && !isNone) { 
              const defaultItemName = resolveItemName(itemConfig, name); 

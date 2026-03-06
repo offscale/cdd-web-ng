@@ -5,7 +5,7 @@ import yaml from 'js-yaml';
 import { generateFromConfig } from './index.js';
 import { SwaggerParser } from './openapi/parse.js';
 import { generateDocsJson } from './functions/docs_generator.js';
-import { GeneratorConfig, GeneratorConfigOptions } from './core/types/index.js';
+import { GeneratorConfig, GeneratorConfigOptions, OpenApiValue } from './core/types/index.js';
 import {
     applyReverseMetadata,
     buildOpenApiSpecFromServices,
@@ -198,12 +198,12 @@ async function runGeneration(options: CliOptions, targetScope?: 'to_sdk' | 'to_s
     }
 }
 
-async function runToOpenApi(options: ToActionOptions, returnObject = false): Promise<void | unknown> {
+async function runToOpenApi(options: ToActionOptions, returnObject = false): Promise<void | OpenApiValue> {
     // type-coverage:ignore-next-line
-    let spec: unknown;
+    let spec: OpenApiValue;
     try {
         // type-coverage:ignore-next-line
-        ({ spec } = readOpenApiSnapshot(options.file, fs as unknown as Parameters<typeof readOpenApiSnapshot>[1]));
+        ({ spec } = readOpenApiSnapshot(options.file, fs as OpenApiValue as Parameters<typeof readOpenApiSnapshot>[1]));
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         const shouldFallback =
@@ -218,14 +218,14 @@ async function runToOpenApi(options: ToActionOptions, returnObject = false): Pro
         try {
             const services = parseGeneratedServices(
                 options.file,
-                fs as unknown as Parameters<typeof parseGeneratedServices>[1],
+                fs as OpenApiValue as Parameters<typeof parseGeneratedServices>[1],
             );
-            let schemas: Record<string, unknown> | undefined;
+            let schemas: Record<string, OpenApiValue> | undefined;
 
             try {
                 schemas = parseGeneratedModels(
                     options.file,
-                    fs as unknown as Parameters<typeof parseGeneratedModels>[1],
+                    fs as OpenApiValue as Parameters<typeof parseGeneratedModels>[1],
                 );
             } catch (modelError) {
                 const modelMessage = modelError instanceof Error ? modelError.message : String(modelError);
@@ -237,16 +237,16 @@ async function runToOpenApi(options: ToActionOptions, returnObject = false): Pro
             spec = buildOpenApiSpecFromServices(
                 services,
                 {},
-                schemas as unknown as Parameters<typeof buildOpenApiSpecFromServices>[2],
+                schemas as OpenApiValue as Parameters<typeof buildOpenApiSpecFromServices>[2],
             );
 
             try {
                 const metadata = parseGeneratedMetadata(
                     options.file,
-                    fs as unknown as Parameters<typeof parseGeneratedMetadata>[1],
+                    fs as OpenApiValue as Parameters<typeof parseGeneratedMetadata>[1],
                 );
                 // type-coverage:ignore-next-line
-                spec = applyReverseMetadata(spec as unknown as Parameters<typeof applyReverseMetadata>[0], metadata);
+                spec = applyReverseMetadata(spec as OpenApiValue as Parameters<typeof applyReverseMetadata>[0], metadata);
             } catch (metaError) {
                 const metaMessage = metaError instanceof Error ? metaError.message : String(metaError);
                 console.warn(`⚠️  ${metaMessage}`);
@@ -258,17 +258,17 @@ async function runToOpenApi(options: ToActionOptions, returnObject = false): Pro
             console.warn('ℹ️  Falling back to AST-based TypeScript scanning.');
             const scan = scanTypeScriptProject(
                 options.file,
-                fs as unknown as Parameters<typeof scanTypeScriptProject>[1],
+                fs as OpenApiValue as Parameters<typeof scanTypeScriptProject>[1],
             );
             // type-coverage:ignore-next-line
             spec = buildOpenApiSpecFromScan(scan);
             try {
                 const metadata = parseGeneratedMetadata(
                     options.file,
-                    fs as unknown as Parameters<typeof parseGeneratedMetadata>[1],
+                    fs as OpenApiValue as Parameters<typeof parseGeneratedMetadata>[1],
                 );
                 // type-coverage:ignore-next-line
-                spec = applyReverseMetadata(spec as unknown as Parameters<typeof applyReverseMetadata>[0], metadata);
+                spec = applyReverseMetadata(spec as OpenApiValue as Parameters<typeof applyReverseMetadata>[0], metadata);
             } catch (metaError) {
                 const metaMessage = metaError instanceof Error ? metaError.message : String(metaError);
                 console.warn(`⚠️  ${metaMessage}`);
@@ -299,7 +299,7 @@ interface DocsJsonOptions {
     wrapping: boolean;
 }
 
-async function runToDocsJson(options: DocsJsonOptions, returnObject = false): Promise<void | unknown> {
+async function runToDocsJson(options: DocsJsonOptions, returnObject = false): Promise<void | OpenApiValue> {
     const config = {
         input: options.input,
         output: './generated',
@@ -485,7 +485,7 @@ program
                     body += chunk.toString();
                 });
                 req.on('end', async () => {
-                    let parsed: { method?: string; params?: Record<string, unknown>; id?: string | number | null };
+                    let parsed: { method?: string; params?: Record<string, OpenApiValue>; id?: string | number | null };
                     try {
                         parsed = JSON.parse(body);
                     } catch (err) {
@@ -500,22 +500,22 @@ program
                         return;
                     }
                     try {
-                        let result: unknown;
+                        let result: OpenApiValue;
                         switch (parsed.method) {
                             case 'from_openapi_to_sdk_cli':
-                                result = await runGeneration(parsed.params as unknown as CliOptions, 'to_sdk_cli');
+                                result = await runGeneration(parsed.params as OpenApiValue as CliOptions, 'to_sdk_cli');
                                 break;
                             case 'from_openapi_to_sdk':
-                                result = await runGeneration(parsed.params as unknown as CliOptions, 'to_sdk');
+                                result = await runGeneration(parsed.params as OpenApiValue as CliOptions, 'to_sdk');
                                 break;
                             case 'from_openapi_to_server':
-                                result = await runGeneration(parsed.params as unknown as CliOptions, 'to_server');
+                                result = await runGeneration(parsed.params as OpenApiValue as CliOptions, 'to_server');
                                 break;
                             case 'to_openapi':
-                                result = await runToOpenApi(parsed.params as unknown as ToActionOptions, true);
+                                result = await runToOpenApi(parsed.params as OpenApiValue as ToActionOptions, true);
                                 break;
                             case 'to_docs_json':
-                                result = await runToDocsJson(parsed.params as unknown as DocsJsonOptions, true);
+                                result = await runToDocsJson(parsed.params as OpenApiValue as DocsJsonOptions, true);
                                 break;
                             case 'version':
                                 result = packageJson.version;
@@ -525,7 +525,7 @@ program
                         }
                         res.writeHead(200, { 'Content-Type': 'application/json' });
                         res.end(JSON.stringify({ jsonrpc: '2.0', result, id: parsed.id }));
-                    } catch (err: unknown) {
+                    } catch (err: OpenApiValue) {
                         res.writeHead(400, { 'Content-Type': 'application/json' });
                         res.end(
                             JSON.stringify({

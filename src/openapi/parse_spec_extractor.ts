@@ -64,10 +64,10 @@ export function groupPathsByController(parser: { operations: PathInfo[] }): Reco
 
 export function extractPaths(
     swaggerPaths: { [p: string]: PathItem } | undefined,
-    resolveRef?: (ref: string) => unknown,
+    resolveRef?: (ref: string) => string | number | boolean | object | undefined | null,
     components?: { securitySchemes?: Record<string, OpenApiValue> } | undefined,
     options?: { isOpenApi3?: boolean; defaultConsumes?: string[]; defaultProduces?: string[] },
-    resolveObj?: (obj: OpenApiValue) => unknown,
+    resolveObj?: (obj: OpenApiValue) => string | number | boolean | object | undefined | null,
 ): PathInfo[] {
     /* v8 ignore next */
     if (!swaggerPaths) {

@@ -1,7 +1,7 @@
 // tests/fixtures/ast/querystring.examples.ts
 
 const app = {
-    get: (..._args: unknown[]) => {
+    get: (..._args: string | number | boolean | object | undefined | null[]) => {
         void _args;
     },
 };

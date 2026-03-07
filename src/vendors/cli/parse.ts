@@ -135,7 +135,7 @@ export function parseGeneratedCliSource(sourceText: string, filePath = 'cli.ts')
                             parent = pCall.getParent();
                         }
 
-                        (spec.paths![pathKey] as any).post = op;
+                        (spec.paths![pathKey] as PathItem).post = op;
                     }
                 }
             }

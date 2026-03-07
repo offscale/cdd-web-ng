@@ -104,7 +104,7 @@ describe('Emitter: TypeGenerator', () => {
 
     it('should generate `any` for an empty enum', () => {
         const { getText } = runGenerator(typeGenSpec);
-        expect(getText()).toContain('export type EmptyEnum = unknown;');
+        expect(getText()).toContain('export type EmptyEnum = string | number | boolean | object | undefined | null;');
     });
 
     it('should generate extended interfaces using `extends` for `allOf`', () => {
@@ -131,7 +131,7 @@ describe('Emitter: TypeGenerator', () => {
 
     it('should generate index signatures for `additionalProperties`', () => {
         const { getText } = runGenerator(typeGenSpec);
-        expect(getText()).toContain('export interface FreeObject {\n    [key: string]: unknown;\n}');
+        expect(getText()).toContain('export interface FreeObject {\n    [key: string]: string | number | boolean | object | undefined | null;\n}');
         expect(getText()).toContain('export interface StringMap {\n    [key: string]: string;\n}');
     });
 

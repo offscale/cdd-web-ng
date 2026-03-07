@@ -323,7 +323,7 @@ export class OAuthHelperGenerator {
                 { name: 'username', type: 'string' },
                 { name: 'password', type: 'string' },
             ],
-            returnType: 'Promise<Record<string, never>>',
+            returnType: 'Promise<Record<string, string | number | boolean | object | undefined | null>>',
             statements: `
         const body = new URLSearchParams(); 
         body.set('grant_type', 'password'); 
@@ -334,7 +334,7 @@ export class OAuthHelperGenerator {
             this.http.post(this.tokenUrl, body.toString(), { 
                 headers: new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' }) 
             }).subscribe({ 
-                next: (res: { access_token?: string } & Record<string, never>) => { 
+                next: (res: { access_token?: string } & Record<string, string | number | boolean | object | undefined | null>) => { 
                     if (res.access_token) this.setToken(res.access_token); 
                     resolve(res); 
                 }, 
@@ -353,7 +353,7 @@ export class OAuthHelperGenerator {
                 { name: 'clientId', type: 'string' },
                 { name: 'clientSecret', type: 'string' },
             ],
-            returnType: 'Promise<Record<string, never>>',
+            returnType: 'Promise<Record<string, string | number | boolean | object | undefined | null>>',
             statements: `
         const body = new URLSearchParams(); 
         body.set('grant_type', 'client_credentials'); 
@@ -364,7 +364,7 @@ export class OAuthHelperGenerator {
             this.http.post(this.tokenUrl, body.toString(), { 
                 headers: new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' }) 
             }).subscribe({ 
-                next: (res: { access_token?: string } & Record<string, never>) => { 
+                next: (res: { access_token?: string } & Record<string, string | number | boolean | object | undefined | null>) => { 
                     if (res.access_token) this.setToken(res.access_token); 
                     resolve(res); 
                 }, 
@@ -387,7 +387,7 @@ export class OAuthHelperGenerator {
                 { name: 'clientId', type: 'string' },
                 { name: 'scope', type: 'string', hasQuestionToken: true },
             ],
-            returnType: 'Promise<Record<string, never>>',
+            returnType: 'Promise<Record<string, string | number | boolean | object | undefined | null>>',
             statements: `
         const body = new URLSearchParams(); 
         body.set('client_id', clientId); 
@@ -397,7 +397,7 @@ export class OAuthHelperGenerator {
             this.http.post(this.deviceAuthorizationUrl, body.toString(), { 
                 headers: new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' }) 
             }).subscribe({ 
-                next: (res: Record<string, never>) => resolve(res), 
+                next: (res: Record<string, string | number | boolean | object | undefined | null>) => resolve(res), 
                 error: reject
             }); 
         });`,
@@ -417,7 +417,7 @@ export class OAuthHelperGenerator {
                 { name: 'clientId', type: 'string' },
                 { name: 'clientSecret', type: 'string', hasQuestionToken: true },
             ],
-            returnType: 'Promise<Record<string, never>>',
+            returnType: 'Promise<Record<string, string | number | boolean | object | undefined | null>>',
             statements: `
         const body = new URLSearchParams(); 
         body.set('grant_type', 'urn:ietf:params:oauth:grant-type:device_code'); 
@@ -429,7 +429,7 @@ export class OAuthHelperGenerator {
             this.http.post(this.tokenUrl, body.toString(), { 
                 headers: new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' }) 
             }).subscribe({ 
-                next: (res: { access_token?: string } & Record<string, never>) => { 
+                next: (res: { access_token?: string } & Record<string, string | number | boolean | object | undefined | null>) => { 
                     if (res.access_token) this.setToken(res.access_token); 
                     resolve(res); 
                 }, 

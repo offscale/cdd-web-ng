@@ -137,7 +137,7 @@ describe('Generators (Angular): FormComponentGenerator', () => {
             // FIXED: Now using `payload` variable due to readOnly stripping hygiene
             expect(classText).toContain("if (Array.isArray(payload['settings']))");
             expect(classText).toContain(
-                "payload['settings'].forEach((pair: { key: string, value: Record<string, never> | string | number | boolean | null })",
+                "payload['settings'].forEach((pair: { key: string, value: Record<string, string | number | boolean | object | undefined | null> | string | number | boolean | null })",
             );
         });
 
@@ -542,7 +542,7 @@ describe('Generators (Angular): FormComponentGenerator', () => {
             // type-coverage:ignore-next-line
             (generator as any).generateFormComponentTs(resource, '/admin/test-any/test-form', analysis);
             const sourceFile = project.getSourceFileOrThrow('/admin/test-any/test-form/test-form.component.ts');
-            expect(sourceFile.getText()).toContain('unknownProp: Record<string, never>');
+            expect(sourceFile.getText()).toContain('unknownProp: Record<string, string | number | boolean | object | undefined | null>');
         });
 
         it('should default array item interface to any when nestedFormInterface is missing', () => {
@@ -593,7 +593,7 @@ describe('Generators (Angular): FormComponentGenerator', () => {
             // type-coverage:ignore-next-line
             (generator as any).generateFormComponentTs(resource, '/admin/test-any-array/test-form', analysis);
             const sourceFile = project.getSourceFileOrThrow('/admin/test-any-array/test-form/test-form.component.ts');
-            expect(sourceFile.getText()).toContain('FormArray<FormGroup<Record<string, never>>>');
+            expect(sourceFile.getText()).toContain('FormArray<FormGroup<Record<string, string | number | boolean | object | undefined | null>>>');
         });
 
         it('should generate onSubmit branches for create-only and update-only flows', () => {
@@ -679,7 +679,7 @@ describe('Generators (Angular): FormComponentGenerator', () => {
             // type-coverage:ignore-next-line
             (generator as any).addPatchForm(classDeclaration, { name: 'test', modelName: '' } as any, analysisComplex);
             const patchMethod = classDeclaration.getMethodOrThrow('patchForm');
-            expect(patchMethod.getParameters()[0].getType().getText()).toBe('Record<string, never>');
+            expect(patchMethod.getParameters()[0].getType().getText()).toBe('Record<string, string | number | boolean | object>');
         });
     });
 });

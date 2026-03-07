@@ -103,7 +103,7 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
         expect(methodBody).toContain('const multipartConfig =');
         expect(methodBody).toContain('MultipartBuilder.serialize(body, multipartConfig);');
         expect(methodBody).toContain(
-            'return this.http.post<Record<string, never>>(url, multipartResult.content, requestOptions as Record<string, never>);',
+            'return this.http.post<Record<string, string | number | boolean | object | undefined | null>>(url, multipartResult.content, requestOptions as { headers?: HttpHeaders; observe: "response"; context?: HttpContext; reportProgress?: boolean; responseType?: "json"; withCredentials?: boolean });',
         );
     });
 
@@ -117,7 +117,7 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
         expect(methodBody).toContain('const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(body,');
         expect(methodBody).toContain('let formBody = new HttpParams({ encoder: new ApiParameterCodec() });');
         expect(methodBody).toContain(
-            'return this.http.post<Record<string, never>>(url, formBody, requestOptions as Record<string, never>);',
+            'return this.http.post<Record<string, string | number | boolean | object | undefined | null>>(url, formBody, requestOptions as { headers?: HttpHeaders; observe: "response"; context?: HttpContext; reportProgress?: boolean; responseType?: "json"; withCredentials?: boolean });',
         );
     });
 
@@ -137,7 +137,7 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
         const method = serviceFile.getClassOrThrow('BodyNoSchemaService').getMethodOrThrow('postBodyNoSchema');
         // type-coverage:ignore-next-line
         const param = method.getParameters().find((p: any) => p.getName() === 'body');
-        expect(param?.getType().getText()).toBe('unknown');
+        expect(param?.getType().getText()).toBe('string | number | boolean | object | null | undefined');
     });
 
     it('should handle operations with only required parameters', () => {
@@ -156,7 +156,7 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
         const project = run(branchCoverageSpec);
         const serviceFile = project.getSourceFileOrThrow('/out/services/noSuccessResponse.service.ts');
         const method = serviceFile.getClassOrThrow('NoSuccessResponseService').getMethodOrThrow('getNoSuccess');
-        expect(method.getOverloads()[0].getReturnType().getText()).toBe('Observable<Record<string, never>>');
+        expect(method.getOverloads()[0].getReturnType().getText()).toBe('Observable<string | number | boolean | object | null | undefined>');
     });
 
     it('should handle default responses and responses without content', () => {

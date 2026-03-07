@@ -1,33 +1,33 @@
 // tests/fixtures/ast/express.routes.ts
 
 const app = {
-    get: (..._args: unknown[]) => {
+    get: (..._args: string | number | boolean | object | undefined | null[]) => {
         void _args;
     },
-    post: (..._args: unknown[]) => {
+    post: (..._args: string | number | boolean | object | undefined | null[]) => {
         void _args;
     },
-    put: (..._args: unknown[]) => {
+    put: (..._args: string | number | boolean | object | undefined | null[]) => {
         void _args;
     },
-    patch: (..._args: unknown[]) => {
+    patch: (..._args: string | number | boolean | object | undefined | null[]) => {
         void _args;
     },
-    delete: (..._args: unknown[]) => {
+    delete: (..._args: string | number | boolean | object | undefined | null[]) => {
         void _args;
     },
-    query: (..._args: unknown[]) => {
+    query: (..._args: string | number | boolean | object | undefined | null[]) => {
         void _args;
     },
-    copy: (..._args: unknown[]) => {
+    copy: (..._args: string | number | boolean | object | undefined | null[]) => {
         void _args;
     },
 };
 const router = {
-    route: (..._args: unknown[]) => {
+    route: (..._args: string | number | boolean | object | undefined | null[]) => {
         void _args;
         return {
-            patch: (..._routeArgs: unknown[]) => {
+            patch: (..._routeArgs: string | number | boolean | object | undefined | null[]) => {
                 void _routeArgs;
             },
         };
@@ -36,7 +36,7 @@ const router = {
 type Request<
     Params = Record<string, string | undefined>,
     _ResBody = unknown,
-    ReqBody = Record<string, never> | undefined,
+    ReqBody = Record<string, string | number | boolean | object | undefined | null> | undefined,
     ReqQuery = Record<string, string | undefined>,
 > = {
     params: Params;
@@ -90,7 +90,7 @@ router.route('/projects/:projectId').patch(function updateProject(req: Request<R
     res.type('application/xml').status(200).send('<ok/>');
 });
 
-app.post('/messages', (req: Request<unknown, unknown, Record<string, never>>, res: Response) => {
+app.post('/messages', (req: Request<unknown, unknown, Record<string, string | number | boolean | object | undefined | null>>, res: Response) => {
     const body = req.body;
     const payload = req.body ? req.body['payload'] : undefined;
     if (req.is('application/json')) {
@@ -140,7 +140,7 @@ app.get(
             params,
             query,
             body,
-        }: Request<Record<string, string>, unknown, Record<string, never>, Record<string, string>>,
+        }: Request<Record<string, string>, unknown, Record<string, string | number | boolean | object | undefined | null>, Record<string, string>>,
         res: Response,
     ) => {
         const userId = params.id;

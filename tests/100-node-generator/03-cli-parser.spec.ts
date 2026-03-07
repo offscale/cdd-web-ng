@@ -32,21 +32,22 @@ usersCommand.command('getUser')
         expect(spec.servers![0].url).toBe('http://localhost');
 
         expect(spec.paths).toBeDefined();
-        const getUserOp = (spec.paths as any)['/users/getUser'].post;
+        const getUserOp = spec.paths!['/users/getUser'].post!;
         expect(getUserOp).toBeDefined();
         expect(getUserOp.operationId).toBe('getUser');
         expect(getUserOp.tags).toEqual(['Users']);
         expect(getUserOp.description).toBe('Get User by ID');
 
         expect(getUserOp.parameters).toBeDefined();
-        expect(getUserOp.parameters.length).toBe(2);
+        const parameters = getUserOp.parameters as import('../../src/core/types/openapi.js').Parameter[];
+        expect(parameters.length).toBe(2);
 
-        expect(getUserOp.parameters[0].name).toBe('id');
-        expect(getUserOp.parameters[0].required).toBe(true);
-        expect(getUserOp.parameters[0].description).toBe('User ID');
+        expect(parameters[0].name).toBe('id');
+        expect(parameters[0].required).toBe(true);
+        expect(parameters[0].description).toBe('User ID');
 
-        expect(getUserOp.parameters[1].name).toBe('format');
-        expect(getUserOp.parameters[1].required).toBe(false);
+        expect(parameters[1].name).toBe('format');
+        expect(parameters[1].required).toBe(false);
     });
 
     it('should handle an empty file gracefully', () => {

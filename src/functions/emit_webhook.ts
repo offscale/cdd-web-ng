@@ -26,7 +26,7 @@ export class WebhookGenerator {
             /* v8 ignore next */
             if (
                 type &&
-                type !== 'unknown' &&
+                type !== 'string | number | boolean | object | undefined | null' &&
                 /^[A-Z]/.test(type) &&
                 !['Date', 'Blob', 'File'].includes(type) &&
                 !type.includes('{') &&

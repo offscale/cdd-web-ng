@@ -228,99 +228,99 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
 
         expect(schemas.Base).toBeDefined();
         // type-coverage:ignore-next-line
-        expect((schemas.Base as unknown).properties.id.type).toBe('string');
+        expect((schemas.Base as string | number | boolean | object | undefined | null).properties.id.type).toBe('string');
         // type-coverage:ignore-next-line
-        expect((schemas.Base as unknown).properties.createdAt.readOnly).toBe(true);
+        expect((schemas.Base as string | number | boolean | object | undefined | null).properties.createdAt.readOnly).toBe(true);
         // type-coverage:ignore-next-line
-        expect((schemas.Base as unknown).properties.createdAt.format).toBe('date-time');
+        expect((schemas.Base as string | number | boolean | object | undefined | null).properties.createdAt.format).toBe('date-time');
 
         // type-coverage:ignore-next-line
-        expect((schemas.Status as unknown).enum).toEqual(['active', 'inactive']);
+        expect((schemas.Status as string | number | boolean | object | undefined | null).enum).toEqual(['active', 'inactive']);
         // type-coverage:ignore-next-line
-        expect((schemas.Status as unknown).deprecated).toBe(true);
+        expect((schemas.Status as string | number | boolean | object | undefined | null).deprecated).toBe(true);
         // type-coverage:ignore-next-line
-        expect((schemas.Level as unknown).type).toBe('number');
+        expect((schemas.Level as string | number | boolean | object | undefined | null).type).toBe('number');
         // type-coverage:ignore-next-line
-        expect((schemas.Mixed as unknown).type).toBeUndefined();
+        expect((schemas.Mixed as string | number | boolean | object | undefined | null).type).toBeUndefined();
 
         // type-coverage:ignore-next-line
-        expect((schemas.Mode as unknown).enum).toEqual(['auto', 'manual']);
+        expect((schemas.Mode as string | number | boolean | object | undefined | null).enum).toEqual(['auto', 'manual']);
         expect(schemas.AnyAlias).toBeDefined();
         expect(schemas.UnknownAlias).toBeDefined();
         expect(schemas.ObjAlias).toBeDefined();
         // type-coverage:ignore-next-line
-        expect((schemas.LiteralNum as unknown).const).toBe(42);
+        expect((schemas.LiteralNum as string | number | boolean | object | undefined | null).const).toBe(42);
         // type-coverage:ignore-next-line
-        expect((schemas.LiteralTrue as unknown).const).toBe(true);
+        expect((schemas.LiteralTrue as string | number | boolean | object | undefined | null).const).toBe(true);
         // type-coverage:ignore-next-line
-        expect((schemas.LiteralFalse as unknown).const).toBe(false);
+        expect((schemas.LiteralFalse as string | number | boolean | object | undefined | null).const).toBe(false);
         // type-coverage:ignore-next-line
-        expect((schemas.LiteralNull as unknown).type).toBe('null');
+        expect((schemas.LiteralNull as string | number | boolean | object | undefined | null).type).toBe('null');
         // type-coverage:ignore-next-line
-        expect((schemas.LiteralNull as unknown).const).toBe(null);
+        expect((schemas.LiteralNull as string | number | boolean | object | undefined | null).const).toBe(null);
         // type-coverage:ignore-next-line
-        expect((schemas.ParenAlias as unknown).type).toBe('string');
+        expect((schemas.ParenAlias as string | number | boolean | object | undefined | null).type).toBe('string');
 
         // type-coverage:ignore-next-line
-        expect((schemas.NullableName as unknown).type).toEqual(['string', 'null']);
+        expect((schemas.NullableName as string | number | boolean | object | undefined | null).type).toEqual(['string', 'null']);
         // type-coverage:ignore-next-line
-        expect((schemas.OptionalName as unknown).type).toBe('string');
+        expect((schemas.OptionalName as string | number | boolean | object | undefined | null).type).toBe('string');
         // type-coverage:ignore-next-line
-        expect((schemas.UnionAnyOf as unknown).anyOf.length).toBe(2);
+        expect((schemas.UnionAnyOf as string | number | boolean | object | undefined | null).anyOf.length).toBe(2);
 
         // type-coverage:ignore-next-line
-        expect((schemas.ArrayAlias as unknown).type).toBe('array');
+        expect((schemas.ArrayAlias as string | number | boolean | object | undefined | null).type).toBe('array');
         // type-coverage:ignore-next-line
-        expect((schemas.ArrayAlias as unknown).items.type).toBe('string');
+        expect((schemas.ArrayAlias as string | number | boolean | object | undefined | null).items.type).toBe('string');
         // type-coverage:ignore-next-line
-        expect((schemas.TupleAlias as unknown).prefixItems.length).toBe(2);
+        expect((schemas.TupleAlias as string | number | boolean | object | undefined | null).prefixItems.length).toBe(2);
         // type-coverage:ignore-next-line
-        expect((schemas.TupleAlias as unknown).minItems).toBe(2);
+        expect((schemas.TupleAlias as string | number | boolean | object | undefined | null).minItems).toBe(2);
         // type-coverage:ignore-next-line
-        expect((schemas.TupleAlias as unknown).maxItems).toBe(2);
+        expect((schemas.TupleAlias as string | number | boolean | object | undefined | null).maxItems).toBe(2);
         // type-coverage:ignore-next-line
-        expect((schemas.TupleAlias as unknown).items).toBe(false);
+        expect((schemas.TupleAlias as string | number | boolean | object | undefined | null).items).toBe(false);
         // type-coverage:ignore-next-line
-        expect((schemas.OptionalTuple as unknown).prefixItems.length).toBe(2);
+        expect((schemas.OptionalTuple as string | number | boolean | object | undefined | null).prefixItems.length).toBe(2);
         // type-coverage:ignore-next-line
-        expect((schemas.OptionalTuple as unknown).minItems).toBe(1);
+        expect((schemas.OptionalTuple as string | number | boolean | object | undefined | null).minItems).toBe(1);
         // type-coverage:ignore-next-line
-        expect((schemas.OptionalTuple as unknown).maxItems).toBe(2);
+        expect((schemas.OptionalTuple as string | number | boolean | object | undefined | null).maxItems).toBe(2);
         // type-coverage:ignore-next-line
-        expect((schemas.OptionalTuple as unknown).items).toBe(false);
+        expect((schemas.OptionalTuple as string | number | boolean | object | undefined | null).items).toBe(false);
         // type-coverage:ignore-next-line
-        expect((schemas.NamedTuple as unknown).prefixItems.length).toBe(2);
+        expect((schemas.NamedTuple as string | number | boolean | object | undefined | null).prefixItems.length).toBe(2);
         // type-coverage:ignore-next-line
-        expect((schemas.NamedTuple as unknown).minItems).toBe(1);
+        expect((schemas.NamedTuple as string | number | boolean | object | undefined | null).minItems).toBe(1);
         // type-coverage:ignore-next-line
-        expect((schemas.NamedTuple as unknown).maxItems).toBe(2);
+        expect((schemas.NamedTuple as string | number | boolean | object | undefined | null).maxItems).toBe(2);
         // type-coverage:ignore-next-line
-        expect((schemas.NamedTuple as unknown).items).toBe(false);
+        expect((schemas.NamedTuple as string | number | boolean | object | undefined | null).items).toBe(false);
         // type-coverage:ignore-next-line
-        expect((schemas.RestTuple as unknown).prefixItems.length).toBe(1);
+        expect((schemas.RestTuple as string | number | boolean | object | undefined | null).prefixItems.length).toBe(1);
         // type-coverage:ignore-next-line
-        expect((schemas.RestTuple as unknown).minItems).toBe(1);
+        expect((schemas.RestTuple as string | number | boolean | object | undefined | null).minItems).toBe(1);
         // type-coverage:ignore-next-line
-        expect((schemas.RestTuple as unknown).items.type).toBe('number');
+        expect((schemas.RestTuple as string | number | boolean | object | undefined | null).items.type).toBe('number');
         // type-coverage:ignore-next-line
-        expect((schemas.ReadonlyAlias as unknown).items.type).toBe('string');
+        expect((schemas.ReadonlyAlias as string | number | boolean | object | undefined | null).items.type).toBe('string');
         // type-coverage:ignore-next-line
-        expect((schemas.ArrayRef as unknown).items.type).toBe('number');
+        expect((schemas.ArrayRef as string | number | boolean | object | undefined | null).items.type).toBe('number');
         // type-coverage:ignore-next-line
-        expect((schemas.SetAlias as unknown).items.type).toBe('boolean');
+        expect((schemas.SetAlias as string | number | boolean | object | undefined | null).items.type).toBe('boolean');
         // type-coverage:ignore-next-line
-        expect((schemas.RecordAlias as unknown).additionalProperties.type).toBe('number');
+        expect((schemas.RecordAlias as string | number | boolean | object | undefined | null).additionalProperties.type).toBe('number');
         // type-coverage:ignore-next-line
-        expect((schemas.MapAlias as unknown).additionalProperties.type).toBe('string');
+        expect((schemas.MapAlias as string | number | boolean | object | undefined | null).additionalProperties.type).toBe('string');
         // type-coverage:ignore-next-line
-        expect((schemas.DateAlias as unknown).format).toBe('date-time');
+        expect((schemas.DateAlias as string | number | boolean | object | undefined | null).format).toBe('date-time');
         // type-coverage:ignore-next-line
-        expect((schemas.BlobAlias as unknown).format).toBe('binary');
+        expect((schemas.BlobAlias as string | number | boolean | object | undefined | null).format).toBe('binary');
         // type-coverage:ignore-next-line
-        expect((schemas.FileAlias as unknown).format).toBe('binary');
+        expect((schemas.FileAlias as string | number | boolean | object | undefined | null).format).toBe('binary');
 
         // type-coverage:ignore-next-line
-        const extensionModel = schemas.ExtensionModel as unknown;
+        const extensionModel = schemas.ExtensionModel as string | number | boolean | object | undefined | null;
         // type-coverage:ignore-next-line
         expect(extensionModel['x-entity']).toBe('internal');
         // type-coverage:ignore-next-line
@@ -329,19 +329,19 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         expect(extensionModel.properties.value['x-prop']).toBe(true);
 
         // type-coverage:ignore-next-line
-        const eventPayload = schemas.EventPayload as unknown;
+        const eventPayload = schemas.EventPayload as string | number | boolean | object | undefined | null;
         // type-coverage:ignore-next-line
         expect(eventPayload.properties.data.contentMediaType).toBe('application/json');
         // type-coverage:ignore-next-line
         expect(eventPayload.properties.data.contentSchema.properties.id.type).toBe('string');
 
         // type-coverage:ignore-next-line
-        expect((schemas.RefAlias as unknown).$ref).toBe('#/components/schemas/Base');
+        expect((schemas.RefAlias as string | number | boolean | object | undefined | null).$ref).toBe('#/components/schemas/Base');
         // type-coverage:ignore-next-line
-        expect((schemas.IntersectionAlias as unknown).allOf.length).toBe(2);
+        expect((schemas.IntersectionAlias as string | number | boolean | object | undefined | null).allOf.length).toBe(2);
 
         // type-coverage:ignore-next-line
-        const typeLiteral = schemas.TypeLiteralAlias as unknown;
+        const typeLiteral = schemas.TypeLiteralAlias as string | number | boolean | object | undefined | null;
         // type-coverage:ignore-next-line
         expect(typeLiteral.properties.foo.type).toBe('string');
         // type-coverage:ignore-next-line
@@ -352,26 +352,26 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         expect(typeLiteral.additionalProperties.type).toBe('string');
 
         // type-coverage:ignore-next-line
-        const derived = schemas.Derived as unknown;
+        const derived = schemas.Derived as string | number | boolean | object | undefined | null;
         // type-coverage:ignore-next-line
         expect(derived.allOf.length).toBe(2);
         // type-coverage:ignore-next-line
         expect(derived.allOf[1].properties.name.type).toBe('string');
 
         // type-coverage:ignore-next-line
-        const derivedNoProps = schemas.DerivedNoProps as unknown;
+        const derivedNoProps = schemas.DerivedNoProps as string | number | boolean | object | undefined | null;
         // type-coverage:ignore-next-line
         expect(derivedNoProps.allOf.length).toBe(1);
 
         // type-coverage:ignore-next-line
-        const derivedIndexOnly = schemas.DerivedIndexOnly as unknown;
+        const derivedIndexOnly = schemas.DerivedIndexOnly as string | number | boolean | object | undefined | null;
         // type-coverage:ignore-next-line
         expect(derivedIndexOnly.allOf.length).toBe(2);
         // type-coverage:ignore-next-line
         expect(derivedIndexOnly.allOf[1].additionalProperties.type).toBe('string');
 
         // type-coverage:ignore-next-line
-        const discriminated = schemas.Discriminated as unknown;
+        const discriminated = schemas.Discriminated as string | number | boolean | object | undefined | null;
         // type-coverage:ignore-next-line
         expect(discriminated.discriminator).toEqual({
             propertyName: 'kind',
@@ -379,7 +379,7 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         });
 
         // type-coverage:ignore-next-line
-        const pet = schemas.Pet as unknown;
+        const pet = schemas.Pet as string | number | boolean | object | undefined | null;
         // type-coverage:ignore-next-line
         expect(pet.discriminator).toEqual({
             propertyName: 'kind',
@@ -391,7 +391,7 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         expect(pet.anyOf).toBeUndefined();
 
         // type-coverage:ignore-next-line
-        const inlinePet = schemas.InlinePet as unknown;
+        const inlinePet = schemas.InlinePet as string | number | boolean | object | undefined | null;
         // type-coverage:ignore-next-line
         expect(inlinePet.discriminator).toEqual({ propertyName: 'kind' });
         // type-coverage:ignore-next-line
@@ -400,7 +400,7 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         expect(inlinePet.anyOf).toBeUndefined();
 
         // type-coverage:ignore-next-line
-        const withDocs = schemas.WithDocs as unknown;
+        const withDocs = schemas.WithDocs as string | number | boolean | object | undefined | null;
         // type-coverage:ignore-next-line
         expect(withDocs.description).toBe('With docs.');
         // type-coverage:ignore-next-line
@@ -413,21 +413,21 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         expect(withDocs.properties.mode.default).toBe('not-json');
 
         // type-coverage:ignore-next-line
-        const multiExample = schemas.MultiExample as unknown;
+        const multiExample = schemas.MultiExample as string | number | boolean | object | undefined | null;
         // type-coverage:ignore-next-line
         expect(multiExample.example).toBeUndefined();
         // type-coverage:ignore-next-line
         expect(multiExample.examples).toEqual([{ id: 1 }, { id: 2 }]);
 
         // type-coverage:ignore-next-line
-        const binaryPayload = schemas.BinaryPayload as unknown;
+        const binaryPayload = schemas.BinaryPayload as string | number | boolean | object | undefined | null;
         // type-coverage:ignore-next-line
         expect(binaryPayload.properties.data.contentMediaType).toBe('image/png');
         // type-coverage:ignore-next-line
         expect(binaryPayload.properties.data.contentEncoding).toBe('base64');
 
         // type-coverage:ignore-next-line
-        const constraints = schemas.Constraints as unknown;
+        const constraints = schemas.Constraints as string | number | boolean | object | undefined | null;
         // type-coverage:ignore-next-line
         expect(constraints.minProperties).toBe(1);
         // type-coverage:ignore-next-line
@@ -470,7 +470,7 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         expect(constraints.properties.secret.writeOnly).toBe(true);
 
         // type-coverage:ignore-next-line
-        const xmlDoc = schemas.XmlDoc as unknown;
+        const xmlDoc = schemas.XmlDoc as string | number | boolean | object | undefined | null;
         // type-coverage:ignore-next-line
         expect(xmlDoc.properties.value.xml.name).toBe('doc');
         // type-coverage:ignore-next-line
@@ -479,12 +479,12 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         expect(xmlDoc.properties.value.xml.prefix).toBe('ex');
 
         // type-coverage:ignore-next-line
-        const closedMap = schemas.ClosedMap as unknown;
+        const closedMap = schemas.ClosedMap as string | number | boolean | object | undefined | null;
         // type-coverage:ignore-next-line
         expect(closedMap.additionalProperties).toBe(false);
 
         // type-coverage:ignore-next-line
-        const tagged = schemas.TaggedSchema as unknown;
+        const tagged = schemas.TaggedSchema as string | number | boolean | object | undefined | null;
         // type-coverage:ignore-next-line
         expect(tagged.patternProperties).toEqual({ '^x-': { type: 'string' } });
         // type-coverage:ignore-next-line
@@ -509,7 +509,7 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         expect(tagged.externalDocs).toEqual({ url: 'https://example.com/docs', description: 'Tagged docs' });
 
         // type-coverage:ignore-next-line
-        const conditional = schemas.ConditionalTagged as unknown;
+        const conditional = schemas.ConditionalTagged as string | number | boolean | object | undefined | null;
         // type-coverage:ignore-next-line
         expect(conditional.const).toEqual({ status: 'fixed', count: 1 });
         // type-coverage:ignore-next-line
@@ -522,7 +522,7 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         expect(conditional.not).toEqual({ properties: { banned: { type: 'string' } } });
 
         // type-coverage:ignore-next-line
-        const taggedUnion = schemas.TaggedUnion as unknown;
+        const taggedUnion = schemas.TaggedUnion as string | number | boolean | object | undefined | null;
         // type-coverage:ignore-next-line
         expect(taggedUnion.oneOf).toEqual([{ type: 'string' }, { type: 'number' }]);
         // type-coverage:ignore-next-line
@@ -542,24 +542,24 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         `;
         fs.writeFileSync(path.join(modelsDir, 'extra.ts'), extraSource);
 
-        const schemas = parseGeneratedModels(dir, fs as unknown);
+        const schemas = parseGeneratedModels(dir, fs as string | number | boolean | object | undefined | null);
         expect(schemas.ExtraModel).toBeDefined();
 
         const nestedDir = path.join(modelsDir, 'nested');
         fs.mkdirSync(nestedDir, { recursive: true });
         fs.writeFileSync(path.join(nestedDir, 'nested.ts'), 'export interface Nested { id: string; }');
-        const nestedSchemas = parseGeneratedModels(modelsDir, fs as unknown);
+        const nestedSchemas = parseGeneratedModels(modelsDir, fs as string | number | boolean | object | undefined | null);
         expect(nestedSchemas.Nested).toBeDefined();
 
-        const fileSchemas = parseGeneratedModels(path.join(modelsDir, 'index.ts'), fs as unknown);
+        const fileSchemas = parseGeneratedModels(path.join(modelsDir, 'index.ts'), fs as string | number | boolean | object | undefined | null);
         expect(fileSchemas.Base).toBeDefined();
 
         const emptyDir = makeTempDir();
-        expect(() => parseGeneratedModels(emptyDir, fs as unknown)).toThrow(/No generated model files/);
+        expect(() => parseGeneratedModels(emptyDir, fs as string | number | boolean | object | undefined | null)).toThrow(/No generated model files/);
 
         const badFile = path.join(dir, 'not-model.txt');
         fs.writeFileSync(badFile, 'data');
-        expect(() => parseGeneratedModels(badFile, fs as unknown)).toThrow(/Expected a generated model file/);
+        expect(() => parseGeneratedModels(badFile, fs as string | number | boolean | object | undefined | null)).toThrow(/Expected a generated model file/);
 
         // Mock a file system stat to return neither file nor directory
         const fakeFs = {
@@ -567,7 +567,7 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
             readFileSync: (p: string, e: string) => '',
             readdirSync: (p: string) => [],
         };
-        expect(() => parseGeneratedModels('/some/fake/path', fakeFs as unknown)).toThrow(
+        expect(() => parseGeneratedModels('/some/fake/path', fakeFs as string | number | boolean | object | undefined | null)).toThrow(
             /neither a file nor a directory/,
         );
 
@@ -575,7 +575,7 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         const noExportModelsDir = path.join(noExportDir, 'models');
         fs.mkdirSync(noExportModelsDir, { recursive: true });
         fs.writeFileSync(path.join(noExportModelsDir, 'index.ts'), 'const value = 1;');
-        expect(() => parseGeneratedModels(noExportDir, fs as unknown)).toThrow(
+        expect(() => parseGeneratedModels(noExportDir, fs as string | number | boolean | object | undefined | null)).toThrow(
             /No exported models could be reconstructed/,
         );
     });
@@ -604,9 +604,9 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         const schemas = parseGeneratedModelSource(edgeSource, '/models/edge.ts');
         expect(schemas.BadUnion).toBeDefined();
         expect(schemas.SingleUnion).toBeDefined();
-        expect((schemas.InlineUnion as unknown).discriminator).toEqual({ propertyName: 'kind' });
+        expect((schemas.InlineUnion as string | number | boolean | object | undefined | null).discriminator).toEqual({ propertyName: 'kind' });
         expect(schemas.NoDesc).toBeDefined();
-        expect((schemas.NoDesc as unknown).discriminator).toBeUndefined();
+        expect((schemas.NoDesc as string | number | boolean | object | undefined | null).discriminator).toBeUndefined();
     });
 
     it('should handle edge cases in TypeNode parsing', () => {
@@ -660,26 +660,26 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         EnumMember.prototype.getValue = originalGetValue;
 
         expect(schemas.ExtendsUndefined).toEqual({});
-        expect((schemas.IntersectAny as unknown).allOf).toBeDefined();
-        expect((schemas.TupleRest as unknown).type).toBe('array');
-        expect((schemas.TupleOpt as unknown).type).toBe('array');
-        expect((schemas.EnumStrings as unknown).enum).toEqual(['A', 'B']);
-        expect((schemas.EnumNumbers as unknown).enum).toEqual([1, 2]);
-        expect((schemas.Parenthesized as unknown).type).toBe('number');
-        expect((schemas.ComplexIntersection as unknown).allOf.length).toBe(2);
-        expect((schemas.CustomLiteral as unknown).const).toBe('template');
-        expect((schemas.NullAlias as unknown).type).toBe('null');
+        expect((schemas.IntersectAny as string | number | boolean | object | undefined | null).allOf).toBeDefined();
+        expect((schemas.TupleRest as string | number | boolean | object | undefined | null).type).toBe('array');
+        expect((schemas.TupleOpt as string | number | boolean | object | undefined | null).type).toBe('array');
+        expect((schemas.EnumStrings as string | number | boolean | object | undefined | null).enum).toEqual(['A', 'B']);
+        expect((schemas.EnumNumbers as string | number | boolean | object | undefined | null).enum).toEqual([1, 2]);
+        expect((schemas.Parenthesized as string | number | boolean | object | undefined | null).type).toBe('number');
+        expect((schemas.ComplexIntersection as string | number | boolean | object | undefined | null).allOf.length).toBe(2);
+        expect((schemas.CustomLiteral as string | number | boolean | object | undefined | null).const).toBe('template');
+        expect((schemas.NullAlias as string | number | boolean | object | undefined | null).type).toBe('null');
         expect(schemas.BigIntAlias).toEqual({});
-        expect((schemas.TupleOnlyRest as unknown).type).toBe('array');
-        expect((schemas.UnionOnlyNull as unknown).type).toBe('null');
-        expect((schemas.UnionMultiTypes as unknown).type).toEqual(['number', 'string']);
-        expect((schemas.TupleRestAny as unknown).items).toEqual({});
+        expect((schemas.TupleOnlyRest as string | number | boolean | object | undefined | null).type).toBe('array');
+        expect((schemas.UnionOnlyNull as string | number | boolean | object | undefined | null).type).toBe('null');
+        expect((schemas.UnionMultiTypes as string | number | boolean | object | undefined | null).type).toEqual(['number', 'string']);
+        expect((schemas.TupleRestAny as string | number | boolean | object | undefined | null).items).toEqual({});
         expect(schemas.BigIntLit).toEqual({});
 
-        const enumSchema = schemas.ComplexEnum as unknown;
+        const enumSchema = schemas.ComplexEnum as string | number | boolean | object | undefined | null;
         expect(enumSchema.enum).toEqual(['string_val', 42, true, false, 'template_val']);
 
-        const docSchema = schemas.DocTags as unknown;
+        const docSchema = schemas.DocTags as string | number | boolean | object | undefined | null;
         expect(docSchema.nullable).toBe(true);
         expect(docSchema.title).toBe('My Title');
         expect(docSchema.anyOf).toEqual([{ type: 'string' }]);
@@ -714,26 +714,26 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         `;
         const schemas = parseGeneratedModelSource(typeSource + modelSource, '/models/nullability.ts');
 
-        expect((schemas.AnyOfNull as unknown).anyOf).toBeDefined();
-        expect((schemas.OneOfNull as unknown).oneOf).toBeDefined();
-        expect((schemas.TypeNull as unknown).type).toContain('null');
-        expect((schemas.RefNull as unknown).anyOf).toBeDefined();
+        expect((schemas.AnyOfNull as string | number | boolean | object | undefined | null).anyOf).toBeDefined();
+        expect((schemas.OneOfNull as string | number | boolean | object | undefined | null).oneOf).toBeDefined();
+        expect((schemas.TypeNull as string | number | boolean | object | undefined | null).type).toContain('null');
+        expect((schemas.RefNull as string | number | boolean | object | undefined | null).anyOf).toBeDefined();
 
-        expect((schemas.UnionZebra as unknown).discriminator).toEqual({
+        expect((schemas.UnionZebra as string | number | boolean | object | undefined | null).discriminator).toEqual({
             propertyName: 'apple',
             mapping: {
                 1: '#/components/schemas/VariantX',
                 2: '#/components/schemas/VariantY',
             },
         });
-        expect((schemas.UnionSort as unknown).discriminator).toEqual({
+        expect((schemas.UnionSort as string | number | boolean | object | undefined | null).discriminator).toEqual({
             propertyName: 'type',
             mapping: {
                 '1': '#/components/schemas/SortA',
                 '3': '#/components/schemas/SortB',
             },
         });
-        expect((schemas.UnionSort2 as unknown).discriminator).toEqual({
+        expect((schemas.UnionSort2 as string | number | boolean | object | undefined | null).discriminator).toEqual({
             propertyName: 'type',
             mapping: {
                 '2': '#/components/schemas/SortC',
@@ -754,7 +754,7 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         `;
         const schemas = parseGeneratedModelSource(typeSource, '/models/enumprop.ts');
 
-        expect((schemas.UnionEnumProp as unknown).discriminator).toEqual({
+        expect((schemas.UnionEnumProp as string | number | boolean | object | undefined | null).discriminator).toEqual({
             propertyName: 'enumProp',
             mapping: {
                 A: '#/components/schemas/Variant1',
@@ -786,7 +786,7 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         `;
         const schemas = parseGeneratedModelSource(src, '/models/fallbacks.ts');
         expect(schemas.EmptyNull).toBeDefined();
-        expect((schemas.EmptyNull as unknown).anyOf).toBeDefined();
+        expect((schemas.EmptyNull as string | number | boolean | object | undefined | null).anyOf).toBeDefined();
         expect(schemas.RestTupleLine488).toBeDefined();
         expect(schemas.ComplexTupleLine517).toBeDefined();
         expect(schemas.OneOfNullFallback).toBeDefined();
@@ -836,11 +836,11 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         // But what if we just use a trick to inject enum: ["X"] into the AST parsing using JSDoc tags?
         // Wait, applyDocs doesn't support @enum.
 
-        expect((schemas.LitNull as unknown).type).toBe('null');
+        expect((schemas.LitNull as string | number | boolean | object | undefined | null).type).toBe('null');
         expect(schemas.RestTuple).toBeDefined();
         expect(schemas.UnionArrTypes).toBeDefined();
-        expect((schemas.OneOfNull2 as unknown).oneOf).toBeDefined();
-        expect((schemas.FallbackNull as unknown).anyOf).toBeDefined();
+        expect((schemas.OneOfNull2 as string | number | boolean | object | undefined | null).oneOf).toBeDefined();
+        expect((schemas.FallbackNull as string | number | boolean | object | undefined | null).anyOf).toBeDefined();
     });
 
     it('should hit type value parsing fallbacks in asBoolean', () => {
@@ -903,9 +903,9 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         EnumMember.prototype.getValue = originalGetValue;
 
         expect(schemas.ParsedTags).toBeDefined();
-        expect((schemas.UnionFallback as unknown).anyOf).toBeDefined();
-        expect((schemas.ObjNull as unknown).type).toContain('null');
-        expect((schemas.EnumFallback as unknown).enum).toEqual(['EXTERNAL_VAR']);
+        expect((schemas.UnionFallback as string | number | boolean | object | undefined | null).anyOf).toBeDefined();
+        expect((schemas.ObjNull as string | number | boolean | object | undefined | null).type).toContain('null');
+        expect((schemas.EnumFallback as string | number | boolean | object | undefined | null).enum).toEqual(['EXTERNAL_VAR']);
         expect(schemas.UnionMultiTypesObj).toBeDefined();
         expect(schemas.UnionMultiEnum).toBeDefined();
         expect(schemas.TupleRestNode).toBeDefined();
@@ -919,7 +919,7 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         fs.mkdirSync(deeperDir, { recursive: true });
         fs.writeFileSync(path.join(deeperDir, 'deeper.ts'), 'export interface Deeper { id: string; }');
 
-        const schemas = parseGeneratedModels(dir, fs as unknown);
+        const schemas = parseGeneratedModels(dir, fs as string | number | boolean | object | undefined | null);
         expect(schemas.Deeper).toBeDefined();
     });
 });

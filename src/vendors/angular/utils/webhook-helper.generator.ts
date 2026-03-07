@@ -74,10 +74,10 @@ export class WebhookHelperGenerator {
         serviceClass.addMethod({
             name: 'isWebhookEvent',
             scope: Scope.Public,
-            typeParameters: [{ name: 'T', default: 'Record<string, never>' }],
+            typeParameters: [{ name: 'T', default: 'Record<string, string | number | boolean | object | undefined | null>' }],
             parameters: [
                 { name: 'eventName', type: 'string' },
-                { name: 'payload', type: 'Record<string, never>' },
+                { name: 'payload', type: 'Record<string, string | number | boolean | object | undefined | null>' },
                 { name: 'method', type: 'string', initializer: "'POST'" },
             ],
             returnType: 'payload is T',

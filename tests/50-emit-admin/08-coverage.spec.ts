@@ -448,7 +448,7 @@ describe('Admin: FormComponentGenerator (Coverage)', () => {
         expect(patchMethod).toBeUndefined(); // Hits the early return
 
         const ngOnInitMethod = formClass.getMethod('ngOnInit');
-        expect(ngOnInitMethod!.getBodyText()).toContain('this.form.patchValue(entity as Record<string, never>)');
+        expect(ngOnInitMethod!.getBodyText()).toContain('this.form.patchValue(entity as Record<string, string | number | boolean | object | undefined | null>)');
     });
 
     it('should generate an empty update method body for polymorphism with only primitives', () => {
@@ -467,7 +467,7 @@ describe('Admin: FormComponentGenerator (Coverage)', () => {
         const payloadMethod = formClass.getMethodOrThrow('getPayload');
         const body = payloadMethod.getBodyText() ?? '';
 
-        expect(body).toContain("delete (payload as Record<string, never>)['id']");
-        expect(body).not.toContain("delete (payload as Record<string, never>)['name']");
+        expect(body).toContain("delete (payload as Record<string, string | number | boolean | object | undefined | null>)['id']");
+        expect(body).not.toContain("delete (payload as Record<string, string | number | boolean | object | undefined | null>)['name']");
     });
 });

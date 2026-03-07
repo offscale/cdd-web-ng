@@ -148,9 +148,9 @@ export class FormComponentGenerator {
                     // we search those specifically.
                     /* v8 ignore next */
                     if (!control) {
-                        // Silently fallback to Record<string, never>, assuming it might be handled in sub-type interfaces or not significant for layout
+                        // Silently fallback to Record<string, string | number | boolean | object | undefined | null>, assuming it might be handled in sub-type interfaces or not significant for layout
                         /* v8 ignore next */
-                        return { name: prop.name, type: 'Record<string, never>' };
+                        return { name: prop.name, type: 'Record<string, string | number | boolean | object | undefined | null>' };
                     }
 
                     // Build the final Angular-specific type string from the agnostic IR.
@@ -182,10 +182,10 @@ export class FormComponentGenerator {
                         case 'map':
                             // Maps are rendered as FormArray of Key-Value tuples for editing
                             // dataType here is the Value type
-                            // We use Record<string, never> for the generic here to simplify avoiding deep recursion in the type definition,
+                            // We use Record<string, string | number | boolean | object | undefined | null> for the generic here to simplify avoiding deep recursion in the type definition,
                             // since the form logic handles the transformation.
                             /* v8 ignore next */
-                            finalType = `FormArray<FormGroup<{ key: FormControl<string | null>, value: FormControl<Record<string, never>> }>>`;
+                            finalType = `FormArray<FormGroup<{ key: FormControl<string | null>, value: FormControl<Record<string, string | number | boolean | object | undefined | null>> }>>`;
                             /* v8 ignore next */
                             break;
                         case 'control':
@@ -461,7 +461,7 @@ export class FormComponentGenerator {
         /* v8 ignore next */
         const patchCall = needsComplexPatch
             ? 'this.patchForm(entity)'
-            : 'this.form.patchValue(entity as Record<string, never>)';
+            : 'this.form.patchValue(entity as Record<string, string | number | boolean | object | undefined | null>)';
         /* v8 ignore next */
         let body = `this.initForm();\nconst id = this.route.snapshot.paramMap.get('id');\nif (id) {\n  this.id.set(id);`;
         /* v8 ignore next */
@@ -563,7 +563,7 @@ export class FormComponentGenerator {
             const arrayGetterName = `${singularCamel}Array`;
 
             /* v8 ignore next */
-            const arrayItemInterfaceName = prop.nestedFormInterface || 'Record<string, never>';
+            const arrayItemInterfaceName = prop.nestedFormInterface || 'Record<string, string | number | boolean | object | undefined | null>';
 
             /* v8 ignore next */
             classDeclaration.addGetAccessor({
@@ -577,7 +577,7 @@ export class FormComponentGenerator {
             const createMethod = classDeclaration.addMethod({
                 name: `create${singularPascal}`,
                 scope: Scope.Private,
-                parameters: [{ name: 'item?', type: 'Record<string, never>' }],
+                parameters: [{ name: 'item?', type: 'Record<string, string | number | boolean | object | undefined | null>' }],
                 returnType: `FormGroup<${arrayItemInterfaceName}>`,
             });
 
@@ -617,7 +617,7 @@ export class FormComponentGenerator {
             classDeclaration.addGetAccessor({
                 name: getterName,
                 // Return specialized FormArray of KV pairs
-                returnType: `FormArray<FormGroup<{ key: FormControl<string | null>, value: FormControl<Record<string, never>> }>>`,
+                returnType: `FormArray<FormGroup<{ key: FormControl<string | null>, value: FormControl<Record<string, string | number | boolean | object | undefined | null>> }>>`,
                 statements: `return this.form.get('${mapName}') as FormArray;`,
             });
 
@@ -625,7 +625,7 @@ export class FormComponentGenerator {
             const createMethod = classDeclaration.addMethod({
                 name: `create${pascalName}Entry`,
                 scope: Scope.Private,
-                parameters: [{ name: 'item?', type: 'Record<string, never>' }],
+                parameters: [{ name: 'item?', type: 'Record<string, string | number | boolean | object | undefined | null>' }],
                 returnType: `FormGroup`, // Simplify return type to generic FormGroup for brevity/compatibility
             });
 
@@ -726,7 +726,7 @@ export class FormComponentGenerator {
         /* v8 ignore next */
         let body = `const { ${complexProps.join(', ')}, ...rest } = entity;\n`;
         /* v8 ignore next */
-        body += 'this.form.patchValue(rest as Record<string, never>);\n\n';
+        body += 'this.form.patchValue(rest as Record<string, string | number | boolean | object | undefined | null>);\n\n';
 
         // Patch Arrays
         /* v8 ignore next */
@@ -740,7 +740,7 @@ export class FormComponentGenerator {
             /* v8 ignore next */
             body += `  this.${arrayGetterName}.clear();\n`;
             /* v8 ignore next */
-            body += `  entity.${prop.name}.forEach((item: Record<string, never>) => this.${arrayGetterName}.push(this.${createItemMethodName}(item)));\n`;
+            body += `  entity.${prop.name}.forEach((item: Record<string, string | number | boolean | object | undefined | null>) => this.${arrayGetterName}.push(this.${createItemMethodName}(item)));\n`;
             /* v8 ignore next */
             body += `}\n`;
         });
@@ -774,7 +774,7 @@ export class FormComponentGenerator {
                 const dPropName = poly.propertyName;
 
                 /* v8 ignore next */
-                body += `\nconst ${dPropName}Value = (entity as Record<string, never>).${dPropName};\n`;
+                body += `\nconst ${dPropName}Value = (entity as Record<string, string | number | boolean | object | undefined | null>).${dPropName};\n`;
                 /* v8 ignore next */
                 body += `if (${dPropName}Value) {\n`;
                 /* v8 ignore next */
@@ -791,7 +791,7 @@ export class FormComponentGenerator {
                     /* v8 ignore next */
                     body += `  if (this.${isMethodName}(entity)) {\n`;
                     /* v8 ignore next */
-                    body += `    (this.form.get('${typeName}') as FormGroup)?.patchValue(entity as Record<string, never>);\n  }\n`;
+                    body += `    (this.form.get('${typeName}') as FormGroup)?.patchValue(entity as Record<string, string | number | boolean | object | undefined | null>);\n  }\n`;
                 });
                 /* v8 ignore next */
                 body += `}\n`;
@@ -801,7 +801,7 @@ export class FormComponentGenerator {
         classDeclaration.addMethod({
             name: 'patchForm',
             scope: Scope.Private,
-            parameters: [{ name: 'entity', type: resource.modelName || 'Record<string, never>' }],
+            parameters: [{ name: 'entity', type: resource.modelName || 'Record<string, string | number | boolean | object | undefined | null>' }],
             statements: body,
         });
     }
@@ -826,7 +826,7 @@ export class FormComponentGenerator {
                 /* v8 ignore next */
                 let switchBody = `// Remove all options for this discriminator\n`;
                 /* v8 ignore next */
-                switchBody += `this.${optionsName}.forEach(opt => this.form.removeControl(opt as Record<string, never>));\n\nswitch(type) {\n`;
+                switchBody += `this.${optionsName}.forEach(opt => this.form.removeControl(opt as Record<string, string | number | boolean | object | undefined | null>));\n\nswitch(type) {\n`;
 
                 /* v8 ignore next */
                 poly.options.forEach(opt => {
@@ -838,7 +838,7 @@ export class FormComponentGenerator {
                     /* v8 ignore next */
                     switchBody += `  case '${opt.discriminatorValue}':\n`;
                     /* v8 ignore next */
-                    switchBody += `    this.form.addControl('${opt.subFormName}' as Record<string, never>, this.fb.group({ ${subFormProps} }));\n`;
+                    switchBody += `    this.form.addControl('${opt.subFormName}' as Record<string, string | number | boolean | object | undefined | null>, this.fb.group({ ${subFormProps} }));\n`;
                     /* v8 ignore next */
                     switchBody += '    break;\n';
                 });
@@ -871,7 +871,7 @@ export class FormComponentGenerator {
                     scope: Scope.Private,
                     parameters: [{ name: 'entity', type: resource.modelName }],
                     returnType: `entity is ${subSchemaName}`,
-                    statements: `return (entity as Record<string, never>).${dPropName} === '${typeName}';`,
+                    statements: `return (entity as Record<string, string | number | boolean | object | undefined | null>).${dPropName} === '${typeName}';`,
                 });
             });
         });
@@ -879,7 +879,7 @@ export class FormComponentGenerator {
 
     private addGetPayload(classDeclaration: ClassDeclaration, analysis: FormAnalysisResult) {
         /* v8 ignore next */
-        let body = `const baseValue = this.form.getRawValue() as Record<string, never>; \n`;
+        let body = `const baseValue = this.form.getRawValue() as Record<string, string | number | boolean | object | undefined | null>; \n`;
 
         // We start by creating a shallow copy.
         // Note: Nested objects are still references, but we primarily modify top-level structural keys
@@ -901,7 +901,7 @@ export class FormComponentGenerator {
             /* v8 ignore next */
             readOnlyFields.forEach(field => {
                 /* v8 ignore next */
-                body += `delete (payload as Record<string, never>)['${field}'];\n`;
+                body += `delete (payload as Record<string, string | number | boolean | object | undefined | null>)['${field}'];\n`;
             });
         }
 
@@ -913,9 +913,9 @@ export class FormComponentGenerator {
             /* v8 ignore next */
             body += `if (Array.isArray(payload['${m.name}'])) {\n`;
             /* v8 ignore next */
-            body += `  const mapObj: Record<string, never> = {};\n`;
+            body += `  const mapObj: Record<string, string | number | boolean | object | undefined | null> = {};\n`;
             /* v8 ignore next */
-            body += `  payload['${m.name}'].forEach((pair: { key: string, value: Record<string, never> | string | number | boolean | null }) => { if(pair.key) mapObj[pair.key] = pair.value; });\n`;
+            body += `  payload['${m.name}'].forEach((pair: { key: string, value: Record<string, string | number | boolean | object | undefined | null> | string | number | boolean | null }) => { if(pair.key) mapObj[pair.key] = pair.value; });\n`;
             /* v8 ignore next */
             body += `  payload['${m.name}'] = mapObj;\n`;
             /* v8 ignore next */
@@ -943,7 +943,7 @@ export class FormComponentGenerator {
                 /* v8 ignore next */
                 body += `}\n`;
                 /* v8 ignore next */
-                body += `this.${optionsName}.forEach(opt => delete (payload as Record<string, never>)[opt]);\n`;
+                body += `this.${optionsName}.forEach(opt => delete (payload as Record<string, string | number | boolean | object | undefined | null>)[opt]);\n`;
             });
         }
 
@@ -962,7 +962,7 @@ export class FormComponentGenerator {
                 { name: 'event', type: 'Event' },
                 { name: 'formControlName', type: 'string' },
             ],
-            statements: `const file = (event.target as HTMLInputElement).files?.[0];\nif (file) {\n    this.form.patchValue({ [formControlName]: file } as Record<string, never>);\n    this.form.get(formControlName)?.markAsDirty();\n}`,
+            statements: `const file = (event.target as HTMLInputElement).files?.[0];\nif (file) {\n    this.form.patchValue({ [formControlName]: file } as Record<string, string | number | boolean | object | undefined | null>);\n    this.form.get(formControlName)?.markAsDirty();\n}`,
         });
     }
 

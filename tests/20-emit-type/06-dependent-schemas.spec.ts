@@ -8,7 +8,7 @@ import { GeneratorConfig } from '@src/core/types/index.js';
 
 describe('Emitter: TypeGenerator (dependentSchemas)', () => {
     // type-coverage:ignore-next-line
-    const setup = (schema: unknown) => {
+    const setup = (schema: string | number | boolean | object | undefined | null) => {
         const project = new Project({ useInMemoryFileSystem: true });
         const config: GeneratorConfig = { input: '', output: '/out', options: {} };
         const spec = {
@@ -45,10 +45,10 @@ describe('Emitter: TypeGenerator (dependentSchemas)', () => {
         // Base part
         expect(typeText).toContain("paymentMethod?: 'credit_card' | 'paypal'");
 
-        // Intersection part structure: (({ paymentMethod: unknown } & Dependency) | { paymentMethod?: never })
+        // Intersection part structure: (({ paymentMethod: string | number | boolean | object | undefined | null } & Dependency) | { paymentMethod?: never })
         // Adjusted expectation: inline objects inside intersection do not have trailing semicolons
         expect(typeText).toContain(
-            '& (({ paymentMethod: unknown } & { creditCardNumber: string }) | { paymentMethod?: never })',
+            '& (({ paymentMethod: string | number | boolean | object | undefined | null } & { creditCardNumber: string }) | { paymentMethod?: never })',
         );
     });
 
@@ -67,8 +67,8 @@ describe('Emitter: TypeGenerator (dependentSchemas)', () => {
 
         const typeText = sourceFile.getTypeAliasOrThrow('DependentModel').getTypeNodeOrThrow().getText();
 
-        expect(typeText).toContain('& (({ a: unknown } & { c?: number }) | { a?: never })');
-        expect(typeText).toContain('& (({ b: unknown } & { d?: boolean }) | { b?: never })');
+        expect(typeText).toContain('& (({ a: string | number | boolean | object | undefined | null } & { c?: number }) | { a?: never })');
+        expect(typeText).toContain('& (({ b: string | number | boolean | object | undefined | null } & { d?: boolean }) | { b?: never })');
     });
 
     it('should properly escape property names in dependentSchemas key', () => {
@@ -82,13 +82,13 @@ describe('Emitter: TypeGenerator (dependentSchemas)', () => {
 
         const typeText = sourceFile.getTypeAliasOrThrow('DependentModel').getTypeNodeOrThrow().getText();
 
-        expect(typeText).toContain("(({ 'my-prop': unknown } & { extra?: string }) | { 'my-prop'?: never })");
+        expect(typeText).toContain("(({ 'my-prop': string | number | boolean | object | undefined | null } & { extra?: string }) | { 'my-prop'?: never })");
     });
 });
 
 describe('Emitter: TypeGenerator (dependentRequired)', () => {
     // type-coverage:ignore-next-line
-    const setup = (schema: unknown) => {
+    const setup = (schema: string | number | boolean | object | undefined | null) => {
         const project = new Project({ useInMemoryFileSystem: true });
         const config: GeneratorConfig = { input: '', output: '/out', options: {} };
         const spec = {
@@ -120,7 +120,7 @@ describe('Emitter: TypeGenerator (dependentRequired)', () => {
 
         expect(typeText).toContain('hasPhone?: boolean');
         expect(typeText).toContain(
-            '& (({ hasPhone: unknown } & { phoneNumber: unknown; phoneExtension: unknown }) | { hasPhone?: never })',
+            '& (({ hasPhone: string | number | boolean | object | undefined | null } & { phoneNumber: string | number | boolean | object | undefined | null; phoneExtension: string | number | boolean | object | undefined | null }) | { hasPhone?: never })',
         );
     });
 });

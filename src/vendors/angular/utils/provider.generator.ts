@@ -192,7 +192,7 @@ export class ProviderGenerator {
             /* v8 ignore next */
             configInterface.addProperty({
                 name: 'httpsAgentConfig',
-                type: 'Record<string, never>',
+                type: 'Record<string, string | number | boolean | object | undefined | null>',
                 hasQuestionToken: true,
                 docs: ['Configuration for the HTTPS Agent (e.g. PFX, Cert, Key) for Mutual TLS.'],
             });

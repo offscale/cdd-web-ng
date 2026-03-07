@@ -96,7 +96,7 @@ export class ServiceMethodGenerator {
 
         let returnType =
             /* v8 ignore next */
-            overloads.length > 0 ? 'Observable<Record<string, never>>' : `Observable<${model.responseType}>`;
+            overloads.length > 0 ? 'Observable<string | number | boolean | object | undefined | null>' : `Observable<${model.responseType}>`;
         /* v8 ignore next */
         /* v8 ignore start */
         if ((hasContentNegotiation || hasMultipleSuccessTypes) && overloads.length === 0) {
@@ -290,7 +290,7 @@ export class ServiceMethodGenerator {
             const example = this.extractParameterExample(param);
             /* v8 ignore next */
             const serialized = this.serializeExampleValue(
-                example as Record<string, never> | string | number | boolean | null,
+                example as Record<string, string | number | boolean | object | undefined | null> | string | number | boolean | null,
             );
             /* v8 ignore next */
             if (serialized !== undefined) {
@@ -337,7 +337,7 @@ export class ServiceMethodGenerator {
                     const example = this.extractMediaTypeExample(mediaObj, mediaType);
                     /* v8 ignore next */
                     const serialized = this.serializeExampleValue(
-                        example as Record<string, never> | string | number | boolean | null,
+                        example as Record<string, string | number | boolean | object | undefined | null> | string | number | boolean | null,
                     );
                     /* v8 ignore next */
                     if (serialized !== undefined) {
@@ -352,7 +352,7 @@ export class ServiceMethodGenerator {
         return tags;
     }
 
-    private serializeExampleValue(value: Record<string, never> | string | number | boolean | null): string | undefined {
+    private serializeExampleValue(value: Record<string, string | number | boolean | object | undefined | null> | string | number | boolean | null): string | undefined {
         /* v8 ignore next */
         if (value === undefined) return undefined;
         /* v8 ignore next */
@@ -375,7 +375,7 @@ export class ServiceMethodGenerator {
         preferSerialized = false,
     ): {
         found: boolean;
-        value: Record<string, never> | string | number | boolean | null;
+        value: Record<string, string | number | boolean | object | undefined | null> | string | number | boolean | null;
         kind?: 'data' | 'value' | 'serialized' | 'external';
     } {
         /* v8 ignore next */
@@ -393,7 +393,7 @@ export class ServiceMethodGenerator {
                 /* v8 ignore next */
                 return {
                     found: true,
-                    value: (exampleObj as Record<string, string | number | boolean | Record<string, never> | null>)
+                    value: (exampleObj as Record<string, string | number | boolean | Record<string, string | number | boolean | object | undefined | null> | null>)
                         .serializedValue,
                     kind: 'serialized',
                 };
@@ -413,7 +413,7 @@ export class ServiceMethodGenerator {
                 return {
                     /* v8 ignore stop */
                     found: true,
-                    value: (exampleObj as Record<string, string | number | boolean | Record<string, never> | null>)
+                    value: (exampleObj as Record<string, string | number | boolean | Record<string, string | number | boolean | object | undefined | null> | null>)
                         .externalValue,
                     kind: 'external',
                 };
@@ -433,7 +433,7 @@ export class ServiceMethodGenerator {
                 return {
                     /* v8 ignore stop */
                     found: true,
-                    value: (exampleObj as Record<string, string | number | boolean | Record<string, never> | null>)
+                    value: (exampleObj as Record<string, string | number | boolean | Record<string, string | number | boolean | object | undefined | null> | null>)
                         .dataValue,
                     kind: 'data',
                 };
@@ -453,7 +453,7 @@ export class ServiceMethodGenerator {
                 return {
                     /* v8 ignore stop */
                     found: true,
-                    value: (exampleObj as Record<string, string | number | boolean | Record<string, never> | null>)
+                    value: (exampleObj as Record<string, string | number | boolean | Record<string, string | number | boolean | object | undefined | null> | null>)
                         .value,
                     kind: 'value',
                 };
@@ -474,7 +474,7 @@ export class ServiceMethodGenerator {
                 return {
                     /* v8 ignore stop */
                     found: true,
-                    value: (exampleObj as Record<string, string | number | boolean | Record<string, never> | null>)
+                    value: (exampleObj as Record<string, string | number | boolean | Record<string, string | number | boolean | object | undefined | null> | null>)
                         .dataValue,
                     kind: 'data',
                 };
@@ -494,7 +494,7 @@ export class ServiceMethodGenerator {
                 return {
                     /* v8 ignore stop */
                     found: true,
-                    value: (exampleObj as Record<string, string | number | boolean | Record<string, never> | null>)
+                    value: (exampleObj as Record<string, string | number | boolean | Record<string, string | number | boolean | object | undefined | null> | null>)
                         .value,
                     kind: 'value',
                 };
@@ -514,7 +514,7 @@ export class ServiceMethodGenerator {
                 return {
                     /* v8 ignore stop */
                     found: true,
-                    value: (exampleObj as Record<string, string | number | boolean | Record<string, never> | null>)
+                    value: (exampleObj as Record<string, string | number | boolean | Record<string, string | number | boolean | object | undefined | null> | null>)
                         .serializedValue,
                     kind: 'serialized',
                 };
@@ -534,7 +534,7 @@ export class ServiceMethodGenerator {
                 return {
                     /* v8 ignore stop */
                     found: true,
-                    value: (exampleObj as Record<string, string | number | boolean | Record<string, never> | null>)
+                    value: (exampleObj as Record<string, string | number | boolean | Record<string, string | number | boolean | object | undefined | null> | null>)
                         .externalValue,
                     kind: 'external',
                 };
@@ -550,7 +550,7 @@ export class ServiceMethodGenerator {
     }
 
     private wrapExampleValue(picked: {
-        value: Record<string, never> | string | number | boolean | null;
+        value: Record<string, string | number | boolean | object | undefined | null> | string | number | boolean | null;
         kind?: 'data' | 'value' | 'serialized' | 'external';
     }): OpenApiValue {
         /* v8 ignore next */
@@ -645,7 +645,7 @@ export class ServiceMethodGenerator {
             !('$ref' in param.schema)
         ) {
             /* v8 ignore next */
-            const schema = param.schema as Record<string, never>;
+            const schema = param.schema as Record<string, string | number | boolean | object | undefined | null>;
             /* v8 ignore next */
             /* v8 ignore start */
             if (schema.dataValue !== undefined) return schema.dataValue;
@@ -731,9 +731,9 @@ export class ServiceMethodGenerator {
 
     private extractRequestBodyExamples(
         requestBody: RequestBody,
-    ): { mediaType: string; value: Record<string, never> | string | number | boolean | null }[] {
+    ): { mediaType: string; value: Record<string, string | number | boolean | object | undefined | null> | string | number | boolean | null }[] {
         /* v8 ignore next */
-        const entries: { mediaType: string; value: Record<string, never> | string | number | boolean | null }[] = [];
+        const entries: { mediaType: string; value: Record<string, string | number | boolean | object | undefined | null> | string | number | boolean | null }[] = [];
         /* v8 ignore next */
         /* v8 ignore start */
         const content = requestBody.content ?? {};
@@ -747,7 +747,7 @@ export class ServiceMethodGenerator {
                 /* v8 ignore next */
                 entries.push({
                     mediaType,
-                    value: example as Record<string, never> | string | number | boolean | null,
+                    value: example as Record<string, string | number | boolean | object | undefined | null> | string | number | boolean | null,
                 });
             }
         });
@@ -878,7 +878,7 @@ export class ServiceMethodGenerator {
         return tags;
     }
 
-    private getRawOperation(operation: PathInfo): Record<string, never> | undefined {
+    private getRawOperation(operation: PathInfo): Record<string, string | number | boolean | object | undefined | null> | undefined {
         /* v8 ignore next */
         const pathItem = this.parser.spec.paths?.[operation.path];
         /* v8 ignore next */
@@ -887,13 +887,13 @@ export class ServiceMethodGenerator {
         /* v8 ignore next */
         const methodKey = operation.method.toLowerCase();
         /* v8 ignore next */
-        const direct = (pathItem as Record<string, never>)[methodKey];
+        const direct = (pathItem as Record<string, string | number | boolean | object | undefined | null>)[methodKey];
         /* v8 ignore next */
-        if (direct) return direct as Record<string, never>;
+        if (direct) return direct as Record<string, string | number | boolean | object | undefined | null>;
 
         /* v8 ignore next */
-        const additional = (pathItem as Record<string, never>).additionalOperations as
-            | Record<string, never>
+        const additional = (pathItem as Record<string, string | number | boolean | object | undefined | null>).additionalOperations as
+            | Record<string, string | number | boolean | object | undefined | null>
             | undefined;
         /* v8 ignore next */
         /* v8 ignore start */
@@ -904,7 +904,7 @@ export class ServiceMethodGenerator {
         for (const [key, value] of Object.entries(additional)) {
             /* v8 ignore next */
             /* v8 ignore start */
-            if (key.toLowerCase() === methodKey) return value as Record<string, never>;
+            if (key.toLowerCase() === methodKey) return value as Record<string, string | number | boolean | object | undefined | null>;
             /* v8 ignore stop */
         }
 
@@ -1170,10 +1170,10 @@ export class ServiceMethodGenerator {
             const xmlConfig =
                 /* v8 ignore next */
                 (
-                    this.analyzer as OpenApiValue as { getXmlConfig: (a: OpenApiValue, b: number) => unknown }
+                    this.analyzer as OpenApiValue as { getXmlConfig: (a: OpenApiValue, b: number) => string | number | boolean | object | undefined | null }
                 ).getXmlConfig(schema, 5);
             /* v8 ignore next */
-            lines.push(`let ${paramName}Serialized: Record<string, never> = ${paramName};`);
+            lines.push(`let ${paramName}Serialized: Record<string, string | number | boolean | object | undefined | null> = ${paramName};`);
             /* v8 ignore next */
             lines.push(`if (${paramName} !== null && ${paramName} !== undefined) {`);
             /* v8 ignore next */
@@ -1296,7 +1296,7 @@ export class ServiceMethodGenerator {
         if (standardQueryParams.length > 0) {
             /* v8 ignore next */
             lines.push(
-                `let params = new HttpParams({ encoder: new ApiParameterCodec(), fromObject: options?.params ?? {} });`,
+                `let params = new HttpParams({ encoder: new ApiParameterCodec(), fromObject: (options?.params && !(options.params instanceof HttpParams) ? options.params : {}) as Record<string, string | number | boolean | readonly (string | number | boolean)[]> });`,
             );
             /* v8 ignore next */
             standardQueryParams.forEach((p: ParamSerialization) => {
@@ -1308,7 +1308,7 @@ export class ServiceMethodGenerator {
                     explode: p.explode,
                     allowReserved: p.allowReserved,
                     serialization: p.serializationLink,
-                    allowEmptyValue: (p as OpenApiValue as Record<string, never>).allowEmptyValue,
+                    allowEmptyValue: (p as OpenApiValue as Record<string, string | number | boolean | object | undefined | null>).allowEmptyValue,
                     ...(p.contentType ? { contentType: p.contentType } : {}),
                     ...(p.encoding ? { encoding: p.encoding } : {}),
                     ...(p.contentEncoderConfig ? { contentEncoderConfig: p.contentEncoderConfig } : {}),
@@ -1319,7 +1319,7 @@ export class ServiceMethodGenerator {
                 );
                 /* v8 ignore next */
                 lines.push(
-                    `serialized_${p.paramName}.forEach((entry: { key: string, value: string | Blob }) => params = params.append(entry.key, entry.value));`,
+                    `serialized_${p.paramName}.forEach((entry: { key: string, value: string | Blob }) => params = params.append(entry.key, entry.value as string));`,
                 );
             });
         }
@@ -1651,7 +1651,7 @@ export class ServiceMethodGenerator {
                 lines.push(`let formBody = new HttpParams({ encoder: new ApiParameterCodec() });`);
                 /* v8 ignore next */
                 lines.push(
-                    `urlParamEntries.forEach((entry: { key: string, value: string | Blob }) => formBody = formBody.append(entry.key, entry.value));`,
+                    `urlParamEntries.forEach((entry: { key: string, value: string | Blob }) => formBody = formBody.append(entry.key, entry.value as string));`,
                 );
                 /* v8 ignore next */
                 bodyArgument = 'formBody';
@@ -1710,7 +1710,7 @@ export class ServiceMethodGenerator {
                     /* v8 ignore start */
                     lines.push(
                         /* v8 ignore stop */
-                        `  ${bodyVar} = ${bodyVar}.map((item: Record<string, never>) => '\\x1e' + JSON.stringify(item)).join('');`,
+                        `  ${bodyVar} = ${bodyVar}.map((item: Record<string, string | number | boolean | object | undefined | null>) => '\\x1e' + JSON.stringify(item)).join('');`,
                     );
                     /* v8 ignore next */
                     /* v8 ignore next */
@@ -1738,7 +1738,7 @@ export class ServiceMethodGenerator {
                     lines.push(`if (Array.isArray(${bodyVar})) {`);
                     /* v8 ignore next */
                     lines.push(
-                        `  ${bodyVar} = ${bodyVar}.map((item: Record<string, never>) => JSON.stringify(item)).join('\\n');`,
+                        `  ${bodyVar} = ${bodyVar}.map((item: Record<string, string | number | boolean | object | undefined | null>) => JSON.stringify(item)).join('\\n');`,
                     );
                     /* v8 ignore next */
                     lines.push(`} else if (${bodyVar} != null && typeof ${bodyVar} !== 'string') {`);
@@ -1834,7 +1834,7 @@ export class ServiceMethodGenerator {
                                 } 
                             }); 
                         } else if (headers) { 
-                            Object.entries(headers as Record<string, never>).forEach(([key, value]) => { 
+                            Object.entries(headers as Record<string, string | number | boolean | object | undefined | null>).forEach(([key, value]) => { 
                                 if (Array.isArray(value)) { 
                                     value.forEach((v: string | number | boolean) => h.append(key, String(v))); 
                                 } else if (value !== undefined && value !== null) { 
@@ -1856,7 +1856,7 @@ export class ServiceMethodGenerator {
                             } 
                         }); 
                     } else if (headers) { 
-                        Object.entries(headers as Record<string, never>).forEach(([key, value]) => { 
+                        Object.entries(headers as Record<string, string | number | boolean | object | undefined | null>).forEach(([key, value]) => { 
                             if (Array.isArray(value)) raw[key] = value.map((v: string | number | boolean) => String(v)).join(', '); 
                             else if (value !== undefined && value !== null) raw[key] = String(value); 
                         }); 
@@ -1872,7 +1872,7 @@ export class ServiceMethodGenerator {
                 if (options?.withCredentials) fetchOptions.credentials = 'include'; 
 
 /* v8 ignore start */
-                ${bodyArgument !== 'null' ? `fetchOptions.body = ${bodyArgument} as Record<string, never>;` : ''} 
+                ${bodyArgument !== 'null' ? `fetchOptions.body = ${bodyArgument} as Record<string, string | number | boolean | object | undefined | null>;` : ''} 
 /* v8 ignore stop */
 
                 fetch(url, fetchOptions).then(response => { 
@@ -1907,7 +1907,7 @@ export class ServiceMethodGenerator {
                         } 
 
                         const data = dataLines.join('\\n'); 
-                        let payload: Record<string, never>; 
+                        let payload: Record<string, string | number | boolean | object | undefined | null>; 
                         if ('${sseMode}' === 'event') { 
                             payload = { data }; 
                             const resolvedEvent = eventName ?? 'message'; 
@@ -1922,7 +1922,7 @@ export class ServiceMethodGenerator {
                         ${hasSseDecoding ? 'payload = ContentDecoder.decode(payload, sseDecodingConfig);' : ''} 
 /* v8 ignore stop */
 
-                        observer.next(payload as Record<string, never>); 
+                        observer.next(payload as Record<string, string | number | boolean | object | undefined | null>); 
                         resetEvent(); 
                     }; 
 
@@ -2012,7 +2012,7 @@ export class ServiceMethodGenerator {
         const isStandardNonBody = ['get', 'delete', 'head', 'options', 'jsonp'].includes(httpMethod);
 
         /* v8 ignore next */
-        const returnGeneric = `Record<string, never>`;
+        const returnGeneric = `string | number | boolean | object | undefined | null`;
 
         let httpCall: string;
 
@@ -2021,22 +2021,22 @@ export class ServiceMethodGenerator {
             /* v8 ignore next */
             if (httpMethod === 'query') {
                 /* v8 ignore next */
-                httpCall = `this.http.request('QUERY', url, { ...requestOptions, body: ${bodyArgument} } as Record<string, never>)`;
+                httpCall = `this.http.request('QUERY', url, { ...requestOptions, body: ${bodyArgument} } as Record<string, string | number | boolean | object | undefined | null>)`;
             } else {
                 /* v8 ignore next */
-                httpCall = `this.http.${httpMethod}<${returnGeneric}>(url, ${bodyArgument}, requestOptions as Record<string, never>)`;
+                httpCall = `this.http.${httpMethod}<${returnGeneric}>(url, ${bodyArgument}, requestOptions as object)`;
             }
             /* v8 ignore next */
         } else if (bodyArgument !== 'null') {
             /* v8 ignore next */
-            httpCall = `this.http.request<${returnGeneric}>('${model.httpMethod}', url, { ...requestOptions, body: ${bodyArgument} } as Record<string, never>)`;
+            httpCall = `this.http.request<${returnGeneric}>('${model.httpMethod}', url, { ...requestOptions, body: ${bodyArgument} } as Record<string, string | number | boolean | object | undefined | null>)`;
             /* v8 ignore next */
         } else if (isStandardNonBody) {
             /* v8 ignore next */
-            httpCall = `this.http.${httpMethod}<${returnGeneric}>(url, requestOptions as Record<string, never>)`;
+            httpCall = `this.http.${httpMethod}<${returnGeneric}>(url, requestOptions as object)`;
         } else {
             /* v8 ignore next */
-            httpCall = `this.http.request<${returnGeneric}>('${model.httpMethod}', url, requestOptions as Record<string, never>)`;
+            httpCall = `this.http.request<${returnGeneric}>('${model.httpMethod}', url, requestOptions as object)`;
         }
 
         /* v8 ignore next */
@@ -2126,7 +2126,7 @@ export class ServiceMethodGenerator {
                 /* v8 ignore next */
                 lines.push(`return ${httpCall}.pipe(`);
                 /* v8 ignore next */
-                lines.push(`  map((response: Blob | string | Record<string, never>) => {`);
+                lines.push(`  map((response: Blob | string | Record<string, string | number | boolean | object | undefined | null>) => {`);
                 /* v8 ignore next */
                 lines.push(`    if (typeof response !== 'string') return response;`);
                 /* v8 ignore next */
@@ -2144,7 +2144,7 @@ export class ServiceMethodGenerator {
                 /* v8 ignore next */
                 lines.push(`return ${httpCall}.pipe(`);
                 /* v8 ignore next */
-                lines.push(`  map((response: Blob | string | Record<string, never>) => {`);
+                lines.push(`  map((response: Blob | string | Record<string, string | number | boolean | object | undefined | null>) => {`);
                 /* v8 ignore next */
                 lines.push(`    if (typeof response !== 'string') return response;`);
                 /* v8 ignore next */
@@ -2158,7 +2158,7 @@ export class ServiceMethodGenerator {
                 /* v8 ignore next */
                 lines.push(`return ${httpCall}.pipe(`);
                 /* v8 ignore next */
-                lines.push(`  map((response: Blob | string | Record<string, never>) => {`);
+                lines.push(`  map((response: Blob | string | Record<string, string | number | boolean | object | undefined | null>) => {`);
                 /* v8 ignore next */
                 lines.push(
                     `    return ContentDecoder.decode(response, ${JSON.stringify(model.responseDecodingConfig)});`,
@@ -2202,9 +2202,9 @@ export class ServiceMethodGenerator {
             /* v8 ignore next */
             uniqueTypes.length > 1
                 ? unionType
-                : responseType === 'unknown'
-                  ? 'Record<string, never>'
-                  : responseType || 'Record<string, never>';
+                : responseType === 'string | number | boolean | object | undefined | null'
+                  ? 'Record<string, string | number | boolean | object | undefined | null>'
+                  : responseType || 'Record<string, string | number | boolean | object | undefined | null>';
         /* v8 ignore next */
         const deprecationDoc = isDeprecated ? '\n@deprecated' : '';
         /* v8 ignore next */

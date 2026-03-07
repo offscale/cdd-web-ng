@@ -149,7 +149,7 @@ describe('Emitter: ServiceMethodGenerator (Edge Cases)', () => {
         methodGen.addServiceMethod(serviceClass, op);
         const body = serviceClass.getMethodOrThrow('copyResource').getBodyText()!;
         expect(body).toContain(
-            "return this.http.request<Record<string, never>>('COPY', url, requestOptions as Record<string, never>);",
+            `return this.http.request<Record<string, string | number | boolean | object | undefined | null>>('COPY', url, requestOptions as { headers?: HttpHeaders; observe: "response"; context?: HttpContext; reportProgress?: boolean; responseType?: "json"; withCredentials?: boolean });`
         );
     });
 
@@ -166,7 +166,7 @@ describe('Emitter: ServiceMethodGenerator (Edge Cases)', () => {
         methodGen.addServiceMethod(serviceClass, op);
         const body = serviceClass.getMethodOrThrow('querySearch').getBodyText()!;
         expect(body).toContain(
-            "return this.http.request('QUERY', url, { ...requestOptions, body: body } as Record<string, never>)",
+            `return this.http.request('QUERY', url, { ...requestOptions, body: body } as Record<string, string | number | boolean | object | undefined | null>)`,
         );
     });
 

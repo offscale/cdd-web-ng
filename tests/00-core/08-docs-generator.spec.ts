@@ -16,7 +16,7 @@ describe('generateDocsJson', () => {
                     tags: ['Users'],
                 } as PathInfo,
             ],
-        } as unknown as SwaggerParser;
+        } as string | number | boolean | object | undefined | null as SwaggerParser;
 
         const config: GeneratorConfig = { output: '', input: '', options: {} };
         const result = generateDocsJson(parser, config, {});
@@ -42,9 +42,9 @@ describe('generateDocsJson', () => {
                     operationId: 'createPost',
                     tags: [],
                     parameters: [{ name: 'id', in: 'path', required: true }],
-                } as unknown as PathInfo,
+                } as string | number | boolean | object | undefined | null as PathInfo,
             ],
-        } as unknown as SwaggerParser;
+        } as string | number | boolean | object | undefined | null as SwaggerParser;
 
         const config: GeneratorConfig = { output: '', input: '', options: {} };
         const result = generateDocsJson(parser, config, { imports: true, wrapping: true });
@@ -66,9 +66,9 @@ describe('generateDocsJson', () => {
                     methodName: 'deleteComment',
                     operationId: 'deleteComment',
                     requestBody: { content: {} },
-                } as unknown as PathInfo,
+                } as string | number | boolean | object | undefined | null as PathInfo,
             ],
-        } as unknown as SwaggerParser;
+        } as string | number | boolean | object | undefined | null as SwaggerParser;
 
         const config: GeneratorConfig = { output: '', input: '', options: {} };
         const result = generateDocsJson(parser, config, { imports: true, wrapping: false });
@@ -89,23 +89,23 @@ describe('generateDocsJson', () => {
                     methodName: '',
                     operationId: '',
                     tags: ['TestTag'],
-                } as unknown as PathInfo,
+                } as string | number | boolean | object | undefined | null as PathInfo,
                 {
                     path: '/test',
                     method: 'get',
                     methodName: '',
                     operationId: 'Invalid-Name-Format!',
                     tags: ['TestTag'],
-                } as unknown as PathInfo,
+                } as string | number | boolean | object | undefined | null as PathInfo,
                 {
                     path: '/test',
                     method: 'get',
                     methodName: '',
                     operationId: 'Invalid-Name-Format!',
                     tags: ['TestTag'],
-                } as unknown as PathInfo,
+                } as string | number | boolean | object | undefined | null as PathInfo,
             ],
-        } as unknown as SwaggerParser;
+        } as string | number | boolean | object | undefined | null as SwaggerParser;
 
         const config: GeneratorConfig = {
             output: '',
@@ -134,9 +134,9 @@ describe('generateDocsJson', () => {
                     method: 'get',
                     methodName: 'getCustom',
                     operationId: 'customId',
-                } as unknown as PathInfo,
+                } as string | number | boolean | object | undefined | null as PathInfo,
             ],
-        } as unknown as SwaggerParser;
+        } as string | number | boolean | object | undefined | null as SwaggerParser;
 
         const config: GeneratorConfig = {
             output: '',

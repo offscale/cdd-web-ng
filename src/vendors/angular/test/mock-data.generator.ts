@@ -60,13 +60,13 @@ export class MockDataGenerator {
         visited: Set<SwaggerDefinition>,
         maxDepth: number = 10,
     ):
-        | Record<string, never>
+        | Record<string, string | number | boolean | object | undefined | null>
         | string
         | number
         | boolean
         | null
         | undefined
-        | Array<string | number | boolean | null | Record<string, never>> {
+        | Array<string | number | boolean | null | Record<string, string | number | boolean | object | undefined | null>> {
         /* v8 ignore next */
         if (!schema || maxDepth <= 0) {
             /* v8 ignore next */
@@ -106,45 +106,45 @@ export class MockDataGenerator {
             }
 
             /* v8 ignore next */
-            if ((schema as Record<string, never>).dataValue !== undefined) {
+            if ((schema as Record<string, string | number | boolean | object | undefined | null>).dataValue !== undefined) {
                 /* v8 ignore next */
-                return (schema as Record<string, never>).dataValue;
+                return (schema as Record<string, string | number | boolean | object | undefined | null>).dataValue as string | number | boolean | Record<string, string | number | boolean | object | undefined | null> | null | undefined;
             }
 
             /* v8 ignore next */
-            if ((schema as Record<string, never>).value !== undefined) {
+            if ((schema as Record<string, string | number | boolean | object | undefined | null>).value !== undefined) {
                 /* v8 ignore next */
-                return (schema as Record<string, never>).value;
+                return (schema as Record<string, string | number | boolean | object | undefined | null>).value as string | number | boolean | Record<string, string | number | boolean | object | undefined | null> | null | undefined;
             }
 
             /* v8 ignore next */
-            if ((schema as Record<string, never>).serializedValue !== undefined) {
+            if ((schema as Record<string, string | number | boolean | object | undefined | null>).serializedValue !== undefined) {
                 /* v8 ignore next */
-                return (schema as Record<string, never>).serializedValue;
+                return (schema as Record<string, string | number | boolean | object | undefined | null>).serializedValue as string | number | boolean | Record<string, string | number | boolean | object | undefined | null> | null | undefined;
             }
 
             /* v8 ignore next */
-            if ((schema as Record<string, never>).externalValue) {
+            if ((schema as Record<string, string | number | boolean | object | undefined | null>).externalValue) {
                 /* v8 ignore next */
-                return this.resolveExternalValue((schema as Record<string, never>).externalValue as string);
+                return this.resolveExternalValue((schema as Record<string, string | number | boolean | object | undefined | null>).externalValue as string);
             }
 
             /* v8 ignore next */
             if (schema.example !== undefined) {
                 /* v8 ignore next */
-                return schema.example as string | number | boolean | Record<string, never> | null;
+                return schema.example as string | number | boolean | Record<string, string | number | boolean | object | undefined | null> | null;
             }
 
             /* v8 ignore next */
             if (Array.isArray(schema.examples) && schema.examples.length > 0) {
                 /* v8 ignore next */
-                return schema.examples[0] as string | number | boolean | Record<string, never> | null;
+                return schema.examples[0] as string | number | boolean | Record<string, string | number | boolean | object | undefined | null> | null;
             }
 
             /* v8 ignore next */
             if (schema.enum && schema.enum.length > 0) {
                 /* v8 ignore next */
-                return schema.enum[0] as string | number | boolean | Record<string, never> | null;
+                return schema.enum[0] as string | number | boolean | Record<string, string | number | boolean | object | undefined | null> | null;
             }
 
             /* v8 ignore next */
@@ -156,13 +156,13 @@ export class MockDataGenerator {
                     /* v8 ignore next */
                     if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
                         /* v8 ignore next */
-                        return { ...(acc as Record<string, never>), ...(val as Record<string, never>) };
+                        return { ...(acc as Record<string, string | number | boolean | object | undefined | null>), ...(val as Record<string, string | number | boolean | object | undefined | null>) };
                     }
                     /* v8 ignore next */
                     return acc;
                 }, {});
                 /* v8 ignore next */
-                return mergedObj as Record<string, never>;
+                return mergedObj as Record<string, string | number | boolean | object | undefined | null>;
             }
 
             /* v8 ignore next */
@@ -172,7 +172,7 @@ export class MockDataGenerator {
             switch (type) {
                 case 'object':
                     /* v8 ignore next */
-                    return this.generateObjectValue(schema, visited, maxDepth) as Record<string, never>;
+                    return this.generateObjectValue(schema, visited, maxDepth) as Record<string, string | number | boolean | object | undefined | null>;
                 case 'array':
                     /* v8 ignore next */
                     return this.generateArrayValue(schema, visited, maxDepth);
@@ -233,13 +233,13 @@ export class MockDataGenerator {
     private resolveExternalValue(
         externalValue: string,
     ):
-        | Record<string, never>
+        | Record<string, string | number | boolean | object | undefined | null>
         | string
         | number
         | boolean
         | null
         | undefined
-        | Array<string | number | boolean | null | Record<string, never>> {
+        | Array<string | number | boolean | null | Record<string, string | number | boolean | object | undefined | null>> {
         /* v8 ignore next */
         try {
             /* v8 ignore next */
@@ -298,14 +298,14 @@ export class MockDataGenerator {
         schema: SwaggerDefinition,
         visited: Set<SwaggerDefinition>,
         maxDepth: number,
-    ): Record<string, string | number | boolean | null | Record<string, never>> {
+    ): Record<string, string | number | boolean | null | Record<string, string | number | boolean | object | undefined | null>> {
         /* v8 ignore next */
         if (!schema.properties) {
             /* v8 ignore next */
             return {};
         }
         /* v8 ignore next */
-        const obj: Record<string, string | number | boolean | null | Record<string, never>> = {};
+        const obj: Record<string, string | number | boolean | null | Record<string, string | number | boolean | object | undefined | null>> = {};
         /* v8 ignore next */
         for (const [key, propSchema] of Object.entries(schema.properties)) {
             /* v8 ignore next */
@@ -315,7 +315,7 @@ export class MockDataGenerator {
                 /* v8 ignore next */
                 if (propValue !== undefined) {
                     /* v8 ignore next */
-                    obj[key] = propValue as string | number | boolean | Record<string, never> | null;
+                    obj[key] = propValue as string | number | boolean | Record<string, string | number | boolean | object | undefined | null> | null;
                 }
             }
         }
@@ -327,21 +327,21 @@ export class MockDataGenerator {
         schema: SwaggerDefinition,
         visited: Set<SwaggerDefinition>,
         maxDepth: number,
-    ): Array<string | number | boolean | null | Record<string, never>> {
+    ): Array<string | number | boolean | null | Record<string, string | number | boolean | object | undefined | null>> {
         /* v8 ignore next */
         if (!schema.items || Array.isArray(schema.items)) {
             /* v8 ignore next */
             return [];
         }
         /* v8 ignore next */
-        if ((schema.items as Record<string, never>).type === 'function') {
+        if ((schema.items as Record<string, string | number | boolean | object | undefined | null>).type === 'function') {
             /* v8 ignore next */
             return [];
         }
         /* v8 ignore next */
         const itemValue = this.generateValue(schema.items as SwaggerDefinition, new Set(visited), maxDepth - 1);
         /* v8 ignore next */
-        return itemValue !== undefined ? [itemValue as string | number | boolean | Record<string, never> | null] : [];
+        return itemValue !== undefined ? [itemValue as string | number | boolean | Record<string, string | number | boolean | object | undefined | null> | null] : [];
     }
 
     private generateStringValue(schema: SwaggerDefinition): string {

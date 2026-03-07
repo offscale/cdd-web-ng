@@ -305,7 +305,7 @@ export class FormModelBuilder {
                     name: prop.name,
                     propertyName: prop.name,
                     /* v8 ignore next */
-                    dataType: isValidTsType(valueTsType) ? `Record<string, ${valueTsType}>` : `Record<string, never>`,
+                    dataType: isValidTsType(valueTsType) ? `Record<string, ${valueTsType}>` : `Record<string, string | number | boolean | object | undefined | null>`,
                     defaultValue: defaultValue || {},
                     validationRules,
                     controlType: 'map',
@@ -555,5 +555,5 @@ export class FormModelBuilder {
 
 function isValidTsType(type: string): boolean {
     /* v8 ignore next */
-    return type != null && type !== 'Record<string, never>' && type !== 'void';
+    return type != null && type !== 'Record<string, string | number | boolean | object | undefined | null>' && type !== 'void';
 }

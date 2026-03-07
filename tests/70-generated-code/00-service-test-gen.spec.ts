@@ -104,7 +104,7 @@ describe('Generated Code: Service Test Generators', () => {
             // postPrimitive takes string body
             expect(text).toContain(`service.postPrimitive(body).subscribe({`);
             // Primitive string body declaration coverage
-            expect(text).toContain("const body: Record<string, never> = 'test-body';");
+            expect(text).toContain("const body: Record<string, string | number | boolean | object | undefined | null> = 'test-body';");
 
             expect(text).toContain(`service.getWithPrimitiveParam(id).subscribe({`);
         });
@@ -210,7 +210,7 @@ describe('Generated Code: Service Test Generators', () => {
 
             // Generic Object Body: schema is object but no interface generated -> unknown model
             // Matches `} else if (bodyParam) {` fallback for non-primitive, non-model bodies
-            expect(text).toContain("const body: Record<string, never> = { data: 'test-body' };");
+            expect(text).toContain("const body: Record<string, string | number | boolean | object | undefined | null> = { data: 'test-body' };");
         });
 
         it('should safe-guard against null operations in internal imports collection method', () => {
@@ -255,7 +255,7 @@ describe('Generated Code: Service Test Generators', () => {
             const text = sourceFile.getFullText();
 
             // Should use 'user-123' instead of generic 'test-id'
-            expect(text).toContain("const id: Record<string, never> = 'user-123';");
+            expect(text).toContain("const id: Record<string, string | number | boolean | object | undefined | null> = 'user-123';");
         });
 
         it('should fallback to examples map if example field is missing', () => {
@@ -292,7 +292,7 @@ describe('Generated Code: Service Test Generators', () => {
             const text = sourceFile.getFullText();
 
             // Should use first example 'active-status'
-            expect(text).toContain("const status: Record<string, never> = 'active-status';");
+            expect(text).toContain("const status: Record<string, string | number | boolean | object | undefined | null> = 'active-status';");
         });
 
         it('should use OAS 3.2 dataValue from parameter examples', () => {
@@ -332,7 +332,7 @@ describe('Generated Code: Service Test Generators', () => {
             const text = sourceFile.getFullText();
 
             // Should use 'active_filter' from dataValue
-            expect(text).toContain("const filter: Record<string, never> = 'active_filter';");
+            expect(text).toContain("const filter: Record<string, string | number | boolean | object | undefined | null> = 'active_filter';");
             expect(text).not.toContain('ignore_me');
         });
 
@@ -366,7 +366,7 @@ describe('Generated Code: Service Test Generators', () => {
             const sourceFile = project.getSourceFileOrThrow('/model.service.spec.ts');
             const text = sourceFile.getFullText();
 
-            expect(text).toContain('const filter: Record<string, never> =');
+            expect(text).toContain('const filter: Record<string, string | number | boolean | object | undefined | null> =');
         });
 
         it('should cover example extraction branches directly', () => {

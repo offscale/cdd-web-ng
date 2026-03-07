@@ -151,7 +151,7 @@ export class AuthInterceptorGenerator {
                 name: 'mtlsConfig',
                 isReadonly: true,
                 scope: Scope.Private,
-                type: 'Record<string, never>',
+                type: 'Record<string, string | number | boolean | object | undefined | null>',
                 initializer: `inject(HTTPS_AGENT_CONFIG_TOKEN, { optional: true })`,
             });
         }
@@ -220,7 +220,7 @@ export class AuthInterceptorGenerator {
         /* v8 ignore next */
         const statementsBody = `
         const requirements = req.context.get(SECURITY_CONTEXT_TOKEN);
-        const applicators: Record<string, (r: HttpRequest<Record<string, never>>, scopes?: string[]) => HttpRequest<Record<string, never>> | null> = {
+        const applicators: Record<string, (r: HttpRequest<Record<string, string | number | boolean | object | undefined | null>>, scopes?: string[]) => HttpRequest<Record<string, string | number | boolean | object | undefined | null>> | null> = {
             ${schemeLogicParts.join(',\n            ')}
         };
 
@@ -229,7 +229,7 @@ export class AuthInterceptorGenerator {
         }
 
         for (const requirement of requirements) {
-            let clone: HttpRequest<Record<string, never>> | null = req;
+            let clone: HttpRequest<Record<string, string | number | boolean | object | undefined | null>> | null = req;
             let satisfied = true;
 
             if (Object.keys(requirement).length === 0) {
@@ -261,10 +261,10 @@ export class AuthInterceptorGenerator {
         interceptorClass.addMethod({
             name: 'intercept',
             parameters: [
-                { name: 'req', type: 'HttpRequest<Record<string, never>>' },
+                { name: 'req', type: 'HttpRequest<Record<string, string | number | boolean | object | undefined | null>>' },
                 { name: 'next', type: 'HttpHandler' },
             ],
-            returnType: 'Observable<HttpEvent<Record<string, never>>>',
+            returnType: 'Observable<HttpEvent<Record<string, string | number | boolean | object | undefined | null>>>',
             statements: statementsBody,
         });
 

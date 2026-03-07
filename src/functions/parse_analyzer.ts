@@ -42,7 +42,7 @@ export class ServiceMethodAnalyzer {
         const defaultVariant = responseVariants.find(v => v.isDefault) ||
             responseVariants[0] || {
                 mediaType: 'application/json',
-                type: 'unknown',
+                type: 'string | number | boolean | object | undefined | null',
                 serialization: 'json',
                 isDefault: true,
             };
@@ -430,7 +430,7 @@ export class ServiceMethodAnalyzer {
                     /* v8 ignore next */
                     let serialization: ResponseSerialization = 'json';
                     /* v8 ignore next */
-                    let type = 'unknown';
+                    let type = 'string | number | boolean | object | undefined | null';
                     /* v8 ignore next */
                     let decodingConfig: Record<string, OpenApiValue> | undefined = undefined;
 
@@ -472,7 +472,7 @@ export class ServiceMethodAnalyzer {
                             /* v8 ignore next */
                             /* v8 ignore next */
                             /* v8 ignore start */
-                            type = 'unknown';
+                            type = 'string | number | boolean | object | undefined | null';
                             /* v8 ignore stop */
                         }
                     }
@@ -530,7 +530,7 @@ export class ServiceMethodAnalyzer {
                         /* v8 ignore next */
                         effectiveSchema !== undefined
                             ? getTypeScriptType(effectiveSchema as SwaggerDefinition, this.config, knownTypes)
-                            : 'unknown';
+                            : 'string | number | boolean | object | undefined | null';
                     const decodingConfig =
                         /* v8 ignore next */
                         effectiveSchema !== undefined
@@ -644,7 +644,7 @@ export class ServiceMethodAnalyzer {
         /* v8 ignore next */
         return schema !== undefined
             ? getTypeScriptType(schema as SwaggerDefinition, this.config, knownTypes)
-            : 'unknown';
+            : 'string | number | boolean | object | undefined | null';
     }
 
     private analyzeErrorResponses(
@@ -714,7 +714,7 @@ export class ServiceMethodAnalyzer {
             if (/^2\d{2}$/.test(code) || code === '2XX') continue;
 
             /* v8 ignore next */
-            let type = 'unknown';
+            let type = 'string | number | boolean | object | undefined | null';
             /* v8 ignore next */
             if ((responseObj as SwaggerResponse).content) {
                 /* v8 ignore next */
@@ -866,7 +866,7 @@ export class ServiceMethodAnalyzer {
                 const itemType = itemSchema
                     ? /* v8 ignore stop */
                       getTypeScriptType(itemSchema as SwaggerDefinition, this.config, knownTypes)
-                    : 'unknown';
+                    : 'string | number | boolean | object | undefined | null';
                 /* v8 ignore next */
                 const needsParens = itemType.includes('|') || itemType.includes('&');
                 /* v8 ignore next */
@@ -967,7 +967,7 @@ export class ServiceMethodAnalyzer {
                 /* v8 ignore next */
                 const rawBodyType = effectiveSchema
                     ? getTypeScriptType(effectiveSchema as SwaggerDefinition, this.config, knownTypes)
-                    : 'unknown';
+                    : 'string | number | boolean | object | undefined | null';
                 /* v8 ignore next */
                 /* v8 ignore start */
                 const bodyType = rawBodyType.includes('|') ? `(${rawBodyType})` : rawBodyType;
@@ -989,7 +989,7 @@ export class ServiceMethodAnalyzer {
                       getTypeScriptType(effectiveSchema as SwaggerDefinition, this.config, knownTypes)
                     : this.isBinaryMediaType(normalized)
                       ? 'Blob'
-                      : 'unknown';
+                      : 'string | number | boolean | object | undefined | null';
                 /* v8 ignore next */
                 /* v8 ignore start */
                 const bodyType = rawBodyType.includes('|') ? `(${rawBodyType})` : rawBodyType;
@@ -1006,7 +1006,7 @@ export class ServiceMethodAnalyzer {
                 /* v8 ignore next */
                 /* v8 ignore next */
                 /* v8 ignore start */
-                parameters.push({ name: 'body', type: 'unknown', hasQuestionToken: !requestBody.required });
+                parameters.push({ name: 'body', type: 'string | number | boolean | object | undefined | null', hasQuestionToken: !requestBody.required });
                 /* v8 ignore stop */
             }
         }

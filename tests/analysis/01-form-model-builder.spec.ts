@@ -677,7 +677,7 @@ describe('Analysis: FormModelBuilder', () => {
         expect(unevaluated?.mapValueControl?.dataType).toContain('number');
     });
 
-    it('should fall back to Record<string, never> for invalid map value types', () => {
+    it('should fall back to Record<string, string | number | boolean | object | undefined | null> for invalid map value types', () => {
         const spec = {
             openapi: '3.0.0',
             info: { title: 'Map', version: '1.0' },

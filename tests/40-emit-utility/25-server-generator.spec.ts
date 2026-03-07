@@ -87,7 +87,7 @@ describe('Emitter: ServerGenerator', () => {
         // Mock parser structure to force undefined servers, hitting the fallback branch `|| []`
         const parser = {
             servers: undefined,
-        } as unknown as SwaggerParser;
+        } as string | number | boolean | object | undefined | null as SwaggerParser;
 
         new ServerGenerator(parser, project).generate('/out');
 

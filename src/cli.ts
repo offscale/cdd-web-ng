@@ -518,10 +518,10 @@ program
                                 result = await runGeneration(parsed.params as OpenApiValue as CliOptions, 'to_server');
                                 break;
                             case 'to_openapi':
-                                result = await runToOpenApi(parsed.params as OpenApiValue as ToActionOptions, true);
+                                result = (await runToOpenApi(parsed.params as OpenApiValue as ToActionOptions, true)) as OpenApiValue;
                                 break;
                             case 'to_docs_json':
-                                result = await runToDocsJson(parsed.params as OpenApiValue as DocsJsonOptions, true);
+                                result = (await runToDocsJson(parsed.params as OpenApiValue as DocsJsonOptions, true)) as OpenApiValue;
                                 break;
                             case 'version':
                                 result = packageJson.version;
@@ -531,7 +531,7 @@ program
                         }
                         res.writeHead(200, { 'Content-Type': 'application/json' });
                         res.end(JSON.stringify({ jsonrpc: '2.0', result, id: parsed.id }));
-                    } catch (err: OpenApiValue) {
+                    } catch (err) {
                         res.writeHead(400, { 'Content-Type': 'application/json' });
                         res.end(
                             JSON.stringify({

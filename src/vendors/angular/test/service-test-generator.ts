@@ -97,7 +97,7 @@ export class ServiceTestGenerator {
             /* v8 ignore next */
             if (!op.methodName) continue;
             /* v8 ignore next */
-            const { responseModel, responseType, bodyModel, isPrimitiveBody } = this.getMethodTypes(op);
+            const { responseModel, responseType, bodyModel, bodyType, isPrimitiveBody } = this.getMethodTypes(op);
 
             /* v8 ignore next */
             const params = (op.parameters ?? [])
@@ -116,6 +116,8 @@ export class ServiceTestGenerator {
                     if (modelName) {
                         /* v8 ignore next */
                         value = this.mockDataGenerator.generate(modelName);
+                        /* v8 ignore next */
+                        if (type.includes('[]')) value = `[${value}]`;
                     } else {
                         /* v8 ignore next */
                         value = this.getParameterExampleValue(p) ?? this.generateDefaultPrimitiveValue(p.schema, type);
@@ -136,6 +138,7 @@ export class ServiceTestGenerator {
                 ? {
                       name: isPrimitiveBody ? 'body' : bodyModel ? camelCase(bodyModel) : 'body',
                       model: bodyModel,
+                      type: bodyType,
                       isPrimitive: isPrimitiveBody,
                   }
                 : null;
@@ -152,6 +155,8 @@ export class ServiceTestGenerator {
                     /* v8 ignore next */
                     let mockData = this.mockDataGenerator.generate(bodyParam.model);
                     /* v8 ignore next */
+                    if (bodyParam.type.includes('[]') && mockData) mockData = `[${mockData}]`;
+                    /* v8 ignore next */
                     mockData =
                         /* v8 ignore start */
                         typeof mockData === 'string' && mockData.startsWith('"') && mockData.endsWith('"')
@@ -160,16 +165,16 @@ export class ServiceTestGenerator {
                             : String(mockData);
                     /* v8 ignore next */
                     lines.push(
-                        `      const ${bodyParam.name}: Record<string, never> = ${mockData.replace(/"new Date\(\)"/g, 'new Date()')};`,
+                        `      const ${bodyParam.name} = ${mockData.replace(/"new Date\(\)"/g, 'new Date()')} as string | number | boolean | object | undefined | null as ${bodyParam.type};`,
                     );
                     /* v8 ignore next */
                 } else if (bodyParam?.isPrimitive) {
                     /* v8 ignore next */
-                    lines.push(`      const ${bodyParam.name}: Record<string, never> = 'test-body';`);
+                    lines.push(`      const ${bodyParam.name} = 'test-body' as string | number | boolean | object | undefined | null as ${bodyParam.type};`);
                     /* v8 ignore next */
                 } else if (bodyParam) {
                     /* v8 ignore next */
-                    lines.push(`      const ${bodyParam.name}: Record<string, never> = { data: 'test-body' };`);
+                    lines.push(`      const ${bodyParam.name} = { data: 'test-body' } as string | number | boolean | object | undefined | null as ${bodyParam.type};`);
                 }
 
                 /* v8 ignore next */
@@ -177,10 +182,10 @@ export class ServiceTestGenerator {
                     /* v8 ignore next */
                     if (p.modelName) {
                         /* v8 ignore next */
-                        lines.push(`      const ${p.name}: Record<string, never> = ${p.value};`);
+                        lines.push(`      const ${p.name} = ${p.value} as string | number | boolean | object | undefined | null as ${p.type};`);
                     } else {
                         /* v8 ignore next */
-                        lines.push(`      const ${p.name}: Record<string, never> = ${p.value};`);
+                        lines.push(`      const ${p.name} = ${p.value} as string | number | boolean | object | undefined | null as ${p.type};`);
                     }
                 });
                 /* v8 ignore next */
@@ -329,7 +334,7 @@ export class ServiceTestGenerator {
         /* v8 ignore next */
         const pickExampleValue = (
             example: OpenApiValue,
-        ): { found: boolean; value: Record<string, never> | string | number | boolean | null } => {
+        ): { found: boolean; value: Record<string, string | number | boolean | object | undefined | null> | string | number | boolean | null } => {
             /* v8 ignore next */
             if (!example || typeof example !== 'object') return { found: false, value: null };
             /* v8 ignore next */
@@ -337,7 +342,7 @@ export class ServiceTestGenerator {
                 /* v8 ignore next */
                 return {
                     found: true,
-                    value: (example as Record<string, string | number | boolean | Record<string, never> | null>)
+                    value: (example as Record<string, string | number | boolean | Record<string, string | number | boolean | object | undefined | null> | null>)
                         .dataValue,
                 };
             }
@@ -346,7 +351,7 @@ export class ServiceTestGenerator {
                 /* v8 ignore next */
                 return {
                     found: true,
-                    value: (example as Record<string, string | number | boolean | Record<string, never> | null>).value,
+                    value: (example as Record<string, string | number | boolean | Record<string, string | number | boolean | object | undefined | null> | null>).value,
                 };
             }
             /* v8 ignore next */
@@ -354,7 +359,7 @@ export class ServiceTestGenerator {
                 /* v8 ignore next */
                 return {
                     found: true,
-                    value: (example as Record<string, string | number | boolean | Record<string, never> | null>)
+                    value: (example as Record<string, string | number | boolean | Record<string, string | number | boolean | object | undefined | null> | null>)
                         .serializedValue,
                 };
             }
@@ -441,7 +446,7 @@ export class ServiceTestGenerator {
                     /* v8 ignore next */
                     if (keys.length > 0) {
                         /* v8 ignore next */
-                        const ex = (media.examples as Record<string, never>)[keys[0]!];
+                        const ex = (media.examples as Record<string, string | number | boolean | object | undefined | null>)[keys[0]!];
                         /* v8 ignore next */
                         const contentValue = pickExampleValue(ex);
                         /* v8 ignore next */
@@ -497,6 +502,7 @@ export class ServiceTestGenerator {
         responseModel?: string;
         responseType: string;
         bodyModel?: string;
+        bodyType: string;
         isPrimitiveBody: boolean;
     } {
         /* v8 ignore next */
@@ -506,7 +512,7 @@ export class ServiceTestGenerator {
         /* v8 ignore next */
         const responseType = successResponseSchema
             ? getTypeScriptType(successResponseSchema as SwaggerDefinition, this.config, knownTypes)
-            : 'unknown';
+            : 'string | number | boolean | object | undefined | null';
         /* v8 ignore next */
         const responseModelType = responseType.replace(/\[\]| \| null/g, '');
         /* v8 ignore next */
@@ -519,7 +525,7 @@ export class ServiceTestGenerator {
         /* v8 ignore next */
         const bodyType = requestBodySchema
             ? getTypeScriptType(requestBodySchema as SwaggerDefinition, this.config, knownTypes)
-            : 'unknown';
+            : 'string | number | boolean | object | undefined | null';
 
         /* v8 ignore next */
         const bodyModelType = bodyType.replace(/\[\]| \| null/g, '');
@@ -534,6 +540,7 @@ export class ServiceTestGenerator {
         /* v8 ignore next */
         return {
             responseType,
+            bodyType,
             isPrimitiveBody,
             ...(responseModel !== undefined ? { responseModel } : {}),
             ...(bodyModel !== undefined ? { bodyModel } : {}),

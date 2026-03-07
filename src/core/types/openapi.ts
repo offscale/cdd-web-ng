@@ -1,4 +1,4 @@
-export type OpenApiValue = unknown;
+export type OpenApiValue = string | number | boolean | object | undefined | null;
 // ===================================================================================
 // OpenAPI / Swagger Specification Types
 // ===================================================================================

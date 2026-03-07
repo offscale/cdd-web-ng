@@ -137,7 +137,7 @@ describe('Emitter: ServiceMethodGenerator (Sequential Media Types)', () => {
 
         expect(body).toContain(`responseType: 'text'`);
         expect(body).toContain('.pipe(');
-        expect(body).toContain('map((response: Blob | string | Record<string, never>) => {');
+        expect(body).toContain('map((response: Blob | string | Record<string, string | number | boolean | object | undefined | null>) => {');
         expect(body).toContain("response.split('\\x1e')");
         expect(body).toContain('filter((part: string) => part.trim().length > 0)');
         expect(body).toContain('JSON.parse(item)');

@@ -372,7 +372,7 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
         generator.addServiceMethod(classDeclaration, { methodName: 'getMulti' } as any);
 
         const returnType = classDeclaration.getMethodOrThrow('getMulti').getReturnType().getText();
-        expect(returnType).toContain('Observable<Record<string, never>>');
+        expect(returnType).toContain('Observable<Record<string, string | number | boolean | object>>');
     });
 
     it('should emit @response tags when responses are defined', () => {
@@ -584,7 +584,7 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
         expect(body).toContain("XmlBuilder.serialize(payload, 'Root'");
         // type-coverage:ignore-next-line
         expect(body).toContain(
-            "this.http.request<Record<string, never>>('CUSTOM', url, { ...requestOptions, body: xmlBody } as Record<string, never>)",
+            "this.http.request<Record<string, string | number | boolean | object | undefined | null>>('CUSTOM', url, { ...requestOptions, body: xmlBody } as Record<string, string | number | boolean | object | undefined | null>)",
         );
         // type-coverage:ignore-next-line
         expect(body).toContain("response.split('\\x1e')");
@@ -763,7 +763,7 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
         const body = (generator as any).emitMethodBody(model, rawOp, false, false);
         // type-coverage:ignore-next-line
         expect(body).toContain(
-            'this.http.post<Record<string, never>>(url, null, requestOptions as Record<string, never>)',
+            'this.http.post<Record<string, string | number | boolean | object | undefined | null>>(url, null, requestOptions as { headers?: HttpHeaders; observe: "response"; context?: HttpContext; reportProgress?: boolean; responseType?: "json"; withCredentials?: boolean })',
         );
     });
 
@@ -820,6 +820,6 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
             { mediaType: 'application/json', type: 'any', serialization: 'json', isDefault: true },
         ]);
         // type-coverage:ignore-next-line
-        expect(overloads[0].returnType).toContain('Record<string, never>');
+        expect(overloads[0].returnType).toContain('Record<string, string | number | boolean | object | undefined | null>');
     });
 });

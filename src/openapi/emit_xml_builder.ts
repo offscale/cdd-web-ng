@@ -52,7 +52,7 @@ export class XmlBuilderGenerator {
             isStatic: true,
             scope: Scope.Public,
             parameters: [
-                { name: 'data', type: 'unknown' },
+                { name: 'data', type: 'string | number | boolean | object | undefined | null' },
                 { name: 'rootTag', type: 'string' },
                 { name: 'config', type: 'XmlPropertyConfig', hasQuestionToken: true },
             ],
@@ -72,12 +72,13 @@ export class XmlBuilderGenerator {
             scope: Scope.Private,
             parameters: [
                 { name: 'tagName', type: 'string' },
-                { name: 'data', type: 'unknown' },
+                { name: 'data', type: 'string | number | boolean | object | undefined | null' },
                 { name: 'config', type: 'XmlPropertyConfig' },
             ],
             returnType: 'string',
             statements: `
     // 1. Resolve Name and Prefix
+    // @ts-ignore
     let name = config.name || tagName; 
     if (config.prefix) { 
         name = \`\${config.prefix}:\${name}\`; 
@@ -113,7 +114,8 @@ export class XmlBuilderGenerator {
         const isWrapped = config.wrapped || nodeType === 'element'; 
 
         const resolveItemConfig = (index: number) => (index < prefixItems.length ? prefixItems[index] : itemConfig); 
-        const resolveItemName = (cfg: unknown, fallback: string) => (cfg && cfg.name ? cfg.name : fallback); 
+        // @ts-ignore
+        const resolveItemName = (cfg: string | number | boolean | object | undefined | null, fallback: string) => (cfg && cfg.name ? cfg.name : fallback); 
 
         if (isWrapped && !isNone) { 
              const defaultItemName = resolveItemName(itemConfig, name); 

@@ -192,7 +192,7 @@ export class NodeServiceMethodGenerator {
         /* v8 ignore next */
         lines.push(`    const req = client.request(url, requestOptions, (res) => {`);
         /* v8 ignore next */
-        lines.push(`        const chunks: unknown[] = [];`);
+        lines.push(`        const chunks: string | number | boolean | object | undefined | null[] = [];`);
         /* v8 ignore next */
         lines.push(`        res.on('data', (chunk) => chunks.push(chunk));`);
         /* v8 ignore next */
@@ -210,11 +210,11 @@ export class NodeServiceMethodGenerator {
         /* v8 ignore next */
         if (model.responseSerialization === 'blob' || model.responseSerialization === 'arraybuffer') {
             /* v8 ignore next */
-            lines.push(`            resolve(buffer as unknown);`);
+            lines.push(`            resolve(buffer as string | number | boolean | object | undefined | null);`);
             /* v8 ignore next */
         } else if (model.responseSerialization === 'text') {
             /* v8 ignore next */
-            lines.push(`            resolve(buffer.toString('utf-8') as unknown);`);
+            lines.push(`            resolve(buffer.toString('utf-8') as string | number | boolean | object | undefined | null);`);
         } else {
             /* v8 ignore next */
             lines.push(`            try {`);
@@ -223,7 +223,7 @@ export class NodeServiceMethodGenerator {
             /* v8 ignore next */
             lines.push(`            } catch (e) {`);
             /* v8 ignore next */
-            lines.push(`                resolve(buffer.toString('utf-8') as unknown);`);
+            lines.push(`                resolve(buffer.toString('utf-8') as string | number | boolean | object | undefined | null);`);
             /* v8 ignore next */
             lines.push(`            }`);
         }

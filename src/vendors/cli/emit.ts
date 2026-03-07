@@ -2,6 +2,7 @@ import { Project } from 'ts-morph';
 import { SwaggerParser } from '../../openapi/parse.js';
 import { GeneratorConfig, PathInfo } from '../../core/types/index.js';
 import { posix as path } from 'node:path';
+import { Parameter, SecurityScheme } from '../../core/types/openapi.js';
 
 export class CliGenerator {
     /**
@@ -85,7 +86,7 @@ program.name('${title}').description('${description}').version('${version}');
         // Security Scheme Object, OAuth Flows Object, OAuth Flow Object, Security Requirement Object
         if (spec.components?.securitySchemes) {
             for (const [name, scheme] of Object.entries(spec.components.securitySchemes)) {
-                const s = scheme as any;
+                const s = scheme as SecurityScheme;
                 if (s.type === 'http' || s.type === 'apiKey') {
                     statements += `program.option('--auth-${name.toLowerCase()} <token>', '${(s.description || 'Authentication token for ' + name).replace(/'/g, "\\'")}');\n`;
                 } else if (s.type === 'oauth2') {
@@ -161,11 +162,11 @@ program.name('${title}').description('${description}').version('${version}');
                 if (op.parameters) {
                     /* v8 ignore start */
                     for (const param of op.parameters) {
-                        const pName = (param as any).name;
+                        const pName = (param as Parameter).name;
                         if (!pName || optionsAdded.has(pName)) continue;
                         optionsAdded.add(pName);
-                        const requiredFlag = (param as any).required ? '<value>' : '[value]';
-                        const pDesc = ((param as any).description || '').replace(/'/g, "\\'");
+                        const requiredFlag = (param as Parameter).required ? '<value>' : '[value]';
+                        const pDesc = ((param as Parameter).description || '').replace(/'/g, "\\'");
                         statements += `\n    .option('--${pName} ${requiredFlag}', '${pDesc}')`;
                     }
                     /* v8 ignore stop */

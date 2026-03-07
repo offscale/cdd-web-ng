@@ -318,16 +318,16 @@ function validateCallbackExpression(expression: string, location: string): void 
     validateRuntimeExpressionTemplate(expression, location, 'required', 'Callback expression');
 }
 
-type SchemaTypeKind = 'primitive' | 'array' | 'object' | 'unknown';
+type SchemaTypeKind = 'primitive' | 'array' | 'object' | 'string | number | boolean | object | undefined | null';
 
 function getSchemaTypeKind(schema: OpenApiValue): SchemaTypeKind {
     /* v8 ignore next */
     /* v8 ignore start */
-    if (!schema || typeof schema !== 'object') return 'unknown';
+    if (!schema || typeof schema !== 'object') return 'string | number | boolean | object | undefined | null';
     /* v8 ignore stop */
     /* v8 ignore next */
     /* v8 ignore start */
-    if ('$ref' in (schema as object) || '$dynamicRef' in (schema as object)) return 'unknown';
+    if ('$ref' in (schema as object) || '$dynamicRef' in (schema as object)) return 'string | number | boolean | object | undefined | null';
     /* v8 ignore stop */
 
     /* v8 ignore next */
@@ -336,7 +336,7 @@ function getSchemaTypeKind(schema: OpenApiValue): SchemaTypeKind {
     const normalizeType = (value: OpenApiValue): SchemaTypeKind => {
         /* v8 ignore next */
         /* v8 ignore start */
-        if (typeof value !== 'string') return 'unknown';
+        if (typeof value !== 'string') return 'string | number | boolean | object | undefined | null';
         /* v8 ignore stop */
         /* v8 ignore next */
         if (value === 'array') return 'array';
@@ -345,7 +345,7 @@ function getSchemaTypeKind(schema: OpenApiValue): SchemaTypeKind {
         /* v8 ignore next */
         if (['string', 'number', 'integer', 'boolean', 'null'].includes(value)) return 'primitive';
         /* v8 ignore next */
-        return 'unknown';
+        return 'string | number | boolean | object | undefined | null';
     };
 
     /* v8 ignore next */
@@ -368,7 +368,7 @@ function getSchemaTypeKind(schema: OpenApiValue): SchemaTypeKind {
     }
 
     /* v8 ignore next */
-    return 'unknown';
+    return 'string | number | boolean | object | undefined | null';
 }
 
 /* v8 ignore next */
@@ -807,7 +807,7 @@ function validateXmlObject(schema: Record<string, OpenApiValue>, location: strin
         /* v8 ignore next */
         const schemaType = getSchemaTypeKind(schema);
         /* v8 ignore next */
-        if (schemaType !== 'array' && schemaType !== 'unknown') {
+        if (schemaType !== 'array' && schemaType !== 'string | number | boolean | object | undefined | null') {
             /* v8 ignore next */
             throw new SpecValidationError(
                 `XML Object at '${location}' defines 'wrapped' but the schema is not an array.`,
@@ -850,7 +850,7 @@ function validateParameterStyle(param: Parameter, location: string): void {
     const schemaType = getSchemaTypeKind(param.schema);
 
     /* v8 ignore next */
-    if (param.style === 'deepObject' && schemaType !== 'object' && schemaType !== 'unknown') {
+    if (param.style === 'deepObject' && schemaType !== 'object' && schemaType !== 'string | number | boolean | object | undefined | null') {
         /* v8 ignore next */
         throw new SpecValidationError(
             `Parameter '${param.name}' in '${location}' uses 'deepObject' style but schema is not an object.`,

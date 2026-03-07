@@ -87,7 +87,7 @@ describe('Generators (Angular): ServiceGenerator', () => {
     it('should create utils directory for parameter serializer when missing', () => {
         const project = new Project({ useInMemoryFileSystem: true });
         const fsHost = project.getFileSystem();
-        const dirSpy = vi.spyOn(fsHost, 'directoryExists').mockReturnValue(false as unknown as Promise<boolean>);
+        const dirSpy = vi.spyOn(fsHost, 'directoryExists').mockReturnValue(false as string | number | boolean | object | undefined | null as Promise<boolean>);
         const mkdirSpy = vi.spyOn(fsHost, 'mkdirSync');
 
         new ParameterSerializerGenerator(project).generate('/out');
@@ -114,7 +114,7 @@ describe('Generators (Angular): ServiceGenerator', () => {
         );
         // Expect generic call now
         expect(body).toContain(
-            'return this.http.put<Record<string, never>>(url, user, requestOptions as Record<string, never>);',
+            'return this.http.put<Record<string, string | number | boolean | object | undefined | null>>(url, user, requestOptions as { headers?: HttpHeaders; observe: "response"; context?: HttpContext; reportProgress?: boolean; responseType?: "json"; withCredentials?: boolean });',
         );
         expect(body).not.toContain('finalOptions.body = user;');
     });

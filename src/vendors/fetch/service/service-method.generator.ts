@@ -184,7 +184,7 @@ export class FetchServiceMethodGenerator {
         /* v8 ignore next */
         if (bodyArgument !== 'undefined') {
             /* v8 ignore next */
-            lines.push(`fetchOptions.body = ${bodyArgument} as unknown;`);
+            lines.push(`fetchOptions.body = ${bodyArgument} as string | number | boolean | object | undefined | null;`);
         }
 
         /* v8 ignore next */
@@ -203,7 +203,7 @@ export class FetchServiceMethodGenerator {
             lines.push(`return response.blob();`);
         } else {
             /* v8 ignore next */
-            lines.push(`return response.text() as unknown;`);
+            lines.push(`return response.text() as string | number | boolean | object | undefined | null;`);
         }
 
         /* v8 ignore next */

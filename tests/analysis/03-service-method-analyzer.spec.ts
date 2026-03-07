@@ -546,7 +546,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
         expect(model?.responseType).toBe('string');
     });
 
-    // Test for line ~135: unknown/any content type
+    // Test for line ~135: string | number | boolean | object | undefined | null/any content type
     it('should prioritize application/json but handle unknown content type with schema', () => {
         const spec = {
             openapi: '3.0.0',
@@ -1250,7 +1250,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
             const op = { ...spec.paths['/empty'].get, path: '/empty', method: 'GET', methodName: 'getEmpty' } as any;
             const model = analyzer.analyze(op)!;
             expect(model.responseVariants).toHaveLength(0);
-            expect(model.responseType).toBe('unknown');
+            expect(model.responseType).toBe('string | number | boolean | object | undefined | null');
         });
 
         it('should handle sequential json media type with itemSchema only', () => {
@@ -1731,7 +1731,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
             const spec = { openapi: '3.0.0', info: { title: 'Resolve', version: '1.0' }, paths: {} };
             const { analyzer } = setupAnalyzer(spec);
             // type-coverage:ignore-next-line
-            expect((analyzer as any).resolveType(undefined, [])).toBe('unknown');
+            expect((analyzer as any).resolveType(undefined, [])).toBe('string | number | boolean | object | undefined | null');
         });
 
         it('should avoid requestEncodingConfig when body is forced to json with no content', () => {
@@ -1803,7 +1803,7 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
                 responses: { '200': { description: 'ok', content: { 'text/event-stream': mediaObj } } },
             } as any;
             const model = analyzer.analyze(op)!;
-            expect(model.responseVariants[0].type).toBe('unknown');
+            expect(model.responseVariants[0].type).toBe('string | number | boolean | object | undefined | null');
         });
 
         it('should skip multipart itemEncoding initialization when items are tuple arrays', () => {

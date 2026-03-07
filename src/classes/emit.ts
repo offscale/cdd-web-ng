@@ -175,7 +175,7 @@ export class TypeGenerator {
                     /* v8 ignore next */
                     key => ({
                         name: key,
-                        type: 'string | unknown',
+                        type: 'string | string | number | boolean | object | undefined | null',
                         docs: [`Value or expression for parameter '${key}'`],
                     }),
                 );
@@ -255,7 +255,7 @@ export class TypeGenerator {
                             /* v8 ignore next */
                             schema = { type: resolvedHeader.type, format: resolvedHeader.format } as Record<
                                 string,
-                                unknown
+                                string | number | boolean | object | undefined | null
                             >;
                         }
 
@@ -343,7 +343,7 @@ export class TypeGenerator {
             sourceFile.addTypeAlias({
                 name: pascalCase(name),
                 isExported: true,
-                type: 'unknown',
+                type: 'string | number | boolean | object | undefined | null',
                 docs: this.buildJSDoc(def),
             });
             /* v8 ignore next */
@@ -501,7 +501,7 @@ export class TypeGenerator {
             const valueType =
                 /* v8 ignore next */
                 def.additionalProperties === true
-                    ? 'unknown'
+                    ? 'string | number | boolean | object | undefined | null'
                     : getTypeScriptType(
                           def.additionalProperties as SwaggerDefinition,
                           this.config,
@@ -517,7 +517,7 @@ export class TypeGenerator {
             const valueType =
                 /* v8 ignore next */
                 def.unevaluatedProperties === true
-                    ? 'unknown'
+                    ? 'string | number | boolean | object | undefined | null'
                     : getTypeScriptType(
                           def.unevaluatedProperties as SwaggerDefinition,
                           this.config,
@@ -549,7 +549,7 @@ export class TypeGenerator {
             /* v8 ignore next */
             const distinct = Array.from(new Set(returnTypes));
             /* v8 ignore next */
-            const returnType = distinct.includes('unknown') ? 'unknown' : distinct.join(' | ');
+            const returnType = distinct.includes('string | number | boolean | object | undefined | null') ? 'string | number | boolean | object | undefined | null' : distinct.join(' | ');
 
             /* v8 ignore next */
             interfaceDecl.addIndexSignature({

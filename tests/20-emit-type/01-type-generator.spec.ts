@@ -194,7 +194,7 @@ describe('Emitter: TypeGenerator', () => {
 
             const indexSig = iface.getIndexSignatures()[0];
             expect(indexSig).toBeDefined();
-            expect(indexSig.getReturnType().getText()).toContain('unknown');
+            expect(indexSig.getReturnType().getText()).toContain('string | number | boolean | object');
         });
 
         it('should generate specific index signature if unevaluatedProperties has schema', () => {

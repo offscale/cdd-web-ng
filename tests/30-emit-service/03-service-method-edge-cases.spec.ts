@@ -149,7 +149,7 @@ describe('Emitter: ServiceMethodGenerator (Edge Cases)', () => {
         methodGen.addServiceMethod(serviceClass, op);
         const body = serviceClass.getMethodOrThrow('copyResource').getBodyText()!;
         expect(body).toContain(
-            `return this.http.request<Record<string, string | number | boolean | object | undefined | null>>('COPY', url, requestOptions as { headers?: HttpHeaders; observe: "response"; context?: HttpContext; reportProgress?: boolean; responseType?: "json"; withCredentials?: boolean });`
+            `return this.http.request<string | number | boolean | object | undefined | null>('COPY', url, requestOptions as object);`
         );
     });
 

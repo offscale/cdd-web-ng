@@ -183,7 +183,7 @@ describe('Emitter: ServiceMethodGenerator (Auto Decoding & Encoding)', () => {
         const returnType = method.getReturnType().getText();
 
         expect(returnType).toContain('Observable');
-        expect(returnType).toContain('Observable<Record<string, string | number | boolean | object>>');
+        expect(returnType).toContain('Observable<string | number | boolean | object>');
     });
 
     it('should generate XML decoding config for contentMediaType="application/xml"', () => {

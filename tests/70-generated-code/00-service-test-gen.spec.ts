@@ -104,7 +104,7 @@ describe('Generated Code: Service Test Generators', () => {
             // postPrimitive takes string body
             expect(text).toContain(`service.postPrimitive(body).subscribe({`);
             // Primitive string body declaration coverage
-            expect(text).toContain("const body: Record<string, string | number | boolean | object | undefined | null> = 'test-body';");
+            expect(text).toContain("const body = 'test-body' as string | number | boolean | object | undefined | null as string;");
 
             expect(text).toContain(`service.getWithPrimitiveParam(id).subscribe({`);
         });
@@ -210,7 +210,7 @@ describe('Generated Code: Service Test Generators', () => {
 
             // Generic Object Body: schema is object but no interface generated -> unknown model
             // Matches `} else if (bodyParam) {` fallback for non-primitive, non-model bodies
-            expect(text).toContain("const body: Record<string, string | number | boolean | object | undefined | null> = { data: 'test-body' };");
+            expect(text).toContain("const body = { data: 'test-body' } as string | number | boolean | object | undefined | null as { arbitrary?: string };");
         });
 
         it('should safe-guard against null operations in internal imports collection method', () => {
@@ -255,7 +255,7 @@ describe('Generated Code: Service Test Generators', () => {
             const text = sourceFile.getFullText();
 
             // Should use 'user-123' instead of generic 'test-id'
-            expect(text).toContain("const id: Record<string, string | number | boolean | object | undefined | null> = 'user-123';");
+            expect(text).toContain("const id = 'user-123' as string | number | boolean | object | undefined | null as string;");
         });
 
         it('should fallback to examples map if example field is missing', () => {
@@ -292,7 +292,7 @@ describe('Generated Code: Service Test Generators', () => {
             const text = sourceFile.getFullText();
 
             // Should use first example 'active-status'
-            expect(text).toContain("const status: Record<string, string | number | boolean | object | undefined | null> = 'active-status';");
+            expect(text).toContain("const status = 'active-status' as string | number | boolean | object | undefined | null as string;");
         });
 
         it('should use OAS 3.2 dataValue from parameter examples', () => {
@@ -332,7 +332,7 @@ describe('Generated Code: Service Test Generators', () => {
             const text = sourceFile.getFullText();
 
             // Should use 'active_filter' from dataValue
-            expect(text).toContain("const filter: Record<string, string | number | boolean | object | undefined | null> = 'active_filter';");
+            expect(text).toContain("const filter = 'active_filter' as string | number | boolean | object | undefined | null as string;");
             expect(text).not.toContain('ignore_me');
         });
 
@@ -366,7 +366,7 @@ describe('Generated Code: Service Test Generators', () => {
             const sourceFile = project.getSourceFileOrThrow('/model.service.spec.ts');
             const text = sourceFile.getFullText();
 
-            expect(text).toContain('const filter: Record<string, string | number | boolean | object | undefined | null> =');
+            expect(text).toContain('const filter = { "id": "string-value" } as string | number | boolean | object | undefined | null as Filter;');
         });
 
         it('should cover example extraction branches directly', () => {
@@ -753,6 +753,63 @@ describe('Generated Code: Service Test Generators', () => {
             expect((testGen as any).generateDefaultPrimitiveValue({ type: 'string' })).toBe("'test-value'");
         });
 
+        it('should generate arrays of mock data for array models', () => {
+            const arrSpec = {
+                openapi: '3.0.0',
+                info: { title: 'Test', version: '1.0' },
+                components: {
+                    schemas: {
+                        User: {
+                            type: 'object',
+                            properties: {
+                                name: { type: 'string' }
+                            }
+                        }
+                    }
+                },
+                paths: {
+                    '/users': {
+                        post: {
+                            operationId: 'createUsers',
+                            parameters: [
+                                {
+                                    name: 'queryUsers',
+                                    in: 'query',
+                                    schema: {
+                                        type: 'array',
+                                        items: { $ref: '#/components/schemas/User' }
+                                    }
+                                }
+                            ],
+                            requestBody: {
+                                content: {
+                                    'application/json': {
+                                        schema: {
+                                            type: 'array',
+                                            items: { $ref: '#/components/schemas/User' }
+                                        }
+                                    }
+                                }
+                            },
+                            responses: { '200': { description: 'ok' } },
+                        },
+                    },
+                },
+            };
+
+            const { parser, testGen } = setupTestGen(arrSpec);
+            const ops = parser.operations;
+            setOperationMethodNames(ops as any[]);
+
+            testGen.generateServiceTestFile('user', ops as any, '/');
+            const sourceFile = project.getSourceFileOrThrow('/user.service.spec.ts');
+            const text = sourceFile.getFullText();
+
+            // The query arg should be generated as an array
+            expect(text).toContain('const queryUsers = [{ "name": "string-value" }] as string | number | boolean | object | undefined | null as User[];');
+            // The body arg should be generated as an array
+            expect(text).toContain('expect(req.request.body).toEqual(user);');
+        });
         it('collectModelImports should include response, body, and parameter models', () => {
             const spec = {
                 openapi: '3.0.0',

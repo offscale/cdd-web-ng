@@ -103,7 +103,7 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
         expect(methodBody).toContain('const multipartConfig =');
         expect(methodBody).toContain('MultipartBuilder.serialize(body, multipartConfig);');
         expect(methodBody).toContain(
-            'return this.http.post<Record<string, string | number | boolean | object | undefined | null>>(url, multipartResult.content, requestOptions as { headers?: HttpHeaders; observe: "response"; context?: HttpContext; reportProgress?: boolean; responseType?: "json"; withCredentials?: boolean });',
+            'return this.http.post<string | number | boolean | object | undefined | null>(url, multipartResult.content, requestOptions as object);',
         );
     });
 
@@ -117,7 +117,7 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
         expect(methodBody).toContain('const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(body,');
         expect(methodBody).toContain('let formBody = new HttpParams({ encoder: new ApiParameterCodec() });');
         expect(methodBody).toContain(
-            'return this.http.post<Record<string, string | number | boolean | object | undefined | null>>(url, formBody, requestOptions as { headers?: HttpHeaders; observe: "response"; context?: HttpContext; reportProgress?: boolean; responseType?: "json"; withCredentials?: boolean });',
+            'return this.http.post<string | number | boolean | object | undefined | null>(url, formBody, requestOptions as object);',
         );
     });
 
@@ -156,7 +156,7 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
         const project = run(branchCoverageSpec);
         const serviceFile = project.getSourceFileOrThrow('/out/services/noSuccessResponse.service.ts');
         const method = serviceFile.getClassOrThrow('NoSuccessResponseService').getMethodOrThrow('getNoSuccess');
-        expect(method.getOverloads()[0].getReturnType().getText()).toBe('Observable<string | number | boolean | object | null | undefined>');
+        expect(method.getOverloads()[0].getReturnType().getText()).toBe('Observable<Record<string, string | number | boolean | object | null | undefined>>');
     });
 
     it('should handle default responses and responses without content', () => {

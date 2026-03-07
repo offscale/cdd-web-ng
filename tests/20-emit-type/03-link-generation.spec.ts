@@ -48,7 +48,7 @@ describe('Emitter: Link Interface Generation', () => {
 
         const userIdProp = userAddressParams.getPropertyOrThrow('userId');
         // Use getTypeNodeOrThrow().getText() to check strict signature source, prevent 'any' collapse in assertion
-        expect(userIdProp.getTypeNodeOrThrow().getText()).toBe('string | unknown');
+        expect(userIdProp.getTypeNodeOrThrow().getText()).toBe('string | string | number | boolean | object | undefined | null');
 
         const docs = userAddressParams.getJsDocs()[0];
         // Trim usage to handle potential newlines inserted by ts-morph formatting

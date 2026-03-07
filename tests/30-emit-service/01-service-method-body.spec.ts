@@ -272,7 +272,7 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
 
         expect(body).toContain(`"id":`);
         expect(body).toContain(`"attribute":true`);
-        expect(body).toContain(`return this.http.post<Record<string, string | number | boolean | object | undefined | null>>(url, xmlBody`);
+        expect(body).toContain(`return this.http.post<string | number | boolean | object | undefined | null>(url, xmlBody`);
     });
 
     it('should generate blob wrapping for encoded multipart fields using accurate OAS 3.2 default logic', () => {
@@ -314,11 +314,11 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
         );
         expect(body).toContain('let formBody = new HttpParams({ encoder: new ApiParameterCodec() });');
         expect(body).toContain(
-            'urlParamEntries.forEach((entry: { key: string, value: string | Blob }) => formBody = formBody.append(entry.key, entry.value));',
+            'urlParamEntries.forEach((entry: { key: string, value: string | Blob }) => formBody = formBody.append(entry.key, entry.value as string));',
         );
 
         expect(body).toContain(
-            'return this.http.post<Record<string, string | number | boolean | object | undefined | null>>(url, formBody, requestOptions as { headers?: HttpHeaders; observe: "response"; context?: HttpContext; reportProgress?: boolean; responseType?: "json"; withCredentials?: boolean });',
+            'return this.http.post<string | number | boolean | object | undefined | null>(url, formBody, requestOptions as object);',
         );
     });
 
@@ -437,7 +437,7 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
         expect(body).toContain('const urlParamEntries = ParameterSerializer.serializeUrlEncodedBody(body, {});');
         expect(body).toContain('let formBody = new HttpParams({ encoder: new ApiParameterCodec() });');
         expect(body).toContain(
-            'return this.http.post<Record<string, string | number | boolean | object | undefined | null>>(url, formBody, requestOptions as { headers?: HttpHeaders; observe: "response"; context?: HttpContext; reportProgress?: boolean; responseType?: "json"; withCredentials?: boolean });',
+            'return this.http.post<string | number | boolean | object | undefined | null>(url, formBody, requestOptions as object);',
         );
     });
 

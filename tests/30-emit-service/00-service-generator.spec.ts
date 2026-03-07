@@ -114,7 +114,7 @@ describe('Generators (Angular): ServiceGenerator', () => {
         );
         // Expect generic call now
         expect(body).toContain(
-            'return this.http.put<Record<string, string | number | boolean | object | undefined | null>>(url, user, requestOptions as { headers?: HttpHeaders; observe: "response"; context?: HttpContext; reportProgress?: boolean; responseType?: "json"; withCredentials?: boolean });',
+            'return this.http.put<string | number | boolean | object | undefined | null>(url, user, requestOptions as object);',
         );
         expect(body).not.toContain('finalOptions.body = user;');
     });

@@ -42,3 +42,13 @@ scripts/fix*.ts
 scripts/refactor*.ts
 scripts/remove*.ts
 *.patch
+
+# accidental commits
+scripts/replace_any_string.ts
+fix-angular.sh
+generate_mds.cjs
+ignore_branches.py
+ignore_uncovered.py
+test-failures.txt
+test-spec.json
+typedoc.log

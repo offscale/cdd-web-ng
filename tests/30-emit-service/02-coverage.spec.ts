@@ -156,7 +156,9 @@ describe('Generators (Angular): Service Generators (Coverage)', () => {
         const project = run(branchCoverageSpec);
         const serviceFile = project.getSourceFileOrThrow('/out/services/noSuccessResponse.service.ts');
         const method = serviceFile.getClassOrThrow('NoSuccessResponseService').getMethodOrThrow('getNoSuccess');
-        expect(method.getOverloads()[0].getReturnType().getText()).toBe('Observable<Record<string, string | number | boolean | object | null | undefined>>');
+        expect(method.getOverloads()[0].getReturnType().getText()).toBe(
+            'Observable<Record<string, string | number | boolean | object | null | undefined>>',
+        );
     });
 
     it('should handle default responses and responses without content', () => {

@@ -67,8 +67,12 @@ describe('Emitter: TypeGenerator (dependentSchemas)', () => {
 
         const typeText = sourceFile.getTypeAliasOrThrow('DependentModel').getTypeNodeOrThrow().getText();
 
-        expect(typeText).toContain('& (({ a: string | number | boolean | object | undefined | null } & { c?: number }) | { a?: never })');
-        expect(typeText).toContain('& (({ b: string | number | boolean | object | undefined | null } & { d?: boolean }) | { b?: never })');
+        expect(typeText).toContain(
+            '& (({ a: string | number | boolean | object | undefined | null } & { c?: number }) | { a?: never })',
+        );
+        expect(typeText).toContain(
+            '& (({ b: string | number | boolean | object | undefined | null } & { d?: boolean }) | { b?: never })',
+        );
     });
 
     it('should properly escape property names in dependentSchemas key', () => {
@@ -82,7 +86,9 @@ describe('Emitter: TypeGenerator (dependentSchemas)', () => {
 
         const typeText = sourceFile.getTypeAliasOrThrow('DependentModel').getTypeNodeOrThrow().getText();
 
-        expect(typeText).toContain("(({ 'my-prop': string | number | boolean | object | undefined | null } & { extra?: string }) | { 'my-prop'?: never })");
+        expect(typeText).toContain(
+            "(({ 'my-prop': string | number | boolean | object | undefined | null } & { extra?: string }) | { 'my-prop'?: never })",
+        );
     });
 });
 

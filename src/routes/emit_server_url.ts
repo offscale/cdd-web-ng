@@ -37,7 +37,13 @@ export class ServerUrlGenerator {
                 { name: 'default', type: 'string' },
                 { name: 'description', type: 'string', hasQuestionToken: true },
             ],
-            indexSignatures: [{ keyName: 'key', keyType: 'string', returnType: 'string | number | boolean | object | undefined | null' }],
+            indexSignatures: [
+                {
+                    keyName: 'key',
+                    keyType: 'string',
+                    returnType: 'string | number | boolean | object | undefined | null',
+                },
+            ],
             docs: ['Server variable definition (OAS Server Variable Object).'],
         });
 
@@ -55,7 +61,13 @@ export class ServerUrlGenerator {
                     type: 'Record<string, ServerVariable>',
                 },
             ],
-            indexSignatures: [{ keyName: 'key', keyType: 'string', returnType: 'string | number | boolean | object | undefined | null' }],
+            indexSignatures: [
+                {
+                    keyName: 'key',
+                    keyType: 'string',
+                    returnType: 'string | number | boolean | object | undefined | null',
+                },
+            ],
             docs: ['Server configuration entries declared in the OpenAPI document.'],
         });
 

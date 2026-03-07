@@ -272,7 +272,9 @@ describe('Emitter: ServiceMethodGenerator (Body Handling)', () => {
 
         expect(body).toContain(`"id":`);
         expect(body).toContain(`"attribute":true`);
-        expect(body).toContain(`return this.http.post<string | number | boolean | object | undefined | null>(url, xmlBody`);
+        expect(body).toContain(
+            `return this.http.post<string | number | boolean | object | undefined | null>(url, xmlBody`,
+        );
     });
 
     it('should generate blob wrapping for encoded multipart fields using accurate OAS 3.2 default logic', () => {

@@ -29,7 +29,13 @@ describe('CliGenerator', () => {
                 { tags: [{ name: 'Posts' }], path: '/posts', description: 'List Posts' },
                 { path: '/no-tag', summary: 'No Tag', requestBody: { content: {} } },
             ],
-        } as string | number | boolean | object | undefined | null as import('../../src/openapi/parse.js').SwaggerParser;
+        } as
+            | string
+            | number
+            | boolean
+            | object
+            | undefined
+            | null as import('../../src/openapi/parse.js').SwaggerParser;
 
         generator.generate(project, mockParser, {} as any, '/out');
 

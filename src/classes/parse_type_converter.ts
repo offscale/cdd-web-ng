@@ -306,7 +306,9 @@ export function getTypeScriptType(
                 // Schema: If 'propName' key exists in the object, then the object must ALSO satisfy 'depType'.
                 // TS Intersection: ( { prop: string | number | boolean | object | undefined | null } & DepType ) | { prop?: never }
                 /* v8 ignore next */
-                dependencies.push(`(({ ${safeKey}: string | number | boolean | object | undefined | null } & ${depType}) | { ${safeKey}?: never })`);
+                dependencies.push(
+                    `(({ ${safeKey}: string | number | boolean | object | undefined | null } & ${depType}) | { ${safeKey}?: never })`,
+                );
             });
         }
 
@@ -330,7 +332,9 @@ export function getTypeScriptType(
                 /* v8 ignore next */
                 if (!requiredFields) return;
                 /* v8 ignore next */
-                dependencies.push(`(({ ${safeKey}: string | number | boolean | object | undefined | null } & { ${requiredFields} }) | { ${safeKey}?: never })`);
+                dependencies.push(
+                    `(({ ${safeKey}: string | number | boolean | object | undefined | null } & { ${requiredFields} }) | { ${safeKey}?: never })`,
+                );
             });
         }
 
@@ -640,7 +644,9 @@ function getObjectType(schema: SwaggerDefinition, config: GeneratorConfig, known
             /* v8 ignore next */
             if (explicitlyClosed) return '{}';
             /* v8 ignore next */
-            return indexSignatureType ? `{ [key: string]: ${indexSignatureType} }` : '{ [key: string]: string | number | boolean | object | undefined | null }';
+            return indexSignatureType
+                ? `{ [key: string]: ${indexSignatureType} }`
+                : '{ [key: string]: string | number | boolean | object | undefined | null }';
         }
 
         /* v8 ignore next */
@@ -669,7 +675,9 @@ function getObjectType(schema: SwaggerDefinition, config: GeneratorConfig, known
     /* v8 ignore next */
     if (explicitlyClosed) return '{}';
     /* v8 ignore next */
-    return indexSignatureType ? `{ [key: string]: ${indexSignatureType} }` : '{ [key: string]: string | number | boolean | object | undefined | null }';
+    return indexSignatureType
+        ? `{ [key: string]: ${indexSignatureType} }`
+        : '{ [key: string]: string | number | boolean | object | undefined | null }';
 }
 
 export function getRequestBodyType(

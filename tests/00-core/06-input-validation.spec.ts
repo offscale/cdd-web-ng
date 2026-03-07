@@ -3891,7 +3891,9 @@ describe('Core: Security Scheme Validation', () => {
                 openapi: '3.1.0',
                 info,
                 paths: {},
-                components: { securitySchemes: { Bad: { type: 'string | number | boolean | object | undefined | null' } } },
+                components: {
+                    securitySchemes: { Bad: { type: 'string | number | boolean | object | undefined | null' } },
+                },
             } as any),
         ).toThrow(/unsupported type/);
     });

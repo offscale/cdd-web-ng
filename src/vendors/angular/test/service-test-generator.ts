@@ -170,11 +170,15 @@ export class ServiceTestGenerator {
                     /* v8 ignore next */
                 } else if (bodyParam?.isPrimitive) {
                     /* v8 ignore next */
-                    lines.push(`      const ${bodyParam.name} = 'test-body' as string | number | boolean | object | undefined | null as ${bodyParam.type};`);
+                    lines.push(
+                        `      const ${bodyParam.name} = 'test-body' as string | number | boolean | object | undefined | null as ${bodyParam.type};`,
+                    );
                     /* v8 ignore next */
                 } else if (bodyParam) {
                     /* v8 ignore next */
-                    lines.push(`      const ${bodyParam.name} = { data: 'test-body' } as string | number | boolean | object | undefined | null as ${bodyParam.type};`);
+                    lines.push(
+                        `      const ${bodyParam.name} = { data: 'test-body' } as string | number | boolean | object | undefined | null as ${bodyParam.type};`,
+                    );
                 }
 
                 /* v8 ignore next */
@@ -182,10 +186,14 @@ export class ServiceTestGenerator {
                     /* v8 ignore next */
                     if (p.modelName) {
                         /* v8 ignore next */
-                        lines.push(`      const ${p.name} = ${p.value} as string | number | boolean | object | undefined | null as ${p.type};`);
+                        lines.push(
+                            `      const ${p.name} = ${p.value} as string | number | boolean | object | undefined | null as ${p.type};`,
+                        );
                     } else {
                         /* v8 ignore next */
-                        lines.push(`      const ${p.name} = ${p.value} as string | number | boolean | object | undefined | null as ${p.type};`);
+                        lines.push(
+                            `      const ${p.name} = ${p.value} as string | number | boolean | object | undefined | null as ${p.type};`,
+                        );
                     }
                 });
                 /* v8 ignore next */
@@ -334,7 +342,15 @@ export class ServiceTestGenerator {
         /* v8 ignore next */
         const pickExampleValue = (
             example: OpenApiValue,
-        ): { found: boolean; value: Record<string, string | number | boolean | object | undefined | null> | string | number | boolean | null } => {
+        ): {
+            found: boolean;
+            value:
+                | Record<string, string | number | boolean | object | undefined | null>
+                | string
+                | number
+                | boolean
+                | null;
+        } => {
             /* v8 ignore next */
             if (!example || typeof example !== 'object') return { found: false, value: null };
             /* v8 ignore next */
@@ -342,8 +358,16 @@ export class ServiceTestGenerator {
                 /* v8 ignore next */
                 return {
                     found: true,
-                    value: (example as Record<string, string | number | boolean | Record<string, string | number | boolean | object | undefined | null> | null>)
-                        .dataValue,
+                    value: (
+                        example as Record<
+                            string,
+                            | string
+                            | number
+                            | boolean
+                            | Record<string, string | number | boolean | object | undefined | null>
+                            | null
+                        >
+                    ).dataValue,
                 };
             }
             /* v8 ignore next */
@@ -351,7 +375,16 @@ export class ServiceTestGenerator {
                 /* v8 ignore next */
                 return {
                     found: true,
-                    value: (example as Record<string, string | number | boolean | Record<string, string | number | boolean | object | undefined | null> | null>).value,
+                    value: (
+                        example as Record<
+                            string,
+                            | string
+                            | number
+                            | boolean
+                            | Record<string, string | number | boolean | object | undefined | null>
+                            | null
+                        >
+                    ).value,
                 };
             }
             /* v8 ignore next */
@@ -359,8 +392,16 @@ export class ServiceTestGenerator {
                 /* v8 ignore next */
                 return {
                     found: true,
-                    value: (example as Record<string, string | number | boolean | Record<string, string | number | boolean | object | undefined | null> | null>)
-                        .serializedValue,
+                    value: (
+                        example as Record<
+                            string,
+                            | string
+                            | number
+                            | boolean
+                            | Record<string, string | number | boolean | object | undefined | null>
+                            | null
+                        >
+                    ).serializedValue,
                 };
             }
             /* v8 ignore next */
@@ -446,7 +487,9 @@ export class ServiceTestGenerator {
                     /* v8 ignore next */
                     if (keys.length > 0) {
                         /* v8 ignore next */
-                        const ex = (media.examples as Record<string, string | number | boolean | object | undefined | null>)[keys[0]!];
+                        const ex = (
+                            media.examples as Record<string, string | number | boolean | object | undefined | null>
+                        )[keys[0]!];
                         /* v8 ignore next */
                         const contentValue = pickExampleValue(ex);
                         /* v8 ignore next */

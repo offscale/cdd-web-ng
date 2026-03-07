@@ -67,7 +67,11 @@ export class LinkServiceGenerator {
                         'Optional location map for qualified Link parameter keys (e.g. "path.id" -> { id: "path" }).',
                     ],
                 },
-                { name: 'body', type: 'Record<string, string | number | boolean | object | undefined | null>', hasQuestionToken: true },
+                {
+                    name: 'body',
+                    type: 'Record<string, string | number | boolean | object | undefined | null>',
+                    hasQuestionToken: true,
+                },
                 { name: 'targetServer', type: 'string', hasQuestionToken: true },
             ],
         });
@@ -78,9 +82,16 @@ export class LinkServiceGenerator {
             scope: Scope.Public,
             parameters: [
                 { name: 'operationId', type: 'string' },
-                { name: 'response', type: 'HttpResponse<Record<string, string | number | boolean | object | undefined | null>>' },
+                {
+                    name: 'response',
+                    type: 'HttpResponse<Record<string, string | number | boolean | object | undefined | null>>',
+                },
                 { name: 'linkName', type: 'string' },
-                { name: 'request', type: 'HttpRequest<Record<string, string | number | boolean | object | undefined | null>>', hasQuestionToken: true },
+                {
+                    name: 'request',
+                    type: 'HttpRequest<Record<string, string | number | boolean | object | undefined | null>>',
+                    hasQuestionToken: true,
+                },
                 { name: 'urlTemplate', type: 'string', hasQuestionToken: true },
             ],
             returnType: 'ResolvedLink | null',
@@ -169,7 +180,9 @@ export class LinkServiceGenerator {
         linkServiceClass.addMethod({
             name: 'resolveServer',
             scope: Scope.Private,
-            parameters: [{ name: 'server', type: 'Record<string, string | number | boolean | object | undefined | null>' }],
+            parameters: [
+                { name: 'server', type: 'Record<string, string | number | boolean | object | undefined | null>' },
+            ],
             returnType: 'string',
             statements: `
         let url = server.url; 
@@ -192,7 +205,9 @@ export class LinkServiceGenerator {
         linkServiceClass.addMethod({
             name: 'extractHeaders',
             scope: Scope.Private,
-            parameters: [{ name: 'headers', type: 'Record<string, string | number | boolean | object | undefined | null>' }],
+            parameters: [
+                { name: 'headers', type: 'Record<string, string | number | boolean | object | undefined | null>' },
+            ],
             statements: `
         const result: Record<string, string> = {}; 
         if (!headers) return result; 
@@ -208,7 +223,9 @@ export class LinkServiceGenerator {
         linkServiceClass.addMethod({
             name: 'extractQueryParams',
             scope: Scope.Private,
-            parameters: [{ name: 'params', type: 'Record<string, string | number | boolean | object | undefined | null>' }],
+            parameters: [
+                { name: 'params', type: 'Record<string, string | number | boolean | object | undefined | null>' },
+            ],
             statements: `
         const result: Record<string, string> = {}; 
         if (!params) return result; 

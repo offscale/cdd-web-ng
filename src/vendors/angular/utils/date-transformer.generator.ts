@@ -51,7 +51,9 @@ export class DateTransformerGenerator {
         sourceFile.addFunction({
             name: 'transformDates',
             isExported: true,
-            parameters: [{ name: 'body', type: 'Record<string, string | number | boolean | object | undefined | null>' }],
+            parameters: [
+                { name: 'body', type: 'Record<string, string | number | boolean | object | undefined | null>' },
+            ],
             returnType: 'Record<string, string | number | boolean | object | undefined | null>',
             docs: ['Recursively traverses an object or array and converts ISO date strings to Date objects.'],
             statements: `
@@ -88,10 +90,14 @@ export class DateTransformerGenerator {
                 {
                     name: 'intercept',
                     parameters: [
-                        { name: 'req', type: 'HttpRequest<Record<string, string | number | boolean | object | undefined | null>>' },
+                        {
+                            name: 'req',
+                            type: 'HttpRequest<Record<string, string | number | boolean | object | undefined | null>>',
+                        },
                         { name: 'next', type: 'HttpHandler' },
                     ],
-                    returnType: 'Observable<HttpEvent<Record<string, string | number | boolean | object | undefined | null>>>',
+                    returnType:
+                        'Observable<HttpEvent<Record<string, string | number | boolean | object | undefined | null>>>',
                     statements: `
     return next.handle(req).pipe( 
         map(event => { 

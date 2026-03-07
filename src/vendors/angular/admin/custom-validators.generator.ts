@@ -424,7 +424,9 @@ export class CustomValidatorsGenerator {
                                 /* v8 ignore next */
                                 writer.writeLine('type?: string | string[];');
                                 /* v8 ignore next */
-                                writer.writeLine('const?: Record<string, string | number | boolean | object | undefined | null> | string | number | boolean | null;');
+                                writer.writeLine(
+                                    'const?: Record<string, string | number | boolean | object | undefined | null> | string | number | boolean | null;',
+                                );
                                 /* v8 ignore next */
                                 writer.writeLine(
                                     'enum?: Array<Record<string, string | number | boolean | object | undefined | null> | string | number | boolean | null>;',
@@ -640,7 +642,9 @@ export class CustomValidatorsGenerator {
                 name: 'constValidator',
                 isStatic: true,
                 scope: Scope.Public,
-                parameters: [{ name: 'constant', type: 'Record<string, string | number | boolean | object | undefined | null>' }],
+                parameters: [
+                    { name: 'constant', type: 'Record<string, string | number | boolean | object | undefined | null>' },
+                ],
                 returnType: 'ValidatorFn',
                 docs: ['Validator ensuring the value matches a constant (OAS 3.1 const keyword).'],
                 statements: writer =>

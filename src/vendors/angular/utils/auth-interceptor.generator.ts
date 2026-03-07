@@ -261,7 +261,10 @@ export class AuthInterceptorGenerator {
         interceptorClass.addMethod({
             name: 'intercept',
             parameters: [
-                { name: 'req', type: 'HttpRequest<Record<string, string | number | boolean | object | undefined | null>>' },
+                {
+                    name: 'req',
+                    type: 'HttpRequest<Record<string, string | number | boolean | object | undefined | null>>',
+                },
                 { name: 'next', type: 'HttpHandler' },
             ],
             returnType: 'Observable<HttpEvent<Record<string, string | number | boolean | object | undefined | null>>>',

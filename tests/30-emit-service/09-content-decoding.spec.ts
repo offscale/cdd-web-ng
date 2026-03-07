@@ -162,7 +162,9 @@ describe('Emitter: ServiceMethodGenerator (Auto Decoding & Encoding)', () => {
         const body = serviceClass.getMethodOrThrow('getBlobData').getBodyText()!;
 
         expect(body).toContain('.pipe(');
-        expect(body).toContain('map((response: Blob | string | Record<string, string | number | boolean | object | undefined | null>) => {');
+        expect(body).toContain(
+            'map((response: Blob | string | Record<string, string | number | boolean | object | undefined | null>) => {',
+        );
         expect(body).toContain('return ContentDecoder.decode(response,');
         expect(body).toContain('"properties":{"meta":{"decode":true}}');
     });

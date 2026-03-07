@@ -82,10 +82,14 @@ export class BaseInterceptorGenerator {
                 {
                     name: 'intercept',
                     parameters: [
-                        { name: 'req', type: 'HttpRequest<Record<string, string | number | boolean | object | undefined | null>>' },
+                        {
+                            name: 'req',
+                            type: 'HttpRequest<Record<string, string | number | boolean | object | undefined | null>>',
+                        },
                         { name: 'next', type: 'HttpHandler' },
                     ],
-                    returnType: 'Observable<HttpEvent<Record<string, string | number | boolean | object | undefined | null>>>',
+                    returnType:
+                        'Observable<HttpEvent<Record<string, string | number | boolean | object | undefined | null>>>',
                     statements: `
     if (!req.context.has(this.clientContextToken)) { 
       return next.handle(req); 

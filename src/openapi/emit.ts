@@ -1378,7 +1378,11 @@ export function parseGeneratedServiceSource(sourceText: string, filePath: string
                 responseMediaTypes.push('text/event-stream');
 
             /* v8 ignore start */
-            if (returnTypeHint && returnTypeHint !== 'string | number | boolean | object | undefined | null' && returnTypeHint !== 'void') {
+            if (
+                returnTypeHint &&
+                returnTypeHint !== 'string | number | boolean | object | undefined | null' &&
+                returnTypeHint !== 'void'
+            ) {
                 if (responseMediaTypes.length === 0) responseMediaTypes.push('application/json');
             } else if (methodBody.match(/this\.http\.\w+<[^>]+>/) && responseMediaTypes.length === 0) {
                 responseMediaTypes.push('application/json');
@@ -1771,7 +1775,11 @@ export function buildOpenApiSpecFromServices(
                     let schema: Record<string, OpenApiValue> = { type: schemaType };
 
                     /* v8 ignore next */
-                    if (bodyParam?.typeHint && bodyParam.typeHint !== 'string | number | boolean | object | undefined | null' && schemas[bodyParam.typeHint]) {
+                    if (
+                        bodyParam?.typeHint &&
+                        bodyParam.typeHint !== 'string | number | boolean | object | undefined | null' &&
+                        schemas[bodyParam.typeHint]
+                    ) {
                         /* v8 ignore next */
                         schema = { $ref: `#/components/schemas/${bodyParam.typeHint}` };
                         /* v8 ignore next */
@@ -1942,7 +1950,11 @@ export function buildOpenApiSpecFromServices(
                     let s: Record<string, OpenApiValue> = { type: t.includes('json') ? 'object' : 'string' };
 
                     /* v8 ignore next */
-                    if (op.responseTypeHint && op.responseTypeHint !== 'string | number | boolean | object | undefined | null' && schemas[op.responseTypeHint]) {
+                    if (
+                        op.responseTypeHint &&
+                        op.responseTypeHint !== 'string | number | boolean | object | undefined | null' &&
+                        schemas[op.responseTypeHint]
+                    ) {
                         /* v8 ignore next */
                         s = { $ref: `#/components/schemas/${op.responseTypeHint}` };
                     }

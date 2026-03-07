@@ -214,7 +214,9 @@ export class NodeServiceMethodGenerator {
             /* v8 ignore next */
         } else if (model.responseSerialization === 'text') {
             /* v8 ignore next */
-            lines.push(`            resolve(buffer.toString('utf-8') as string | number | boolean | object | undefined | null);`);
+            lines.push(
+                `            resolve(buffer.toString('utf-8') as string | number | boolean | object | undefined | null);`,
+            );
         } else {
             /* v8 ignore next */
             lines.push(`            try {`);
@@ -223,7 +225,9 @@ export class NodeServiceMethodGenerator {
             /* v8 ignore next */
             lines.push(`            } catch (e) {`);
             /* v8 ignore next */
-            lines.push(`                resolve(buffer.toString('utf-8') as string | number | boolean | object | undefined | null);`);
+            lines.push(
+                `                resolve(buffer.toString('utf-8') as string | number | boolean | object | undefined | null);`,
+            );
             /* v8 ignore next */
             lines.push(`            }`);
         }

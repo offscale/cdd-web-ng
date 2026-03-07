@@ -131,7 +131,9 @@ describe('Emitter: TypeGenerator', () => {
 
     it('should generate index signatures for `additionalProperties`', () => {
         const { getText } = runGenerator(typeGenSpec);
-        expect(getText()).toContain('export interface FreeObject {\n    [key: string]: string | number | boolean | object | undefined | null;\n}');
+        expect(getText()).toContain(
+            'export interface FreeObject {\n    [key: string]: string | number | boolean | object | undefined | null;\n}',
+        );
         expect(getText()).toContain('export interface StringMap {\n    [key: string]: string;\n}');
     });
 

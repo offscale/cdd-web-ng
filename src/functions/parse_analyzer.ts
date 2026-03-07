@@ -1006,7 +1006,11 @@ export class ServiceMethodAnalyzer {
                 /* v8 ignore next */
                 /* v8 ignore next */
                 /* v8 ignore start */
-                parameters.push({ name: 'body', type: 'string | number | boolean | object | undefined | null', hasQuestionToken: !requestBody.required });
+                parameters.push({
+                    name: 'body',
+                    type: 'string | number | boolean | object | undefined | null',
+                    hasQuestionToken: !requestBody.required,
+                });
                 /* v8 ignore stop */
             }
         }

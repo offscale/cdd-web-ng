@@ -1731,7 +1731,9 @@ describe('Analysis: ServiceMethodAnalyzer', () => {
             const spec = { openapi: '3.0.0', info: { title: 'Resolve', version: '1.0' }, paths: {} };
             const { analyzer } = setupAnalyzer(spec);
             // type-coverage:ignore-next-line
-            expect((analyzer as any).resolveType(undefined, [])).toBe('string | number | boolean | object | undefined | null');
+            expect((analyzer as any).resolveType(undefined, [])).toBe(
+                'string | number | boolean | object | undefined | null',
+            );
         });
 
         it('should avoid requestEncodingConfig when body is forced to json with no content', () => {

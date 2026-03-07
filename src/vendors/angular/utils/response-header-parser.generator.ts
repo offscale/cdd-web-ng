@@ -88,7 +88,11 @@ export class ResponseHeaderParserGenerator {
             parameters: [
                 { name: 'value', type: 'string' },
                 { name: 'type', type: 'string' },
-                { name: 'xmlConfig', type: 'Record<string, string | number | boolean | object | undefined | null>', hasQuestionToken: true },
+                {
+                    name: 'xmlConfig',
+                    type: 'Record<string, string | number | boolean | object | undefined | null>',
+                    hasQuestionToken: true,
+                },
             ],
             returnType: 'Record<string, string | number | boolean | object | undefined | null>',
             statements: `
@@ -119,7 +123,9 @@ export class ResponseHeaderParserGenerator {
             name: 'parseLinkSetBody',
             typeParameters: [{ name: 'T' }],
             scope: Scope.Public,
-            parameters: [{ name: 'body', type: 'Record<string, string | number | boolean | object | undefined | null>' }],
+            parameters: [
+                { name: 'body', type: 'Record<string, string | number | boolean | object | undefined | null>' },
+            ],
             returnType: 'Record<string, string | number | boolean | object | undefined | null>',
             statements: `
             return LinkSetParser.parseJson(body);`,

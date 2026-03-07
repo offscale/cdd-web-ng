@@ -24,7 +24,10 @@ export class RequestContextGenerator {
                 { name: 'headers?', type: 'HttpHeaders | Record<string, string | string[]>' },
                 { name: 'context?', type: 'HttpContext' },
                 { name: 'observe?', type: "'body' | 'events' | 'response'" },
-                { name: 'params?', type: 'HttpParams | Record<string, string | number | boolean | readonly (string | number | boolean)[]>' },
+                {
+                    name: 'params?',
+                    type: 'HttpParams | Record<string, string | number | boolean | readonly (string | number | boolean)[]>',
+                },
                 { name: 'reportProgress?', type: 'boolean' },
                 { name: 'responseType?', type: "'arraybuffer' | 'blob' | 'json' | 'text'" },
                 { name: 'withCredentials?', type: 'boolean' },

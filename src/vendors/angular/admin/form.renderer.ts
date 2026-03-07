@@ -93,9 +93,7 @@ export class ValidationRenderer {
             }
             default: {
                 /* v8 ignore next */
-                const exhaustiveCheck: never = rule as never;
-                /* v8 ignore next */
-                throw new Error(`Unhandled validation rule type: ${(exhaustiveCheck as { type?: string }).type}`);
+                throw new Error(`Unhandled validation rule type: ${(rule as { type?: string }).type}`);
             }
         }
     }

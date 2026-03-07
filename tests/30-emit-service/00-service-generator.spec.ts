@@ -87,7 +87,9 @@ describe('Generators (Angular): ServiceGenerator', () => {
     it('should create utils directory for parameter serializer when missing', () => {
         const project = new Project({ useInMemoryFileSystem: true });
         const fsHost = project.getFileSystem();
-        const dirSpy = vi.spyOn(fsHost, 'directoryExists').mockReturnValue(false as string | number | boolean | object | undefined | null as Promise<boolean>);
+        const dirSpy = vi
+            .spyOn(fsHost, 'directoryExists')
+            .mockReturnValue(false as string | number | boolean | object | undefined | null as Promise<boolean>);
         const mkdirSpy = vi.spyOn(fsHost, 'mkdirSync');
 
         new ParameterSerializerGenerator(project).generate('/out');

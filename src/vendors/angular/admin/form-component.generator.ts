@@ -150,7 +150,10 @@ export class FormComponentGenerator {
                     if (!control) {
                         // Silently fallback to Record<string, string | number | boolean | object | undefined | null>, assuming it might be handled in sub-type interfaces or not significant for layout
                         /* v8 ignore next */
-                        return { name: prop.name, type: 'Record<string, string | number | boolean | object | undefined | null>' };
+                        return {
+                            name: prop.name,
+                            type: 'Record<string, string | number | boolean | object | undefined | null>',
+                        };
                     }
 
                     // Build the final Angular-specific type string from the agnostic IR.
@@ -563,7 +566,8 @@ export class FormComponentGenerator {
             const arrayGetterName = `${singularCamel}Array`;
 
             /* v8 ignore next */
-            const arrayItemInterfaceName = prop.nestedFormInterface || 'Record<string, string | number | boolean | object | undefined | null>';
+            const arrayItemInterfaceName =
+                prop.nestedFormInterface || 'Record<string, string | number | boolean | object | undefined | null>';
 
             /* v8 ignore next */
             classDeclaration.addGetAccessor({
@@ -577,7 +581,9 @@ export class FormComponentGenerator {
             const createMethod = classDeclaration.addMethod({
                 name: `create${singularPascal}`,
                 scope: Scope.Private,
-                parameters: [{ name: 'item?', type: 'Record<string, string | number | boolean | object | undefined | null>' }],
+                parameters: [
+                    { name: 'item?', type: 'Record<string, string | number | boolean | object | undefined | null>' },
+                ],
                 returnType: `FormGroup<${arrayItemInterfaceName}>`,
             });
 
@@ -625,7 +631,9 @@ export class FormComponentGenerator {
             const createMethod = classDeclaration.addMethod({
                 name: `create${pascalName}Entry`,
                 scope: Scope.Private,
-                parameters: [{ name: 'item?', type: 'Record<string, string | number | boolean | object | undefined | null>' }],
+                parameters: [
+                    { name: 'item?', type: 'Record<string, string | number | boolean | object | undefined | null>' },
+                ],
                 returnType: `FormGroup`, // Simplify return type to generic FormGroup for brevity/compatibility
             });
 
@@ -726,7 +734,8 @@ export class FormComponentGenerator {
         /* v8 ignore next */
         let body = `const { ${complexProps.join(', ')}, ...rest } = entity;\n`;
         /* v8 ignore next */
-        body += 'this.form.patchValue(rest as Record<string, string | number | boolean | object | undefined | null>);\n\n';
+        body +=
+            'this.form.patchValue(rest as Record<string, string | number | boolean | object | undefined | null>);\n\n';
 
         // Patch Arrays
         /* v8 ignore next */
@@ -801,7 +810,12 @@ export class FormComponentGenerator {
         classDeclaration.addMethod({
             name: 'patchForm',
             scope: Scope.Private,
-            parameters: [{ name: 'entity', type: resource.modelName || 'Record<string, string | number | boolean | object | undefined | null>' }],
+            parameters: [
+                {
+                    name: 'entity',
+                    type: resource.modelName || 'Record<string, string | number | boolean | object | undefined | null>',
+                },
+            ],
             statements: body,
         });
     }

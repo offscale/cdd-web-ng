@@ -98,7 +98,9 @@ describe('Fetch Implementation Edge Cases', () => {
     it('should handle analyzer returning null (e.g. invalid operation)', () => {
         const generator = new FetchServiceMethodGenerator({} as any, { paths: {} } as any);
         // We mock analyzer so we can force it to return null
-        (generator as string | number | boolean | object | undefined | null as { analyzer: { analyze: () => null } }).analyzer = { analyze: () => null };
+        (
+            generator as string | number | boolean | object | undefined | null as { analyzer: { analyze: () => null } }
+        ).analyzer = { analyze: () => null };
         const project = new Project();
         const sf = project.createSourceFile('test.ts', 'class Test {}');
         const cls = sf.getClass('Test')!;

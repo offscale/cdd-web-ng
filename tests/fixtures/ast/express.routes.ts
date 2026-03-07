@@ -90,20 +90,26 @@ router.route('/projects/:projectId').patch(function updateProject(req: Request<R
     res.type('application/xml').status(200).send('<ok/>');
 });
 
-app.post('/messages', (req: Request<unknown, unknown, Record<string, string | number | boolean | object | undefined | null>>, res: Response) => {
-    const body = req.body;
-    const payload = req.body ? req.body['payload'] : undefined;
-    if (req.is('application/json')) {
-        // json branch
-    }
-    if (body) {
-        // body branch
-    }
-    if (payload) {
-        // payload branch
-    }
-    res.send('ok');
-});
+app.post(
+    '/messages',
+    (
+        req: Request<unknown, unknown, Record<string, string | number | boolean | object | undefined | null>>,
+        res: Response,
+    ) => {
+        const body = req.body;
+        const payload = req.body ? req.body['payload'] : undefined;
+        if (req.is('application/json')) {
+            // json branch
+        }
+        if (body) {
+            // body branch
+        }
+        if (payload) {
+            // payload branch
+        }
+        res.send('ok');
+    },
+);
 
 export interface CreateMessageBody {
     message: string;
@@ -140,7 +146,12 @@ app.get(
             params,
             query,
             body,
-        }: Request<Record<string, string>, unknown, Record<string, string | number | boolean | object | undefined | null>, Record<string, string>>,
+        }: Request<
+            Record<string, string>,
+            unknown,
+            Record<string, string | number | boolean | object | undefined | null>,
+            Record<string, string>
+        >,
         res: Response,
     ) => {
         const userId = params.id;

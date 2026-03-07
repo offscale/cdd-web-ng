@@ -549,7 +549,9 @@ export class TypeGenerator {
             /* v8 ignore next */
             const distinct = Array.from(new Set(returnTypes));
             /* v8 ignore next */
-            const returnType = distinct.includes('string | number | boolean | object | undefined | null') ? 'string | number | boolean | object | undefined | null' : distinct.join(' | ');
+            const returnType = distinct.includes('string | number | boolean | object | undefined | null')
+                ? 'string | number | boolean | object | undefined | null'
+                : distinct.join(' | ');
 
             /* v8 ignore next */
             interfaceDecl.addIndexSignature({

@@ -820,6 +820,8 @@ describe('Emitter: ServiceMethodGenerator (Coverage)', () => {
             { mediaType: 'application/json', type: 'any', serialization: 'json', isDefault: true },
         ]);
         // type-coverage:ignore-next-line
-        expect(overloads[0].returnType).toContain('Record<string, string | number | boolean | object | undefined | null>');
+        expect(overloads[0].returnType).toContain(
+            'Record<string, string | number | boolean | object | undefined | null>',
+        );
     });
 });

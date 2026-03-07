@@ -26,7 +26,9 @@ describe('Emitter: Miscellaneous Utility Generators', () => {
         const fileContent = project.getSourceFileOrThrow('/out/utils/date-transformer.ts').getText();
 
         expect(fileContent).toContain('export const ISO_DATE_REGEX');
-        expect(fileContent).toContain('export function transformDates(body: Record<string, string | number | boolean | object | undefined | null>)');
+        expect(fileContent).toContain(
+            'export function transformDates(body: Record<string, string | number | boolean | object | undefined | null>)',
+        );
         expect(fileContent).toContain('export class DateInterceptor implements HttpInterceptor');
     });
 

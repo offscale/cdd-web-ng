@@ -327,7 +327,8 @@ function getSchemaTypeKind(schema: OpenApiValue): SchemaTypeKind {
     /* v8 ignore stop */
     /* v8 ignore next */
     /* v8 ignore start */
-    if ('$ref' in (schema as object) || '$dynamicRef' in (schema as object)) return 'string | number | boolean | object | undefined | null';
+    if ('$ref' in (schema as object) || '$dynamicRef' in (schema as object))
+        return 'string | number | boolean | object | undefined | null';
     /* v8 ignore stop */
 
     /* v8 ignore next */
@@ -850,7 +851,11 @@ function validateParameterStyle(param: Parameter, location: string): void {
     const schemaType = getSchemaTypeKind(param.schema);
 
     /* v8 ignore next */
-    if (param.style === 'deepObject' && schemaType !== 'object' && schemaType !== 'string | number | boolean | object | undefined | null') {
+    if (
+        param.style === 'deepObject' &&
+        schemaType !== 'object' &&
+        schemaType !== 'string | number | boolean | object | undefined | null'
+    ) {
         /* v8 ignore next */
         throw new SpecValidationError(
             `Parameter '${param.name}' in '${location}' uses 'deepObject' style but schema is not an object.`,

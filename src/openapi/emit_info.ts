@@ -33,7 +33,13 @@ export class InfoGenerator {
                 { name: 'url', type: 'string', hasQuestionToken: true },
                 { name: 'email', type: 'string', hasQuestionToken: true },
             ],
-            indexSignatures: [{ keyName: 'key', keyType: 'string', returnType: 'string | number | boolean | object | undefined | null' }],
+            indexSignatures: [
+                {
+                    keyName: 'key',
+                    keyType: 'string',
+                    returnType: 'string | number | boolean | object | undefined | null',
+                },
+            ],
             docs: ['Contact information for the API (OAS Contact Object).'],
         });
 
@@ -46,7 +52,13 @@ export class InfoGenerator {
                 { name: 'url', type: 'string', hasQuestionToken: true },
                 { name: 'identifier', type: 'string', hasQuestionToken: true },
             ],
-            indexSignatures: [{ keyName: 'key', keyType: 'string', returnType: 'string | number | boolean | object | undefined | null' }],
+            indexSignatures: [
+                {
+                    keyName: 'key',
+                    keyType: 'string',
+                    returnType: 'string | number | boolean | object | undefined | null',
+                },
+            ],
             docs: ['License metadata for the API (OAS License Object).'],
         });
 
@@ -58,7 +70,13 @@ export class InfoGenerator {
                 { name: 'description', type: 'string', hasQuestionToken: true },
                 { name: 'url', type: 'string' },
             ],
-            indexSignatures: [{ keyName: 'key', keyType: 'string', returnType: 'string | number | boolean | object | undefined | null' }],
+            indexSignatures: [
+                {
+                    keyName: 'key',
+                    keyType: 'string',
+                    returnType: 'string | number | boolean | object | undefined | null',
+                },
+            ],
             docs: ['External documentation metadata (OAS External Documentation Object).'],
         });
 
@@ -89,7 +107,13 @@ export class InfoGenerator {
                     hasQuestionToken: true,
                 },
             ],
-            indexSignatures: [{ keyName: 'key', keyType: 'string', returnType: 'string | number | boolean | object | undefined | null' }],
+            indexSignatures: [
+                {
+                    keyName: 'key',
+                    keyType: 'string',
+                    returnType: 'string | number | boolean | object | undefined | null',
+                },
+            ],
             docs: ['Interface representing the metadata of the API.'],
         });
 
@@ -120,7 +144,13 @@ export class InfoGenerator {
                     hasQuestionToken: true,
                 },
             ],
-            indexSignatures: [{ keyName: 'key', keyType: 'string', returnType: 'string | number | boolean | object | undefined | null' }],
+            indexSignatures: [
+                {
+                    keyName: 'key',
+                    keyType: 'string',
+                    returnType: 'string | number | boolean | object | undefined | null',
+                },
+            ],
             docs: ['Interface representing a tag defined in the API.'],
         });
 

@@ -305,7 +305,8 @@ describe('Core Utils: Spec Extractor', () => {
 
             const resolver = new ReferenceResolver(cache, entryUri);
             const resolveRef = (ref: string) => resolver.resolveReference(ref, entryUri);
-            const resolveObj = (obj: string | number | boolean | object | undefined | null) => resolver.resolve(obj as any);
+            const resolveObj = (obj: string | number | boolean | object | undefined | null) =>
+                resolver.resolve(obj as any);
 
             const [pathInfo] = utils.extractPaths(
                 entrySpec.paths as any,

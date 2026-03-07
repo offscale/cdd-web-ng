@@ -151,7 +151,11 @@ export class ParameterSerializerGenerator {
                 { name: 'explode', type: 'boolean', initializer: 'false' },
                 { name: 'allowReserved', type: 'boolean', initializer: 'false' },
                 { name: 'serialization', type: "'json' | undefined", hasQuestionToken: true },
-                { name: 'contentEncoderConfig', type: 'string | number | boolean | object | undefined | null', hasQuestionToken: true },
+                {
+                    name: 'contentEncoderConfig',
+                    type: 'string | number | boolean | object | undefined | null',
+                    hasQuestionToken: true,
+                },
             ],
             returnType: 'string',
             statements: `
@@ -410,8 +414,16 @@ export class ParameterSerializerGenerator {
                 { name: 'explode', type: 'boolean', initializer: 'false' },
                 { name: 'serialization', type: "'json' | undefined", hasQuestionToken: true },
                 { name: 'contentType', type: 'string | undefined', hasQuestionToken: true },
-                { name: 'encoding', type: 'Record<string, string | number | boolean | object | undefined | null> | undefined', hasQuestionToken: true },
-                { name: 'contentEncoderConfig', type: 'string | number | boolean | object | undefined | null', hasQuestionToken: true },
+                {
+                    name: 'encoding',
+                    type: 'Record<string, string | number | boolean | object | undefined | null> | undefined',
+                    hasQuestionToken: true,
+                },
+                {
+                    name: 'contentEncoderConfig',
+                    type: 'string | number | boolean | object | undefined | null',
+                    hasQuestionToken: true,
+                },
             ],
             returnType: 'string',
             statements: `
@@ -465,7 +477,11 @@ export class ParameterSerializerGenerator {
                 { name: 'explode', type: 'boolean', initializer: 'true' },
                 { name: 'allowReserved', type: 'boolean', initializer: 'false' },
                 { name: 'serialization', type: "'json' | undefined", hasQuestionToken: true },
-                { name: 'contentEncoderConfig', type: 'string | number | boolean | object | undefined | null', hasQuestionToken: true },
+                {
+                    name: 'contentEncoderConfig',
+                    type: 'string | number | boolean | object | undefined | null',
+                    hasQuestionToken: true,
+                },
             ],
             returnType: 'string',
             statements: `
@@ -526,8 +542,16 @@ export class ParameterSerializerGenerator {
                 { name: 'value', type: 'string | number | boolean | object | undefined | null' },
                 { name: 'serialization', type: "'json' | undefined", hasQuestionToken: true },
                 { name: 'contentType', type: 'string | undefined', hasQuestionToken: true },
-                { name: 'encodings', type: 'Record<string, string | number | boolean | object | undefined | null> | undefined', hasQuestionToken: true },
-                { name: 'contentEncoderConfig', type: 'string | number | boolean | object | undefined | null', hasQuestionToken: true },
+                {
+                    name: 'encodings',
+                    type: 'Record<string, string | number | boolean | object | undefined | null> | undefined',
+                    hasQuestionToken: true,
+                },
+                {
+                    name: 'contentEncoderConfig',
+                    type: 'string | number | boolean | object | undefined | null',
+                    hasQuestionToken: true,
+                },
             ],
             returnType: 'string',
             statements: `
@@ -576,7 +600,11 @@ export class ParameterSerializerGenerator {
             scope: Scope.Public,
             parameters: [
                 { name: 'body', type: 'string | number | boolean | object | undefined | null' },
-                { name: 'encodings', type: 'Record<string, string | number | boolean | object | undefined | null>', initializer: '{}' },
+                {
+                    name: 'encodings',
+                    type: 'Record<string, string | number | boolean | object | undefined | null>',
+                    initializer: '{}',
+                },
             ],
             returnType: 'SerializedQueryParam[]',
             docs: [

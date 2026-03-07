@@ -228,14 +228,23 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
 
         expect(schemas.Base).toBeDefined();
         // type-coverage:ignore-next-line
-        expect((schemas.Base as string | number | boolean | object | undefined | null).properties.id.type).toBe('string');
+        expect((schemas.Base as string | number | boolean | object | undefined | null).properties.id.type).toBe(
+            'string',
+        );
         // type-coverage:ignore-next-line
-        expect((schemas.Base as string | number | boolean | object | undefined | null).properties.createdAt.readOnly).toBe(true);
+        expect(
+            (schemas.Base as string | number | boolean | object | undefined | null).properties.createdAt.readOnly,
+        ).toBe(true);
         // type-coverage:ignore-next-line
-        expect((schemas.Base as string | number | boolean | object | undefined | null).properties.createdAt.format).toBe('date-time');
+        expect(
+            (schemas.Base as string | number | boolean | object | undefined | null).properties.createdAt.format,
+        ).toBe('date-time');
 
         // type-coverage:ignore-next-line
-        expect((schemas.Status as string | number | boolean | object | undefined | null).enum).toEqual(['active', 'inactive']);
+        expect((schemas.Status as string | number | boolean | object | undefined | null).enum).toEqual([
+            'active',
+            'inactive',
+        ]);
         // type-coverage:ignore-next-line
         expect((schemas.Status as string | number | boolean | object | undefined | null).deprecated).toBe(true);
         // type-coverage:ignore-next-line
@@ -244,7 +253,10 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         expect((schemas.Mixed as string | number | boolean | object | undefined | null).type).toBeUndefined();
 
         // type-coverage:ignore-next-line
-        expect((schemas.Mode as string | number | boolean | object | undefined | null).enum).toEqual(['auto', 'manual']);
+        expect((schemas.Mode as string | number | boolean | object | undefined | null).enum).toEqual([
+            'auto',
+            'manual',
+        ]);
         expect(schemas.AnyAlias).toBeDefined();
         expect(schemas.UnknownAlias).toBeDefined();
         expect(schemas.ObjAlias).toBeDefined();
@@ -262,7 +274,10 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         expect((schemas.ParenAlias as string | number | boolean | object | undefined | null).type).toBe('string');
 
         // type-coverage:ignore-next-line
-        expect((schemas.NullableName as string | number | boolean | object | undefined | null).type).toEqual(['string', 'null']);
+        expect((schemas.NullableName as string | number | boolean | object | undefined | null).type).toEqual([
+            'string',
+            'null',
+        ]);
         // type-coverage:ignore-next-line
         expect((schemas.OptionalName as string | number | boolean | object | undefined | null).type).toBe('string');
         // type-coverage:ignore-next-line
@@ -273,7 +288,9 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         // type-coverage:ignore-next-line
         expect((schemas.ArrayAlias as string | number | boolean | object | undefined | null).items.type).toBe('string');
         // type-coverage:ignore-next-line
-        expect((schemas.TupleAlias as string | number | boolean | object | undefined | null).prefixItems.length).toBe(2);
+        expect((schemas.TupleAlias as string | number | boolean | object | undefined | null).prefixItems.length).toBe(
+            2,
+        );
         // type-coverage:ignore-next-line
         expect((schemas.TupleAlias as string | number | boolean | object | undefined | null).minItems).toBe(2);
         // type-coverage:ignore-next-line
@@ -281,7 +298,9 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         // type-coverage:ignore-next-line
         expect((schemas.TupleAlias as string | number | boolean | object | undefined | null).items).toBe(false);
         // type-coverage:ignore-next-line
-        expect((schemas.OptionalTuple as string | number | boolean | object | undefined | null).prefixItems.length).toBe(2);
+        expect(
+            (schemas.OptionalTuple as string | number | boolean | object | undefined | null).prefixItems.length,
+        ).toBe(2);
         // type-coverage:ignore-next-line
         expect((schemas.OptionalTuple as string | number | boolean | object | undefined | null).minItems).toBe(1);
         // type-coverage:ignore-next-line
@@ -289,7 +308,9 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         // type-coverage:ignore-next-line
         expect((schemas.OptionalTuple as string | number | boolean | object | undefined | null).items).toBe(false);
         // type-coverage:ignore-next-line
-        expect((schemas.NamedTuple as string | number | boolean | object | undefined | null).prefixItems.length).toBe(2);
+        expect((schemas.NamedTuple as string | number | boolean | object | undefined | null).prefixItems.length).toBe(
+            2,
+        );
         // type-coverage:ignore-next-line
         expect((schemas.NamedTuple as string | number | boolean | object | undefined | null).minItems).toBe(1);
         // type-coverage:ignore-next-line
@@ -303,15 +324,21 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         // type-coverage:ignore-next-line
         expect((schemas.RestTuple as string | number | boolean | object | undefined | null).items.type).toBe('number');
         // type-coverage:ignore-next-line
-        expect((schemas.ReadonlyAlias as string | number | boolean | object | undefined | null).items.type).toBe('string');
+        expect((schemas.ReadonlyAlias as string | number | boolean | object | undefined | null).items.type).toBe(
+            'string',
+        );
         // type-coverage:ignore-next-line
         expect((schemas.ArrayRef as string | number | boolean | object | undefined | null).items.type).toBe('number');
         // type-coverage:ignore-next-line
         expect((schemas.SetAlias as string | number | boolean | object | undefined | null).items.type).toBe('boolean');
         // type-coverage:ignore-next-line
-        expect((schemas.RecordAlias as string | number | boolean | object | undefined | null).additionalProperties.type).toBe('number');
+        expect(
+            (schemas.RecordAlias as string | number | boolean | object | undefined | null).additionalProperties.type,
+        ).toBe('number');
         // type-coverage:ignore-next-line
-        expect((schemas.MapAlias as string | number | boolean | object | undefined | null).additionalProperties.type).toBe('string');
+        expect(
+            (schemas.MapAlias as string | number | boolean | object | undefined | null).additionalProperties.type,
+        ).toBe('string');
         // type-coverage:ignore-next-line
         expect((schemas.DateAlias as string | number | boolean | object | undefined | null).format).toBe('date-time');
         // type-coverage:ignore-next-line
@@ -336,9 +363,13 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         expect(eventPayload.properties.data.contentSchema.properties.id.type).toBe('string');
 
         // type-coverage:ignore-next-line
-        expect((schemas.RefAlias as string | number | boolean | object | undefined | null).$ref).toBe('#/components/schemas/Base');
+        expect((schemas.RefAlias as string | number | boolean | object | undefined | null).$ref).toBe(
+            '#/components/schemas/Base',
+        );
         // type-coverage:ignore-next-line
-        expect((schemas.IntersectionAlias as string | number | boolean | object | undefined | null).allOf.length).toBe(2);
+        expect((schemas.IntersectionAlias as string | number | boolean | object | undefined | null).allOf.length).toBe(
+            2,
+        );
 
         // type-coverage:ignore-next-line
         const typeLiteral = schemas.TypeLiteralAlias as string | number | boolean | object | undefined | null;
@@ -548,18 +579,28 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         const nestedDir = path.join(modelsDir, 'nested');
         fs.mkdirSync(nestedDir, { recursive: true });
         fs.writeFileSync(path.join(nestedDir, 'nested.ts'), 'export interface Nested { id: string; }');
-        const nestedSchemas = parseGeneratedModels(modelsDir, fs as string | number | boolean | object | undefined | null);
+        const nestedSchemas = parseGeneratedModels(
+            modelsDir,
+            fs as string | number | boolean | object | undefined | null,
+        );
         expect(nestedSchemas.Nested).toBeDefined();
 
-        const fileSchemas = parseGeneratedModels(path.join(modelsDir, 'index.ts'), fs as string | number | boolean | object | undefined | null);
+        const fileSchemas = parseGeneratedModels(
+            path.join(modelsDir, 'index.ts'),
+            fs as string | number | boolean | object | undefined | null,
+        );
         expect(fileSchemas.Base).toBeDefined();
 
         const emptyDir = makeTempDir();
-        expect(() => parseGeneratedModels(emptyDir, fs as string | number | boolean | object | undefined | null)).toThrow(/No generated model files/);
+        expect(() =>
+            parseGeneratedModels(emptyDir, fs as string | number | boolean | object | undefined | null),
+        ).toThrow(/No generated model files/);
 
         const badFile = path.join(dir, 'not-model.txt');
         fs.writeFileSync(badFile, 'data');
-        expect(() => parseGeneratedModels(badFile, fs as string | number | boolean | object | undefined | null)).toThrow(/Expected a generated model file/);
+        expect(() =>
+            parseGeneratedModels(badFile, fs as string | number | boolean | object | undefined | null),
+        ).toThrow(/Expected a generated model file/);
 
         // Mock a file system stat to return neither file nor directory
         const fakeFs = {
@@ -567,17 +608,17 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
             readFileSync: (p: string, e: string) => '',
             readdirSync: (p: string) => [],
         };
-        expect(() => parseGeneratedModels('/some/fake/path', fakeFs as string | number | boolean | object | undefined | null)).toThrow(
-            /neither a file nor a directory/,
-        );
+        expect(() =>
+            parseGeneratedModels('/some/fake/path', fakeFs as string | number | boolean | object | undefined | null),
+        ).toThrow(/neither a file nor a directory/);
 
         const noExportDir = makeTempDir();
         const noExportModelsDir = path.join(noExportDir, 'models');
         fs.mkdirSync(noExportModelsDir, { recursive: true });
         fs.writeFileSync(path.join(noExportModelsDir, 'index.ts'), 'const value = 1;');
-        expect(() => parseGeneratedModels(noExportDir, fs as string | number | boolean | object | undefined | null)).toThrow(
-            /No exported models could be reconstructed/,
-        );
+        expect(() =>
+            parseGeneratedModels(noExportDir, fs as string | number | boolean | object | undefined | null),
+        ).toThrow(/No exported models could be reconstructed/);
     });
 
     it('should handle edge cases in inferDiscriminators', () => {
@@ -604,7 +645,9 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         const schemas = parseGeneratedModelSource(edgeSource, '/models/edge.ts');
         expect(schemas.BadUnion).toBeDefined();
         expect(schemas.SingleUnion).toBeDefined();
-        expect((schemas.InlineUnion as string | number | boolean | object | undefined | null).discriminator).toEqual({ propertyName: 'kind' });
+        expect((schemas.InlineUnion as string | number | boolean | object | undefined | null).discriminator).toEqual({
+            propertyName: 'kind',
+        });
         expect(schemas.NoDesc).toBeDefined();
         expect((schemas.NoDesc as string | number | boolean | object | undefined | null).discriminator).toBeUndefined();
     });
@@ -666,13 +709,18 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         expect((schemas.EnumStrings as string | number | boolean | object | undefined | null).enum).toEqual(['A', 'B']);
         expect((schemas.EnumNumbers as string | number | boolean | object | undefined | null).enum).toEqual([1, 2]);
         expect((schemas.Parenthesized as string | number | boolean | object | undefined | null).type).toBe('number');
-        expect((schemas.ComplexIntersection as string | number | boolean | object | undefined | null).allOf.length).toBe(2);
+        expect(
+            (schemas.ComplexIntersection as string | number | boolean | object | undefined | null).allOf.length,
+        ).toBe(2);
         expect((schemas.CustomLiteral as string | number | boolean | object | undefined | null).const).toBe('template');
         expect((schemas.NullAlias as string | number | boolean | object | undefined | null).type).toBe('null');
         expect(schemas.BigIntAlias).toEqual({});
         expect((schemas.TupleOnlyRest as string | number | boolean | object | undefined | null).type).toBe('array');
         expect((schemas.UnionOnlyNull as string | number | boolean | object | undefined | null).type).toBe('null');
-        expect((schemas.UnionMultiTypes as string | number | boolean | object | undefined | null).type).toEqual(['number', 'string']);
+        expect((schemas.UnionMultiTypes as string | number | boolean | object | undefined | null).type).toEqual([
+            'number',
+            'string',
+        ]);
         expect((schemas.TupleRestAny as string | number | boolean | object | undefined | null).items).toEqual({});
         expect(schemas.BigIntLit).toEqual({});
 
@@ -905,7 +953,9 @@ describe('Core Utils: OpenAPI Reverse Models', () => {
         expect(schemas.ParsedTags).toBeDefined();
         expect((schemas.UnionFallback as string | number | boolean | object | undefined | null).anyOf).toBeDefined();
         expect((schemas.ObjNull as string | number | boolean | object | undefined | null).type).toContain('null');
-        expect((schemas.EnumFallback as string | number | boolean | object | undefined | null).enum).toEqual(['EXTERNAL_VAR']);
+        expect((schemas.EnumFallback as string | number | boolean | object | undefined | null).enum).toEqual([
+            'EXTERNAL_VAR',
+        ]);
         expect(schemas.UnionMultiTypesObj).toBeDefined();
         expect(schemas.UnionMultiEnum).toBeDefined();
         expect(schemas.TupleRestNode).toBeDefined();

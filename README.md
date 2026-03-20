@@ -120,3 +120,79 @@ at your option.
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
 dual licensed as above, without any additional terms or conditions.
+
+## CLI Help
+
+```
+$ dist/cli.js --help
+Usage: cdd-ts [options] [command]
+
+OpenAPI ↔ Angular
+
+Options:
+  -V, --version             output the version number
+  -h, --help                display help for command
+
+Commands:
+  from_openapi              Generate code from OpenAPI
+  to_openapi [options]      Generate an OpenAPI specification from TypeScript
+                            code (snapshot-based with AST fallback)
+  to_docs_json [options]    Generate JSON containing how to call operations in
+                            the target language
+  serve_json_rpc [options]  Expose CLI interface as JSON-RPC server
+  help [command]            display help for command
+```
+
+### `from_openapi`
+
+```
+$ dist/cli.js from_openapi --help
+Usage: cdd-ts from_openapi [options] [command]
+
+Generate code from OpenAPI
+
+Options:
+  -h, --help            display help for command
+
+Commands:
+  to_sdk_cli [options]  Generate Client SDK CLI from an OpenAPI specification
+  to_sdk [options]      Generate Client SDK from an OpenAPI specification
+  to_server [options]   Generate Server from an OpenAPI specification
+  help [command]        display help for command
+```
+
+### `to_openapi`
+
+```
+$ dist/cli.js to_openapi --help
+Usage: cdd-ts to_openapi [options]
+
+Generate an OpenAPI specification from TypeScript code (snapshot-based with AST
+fallback)
+
+Options:
+  -i, --input <path>   Path to a snapshot file or a generated output directory
+                       (env: CDD_INPUT)
+  -o, --output <path>  Output file (env: CDD_OUTPUT)
+  --format <format>    Output format for the OpenAPI spec (choices: "json",
+                       "yaml", default: "yaml", env: CDD_FORMAT)
+  -h, --help           display help for command
+```
+
+### `to_docs_json`
+
+```
+$ dist/cli.js to_docs_json --help
+Usage: cdd-ts to_docs_json [options]
+
+Generate JSON containing how to call operations in the target language
+
+Options:
+  -i, --input <path>   Path or URL to the OpenAPI spec (env: CDD_INPUT)
+  -o, --output <path>  Path to write the JSON to (env: CDD_OUTPUT)
+  --no-imports         Do not include import statements in the generated code
+                       (env: CDD_NO_IMPORTS)
+  --no-wrapping        Do not wrap the generated code in a function or block
+                       (env: CDD_NO_WRAPPING)
+  -h, --help           display help for command
+```

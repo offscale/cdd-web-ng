@@ -10,6 +10,7 @@ describe('Core Utils: String', () => {
             expect(utils.camelCase('__FOO_BAR__')).toBe('fooBar');
             expect(utils.camelCase('')).toBe('');
             expect(utils.camelCase('get /')).toBe('get');
+            expect(utils.camelCase('123')).toBe('api123');
         });
 
         it('should handle various strings for pascalCase', () => {
@@ -17,6 +18,7 @@ describe('Core Utils: String', () => {
             expect(utils.pascalCase('hello-world')).toBe('HelloWorld');
             expect(utils.pascalCase('__FOO_BAR__')).toBe('FooBar');
             expect(utils.pascalCase('')).toBe('');
+            expect(utils.pascalCase('123')).toBe('Api123');
         });
 
         it('should handle various strings for kebabCase', () => {

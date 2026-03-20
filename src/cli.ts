@@ -44,7 +44,7 @@ interface CliOptions {
 
 /** Defines the shape of the options object from the 'to_openapi' command. */
 interface ToActionOptions {
-    file: string;
+    input: string;
     format: 'json' | 'yaml';
     output?: string;
 }
@@ -203,7 +203,7 @@ async function runToOpenApi(options: ToActionOptions, returnObject = false): Pro
     let spec: OpenApiValue;
     try {
         // type-coverage:ignore-next-line
-        ({ spec } = readOpenApiSnapshot(options.file, fs as OpenApiValue as Parameters<typeof readOpenApiSnapshot>[1]));
+        ({ spec } = readOpenApiSnapshot(options.input, fs as OpenApiValue as Parameters<typeof readOpenApiSnapshot>[1]));
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         const shouldFallback =
@@ -217,14 +217,14 @@ async function runToOpenApi(options: ToActionOptions, returnObject = false): Pro
 
         try {
             const services = parseGeneratedServices(
-                options.file,
+                options.input,
                 fs as OpenApiValue as Parameters<typeof parseGeneratedServices>[1],
             );
             let schemas: Record<string, OpenApiValue> | undefined;
 
             try {
                 schemas = parseGeneratedModels(
-                    options.file,
+                    options.input,
                     fs as OpenApiValue as Parameters<typeof parseGeneratedModels>[1],
                 );
             } catch (modelError) {
@@ -242,7 +242,7 @@ async function runToOpenApi(options: ToActionOptions, returnObject = false): Pro
 
             try {
                 const metadata = parseGeneratedMetadata(
-                    options.file,
+                    options.input,
                     fs as OpenApiValue as Parameters<typeof parseGeneratedMetadata>[1],
                 );
                 // type-coverage:ignore-next-line
@@ -260,14 +260,14 @@ async function runToOpenApi(options: ToActionOptions, returnObject = false): Pro
             console.warn(`⚠️  ${serviceMessage}`);
             console.warn('ℹ️  Falling back to AST-based TypeScript scanning.');
             const scan = scanTypeScriptProject(
-                options.file,
+                options.input,
                 fs as OpenApiValue as Parameters<typeof scanTypeScriptProject>[1],
             );
             // type-coverage:ignore-next-line
             spec = buildOpenApiSpecFromScan(scan);
             try {
                 const metadata = parseGeneratedMetadata(
-                    options.file,
+                    options.input,
                     fs as OpenApiValue as Parameters<typeof parseGeneratedMetadata>[1],
                 );
                 // type-coverage:ignore-next-line
@@ -428,8 +428,8 @@ program
     .command('to_openapi')
     .description('Generate an OpenAPI specification from TypeScript code (snapshot-based with AST fallback)')
     .addOption(
-        new Option('-f, --file <path>', 'Path to a snapshot file or a generated output directory')
-            .env('CDD_FILE')
+        new Option('-i, --input <path>', 'Path to a snapshot file or a generated output directory')
+            .env('CDD_INPUT')
             .makeOptionMandatory(),
     )
     .addOption(new Option('-o, --output <path>', 'Output file').env('CDD_OUTPUT'))

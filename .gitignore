@@ -52,3 +52,4 @@ ignore_uncovered.py
 test-failures.txt
 test-spec.json
 typedoc.log
+wasm/

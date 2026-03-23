@@ -53,7 +53,9 @@ goto end
 
 :build_wasm
 echo Building WASM (browser bundle)...
-call npx esbuild dist\index.js --bundle --platform=browser --outfile=wasm\cdd-ts.js
+call npx esbuild dist\index.js --bundle --platform=browser --target=es2020 --external:node:fs --external:node:path --external:node:url --external:node:crypto --external:node:os --outfile=wasm\cdd-ts.js
+echo Compiling to WebAssembly...
+call npx -y javy-cli compile wasm\cdd-ts.js -o wasm\cdd-ts.wasm
 goto end
 
 :build_docker

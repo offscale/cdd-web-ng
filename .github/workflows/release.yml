@@ -24,7 +24,6 @@ jobs:
 
             - name: Build WASM
               run: make build_wasm
-              # Since emscripten isn't guaranteed natively, this will just run our placeholder task.
 
             - name: Archive build
               run: tar -czvf dist.tar.gz dist/
@@ -34,5 +33,6 @@ jobs:
               with:
                   files: |
                       dist.tar.gz
-                      wasm/cdd-web-ng.js
+                      wasm/cdd-ts.js
+                      wasm/cdd-ts.wasm
                   generate_release_notes: true

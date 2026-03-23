@@ -90,7 +90,7 @@ describe('E2E: Full Generation Orchestrator', () => {
 
         expect(logCalls).toEqual(expect.arrayContaining(['🚀 Generating Admin UI...']));
         expect(logCalls).toEqual(
-            expect.arrayContaining([expect.stringContaining('Test generation for admin UI is stubbed.')]),
+            expect.arrayContaining([expect.stringContaining('Generating tests for admin UI...')]),
         );
 
         consoleSpy.mockRestore();
@@ -120,7 +120,7 @@ describe('E2E: Full Generation Orchestrator', () => {
         const logCalls = consoleSpy.mock.calls.flat();
 
         // type-coverage:ignore-next-line
-        const hasAdminTestLog = logCalls.some(log => log.includes('Test generation for admin UI is stubbed.'));
+        const hasAdminTestLog = logCalls.some(log => log.includes('Generating tests for admin UI...'));
         expect(hasAdminTestLog).toBe(false);
 
         consoleSpy.mockRestore();

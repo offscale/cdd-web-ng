@@ -13,6 +13,8 @@ import { TypeGenerator } from '@src/classes/emit.js';
 
 // Angular Generators
 import { AdminGenerator } from './admin/admin.generator.js';
+import { AdminTestGenerator } from './admin/admin-test.generator.js';
+import { discoverAdminResources } from './admin/resource-discovery.js';
 import { ServiceGenerator } from './service/service.generator.js';
 import { ServiceTestGenerator } from './test/service-test-generator.js';
 
@@ -282,7 +284,18 @@ export class AngularClientGenerator extends AbstractClientGenerator {
                 /* v8 ignore next */
                 if (config.options.generateAdminTests ?? true) {
                     /* v8 ignore next */
-                    console.log('📝 Test generation for admin UI is stubbed.');
+                    console.log('📝 Generating tests for admin UI...');
+                    /* v8 ignore next */
+                    const adminTestGen = new AdminTestGenerator(project);
+                    /* v8 ignore next */
+                    const adminResources = discoverAdminResources(parser);
+                    /* v8 ignore next */
+                    for (const resource of adminResources) {
+                        /* v8 ignore next */
+                        adminTestGen.generate(resource, path.join(outputRoot, 'admin'));
+                    }
+                    /* v8 ignore next */
+                    console.log('✅ Admin UI tests generated.');
                 }
             }
         }

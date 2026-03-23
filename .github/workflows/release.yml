@@ -4,6 +4,7 @@ on:
     push:
         tags:
             - 'v*.*.*'
+            - '*.*.*'
 
 jobs:
     build_and_release:
@@ -36,3 +37,31 @@ jobs:
                       wasm/cdd-ts.js
                       wasm/cdd-ts.wasm
                   generate_release_notes: true
+
+    verify_release:
+        needs: build_and_release
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout repo
+              uses: actions/checkout@v6
+
+            - name: Download and verify WASM
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  # Wait for release to be fully available
+                  sleep 10
+                  gh release download ${{ github.ref_name }} -p "cdd-ts.wasm"
+                  
+                  if [ ! -f "cdd-ts.wasm" ]; then
+                      echo "Failed to download cdd-ts.wasm"
+                      exit 1
+                  fi
+                  
+                  SIZE=$(stat -c%s "cdd-ts.wasm")
+                  if [ "$SIZE" -lt 10000000 ]; then
+                      echo "WASM file is too small ($SIZE bytes), likely a stub!"
+                      exit 1
+                  fi
+                  
+                  echo "Successfully downloaded and verified non-stub WASM ($SIZE bytes)"

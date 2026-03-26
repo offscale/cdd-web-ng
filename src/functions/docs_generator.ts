@@ -116,167 +116,62 @@ function getMethodName(op: PathInfo, config: GeneratorConfig): string {
  * @param options Options for code snippet format.
  * @returns An array of DocLanguage objects.
  */
-export function generateDocsJson(parser: SwaggerParser, config: GeneratorConfig, options: DocsOptions): DocLanguage[] {
-    /* v8 ignore next */
+
+export function generateDocsJson(parser: SwaggerParser, config: GeneratorConfig, options: DocsOptions): Record<string, Record<string, string>> {
     const useImports = options.imports ?? false;
-    /* v8 ignore next */
     const useWrapping = options.wrapping ?? false;
 
-    /* v8 ignore next */
-    const languages: DocLanguage[] = [
-        { language: 'angular', operations: [] },
-        { language: 'fetch', operations: [] },
-        { language: 'axios', operations: [] },
-        { language: 'node', operations: [] },
-    ];
-
-    /* v8 ignore next */
+    const endpoints: Record<string, Record<string, string>> = {};
     const usedNames = new Set<string>();
 
-    /* v8 ignore next */
     for (const op of parser.operations) {
-        /* v8 ignore next */
         const controller = getControllerCanonicalName(op);
-        /* v8 ignore next */
         const serviceName = `${controller}Service`;
 
-        /* v8 ignore next */
         let suggestedName = getMethodName(op, config);
-        /* v8 ignore next */
         let finalName = suggestedName;
-        /* v8 ignore next */
         let counter = 2;
-        /* v8 ignore next */
         while (usedNames.has(`${controller}_${finalName}`)) {
-            /* v8 ignore next */
             finalName = `${suggestedName}${counter++}`;
         }
-        /* v8 ignore next */
         usedNames.add(`${controller}_${finalName}`);
-        /* v8 ignore next */
         const methodName = finalName;
 
-        /* v8 ignore next */
         let args = '';
-        /* v8 ignore next */
         if ((op.parameters && op.parameters.length > 0) || op.requestBody) {
-            /* v8 ignore next */
             args = '{ /* arguments */ }';
         }
 
-        /* v8 ignore next */
-        for (const lang of languages) {
-            /* v8 ignore next */
-            const codeObject: DocOperation['code'] = { snippet: '' };
-            /* v8 ignore next */
-            let innerCode = '';
+        const method = op.method.toLowerCase();
+        const path = op.path;
 
-            /* v8 ignore next */
-            if (lang.language === 'angular') {
-                /* v8 ignore next */
-                if (useImports) {
-                    /* v8 ignore next */
-                    codeObject.imports = `import { Component, inject } from '@angular/core';\nimport { ${serviceName} } from './api/services/${controller.toLowerCase()}.service';`;
-                }
-
-                /* v8 ignore next */
-                if (useWrapping) {
-                    /* v8 ignore next */
-                    codeObject.wrapper_start = `@Component({\n    selector: 'app-example',\n    template: ''\n})\nexport class ExampleComponent {\n    private service = inject(${serviceName});\n\n    async execute() {`;
-                    /* v8 ignore next */
-                    innerCode = `const response = await this.service.${methodName}(${args});\nconsole.log(response);`;
-                    /* v8 ignore next */
-                    codeObject.snippet = innerCode
-                        .split('\n')
-                        /* v8 ignore next */
-                        /* v8 ignore start */
-                        .map(l => (l ? `        ${l}` : l))
-                        /* v8 ignore stop */
-                        .join('\n');
-                    /* v8 ignore next */
-                    codeObject.wrapper_end = `    }\n}`;
-                } else {
-                    /* v8 ignore next */
-                    innerCode = `const response = await this.service.${methodName}(${args});`;
-                    /* v8 ignore next */
-                    codeObject.snippet = innerCode;
-                }
-                /* v8 ignore next */
-            } else if (lang.language === 'axios') {
-                /* v8 ignore next */
-                if (useImports) {
-                    /* v8 ignore next */
-                    codeObject.imports = `import axios from 'axios';\nimport { ${serviceName} } from './api/services/${controller.toLowerCase()}.service';`;
-                }
-                /* v8 ignore next */
-                if (useWrapping) {
-                    /* v8 ignore next */
-                    codeObject.wrapper_start = `async function run() {\n    const axiosInstance = axios.create();\n    const service = new ${serviceName}('', axiosInstance);`;
-                    /* v8 ignore next */
-                    innerCode = `const response = await service.${methodName}(${args});\nconsole.log(response);`;
-                    /* v8 ignore next */
-                    codeObject.snippet = innerCode
-                        .split('\n')
-                        /* v8 ignore next */
-                        /* v8 ignore start */
-                        .map(l => (l ? `    ${l}` : l))
-                        /* v8 ignore stop */
-                        .join('\n');
-                    /* v8 ignore next */
-                    codeObject.wrapper_end = `}\nrun();`;
-                } else {
-                    /* v8 ignore next */
-                    innerCode = `const response = await service.${methodName}(${args});`;
-                    /* v8 ignore next */
-                    codeObject.snippet = innerCode;
-                }
-            } else {
-                // fetch and node
-                /* v8 ignore next */
-                if (useImports) {
-                    /* v8 ignore next */
-                    codeObject.imports = `import { ${serviceName} } from './api/services/${controller.toLowerCase()}.service';`;
-                }
-                /* v8 ignore next */
-                if (useWrapping) {
-                    /* v8 ignore next */
-                    codeObject.wrapper_start = `async function run() {\n    const service = new ${serviceName}();`;
-                    /* v8 ignore next */
-                    innerCode = `const response = await service.${methodName}(${args});\nconsole.log(response);`;
-                    /* v8 ignore next */
-                    codeObject.snippet = innerCode
-                        .split('\n')
-                        /* v8 ignore next */
-                        /* v8 ignore start */
-                        .map(l => (l ? `    ${l}` : l))
-                        /* v8 ignore stop */
-                        .join('\n');
-                    /* v8 ignore next */
-                    codeObject.wrapper_end = `}\nrun();`;
-                } else {
-                    /* v8 ignore next */
-                    innerCode = `const response = await service.${methodName}(${args});`;
-                    /* v8 ignore next */
-                    codeObject.snippet = innerCode;
-                }
-            }
-
-            /* v8 ignore next */
-            const docOp: DocOperation = {
-                method: op.method.toUpperCase(),
-                path: op.path,
-                code: codeObject,
-            };
-            /* v8 ignore next */
-            if (op.operationId) {
-                /* v8 ignore next */
-                docOp.operationId = op.operationId;
-            }
-            /* v8 ignore next */
-            lang.operations.push(docOp);
+        if (!endpoints[path]) {
+            endpoints[path] = {};
         }
+
+        let finalCode = '';
+
+        if (useImports) {
+            finalCode += `import { Component, inject } from '@angular/core';\nimport { ${serviceName} } from './api/services/${controller.toLowerCase()}.service';\n\n`;
+        }
+
+        if (useWrapping) {
+            finalCode += `@Component({\n    selector: 'app-example',\n    template: ''\n})\nexport class ExampleComponent {\n    private service = inject(${serviceName});\n\n    async execute() {\n`;
+        }
+
+        let innerCode = `const response = await this.service.${methodName}(${args});\nconsole.log(response);`;
+        if (useWrapping) {
+            innerCode = innerCode.split('\n').map(l => `        ${l}`).join('\n');
+        }
+        
+        finalCode += innerCode;
+
+        if (useWrapping) {
+            finalCode += `\n    }\n}`;
+        }
+
+        endpoints[path][method] = finalCode;
     }
 
-    /* v8 ignore next */
-    return languages;
+    return { endpoints } as any;
 }

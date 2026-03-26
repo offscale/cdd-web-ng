@@ -53,3 +53,4 @@ test-failures.txt
 test-spec.json
 typedoc.log
 wasm/
+bin/

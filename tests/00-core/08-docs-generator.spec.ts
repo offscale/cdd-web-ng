@@ -18,18 +18,12 @@ describe('generateDocsJson', () => {
             ],
         } as string | number | boolean | object | undefined | null as SwaggerParser;
 
-        const config: GeneratorConfig = { output: '', input: '', options: {} };
+        const config: GeneratorConfig = { output: '', input: '', options: { imports: false, wrapping: false } };
         const result = generateDocsJson(parser, config, {});
 
-        expect(result.length).toBe(4);
-        const nodeDocs = result.find(l => l.language === 'node');
-        expect(nodeDocs).toBeDefined();
-        expect(nodeDocs!.operations.length).toBe(1);
-        expect(nodeDocs!.operations[0].method).toBe('GET');
-        expect(nodeDocs!.operations[0].path).toBe('/users');
-        expect(nodeDocs!.operations[0].operationId).toBe('getUsers');
-        expect(nodeDocs!.operations[0].code.snippet).toBe('const response = await service.getUsers();');
-        expect(nodeDocs!.operations[0].code.imports).toBeUndefined();
+        expect(result.endpoints).toBeDefined();
+        expect(result.endpoints['/users']).toBeDefined();
+        expect(result.endpoints['/users']['get']).toBe('const response = await this.service.getUsers();\nconsole.log(response);');
     });
 
     it('should generate documentation with imports and wrapping', () => {
@@ -46,15 +40,15 @@ describe('generateDocsJson', () => {
             ],
         } as string | number | boolean | object | undefined | null as SwaggerParser;
 
-        const config: GeneratorConfig = { output: '', input: '', options: {} };
+        const config: GeneratorConfig = { output: '', input: '', options: { imports: false, wrapping: false } };
         const result = generateDocsJson(parser, config, { imports: true, wrapping: true });
 
-        const nodeDocs = result.find(l => l.language === 'node');
-        const opCode = nodeDocs!.operations[0].code;
-        expect(opCode.imports).toBe("import { PostsService } from './api/services/posts.service';");
-        expect(opCode.wrapper_start).toBe('async function run() {\n    const service = new PostsService();');
-        expect(opCode.snippet).toContain('const response = await service.createPost({ /* arguments */ });');
-        expect(opCode.wrapper_end).toBe('}\nrun();');
+        const snippet = result.endpoints['/posts/{id}']['post'];
+        expect(snippet).toContain("import { PostsService } from './api/services/posts.service';");
+        expect(snippet).toContain("export class ExampleComponent {");
+        expect(snippet).toContain("        const response = await this.service.createPost({ /* arguments */ });");
+        expect(snippet).toContain("    }");
+        expect(snippet).toContain("}");
     });
 
     it('should handle imports without wrapping correctly', () => {
@@ -70,35 +64,34 @@ describe('generateDocsJson', () => {
             ],
         } as string | number | boolean | object | undefined | null as SwaggerParser;
 
-        const config: GeneratorConfig = { output: '', input: '', options: {} };
+        const config: GeneratorConfig = { output: '', input: '', options: { imports: false, wrapping: false } };
         const result = generateDocsJson(parser, config, { imports: true, wrapping: false });
 
-        const nodeDocs = result.find(l => l.language === 'node');
-        const opCode = nodeDocs!.operations[0].code;
-        expect(opCode.imports).toBe("import { CommentsService } from './api/services/comments.service';");
-        expect(opCode.snippet).toContain('const response = await service.deleteComment({ /* arguments */ });');
-        expect(opCode.wrapper_start).toBeUndefined();
+        const snippet = result.endpoints['/comments']['delete'];
+        expect(snippet).toContain("import { CommentsService } from './api/services/comments.service';");
+        expect(snippet).toContain('const response = await this.service.deleteComment({ /* arguments */ });');
+        expect(snippet).not.toContain("export class ExampleComponent");
     });
 
     it('should fallback method names correctly and deduplicate', () => {
         const parser = {
             operations: [
                 {
-                    path: '/test',
+                    path: '/test1',
                     method: 'get',
                     methodName: '',
                     operationId: '',
                     tags: ['TestTag'],
                 } as string | number | boolean | object | undefined | null as PathInfo,
                 {
-                    path: '/test',
+                    path: '/test2',
                     method: 'get',
                     methodName: '',
                     operationId: 'Invalid-Name-Format!',
                     tags: ['TestTag'],
                 } as string | number | boolean | object | undefined | null as PathInfo,
                 {
-                    path: '/test',
+                    path: '/test3',
                     method: 'get',
                     methodName: '',
                     operationId: 'Invalid-Name-Format!',
@@ -110,20 +103,14 @@ describe('generateDocsJson', () => {
         const config: GeneratorConfig = {
             output: '',
             input: '',
-            options: {
-                customizeMethodName: (id: string) => {
-                    if (id === 'custom') return 'customMethod';
-                    return undefined;
-                },
-            },
+            options: { imports: false, wrapping: false },
         };
 
         const result = generateDocsJson(parser, config, {});
 
-        const ops = result[0].operations;
-        expect(ops[0].code.snippet).toContain('getTest');
-        expect(ops[1].code.snippet).toContain('invalidNameFormat');
-        expect(ops[2].code.snippet).toContain('invalidNameFormat2'); // Deduplication
+        expect(result.endpoints['/test1']['get']).toContain('.getTest1()');
+        expect(result.endpoints['/test2']['get']).toContain('.invalidNameFormat()');
+        expect(result.endpoints['/test3']['get']).toContain('.invalidNameFormat2()'); // Deduplication
     });
 
     it('should respect custom method name from config', () => {
@@ -150,6 +137,31 @@ describe('generateDocsJson', () => {
         };
         const result = generateDocsJson(parser, config, {});
 
-        expect(result[0].operations[0].code.snippet).toContain('.myCustomMethodName()');
+        expect(result.endpoints['/custom']['get']).toContain('.myCustomMethodName()');
+    });
+
+    it('should handle multiple methods on the same path', () => {
+        const parser = {
+            operations: [
+                {
+                    path: '/users',
+                    method: 'get',
+                    methodName: 'getUsers',
+                    operationId: 'getUsers',
+                } as any,
+                {
+                    path: '/users',
+                    method: 'post',
+                    methodName: 'createUser',
+                    operationId: 'createUser',
+                } as any,
+            ],
+        } as any;
+
+        const config: any = { output: '', input: '', options: {} };
+        const result = generateDocsJson(parser, config, { wrapping: true });
+
+        expect(result.endpoints['/users']['get']).toContain('getUsers');
+        expect(result.endpoints['/users']['post']).toContain('createUser');
     });
 });
